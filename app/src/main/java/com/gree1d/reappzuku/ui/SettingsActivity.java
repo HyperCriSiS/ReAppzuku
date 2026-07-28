@@ -176,6 +176,7 @@ public class SettingsActivity extends SettingsActivityDialogs
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        handler.removeCallbacksAndMessages(null);
         executor.shutdownNow();
         binding = null;
     }
@@ -777,6 +778,7 @@ public class SettingsActivity extends SettingsActivityDialogs
                 text = getString(R.string.settings_shell_no_access);
             }
             handler.post(() -> {
+                if (binding == null) return;
                 binding.textShellMode.setText(text);
                 if (!privileged) {
                     binding.switchAutoKill.setEnabled(false);
