@@ -7,6 +7,12 @@ import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Build;
 import android.widget.Toast;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.util.DisplayMetrics;
+import android.util.LruCache;
 
 import java.io.BufferedReader;
 import java.io.StringReader;
@@ -132,6 +138,14 @@ public class BackgroundAppManager {
     private RestrictionsScheduler scheduler;
     private AutoKillManager autoKillManager;
 
+    private static final int ICON_CACHE_MAX_BYTES = 24 * 1024 * 1024; 
+    private final LruCache<String, Bitmap> iconCache = new LruCache<String, Bitmap>(ICON_CACHE_MAX_BYTES) {
+        @Override
+        protected int sizeOf(String key, Bitmap bitmap) {
+            return bitmap.getByteCount();
+        }
+    };
+
     public BackgroundAppManager(Context context, Handler handler, ExecutorService executor,
             ShellManager shellManager) {
         this.context = context;
@@ -139,6 +153,54 @@ public class BackgroundAppManager {
         this.executor = executor;
         this.shellManager = shellManager;
         this.sharedpreferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
+    }
+
+    private int targetIconSizePx() {
+        int densityDpi = context.getResources().getDisplayMetrics().densityDpi;
+        if (densityDpi <= DisplayMetrics.DENSITY_MEDIUM) {
+            return 48;
+        } else if (densityDpi <= DisplayMetrics.DENSITY_HIGH) {
+            return 72;
+        } else if (densityDpi <= DisplayMetrics.DENSITY_XHIGH) {
+            return 96;
+        } else if (densityDpi <= DisplayMetrics.DENSITY_XXHIGH) {
+            return 144;
+        } else {
+            return 192;
+        }
+    }
+
+    private Drawable getCachedIcon(String packageName, ApplicationInfo appInfo, PackageManager packageManager) {
+        Bitmap cached = iconCache.get(packageName);
+        if (cached != null) {
+            return new BitmapDrawable(context.getResources(), cached);
+        }
+        Drawable fullSize;
+        try {
+            fullSize = packageManager.getApplicationIcon(appInfo);
+        } catch (Exception e) {
+            AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": getCachedIcon failed to load icon for " + packageName, e);
+            return null;
+        }
+        Bitmap resized = drawableToScaledBitmap(fullSize, targetIconSizePx());
+        if (resized != null) {
+            iconCache.put(packageName, resized);
+            return new BitmapDrawable(context.getResources(), resized);
+        }
+        return fullSize;
+    }
+
+    private Bitmap drawableToScaledBitmap(Drawable drawable, int targetSizePx) {
+        if (drawable == null) return null;
+        Bitmap bmp = Bitmap.createBitmap(targetSizePx, targetSizePx, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bmp);
+        drawable.setBounds(0, 0, targetSizePx, targetSizePx);
+        drawable.draw(canvas);
+        return bmp;
+    }
+
+    public void invalidateIconCache(String packageName) {
+        iconCache.remove(packageName);
     }
 
     public void setScheduler(RestrictionsScheduler scheduler) {
@@ -247,7 +309,7 @@ public class BackgroundAppManager {
                             packageName,
                             formatMemorySize(ramUsage),
                             ramUsage,
-                            packageManager.getApplicationIcon(appInfo),
+                            getCachedIcon(packageName, appInfo, packageManager),
                             isSystemApp,
                             isPersistentApp,
                             isProtected);
