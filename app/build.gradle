@@ -47,7 +47,7 @@ android {
         }
 
         release {
-            isDebuggable false
+            debuggable true
             signingConfig signingConfigs.release
             minifyEnabled true
             shrinkResources true
