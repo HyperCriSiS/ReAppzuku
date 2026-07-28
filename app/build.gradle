@@ -39,8 +39,15 @@ android {
     }
 
     buildTypes {
+        debug {
+            isDebuggable true
+            minifyEnabled false
+            shrinkResources false
+            applicationIdSuffix ".debug" // Выделяет debug-сборку (опционально)
+        }
+
         release {
-            isDebuggable = true
+            isDebuggable false
             signingConfig signingConfigs.release
             minifyEnabled true
             shrinkResources true
