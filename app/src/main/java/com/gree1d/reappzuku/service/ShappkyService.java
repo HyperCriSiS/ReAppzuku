@@ -68,6 +68,7 @@ public class ShappkyService extends Service {
     private CollectStatsManager collectStatsManager;
     private RestrictionsScheduler scheduler;
     private KillTriggerReceiver screenOffReceiver;
+    private BroadcastReceiver packageChangeReceiver;
     private RestrictionsWatchdogManager watchdog;
     private AdditionalScenariosManager additionalScenariosManager;
     private RamKillShortcutManager ramKillShortcutManager;
@@ -251,6 +252,25 @@ public class ShappkyService extends Service {
         filter.addAction(Intent.ACTION_SCREEN_OFF);
         filter.addAction(Intent.ACTION_SCREEN_ON);
         registerReceiver(screenOffReceiver, filter);
+
+        packageChangeReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context ctx, Intent intent) {
+                android.net.Uri data = intent.getData();
+                if (data == null) return;
+                String packageName = data.getSchemeSpecificPart();
+                if (packageName == null || appManager == null) return;
+                AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME
+                        + ": packageChangeReceiver invalidating icon cache for " + packageName
+                        + " action=" + intent.getAction());
+                appManager.invalidateIconCache(packageName);
+            }
+        };
+        IntentFilter packageFilter = new IntentFilter();
+        packageFilter.addAction(Intent.ACTION_PACKAGE_REPLACED);
+        packageFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
+        packageFilter.addDataScheme("package");
+        registerReceiver(packageChangeReceiver, packageFilter);
 
         additionalScenariosManager = new AdditionalScenariosManager(this);
         AppDebugManager.d(Category.ADVANCED_CONDITIONS, FILE_NAME + ": AdditionalScenariosManager initialized");
@@ -721,6 +741,9 @@ public class ShappkyService extends Service {
         stopRamMonitorNotification();
         if (screenOffReceiver != null) {
             unregisterReceiver(screenOffReceiver);
+        }
+        if (packageChangeReceiver != null) {
+            unregisterReceiver(packageChangeReceiver);
         }
         if (additionalScenariosManager != null) {
             AppDebugManager.d(Category.ADVANCED_CONDITIONS, FILE_NAME + ": Stopping AdditionalScenariosManager (onDestroy)");
