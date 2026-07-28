@@ -27,7 +27,7 @@ jobs:
       run: ./gradlew updateLintBaseline
 
     - name: Build Release APK
-      run: ./gradlew assembleRelease
+      run: ./gradlew assembleDebug
       env:
         KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -36,5 +36,5 @@ jobs:
     - name: Upload APK
       uses: actions/upload-artifact@v7
       with:
-        name: app-release
-        path: app/build/outputs/apk/release/app-release.apk
+        name: app-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
