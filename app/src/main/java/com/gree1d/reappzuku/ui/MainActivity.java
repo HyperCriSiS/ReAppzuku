@@ -188,6 +188,17 @@ public class MainActivity extends BaseActivity {
     }
 
     @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onDestroy");
+        shellManager.removeShizukuPermissionListener();
+        ramMonitor.stopMonitoring();
+        handler.removeCallbacksAndMessages(null);
+        executor.shutdownNow();
+        binding = null;
+    }
+
+    @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
     }
