@@ -231,6 +231,7 @@ public class LogDetailActivity extends BaseActivity {
                     + " stats rows since 12h ago");
 
             List<KillHistoryEntry> historyEntries = new ArrayList<>();
+            java.util.Map<String, String> pendingNameUpdates = new java.util.HashMap<>();
             int totalKills = 0;
             int totalRelaunches = 0;
             long totalRecoveredKb = 0;
@@ -260,7 +261,7 @@ public class LogDetailActivity extends BaseActivity {
                 long lastEventTime = Math.max(stats.lastKillTime, stats.lastRelaunchTime);
                 String badge = lastEventTime > 0 ? timeFormat.format(new java.util.Date(lastEventTime)) : "";
                 historyEntries.add(new KillHistoryEntry(
-                        resolveAggregateAppName(stats, appStatsDao),
+                        resolveAggregateAppName(stats, pendingNameUpdates),
                         stats.packageName,
                         String.join(" | ", detailParts),
                         badge,
@@ -269,6 +270,10 @@ public class LogDetailActivity extends BaseActivity {
                 totalKills += stats.killCount;
                 totalRelaunches += stats.relaunchCount;
                 totalRecoveredKb += stats.totalRecoveredKb;
+            }
+
+            if (!pendingNameUpdates.isEmpty()) {
+                appStatsDao.updateAppNames(pendingNameUpdates);
             }
 
             Collections.sort(historyEntries, (a, b) -> Long.compare(b.lastEventTime, a.lastEventTime));
@@ -393,13 +398,17 @@ public class LogDetailActivity extends BaseActivity {
     private List<TopOffender> buildTopOffenders(List<com.gree1d.reappzuku.db.AppStatsAggregate> statsList,
                                                  com.gree1d.reappzuku.db.AppStatsDao appStatsDao) {
         List<TopOffender> offenders = new ArrayList<>();
+        java.util.Map<String, String> pendingNameUpdates = new java.util.HashMap<>();
         for (com.gree1d.reappzuku.db.AppStatsAggregate stats : statsList) {
             if (stats == null || stats.packageName == null) continue;
             if (stats.killCount <= 0 && stats.relaunchCount <= 0 && stats.totalRecoveredKb <= 0) continue;
-            String appName = resolveAggregateAppName(stats, appStatsDao);
+            String appName = resolveAggregateAppName(stats, pendingNameUpdates);
             double score = (stats.killCount * 1.0) + (stats.relaunchCount * 2.0) + (stats.totalRecoveredKb / 102400.0);
             offenders.add(new TopOffender(appName, stats.packageName, stats.killCount,
                     stats.relaunchCount, stats.totalRecoveredKb, score));
+        }
+        if (!pendingNameUpdates.isEmpty()) {
+            appStatsDao.updateAppNames(pendingNameUpdates);
         }
         Collections.sort(offenders, (a, b) -> {
             int c = Double.compare(b.score, a.score);
@@ -950,7 +959,7 @@ public class LogDetailActivity extends BaseActivity {
     }
 
     private String resolveAggregateAppName(com.gree1d.reappzuku.db.AppStatsAggregate stats,
-                                            com.gree1d.reappzuku.db.AppStatsDao appStatsDao) {
+                                            java.util.Map<String, String> pendingNameUpdates) {
         if (stats.appName != null && !stats.appName.trim().isEmpty()) return stats.appName;
         try {
             android.content.pm.ApplicationInfo appInfo =
@@ -958,7 +967,9 @@ public class LogDetailActivity extends BaseActivity {
             CharSequence label = getPackageManager().getApplicationLabel(appInfo);
             if (label != null) {
                 String name = label.toString();
-                executor.execute(() -> appStatsDao.updateAppName(stats.packageName, name));
+                if (pendingNameUpdates != null) {
+                    pendingNameUpdates.put(stats.packageName, name);
+                }
                 stats.appName = name;
                 return name;
             }
