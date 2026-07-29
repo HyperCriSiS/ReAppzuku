@@ -31,6 +31,9 @@ public class ShellManager {
     @SuppressWarnings("deprecation")
     private Shizuku.OnRequestPermissionResultListener shizukuPermissionListener;
 
+    private Shizuku.OnBinderReceivedListener shizukuBinderReceivedListener;
+    private Shizuku.OnBinderDeadListener shizukuBinderDeadListener;
+
     public ShellManager(Context context, Handler handler, ExecutorService executor) {
         this.context = context.getApplicationContext();
         this.handler = handler;
@@ -45,6 +48,37 @@ public class ShellManager {
     public void removeShizukuPermissionListener() {
         if (shizukuPermissionListener != null) {
             Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener);
+        }
+    }
+
+    public void setShizukuBinderListeners(Runnable onReceived, Runnable onDead) {
+        removeShizukuBinderListeners();
+
+        shizukuBinderReceivedListener = () -> {
+            AppDebugManager.d(Category.CORE, "ShellManager: Shizuku binder received");
+            if (onReceived != null) {
+                handler.post(onReceived);
+            }
+        };
+        shizukuBinderDeadListener = () -> {
+            AppDebugManager.w(Category.CORE, "ShellManager: Shizuku binder died");
+            if (onDead != null) {
+                handler.post(onDead);
+            }
+        };
+
+        Shizuku.addBinderReceivedListenerSticky(shizukuBinderReceivedListener);
+        Shizuku.addBinderDeadListener(shizukuBinderDeadListener);
+    }
+
+    public void removeShizukuBinderListeners() {
+        if (shizukuBinderReceivedListener != null) {
+            Shizuku.removeBinderReceivedListener(shizukuBinderReceivedListener);
+            shizukuBinderReceivedListener = null;
+        }
+        if (shizukuBinderDeadListener != null) {
+            Shizuku.removeBinderDeadListener(shizukuBinderDeadListener);
+            shizukuBinderDeadListener = null;
         }
     }
 
