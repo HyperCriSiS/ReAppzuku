@@ -1216,10 +1216,7 @@ public class BackgroundAppManager {
             String ignoreOut = shellManager.runShellCommandAndGetFullOutput(
                     "cmd appops query-op --user current " + op + " ignore");
             if (ignoreOut != null) mergeBackgroundRestrictedPackages(restricted, ignoreOut);
-            String denyOut = shellManager.runShellCommandAndGetFullOutput(
-                    "cmd appops query-op --user current " + op + " deny");
-            if (denyOut != null) mergeBackgroundRestrictedPackages(restricted, denyOut);
-            if (ignoreOut == null && denyOut == null) {
+            if (ignoreOut == null) {
                 AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": collectDriftedOps query-op failed for " + op
                         + ", drift detection may be unreliable for this op");
             }
