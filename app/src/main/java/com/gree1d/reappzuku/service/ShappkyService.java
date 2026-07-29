@@ -282,7 +282,8 @@ public class ShappkyService extends Service {
 
         cancelShizukuLostNotification();
         AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku-lost notification cancelled on service create");
-        scheduleShizukuCheck();
+        registerShizukuBinderListeners();
+        scheduleRootOnlyCheck();
         scheduleSnapshotAlarm();
         scheduleWidgetUpdate();
 
@@ -420,39 +421,74 @@ public class ShappkyService extends Service {
         return START_STICKY;
     }
 
-    private void scheduleShizukuCheck() {
-        AppDebugManager.d(Category.CORE, FILE_NAME + ": scheduleShizukuCheck: starting Root/Shizuku poll loop");
+    private void registerShizukuBinderListeners() {
+        AppDebugManager.d(Category.CORE, FILE_NAME + ": registerShizukuBinderListeners: subscribing to Shizuku binder events");
+        shellManager.setShizukuBinderListeners(
+                this::handleShizukuBinderReceived,
+                this::handleShizukuBinderDead
+        );
+    }
+
+    private void unregisterShizukuBinderListeners() {
+        if (shellManager != null) {
+            shellManager.removeShizukuBinderListeners();
+        }
+    }
+
+    private void handleShizukuBinderReceived() {
+        if (!isRunning) return;
+        if (shellManager.hasRootAccess()) {
+            AppDebugManager.d(Category.CORE, FILE_NAME + ": handleShizukuBinderReceived: root access available, ignoring");
+            return;
+        }
+        boolean shizukuOk = shellManager.hasShizukuPermission();
+        AppDebugManager.d(Category.CORE, FILE_NAME + ": handleShizukuBinderReceived: permission=" + shizukuOk);
+        if (shizukuOk) {
+            if (shizukuLostNotificationShown) {
+                AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku permission restored, cancelling notification");
+                shizukuLostNotificationShown = false;
+            }
+            cancelShizukuLostNotification();
+        } else {
+
+            if (!shizukuLostNotificationShown) {
+                AppDebugManager.w(Category.CORE, FILE_NAME + ": handleShizukuBinderReceived: binder alive but permission missing, sending notification");
+                shizukuLostNotificationShown = true;
+            }
+            sendShizukuLostNotification();
+        }
+    }
+
+    private void handleShizukuBinderDead() {
+        if (!isRunning) return;
+        if (shellManager.hasRootAccess()) {
+            AppDebugManager.d(Category.CORE, FILE_NAME + ": handleShizukuBinderDead: root access available, ignoring");
+            return;
+        }
+        AppDebugManager.w(Category.CORE, FILE_NAME + ": handleShizukuBinderDead: Shizuku binder died, sending notification");
+        if (!shizukuLostNotificationShown) {
+            shizukuLostNotificationShown = true;
+        }
+        sendShizukuLostNotification();
+    }
+
+    private void scheduleRootOnlyCheck() {
+        AppDebugManager.d(Category.CORE, FILE_NAME + ": scheduleRootOnlyCheck: starting root-only poll loop");
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
                 if (!isRunning) return;
 
                 if (shellManager.hasRootAccess()) {
-                    AppDebugManager.d(Category.CORE, FILE_NAME + ": Root access available, skipping Shizuku check");
-                    handler.postDelayed(this, SHIZUKU_POLL_INTERVAL_MS);
-                    return;
-                }
-
-                boolean shizukuOk = shellManager.hasShizukuPermission();
-                AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku permission check result: " + shizukuOk);
-
-                if (!shizukuOk) {
-                    if (!shizukuLostNotificationShown) {
-                        AppDebugManager.w(Category.CORE, FILE_NAME + ": Shizuku permission lost, sending notification");
-                        shizukuLostNotificationShown = true;
-                    }
-                    sendShizukuLostNotification();
-                } else {
                     if (shizukuLostNotificationShown) {
-                        AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku permission restored, cancelling notification");
                         shizukuLostNotificationShown = false;
+                        cancelShizukuLostNotification();
                     }
-                    cancelShizukuLostNotification();
                 }
 
                 handler.postDelayed(this, SHIZUKU_POLL_INTERVAL_MS);
             }
-        }, 0);
+        }, SHIZUKU_POLL_INTERVAL_MS);
     }
 
     private void sendShizukuLostNotification() {
@@ -738,6 +774,8 @@ public class ShappkyService extends Service {
         cancelSnapshotAlarm();
         cancelShizukuLostNotification();
         AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku-lost notification cancelled on service destroy");
+        unregisterShizukuBinderListeners();
+        AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku binder listeners unregistered on service destroy");
         stopRamMonitorNotification();
         if (screenOffReceiver != null) {
             unregisterReceiver(screenOffReceiver);
