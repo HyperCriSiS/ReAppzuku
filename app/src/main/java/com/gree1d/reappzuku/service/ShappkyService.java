@@ -771,6 +771,7 @@ public class ShappkyService extends Service {
         scheduleServiceRestart();
         AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": Service restart scheduled via AlarmManager");
         cancelIdleFreezeAlarm();
+        cancelHeartbeatAlarm();
         cancelSnapshotAlarm();
         cancelShizukuLostNotification();
         AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku-lost notification cancelled on service destroy");
@@ -791,9 +792,14 @@ public class ShappkyService extends Service {
             watchdog.stop();
         }
         handler.removeCallbacksAndMessages(null);
-        super.onDestroy();
+        
+        if (shellManager != null) {
+            shellManager.destroyCurrentShizukuProcess();
+            shellManager.shutdownWatchdog();
+        }
         executor.shutdownNow();
         AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onDestroy completed, executor shut down");
+        super.onDestroy();
     }
 
     @Override
