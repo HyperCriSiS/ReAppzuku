@@ -12,7 +12,13 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -33,6 +39,13 @@ public class ShellManager {
 
     private Shizuku.OnBinderReceivedListener shizukuBinderReceivedListener;
     private Shizuku.OnBinderDeadListener shizukuBinderDeadListener;
+
+
+    private volatile ShizukuRemoteProcess currentRemoteProcess;
+
+    private static final long SHIZUKU_COMMAND_TIMEOUT_MS = 15_000L;
+
+    private final ExecutorService shizukuWatchdogExecutor = Executors.newCachedThreadPool();
 
     public ShellManager(Context context, Handler handler, ExecutorService executor) {
         this.context = context.getApplicationContext();
@@ -80,6 +93,22 @@ public class ShellManager {
             Shizuku.removeBinderDeadListener(shizukuBinderDeadListener);
             shizukuBinderDeadListener = null;
         }
+    }
+
+    public void destroyCurrentShizukuProcess() {
+        ShizukuRemoteProcess remote = currentRemoteProcess;
+        if (remote != null) {
+            AppDebugManager.w(Category.CORE, "ShellManager: destroyCurrentShizukuProcess: forcing destroy of in-flight remote process");
+            try {
+                remote.destroy();
+            } catch (Exception e) {
+                AppDebugManager.e(Category.CORE, "ShellManager: destroyCurrentShizukuProcess: destroy failed", e);
+            }
+        }
+    }
+
+    public void shutdownWatchdog() {
+        shizukuWatchdogExecutor.shutdownNow();
     }
 
     public boolean hasRootOnlyMode() {
@@ -310,16 +339,44 @@ public class ShellManager {
         }
     }
 
+    private <T> T runWithTimeout(ShizukuRemoteProcess remote, String command, String stepLabel, Callable<T> blockingCall) throws Exception {
+        Future<T> future = shizukuWatchdogExecutor.submit(blockingCall);
+        try {
+            return future.get(SHIZUKU_COMMAND_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            AppDebugManager.e(Category.CORE, "ShellManager: runWithTimeout: " + stepLabel + " timed out after "
+                    + SHIZUKU_COMMAND_TIMEOUT_MS + "ms, force-destroying remote process: " + command);
+            try {
+                remote.destroy();
+            } catch (Exception destroyEx) {
+                AppDebugManager.e(Category.CORE, "ShellManager: runWithTimeout: destroy after timeout failed", destroyEx);
+            }
+            future.cancel(true);
+            throw e;
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof Exception) {
+                throw (Exception) cause;
+            }
+            throw e;
+        }
+    }
+
     private boolean executeShizukuCommand(String command) {
         ShizukuRemoteProcess remote = null;
         try {
             remote = Shizuku.newProcess(new String[] { "sh", "-c", command }, null, "/");
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(remote.getInputStream()))) {
-                while (reader.readLine() != null) {
+            currentRemoteProcess = remote;
+            final ShizukuRemoteProcess finalRemote = remote;
+            runWithTimeout(remote, command, "read", (Callable<Void>) () -> {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(finalRemote.getInputStream()))) {
+                    while (reader.readLine() != null) {
+                    }
                 }
-            }
+                return null;
+            });
 
-            int exitCode = remote.waitFor();
+            int exitCode = runWithTimeout(remote, command, "waitFor", remote::waitFor);
             if (exitCode != 0) {
                 AppDebugManager.w(Category.CORE, "ShellManager: Shizuku command exited with code " + exitCode + ": " + command);
             }
@@ -334,6 +391,7 @@ public class ShellManager {
             if (remote != null) {
                 remote.destroy();
             }
+            currentRemoteProcess = null;
         }
     }
 
@@ -385,19 +443,24 @@ public class ShellManager {
         ShizukuRemoteProcess remote = null;
         try {
             remote = Shizuku.newProcess(new String[] { "sh", "-c", command }, null, "/");
-            try (BufferedReader readerInput = new BufferedReader(new InputStreamReader(remote.getInputStream()));
-                    BufferedReader errorReader = new BufferedReader(new InputStreamReader(remote.getErrorStream()))) {
-                String line;
-                while ((line = readerInput.readLine()) != null) {
-                    final String finalLine = line;
-                    handler.post(() -> outputProcessor.accept(finalLine));
+            currentRemoteProcess = remote;
+            final ShizukuRemoteProcess finalRemote = remote;
+            runWithTimeout(remote, command, "read", (Callable<Void>) () -> {
+                try (BufferedReader readerInput = new BufferedReader(new InputStreamReader(finalRemote.getInputStream()));
+                        BufferedReader errorReader = new BufferedReader(new InputStreamReader(finalRemote.getErrorStream()))) {
+                    String line;
+                    while ((line = readerInput.readLine()) != null) {
+                        final String finalLine = line;
+                        handler.post(() -> outputProcessor.accept(finalLine));
+                    }
+                    while ((line = errorReader.readLine()) != null) {
+                        final String finalLine = line;
+                        handler.post(() -> outputProcessor.accept("ERROR: " + finalLine));
+                    }
                 }
-                while ((line = errorReader.readLine()) != null) {
-                    final String finalLine = line;
-                    handler.post(() -> outputProcessor.accept("ERROR: " + finalLine));
-                }
-            }
-            int exitCode = remote.waitFor();
+                return null;
+            });
+            int exitCode = runWithTimeout(remote, command, "waitFor", remote::waitFor);
             if (exitCode != 0) {
                 AppDebugManager.w(Category.CORE, "ShellManager: Shizuku command with output exited with code " + exitCode + ": " + command);
             }
@@ -412,6 +475,7 @@ public class ShellManager {
             if (remote != null) {
                 remote.destroy();
             }
+            currentRemoteProcess = null;
         }
     }
 
@@ -460,17 +524,23 @@ public class ShellManager {
         StringBuilder output = new StringBuilder();
         try {
             remote = Shizuku.newProcess(new String[] { "sh", "-c", command }, null, "/");
-            try (BufferedReader readerInput = new BufferedReader(new InputStreamReader(remote.getInputStream()));
-                    BufferedReader errorReader = new BufferedReader(new InputStreamReader(remote.getErrorStream()))) {
-                String line;
-                while ((line = readerInput.readLine()) != null) {
-                    output.append(line).append("\n");
+            currentRemoteProcess = remote;
+            final ShizukuRemoteProcess finalRemote = remote;
+            final StringBuilder finalOutput = output;
+            runWithTimeout(remote, command, "read", (Callable<Void>) () -> {
+                try (BufferedReader readerInput = new BufferedReader(new InputStreamReader(finalRemote.getInputStream()));
+                        BufferedReader errorReader = new BufferedReader(new InputStreamReader(finalRemote.getErrorStream()))) {
+                    String line;
+                    while ((line = readerInput.readLine()) != null) {
+                        finalOutput.append(line).append("\n");
+                    }
+                    while ((line = errorReader.readLine()) != null) {
+                        finalOutput.append("ERROR: ").append(line).append("\n");
+                    }
                 }
-                while ((line = errorReader.readLine()) != null) {
-                    output.append("ERROR: ").append(line).append("\n");
-                }
-            }
-            remote.waitFor();
+                return null;
+            });
+            runWithTimeout(remote, command, "waitFor", remote::waitFor);
             return output.toString();
         } catch (Exception e) {
             if (e instanceof InterruptedException) {
@@ -482,6 +552,7 @@ public class ShellManager {
             if (remote != null) {
                 remote.destroy();
             }
+            currentRemoteProcess = null;
         }
     }
 
@@ -490,17 +561,23 @@ public class ShellManager {
         StringBuilder output = new StringBuilder();
         try {
             remote = Shizuku.newProcess(new String[] { "sh", "-c", command }, null, "/");
-            try (BufferedReader readerInput = new BufferedReader(new InputStreamReader(remote.getInputStream()));
-                    BufferedReader errorReader = new BufferedReader(new InputStreamReader(remote.getErrorStream()))) {
-                String line;
-                while ((line = readerInput.readLine()) != null) {
-                    output.append(line).append("\n");
+            currentRemoteProcess = remote;
+            final ShizukuRemoteProcess finalRemote = remote;
+            final StringBuilder finalOutput = output;
+            runWithTimeout(remote, command, "read", (Callable<Void>) () -> {
+                try (BufferedReader readerInput = new BufferedReader(new InputStreamReader(finalRemote.getInputStream()));
+                        BufferedReader errorReader = new BufferedReader(new InputStreamReader(finalRemote.getErrorStream()))) {
+                    String line;
+                    while ((line = readerInput.readLine()) != null) {
+                        finalOutput.append(line).append("\n");
+                    }
+                    while ((line = errorReader.readLine()) != null) {
+                        finalOutput.append("ERROR: ").append(line).append("\n");
+                    }
                 }
-                while ((line = errorReader.readLine()) != null) {
-                    output.append("ERROR: ").append(line).append("\n");
-                }
-            }
-            int exitCode = remote.waitFor();
+                return null;
+            });
+            int exitCode = runWithTimeout(remote, command, "waitFor", remote::waitFor);
             if (exitCode != 0) {
                 AppDebugManager.w(Category.CORE, "ShellManager: Shizuku command exited with code " + exitCode + ": " + command);
             }
@@ -515,6 +592,7 @@ public class ShellManager {
             if (remote != null) {
                 remote.destroy();
             }
+            currentRemoteProcess = null;
         }
     }
 
