@@ -442,6 +442,7 @@ public class ShappkyService extends Service {
             AppDebugManager.d(Category.CORE, FILE_NAME + ": handleShizukuBinderReceived: root access available, ignoring");
             return;
         }
+        shellManager.bindUserService();
         boolean shizukuOk = shellManager.hasShizukuPermission();
         AppDebugManager.d(Category.CORE, FILE_NAME + ": handleShizukuBinderReceived: permission=" + shizukuOk);
         if (shizukuOk) {
