@@ -206,9 +206,6 @@ public class ShappkyService extends Service {
         AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onCreate started");
 
         shellManager = new ShellManager(this, handler, executor);
-        // Binds the long-lived Shizuku UserService (falls back to legacy per-command
-        // Shizuku.newProcess() automatically inside ShellManager if this doesn't succeed,
-        // e.g. Shizuku not running yet or permission not yet granted).
         shellManager.bindUserService();
 
         boolean hasShell = shellManager.resolveAnyShellPermissionBlocking();
@@ -796,15 +793,7 @@ public class ShappkyService extends Service {
             watchdog.stop();
         }
         handler.removeCallbacksAndMessages(null);
-        // Force-destroy any in-flight Shizuku remote process before tearing down the executor.
-        // Thread#interrupt (via executor.shutdownNow()) does not reliably unblock a read on
-        // ShizukuRemoteProcess's ParcelFileDescriptor-backed streams, so without this a hung
-        // command can keep its binder proxy alive past the service's lifetime.
         if (shellManager != null) {
-            shellManager.destroyCurrentShizukuProcess();
-            shellManager.shutdownWatchdog();
-            // Unbinds and tears down the Shizuku UserService process itself (calls its
-            // destroy() -> System.exit()), preventing it from lingering after the service dies.
             shellManager.unbindUserService();
         }
         executor.shutdownNow();
