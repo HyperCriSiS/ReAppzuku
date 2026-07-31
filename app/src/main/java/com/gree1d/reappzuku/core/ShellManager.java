@@ -98,6 +98,10 @@ public class ShellManager {
 
 
     public void bindUserService() {
+        if (userService != null) {
+            AppDebugManager.d(Category.CORE, "ShellManager: bindUserService: already bound, skipping");
+            return;
+        }
         try {
             if (!Shizuku.pingBinder()) {
                 AppDebugManager.d(Category.CORE, "ShellManager: bindUserService: Shizuku binder not available yet");
