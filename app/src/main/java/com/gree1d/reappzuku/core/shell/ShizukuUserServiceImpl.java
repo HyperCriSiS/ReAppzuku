@@ -78,10 +78,12 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
                         BufferedReader errorReader = new BufferedReader(new InputStreamReader(finalProcess.getErrorStream()))) {
                     String line;
                     while ((line = readerInput.readLine()) != null) {
-                        safeCallback(callback, cb -> cb.onLine(line, false));
+                        final String finalLine = line;
+                        safeCallback(callback, cb -> cb.onLine(finalLine, false));
                     }
                     while ((line = errorReader.readLine()) != null) {
-                        safeCallback(callback, cb -> cb.onLine(line, true));
+                        final String finalLine = line;
+                        safeCallback(callback, cb -> cb.onLine(finalLine, true));
                     }
                 }
                 return null;
