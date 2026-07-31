@@ -15,16 +15,21 @@ interface IShellService {
     // Blocking call: runs the command to completion and returns the full result.
     // A timeout is enforced service-side (see ShizukuUserServiceImpl) so a hung
     // command cannot block this call indefinitely.
-    ShellExecResult execute(String command);
+    ShellExecResult execute(String command) = 1;
 
     // Fire-and-forget call: runs the command and streams output back line by line
     // via the callback, then calls onComplete(exitCode) or onError(message).
-    oneway void executeWithCallback(String command, IShellCallback callback);
+    oneway void executeWithCallback(String command, IShellCallback callback) = 2;
 
     // Lets the app process explicitly tear down this UserService's own process.
     // 16777114 is Shizuku's reserved transaction code for the UserService destroy
     // contract: unbindUserService() alone does NOT kill the remote process, Shizuku
     // calls this specific method (and expects the implementation to call System.exit())
     // to actually terminate it. This exact method id must be preserved.
+    //
+    // Note: the aidl compiler requires that EITHER all methods in an interface have
+    // an explicit id OR none do — hence execute()/executeWithCallback() above also
+    // have explicit ids (1, 2) even though their exact values don't matter to Shizuku,
+    // only that they're stable and don't collide with 16777114/16777115.
     void destroy() = 16777114;
 }
