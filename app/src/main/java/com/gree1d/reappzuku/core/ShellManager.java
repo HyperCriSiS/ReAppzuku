@@ -47,17 +47,23 @@ public class ShellManager {
 
     private static final String USER_SERVICE_TAG = "ReAppzukuShellUserService";
 
+    private static final long USER_SERVICE_BIND_WAIT_MS = 3_000L;
+
+    private volatile CountDownLatch userServiceReadyLatch = new CountDownLatch(1);
+
     private final ServiceConnection userServiceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder binder) {
             AppDebugManager.d(Category.CORE, "ShellManager: UserService connected");
             userService = IShellService.Stub.asInterface(binder);
+            userServiceReadyLatch.countDown();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
             AppDebugManager.w(Category.CORE, "ShellManager: UserService disconnected");
             userService = null;
+            userServiceReadyLatch = new CountDownLatch(1);
         }
     };
 
@@ -76,12 +82,29 @@ public class ShellManager {
                 .version(1)
                 .tag(USER_SERVICE_TAG);
     }
-    
+
+    private IShellService awaitUserService() {
+        IShellService service = userService;
+        if (service != null) {
+            return service;
+        }
+        try {
+            userServiceReadyLatch.await(USER_SERVICE_BIND_WAIT_MS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return userService;
+    }
+
+
     public void bindUserService() {
         try {
             if (!Shizuku.pingBinder()) {
                 AppDebugManager.d(Category.CORE, "ShellManager: bindUserService: Shizuku binder not available yet");
                 return;
+            }
+            if (userServiceReadyLatch.getCount() == 0) {
+                userServiceReadyLatch = new CountDownLatch(1);
             }
             Shizuku.bindUserService(buildUserServiceArgs(), userServiceConnection);
         } catch (Exception e) {
@@ -462,7 +485,7 @@ public class ShellManager {
     }
 
     private boolean executeShizukuCommand(String command) {
-        IShellService service = userService;
+        IShellService service = awaitUserService();
         if (service == null) {
             AppDebugManager.w(Category.CORE, "ShellManager: executeShizukuCommand: UserService not bound, command=" + command);
             return false;
@@ -480,7 +503,7 @@ public class ShellManager {
     }
 
     private boolean executeShizukuCommandWithOutput(String command, Consumer<String> outputProcessor) {
-        IShellService service = userService;
+        IShellService service = awaitUserService();
         if (service == null) {
             AppDebugManager.w(Category.CORE, "ShellManager: executeShizukuCommandWithOutput: UserService not bound, command=" + command);
             return false;
@@ -535,7 +558,7 @@ public class ShellManager {
     }
 
     private String executeShizukuCommandAndGetFullOutput(String command) {
-        IShellService service = userService;
+        IShellService service = awaitUserService();
         if (service == null) {
             AppDebugManager.w(Category.CORE, "ShellManager: executeShizukuCommandAndGetFullOutput: UserService not bound, command=" + command);
             return null;
@@ -549,7 +572,7 @@ public class ShellManager {
     }
 
     private ShellResult executeShizukuCommandForResult(String command) {
-        IShellService service = userService;
+        IShellService service = awaitUserService();
         if (service == null) {
             AppDebugManager.w(Category.CORE, "ShellManager: executeShizukuCommandForResult: UserService not bound, command=" + command);
             return new ShellResult(false, -1, "Shizuku UserService not bound");
