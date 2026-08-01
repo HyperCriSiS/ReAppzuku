@@ -206,29 +206,7 @@ public class ShappkyService extends Service {
         super.onCreate();
         AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onCreate started");
 
-        shellManager = ((App) getApplication()).getShellManager();
-
-        boolean hasShell = shellManager.resolveAnyShellPermissionBlocking();
-        if (!hasShell) {
-            AppDebugManager.w(Category.CORE, FILE_NAME + ": No shell/root access available, stopping service");
-            stopSelf();
-            return;
-        }
-        AppDebugManager.d(Category.CORE, FILE_NAME + ": Shell/root access confirmed, proceeding with service init");
-
-        appManager = new BackgroundAppManager(this, handler, executor, shellManager);
-        AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": BackgroundAppManager initialized");
-        autoKillManager = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());
-        sleepModeManager = new SleepModeManager(this, handler, executor, shellManager);
-        collectStatsManager = new CollectStatsManager(this, shellManager);
-        scheduler = new RestrictionsScheduler(this, handler, executor, shellManager, appManager, sleepModeManager);
-        autoKillManager.setScheduler(scheduler);
-        sleepModeManager.setScheduler(scheduler);
-        appManager.setScheduler(scheduler);
-        AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": BackgroundAppManager scheduler attached");
-        watchdog = new RestrictionsWatchdogManager(this, handler, appManager, shellManager, scheduler);
         createNotificationChannel();
-
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID_SERVICE)
                 .setContentTitle(getString(R.string.service_notification_title))
                 .setContentText(getString(R.string.service_notification_text))
@@ -247,6 +225,35 @@ public class ShappkyService extends Service {
         }
         isRunning = true;
         AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": Service is now running (isRunning=true)");
+
+        shellManager = ((App) getApplication()).getShellManager();
+
+        executor.execute(() -> {
+            boolean hasShell = shellManager.resolveAnyShellPermissionBlocking();
+            handler.post(() -> {
+                if (!hasShell) {
+                    AppDebugManager.w(Category.CORE, FILE_NAME + ": No shell/root access available, stopping service");
+                    stopSelf();
+                    return;
+                }
+                AppDebugManager.d(Category.CORE, FILE_NAME + ": Shell/root access confirmed, proceeding with service init");
+                initializeManagersAndReceivers();
+            });
+        });
+    }
+
+    private void initializeManagersAndReceivers() {
+        appManager = new BackgroundAppManager(this, handler, executor, shellManager);
+        AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": BackgroundAppManager initialized");
+        autoKillManager = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());
+        sleepModeManager = new SleepModeManager(this, handler, executor, shellManager);
+        collectStatsManager = new CollectStatsManager(this, shellManager);
+        scheduler = new RestrictionsScheduler(this, handler, executor, shellManager, appManager, sleepModeManager);
+        autoKillManager.setScheduler(scheduler);
+        sleepModeManager.setScheduler(scheduler);
+        appManager.setScheduler(scheduler);
+        AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": BackgroundAppManager scheduler attached");
+        watchdog = new RestrictionsWatchdogManager(this, handler, appManager, shellManager, scheduler);
 
         screenOffReceiver = new KillTriggerReceiver();
         IntentFilter filter = new IntentFilter();
