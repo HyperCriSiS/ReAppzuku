@@ -43,7 +43,7 @@
 
 | Requisito | Descripción |
 |---|---|
-| **Android** | 6.0 o superior. Las restricciones de segundo plano solo están disponibles en Android 11+ |
+| **Android** | 7.0 o superior. Las restricciones de segundo plano solo están disponibles en Android 11+ |
 | **Root** o **Shizuku** | Se requiere uno de los dos |
 
 ### Root vs Shizuku
