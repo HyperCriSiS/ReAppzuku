@@ -43,7 +43,7 @@
 
 | Requirement | Description |
 |---|---|
-| **Android** | 6.0 or higher. Background restrictions only available on Android 11+ |
+| **Android** | 7.0 or higher. Background restrictions only available on Android 11+ |
 | **Root** or **Shizuku** | One of two is required |
 
 ### Root vs Shizuku
