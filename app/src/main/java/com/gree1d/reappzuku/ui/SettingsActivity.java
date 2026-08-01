@@ -176,6 +176,7 @@ public class SettingsActivity extends SettingsActivityDialogs
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": onDestroy");
         handler.removeCallbacksAndMessages(null);
         executor.shutdownNow();
         binding = null;
