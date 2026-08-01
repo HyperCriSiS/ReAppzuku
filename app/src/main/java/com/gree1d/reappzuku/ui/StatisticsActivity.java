@@ -92,7 +92,7 @@ public class StatisticsActivity extends BaseActivity {
 
         chartPeriodLabels = getResources().getStringArray(R.array.chart_period_labels);
 
-        shellManager        = new ShellManager(getApplicationContext(), handler, executor);
+        shellManager        = ((com.gree1d.reappzuku.core.App) getApplication()).getShellManager();
         appManager          = new BackgroundAppManager(getApplicationContext(), handler, executor, shellManager);
         collectStatsManager = new CollectStatsManager(getApplicationContext(), handler, executor, shellManager);
 
