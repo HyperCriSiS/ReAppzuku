@@ -179,8 +179,6 @@ public class MainActivity extends BaseActivity {
 
         loadSettingsAndApplyToManager();
 
-        shellManager.setShizukuPermissionListener(shizukuPermissionListener);
-
         executor.execute(() -> {
             shellManager.resolveAnyShellPermissionBlocking();
             handler.post(() -> {
@@ -199,10 +197,23 @@ public class MainActivity extends BaseActivity {
     protected void onDestroy() {
         super.onDestroy();
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onDestroy");
-        shellManager.removeShizukuPermissionListener();
         ramMonitor.stopMonitoring();
         handler.removeCallbacksAndMessages(null);
         binding = null;
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStart");
+        shellManager.setShizukuPermissionListener(shizukuPermissionListener);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStop");
+        shellManager.removeShizukuPermissionListener();
     }
 
     @Override
