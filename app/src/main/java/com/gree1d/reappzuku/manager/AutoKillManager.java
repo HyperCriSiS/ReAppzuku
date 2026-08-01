@@ -103,10 +103,19 @@ public class AutoKillManager {
 
             Set<String> runningPackages = new HashSet<>();
             Map<String, Long> psRssMap = new HashMap<>();
+            Map<Integer, String> pidToPackage = new HashMap<>();
             PackageManager pm = context.getPackageManager();
 
             if (meminfoOutput != null && !meminfoOutput.trim().isEmpty()) {
-                parsePssWithSwap(meminfoOutput, pm, runningPackages, psRssMap);
+                parseTotalPssByProcess(meminfoOutput, pm, runningPackages, psRssMap, pidToPackage);
+            }
+
+            if (!runningPackages.isEmpty()) {
+                Map<Integer, Long> swapByPid = collectSwapPssByPid();
+                if (!swapByPid.isEmpty()) {
+                    mergeSwapIntoPss(swapByPid, pidToPackage, psRssMap);
+                    AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: merged swap for " + swapByPid.size() + " pids");
+                }
             }
 
             if (runningPackages.isEmpty()) {
@@ -419,92 +428,102 @@ public class AutoKillManager {
         });
     }
 
-    private static final java.util.regex.Pattern MEMINFO_BLOCK_HEADER =
-            java.util.regex.Pattern.compile("^\\*\\*\\s*MEMINFO in pid\\s+\\d+\\s*(?:\\[([^\\]]+)])?\\s*\\*\\*\\s*$");
+    private static final java.util.regex.Pattern PSS_PROCESS_LINE =
+            java.util.regex.Pattern.compile("^\\s*([\\d,]+)K:\\s*(\\S+)\\s*\\(pid\\s+(\\d+)");
 
-    private static final java.util.regex.Pattern MEMINFO_TOTAL_ROW =
-            java.util.regex.Pattern.compile("^\\s*TOTAL\\b.*");
+    private static final java.util.regex.Pattern SECTION_HEADER_LINE =
+            java.util.regex.Pattern.compile("^[A-Za-z].*:\\s*$");
 
-    private static final java.util.regex.Pattern INT_TOKEN =
-            java.util.regex.Pattern.compile("-?\\d+");
-
-    private void parsePssWithSwap(String meminfoOutput, PackageManager pm,
-            Set<String> runningPackages, Map<String, Long> psRssMap) {
+    private void parseTotalPssByProcess(String meminfoOutput, PackageManager pm,
+            Set<String> runningPackages, Map<String, Long> psRssMap,
+            Map<Integer, String> pidToPackage) {
         try (BufferedReader reader = new BufferedReader(new StringReader(meminfoOutput))) {
             String line;
-            String currentPackage = null;
-            List<String> headerTokens = null;
+            boolean inSection = false;
 
             while ((line = reader.readLine()) != null) {
-                java.util.regex.Matcher headerMatch = MEMINFO_BLOCK_HEADER.matcher(line);
-                if (headerMatch.matches()) {
-                    currentPackage = headerMatch.group(1);
-                    headerTokens = null;
-                    if (currentPackage != null && currentPackage.contains(":")) {
-                        
-                        currentPackage = currentPackage.substring(0, currentPackage.indexOf(":"));
-                    }
-                    continue;
-                }
-
-                if (currentPackage == null) continue;
-
                 String trimmed = line.trim();
-                if (headerTokens == null && trimmed.toLowerCase().contains("pss")) {
-                    headerTokens = new ArrayList<>();
-                    for (String tok : trimmed.split("\\s+")) {
-                        if (!tok.isEmpty()) headerTokens.add(tok.toLowerCase());
+
+                if (!inSection) {
+                    if (trimmed.equalsIgnoreCase("Total PSS by process:")) {
+                        inSection = true;
                     }
                     continue;
                 }
-
-                if (MEMINFO_TOTAL_ROW.matcher(line).matches()) {
-                    List<Long> numbers = new ArrayList<>();
-                    java.util.regex.Matcher numMatch = INT_TOKEN.matcher(trimmed);
-                    while (numMatch.find()) {
-                        try {
-                            numbers.add(Long.parseLong(numMatch.group()));
-                        } catch (NumberFormatException ignored) {
-                        }
-                    }
-                    if (numbers.isEmpty()) {
-                        currentPackage = null;
-                        continue;
+                
+                java.util.regex.Matcher procMatch = PSS_PROCESS_LINE.matcher(line);
+                if (!procMatch.find()) {
+                    if (trimmed.isEmpty() || SECTION_HEADER_LINE.matcher(trimmed).matches()) {
+                        break;
                     }
 
-                    long pssKb = 0;
-                    long swapPssKb = 0;
+                    continue;
+                }
 
-                    if (headerTokens != null) {
-                        int pssIdx = -1;
-                        int swapIdx = -1;
-                        for (int i = 0; i < headerTokens.size(); i++) {
-                            String tok = headerTokens.get(i);
-                            if (pssIdx == -1 && tok.equals("pss")) pssIdx = i;
-                            if (swapIdx == -1 && (tok.equals("swappss") || tok.equals("swap"))) swapIdx = i;
-                        }
-                        if (pssIdx >= 0 && pssIdx < numbers.size()) pssKb = numbers.get(pssIdx);
-                        if (swapIdx >= 0 && swapIdx < numbers.size()) swapPssKb = numbers.get(swapIdx);
-                    }
+                String pssStr = procMatch.group(1).replace(",", "");
+                String rawName = procMatch.group(2);
+                String pidStr = procMatch.group(3);
+                String packageName = rawName.contains(":")
+                        ? rawName.substring(0, rawName.indexOf(":"))
+                        : rawName;
 
-                    if (pssKb == 0 && !numbers.isEmpty()) {
-                        pssKb = numbers.get(0);
-                    }
+                if (packageName.isEmpty() || !packageName.contains(".")) continue;
 
+                try {
+                    long pssKb = Long.parseLong(pssStr);
+                    pm.getApplicationInfo(packageName, 0);
+                    runningPackages.add(packageName);
+                    long existing = psRssMap.getOrDefault(packageName, 0L);
+                    psRssMap.put(packageName, existing + pssKb);
                     try {
-                        pm.getApplicationInfo(currentPackage, 0);
-                        runningPackages.add(currentPackage);
-                        long combinedKb = pssKb + swapPssKb;
-                        long existing = psRssMap.getOrDefault(currentPackage, 0L);
-                        psRssMap.put(currentPackage, existing + combinedKb);
-                    } catch (PackageManager.NameNotFoundException ignored) {
+                        pidToPackage.put(Integer.parseInt(pidStr), packageName);
+                    } catch (NumberFormatException ignored) {
                     }
-
-                    currentPackage = null;
-                    headerTokens = null;
+                } catch (NumberFormatException | PackageManager.NameNotFoundException ignored) {
                 }
             }
         } catch (IOException ignored) {
+        }
+    }
+
+    private static final java.util.regex.Pattern SWAP_PID_LINE =
+            java.util.regex.Pattern.compile("^(\\d+)\\s+(\\d+)\\s*$");
+
+    private Map<Integer, Long> collectSwapPssByPid() {
+        Map<Integer, Long> swapByPid = new HashMap<>();
+        String swapOutput = shellManager.runShellCommandAndGetFullOutput(
+                "for p in /proc/[0-9]*; do "
+                        + "s=$(awk '/^SwapPss:/{print $2}' \"$p/smaps_rollup\" 2>/dev/null); "
+                        + "[ -n \"$s\" ] && [ \"$s\" != \"0\" ] && echo \"${p#/proc/} $s\"; "
+                        + "done");
+        if (swapOutput == null || swapOutput.trim().isEmpty()) {
+            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: collectSwapPssByPid: empty output (no swapped processes, or smaps_rollup unavailable)");
+            return swapByPid;
+        }
+        try (BufferedReader reader = new BufferedReader(new StringReader(swapOutput))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                java.util.regex.Matcher m = SWAP_PID_LINE.matcher(line.trim());
+                if (!m.matches()) continue;
+                try {
+                    int pid = Integer.parseInt(m.group(1));
+                    long swapKb = Long.parseLong(m.group(2));
+                    swapByPid.put(pid, swapKb);
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        } catch (IOException ignored) {
+        }
+        return swapByPid;
+    }
+
+    private void mergeSwapIntoPss(Map<Integer, Long> swapByPid, Map<Integer, String> pidToPackage,
+            Map<String, Long> psRssMap) {
+        for (Map.Entry<Integer, Long> entry : swapByPid.entrySet()) {
+            String packageName = pidToPackage.get(entry.getKey());
+            if (packageName == null) continue;
+            long existing = psRssMap.getOrDefault(packageName, 0L);
+            psRssMap.put(packageName, existing + entry.getValue());
         }
     }
 
