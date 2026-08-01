@@ -250,10 +250,14 @@ public class MainActivity extends BaseActivity {
         binding.bottomNavigation.navIconSettings.setSelected(false);
         binding.bottomNavigation.navIconStatistics.setSelected(false);
         binding.bottomNavigation.navBtnMain.setOnClickListener(v -> {});
-        binding.bottomNavigation.navBtnSettings.setOnClickListener(v ->
-                startActivity(new Intent(this, SettingsActivity.class)));
-        binding.bottomNavigation.navBtnStatistics.setOnClickListener(v ->
-                startActivity(new Intent(this, StatisticsActivity.class)));
+        binding.bottomNavigation.navBtnSettings.setOnClickListener(v -> {
+            startActivity(new Intent(this, SettingsActivity.class));
+            finish();
+        });
+        binding.bottomNavigation.navBtnStatistics.setOnClickListener(v -> {
+            startActivity(new Intent(this, StatisticsActivity.class));
+            finish();
+        });
 
         FocusHighlightUtil.apply(binding.bottomNavigation.navBtnMain, 8, 2);
         FocusHighlightUtil.apply(binding.bottomNavigation.navBtnSettings, 8, 2);
