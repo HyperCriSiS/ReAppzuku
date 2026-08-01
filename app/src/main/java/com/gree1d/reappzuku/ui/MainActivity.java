@@ -206,14 +206,16 @@ public class MainActivity extends BaseActivity {
     protected void onStart() {
         super.onStart();
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStart");
-        shellManager.setShizukuPermissionListener(shizukuPermissionListener);
+        // TEMP DEBUG: отключено для проверки утечки MainActivity — вернуть после теста
+        // shellManager.setShizukuPermissionListener(shizukuPermissionListener);
     }
 
     @Override
     protected void onStop() {
         super.onStop();
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStop");
-        shellManager.removeShizukuPermissionListener();
+        // TEMP DEBUG: отключено для проверки утечки MainActivity — вернуть после теста
+        // shellManager.removeShizukuPermissionListener();
     }
 
     @Override
