@@ -35,9 +35,6 @@ public class ShellManager {
 
     private volatile Boolean hasRoot = null;
 
-    @SuppressWarnings("deprecation")
-    private Shizuku.OnRequestPermissionResultListener shizukuPermissionListener;
-
     private Shizuku.OnBinderReceivedListener shizukuBinderReceivedListener;
     private Shizuku.OnBinderDeadListener shizukuBinderDeadListener;
 
@@ -134,14 +131,15 @@ public class ShellManager {
         }
     }
 
+    @SuppressWarnings("deprecation")
     public void setShizukuPermissionListener(Shizuku.OnRequestPermissionResultListener listener) {
-        this.shizukuPermissionListener = listener;
-        Shizuku.addRequestPermissionResultListener(shizukuPermissionListener);
+        Shizuku.addRequestPermissionResultListener(listener);
     }
 
-    public void removeShizukuPermissionListener() {
-        if (shizukuPermissionListener != null) {
-            Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener);
+    @SuppressWarnings("deprecation")
+    public void removeShizukuPermissionListener(Shizuku.OnRequestPermissionResultListener listener) {
+        if (listener != null) {
+            Shizuku.removeRequestPermissionResultListener(listener);
         }
     }
 
