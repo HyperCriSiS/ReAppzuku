@@ -98,8 +98,10 @@ public class AutoKillManager {
                 return;
             }
 
+            long meminfoStart = System.currentTimeMillis();
             String meminfoOutput = shellManager.runShellCommandAndGetFullOutput("dumpsys meminfo");
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: meminfo output length: " + (meminfoOutput == null ? "null" : meminfoOutput.trim().length()));
+            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: meminfo output length: " + (meminfoOutput == null ? "null" : meminfoOutput.trim().length())
+                    + " (took " + (System.currentTimeMillis() - meminfoStart) + "ms)");
 
             Set<String> runningPackages = new HashSet<>();
             Map<String, Long> psRssMap = new HashMap<>();
@@ -111,10 +113,14 @@ public class AutoKillManager {
             }
 
             if (!runningPackages.isEmpty()) {
+                long swapStart = System.currentTimeMillis();
                 Map<Integer, Long> swapByPid = collectSwapPssByPid();
+                long swapTookMs = System.currentTimeMillis() - swapStart;
                 if (!swapByPid.isEmpty()) {
                     mergeSwapIntoPss(swapByPid, pidToPackage, psRssMap);
-                    AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: merged swap for " + swapByPid.size() + " pids");
+                    AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: merged swap for " + swapByPid.size() + " pids (took " + swapTookMs + "ms)");
+                } else {
+                    AppDebugManager.w(Category.AUTO_KILL_BASE, "AutoKillManager: swap collection returned 0 pids (took " + swapTookMs + "ms) — check smaps_rollup access under new UserService");
                 }
             }
 
@@ -434,6 +440,7 @@ public class AutoKillManager {
     private static final java.util.regex.Pattern SECTION_HEADER_LINE =
             java.util.regex.Pattern.compile("^[A-Za-z].*:\\s*$");
 
+
     private void parseTotalPssByProcess(String meminfoOutput, PackageManager pm,
             Set<String> runningPackages, Map<String, Long> psRssMap,
             Map<Integer, String> pidToPackage) {
@@ -450,13 +457,14 @@ public class AutoKillManager {
                     }
                     continue;
                 }
+
                 
                 java.util.regex.Matcher procMatch = PSS_PROCESS_LINE.matcher(line);
                 if (!procMatch.find()) {
                     if (trimmed.isEmpty() || SECTION_HEADER_LINE.matcher(trimmed).matches()) {
                         break;
                     }
-
+                    
                     continue;
                 }
 
