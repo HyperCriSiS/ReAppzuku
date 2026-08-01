@@ -98,42 +98,52 @@ public class AutoKillManager {
                 return;
             }
 
-            String psOutput = shellManager.runShellCommandAndGetFullOutput(
-                    "ps -A -o rss,name | grep '\\.'");
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: ps output length: " + (psOutput == null ? "null" : psOutput.trim().length()));
-            if (psOutput == null || psOutput.trim().isEmpty()) {
-                AppDebugManager.w(Category.AUTO_KILL_BASE, "AutoKillManager: ps returned null/empty — aborting kill");
-                if (onComplete != null)
-                    handler.post(onComplete);
-                return;
-            }
+            String meminfoOutput = shellManager.runShellCommandAndGetFullOutput("dumpsys meminfo");
+            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: meminfo output length: " + (meminfoOutput == null ? "null" : meminfoOutput.trim().length()));
 
             Set<String> runningPackages = new HashSet<>();
             Map<String, Long> psRssMap = new HashMap<>();
             PackageManager pm = context.getPackageManager();
-            try (BufferedReader reader = new BufferedReader(new StringReader(psOutput))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    String[] parts = line.trim().split("\\s+", 2);
-                    if (parts.length < 2) continue;
-                    String rssStr = parts[0].trim();
-                    String fullName = parts[1].trim();
-                    String packageName = fullName.contains(":")
-                            ? fullName.substring(0, fullName.indexOf(":"))
-                            : fullName;
-                    if (packageName.isEmpty() || !packageName.contains(".")) continue;
-                    try {
-                        pm.getApplicationInfo(packageName, 0);
-                        runningPackages.add(packageName);
-                        try {
-                            long rssKb = Long.parseLong(rssStr);
-                            psRssMap.put(packageName, rssKb);
-                        } catch (NumberFormatException ignored) {
-                        }
-                    } catch (PackageManager.NameNotFoundException ignored) {
-                    }
+
+            if (meminfoOutput != null && !meminfoOutput.trim().isEmpty()) {
+                parsePssWithSwap(meminfoOutput, pm, runningPackages, psRssMap);
+            }
+
+            if (runningPackages.isEmpty()) {
+                AppDebugManager.w(Category.AUTO_KILL_BASE,
+                        "AutoKillManager: dumpsys meminfo yielded no packages — falling back to ps/rss");
+                String psOutput = shellManager.runShellCommandAndGetFullOutput(
+                        "ps -A -o rss,name | grep '\\.'");
+                if (psOutput == null || psOutput.trim().isEmpty()) {
+                    AppDebugManager.w(Category.AUTO_KILL_BASE, "AutoKillManager: ps fallback also empty — aborting kill");
+                    if (onComplete != null)
+                        handler.post(onComplete);
+                    return;
                 }
-            } catch (IOException ignored) {
+                try (BufferedReader reader = new BufferedReader(new StringReader(psOutput))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        String[] parts = line.trim().split("\\s+", 2);
+                        if (parts.length < 2) continue;
+                        String rssStr = parts[0].trim();
+                        String fullName = parts[1].trim();
+                        String packageName = fullName.contains(":")
+                                ? fullName.substring(0, fullName.indexOf(":"))
+                                : fullName;
+                        if (packageName.isEmpty() || !packageName.contains(".")) continue;
+                        try {
+                            pm.getApplicationInfo(packageName, 0);
+                            runningPackages.add(packageName);
+                            try {
+                                long rssKb = Long.parseLong(rssStr);
+                                psRssMap.put(packageName, rssKb);
+                            } catch (NumberFormatException ignored) {
+                            }
+                        } catch (PackageManager.NameNotFoundException ignored) {
+                        }
+                    }
+                } catch (IOException ignored) {
+                }
             }
 
             killOrphanShellProcesses(null);
@@ -407,6 +417,95 @@ public class AutoKillManager {
                 onComplete.run();
             }
         });
+    }
+
+    private static final java.util.regex.Pattern MEMINFO_BLOCK_HEADER =
+            java.util.regex.Pattern.compile("^\\*\\*\\s*MEMINFO in pid\\s+\\d+\\s*(?:\\[([^\\]]+)])?\\s*\\*\\*\\s*$");
+
+    private static final java.util.regex.Pattern MEMINFO_TOTAL_ROW =
+            java.util.regex.Pattern.compile("^\\s*TOTAL\\b.*");
+
+    private static final java.util.regex.Pattern INT_TOKEN =
+            java.util.regex.Pattern.compile("-?\\d+");
+
+    private void parsePssWithSwap(String meminfoOutput, PackageManager pm,
+            Set<String> runningPackages, Map<String, Long> psRssMap) {
+        try (BufferedReader reader = new BufferedReader(new StringReader(meminfoOutput))) {
+            String line;
+            String currentPackage = null;
+            List<String> headerTokens = null;
+
+            while ((line = reader.readLine()) != null) {
+                java.util.regex.Matcher headerMatch = MEMINFO_BLOCK_HEADER.matcher(line);
+                if (headerMatch.matches()) {
+                    currentPackage = headerMatch.group(1);
+                    headerTokens = null;
+                    if (currentPackage != null && currentPackage.contains(":")) {
+                        
+                        currentPackage = currentPackage.substring(0, currentPackage.indexOf(":"));
+                    }
+                    continue;
+                }
+
+                if (currentPackage == null) continue;
+
+                String trimmed = line.trim();
+                if (headerTokens == null && trimmed.toLowerCase().contains("pss")) {
+                    headerTokens = new ArrayList<>();
+                    for (String tok : trimmed.split("\\s+")) {
+                        if (!tok.isEmpty()) headerTokens.add(tok.toLowerCase());
+                    }
+                    continue;
+                }
+
+                if (MEMINFO_TOTAL_ROW.matcher(line).matches()) {
+                    List<Long> numbers = new ArrayList<>();
+                    java.util.regex.Matcher numMatch = INT_TOKEN.matcher(trimmed);
+                    while (numMatch.find()) {
+                        try {
+                            numbers.add(Long.parseLong(numMatch.group()));
+                        } catch (NumberFormatException ignored) {
+                        }
+                    }
+                    if (numbers.isEmpty()) {
+                        currentPackage = null;
+                        continue;
+                    }
+
+                    long pssKb = 0;
+                    long swapPssKb = 0;
+
+                    if (headerTokens != null) {
+                        int pssIdx = -1;
+                        int swapIdx = -1;
+                        for (int i = 0; i < headerTokens.size(); i++) {
+                            String tok = headerTokens.get(i);
+                            if (pssIdx == -1 && tok.equals("pss")) pssIdx = i;
+                            if (swapIdx == -1 && (tok.equals("swappss") || tok.equals("swap"))) swapIdx = i;
+                        }
+                        if (pssIdx >= 0 && pssIdx < numbers.size()) pssKb = numbers.get(pssIdx);
+                        if (swapIdx >= 0 && swapIdx < numbers.size()) swapPssKb = numbers.get(swapIdx);
+                    }
+
+                    if (pssKb == 0 && !numbers.isEmpty()) {
+                        pssKb = numbers.get(0);
+                    }
+
+                    try {
+                        pm.getApplicationInfo(currentPackage, 0);
+                        runningPackages.add(currentPackage);
+                        long combinedKb = pssKb + swapPssKb;
+                        long existing = psRssMap.getOrDefault(currentPackage, 0L);
+                        psRssMap.put(currentPackage, existing + combinedKb);
+                    } catch (PackageManager.NameNotFoundException ignored) {
+                    }
+
+                    currentPackage = null;
+                    headerTokens = null;
+                }
+            }
+        } catch (IOException ignored) {
+        }
     }
 
     private String buildKillCommand(String packageName) {
