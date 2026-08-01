@@ -440,7 +440,6 @@ public class AutoKillManager {
     private static final java.util.regex.Pattern SECTION_HEADER_LINE =
             java.util.regex.Pattern.compile("^[A-Za-z].*:\\s*$");
 
-
     private void parseTotalPssByProcess(String meminfoOutput, PackageManager pm,
             Set<String> runningPackages, Map<String, Long> psRssMap,
             Map<Integer, String> pidToPackage) {
@@ -458,13 +457,11 @@ public class AutoKillManager {
                     continue;
                 }
 
-                
                 java.util.regex.Matcher procMatch = PSS_PROCESS_LINE.matcher(line);
                 if (!procMatch.find()) {
                     if (trimmed.isEmpty() || SECTION_HEADER_LINE.matcher(trimmed).matches()) {
                         break;
                     }
-                    
                     continue;
                 }
 
@@ -501,7 +498,7 @@ public class AutoKillManager {
         Map<Integer, Long> swapByPid = new HashMap<>();
         String swapOutput = shellManager.runShellCommandAndGetFullOutput(
                 "for p in /proc/[0-9]*; do "
-                        + "s=$(awk '/^SwapPss:/{print $2}' \"$p/smaps_rollup\" 2>/dev/null); "
+                        + "s=$(timeout -k 1 1 awk '/^SwapPss:/{print $2}' \"$p/smaps_rollup\" 2>/dev/null); "
                         + "[ -n \"$s\" ] && [ \"$s\" != \"0\" ] && echo \"${p#/proc/} $s\"; "
                         + "done");
         if (swapOutput == null || swapOutput.trim().isEmpty()) {
