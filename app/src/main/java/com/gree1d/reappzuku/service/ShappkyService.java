@@ -26,6 +26,7 @@ import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
 
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
 import com.gree1d.reappzuku.manager.SleepModeManager;
@@ -205,8 +206,7 @@ public class ShappkyService extends Service {
         super.onCreate();
         AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onCreate started");
 
-        shellManager = new ShellManager(this, handler, executor);
-        shellManager.bindUserService();
+        shellManager = ((App) getApplication()).getShellManager();
 
         boolean hasShell = shellManager.resolveAnyShellPermissionBlocking();
         if (!hasShell) {
@@ -794,9 +794,6 @@ public class ShappkyService extends Service {
             watchdog.stop();
         }
         handler.removeCallbacksAndMessages(null);
-        if (shellManager != null) {
-            shellManager.unbindUserService();
-        }
         executor.shutdownNow();
         AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onDestroy completed, executor shut down");
         super.onDestroy();
