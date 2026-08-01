@@ -57,6 +57,7 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
 import com.gree1d.reappzuku.manager.RamMonitor;
@@ -78,8 +79,8 @@ public class MainActivity extends BaseActivity {
 
     private ActivityMainBinding binding;
     private int currentNavBarHeight = 0;
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private Handler handler;
+    private ExecutorService executor;
     private ShellManager shellManager;
     private BackgroundAppManager appManager;
     private AutoKillManager autoKillManager;
@@ -108,6 +109,11 @@ public class MainActivity extends BaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onCreate started");
+
+        App app = (App) getApplication();
+        handler = app.getSharedHandler();
+        executor = app.getSharedExecutor();
+        shellManager = app.getShellManager();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this,
@@ -144,7 +150,6 @@ public class MainActivity extends BaseActivity {
         appliedCustomColor = sharedPreferences.getInt(KEY_ACCENT_CUSTOM_COLOR, ACCENT_CUSTOM_DEFAULT_COLOR);
         appliedOnColor = sharedPreferences.getInt(KEY_ACCENT_ON_COLOR, ACCENT_ON_WHITE);
 
-        shellManager = new ShellManager(this, handler, executor);
         appManager = new BackgroundAppManager(this, handler, executor, shellManager);
         autoKillManager = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());
         ramMonitor = new RamMonitor(this, handler, binding.ramUsage, binding.ramUsageText);
@@ -175,13 +180,16 @@ public class MainActivity extends BaseActivity {
         loadSettingsAndApplyToManager();
 
         shellManager.setShizukuPermissionListener(shizukuPermissionListener);
-        
+
         executor.execute(() -> {
             shellManager.resolveAnyShellPermissionBlocking();
-            
-            handler.post(() -> shellManager.checkShellPermissions());
+            handler.post(() -> {
+                if (binding == null || isFinishing() || isDestroyed()) return;
+                shellManager.checkShellPermissions();
+                loadBackgroundApps();
+            });
         });
-        
+
         loadBackgroundApps();
         ramMonitor.startMonitoring();
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onCreate finished");
@@ -456,7 +464,7 @@ public class MainActivity extends BaseActivity {
 
                 handler.post(() -> {
                     loadingDialog.dismiss();
-                    if (isFinishing() || isDestroyed()) return;
+                    if (binding == null || isFinishing() || isDestroyed()) return;
                     showTriggersResult(app, triggers, status, aggressionScore);
                 });
             } catch (Exception e) {
@@ -488,7 +496,7 @@ public class MainActivity extends BaseActivity {
 
             handler.post(() -> {
                 loadingDialog.dismiss();
-                if (isFinishing() || isDestroyed()) return;
+                if (binding == null || isFinishing() || isDestroyed()) return;
 
                 if (loads.isEmpty()) {
                     AlertDialog emptyDialog = new MaterialAlertDialogBuilder(this)
@@ -844,6 +852,8 @@ public class MainActivity extends BaseActivity {
                 .collect(Collectors.toSet());
 
         appManager.loadBackgroundApps(result -> {
+            if (binding == null || isFinishing() || isDestroyed()) return;
+
             fullAppsList.clear();
             fullAppsList.addAll(result);
 
