@@ -202,7 +202,6 @@ public class MainActivity extends BaseActivity {
         shellManager.removeShizukuPermissionListener();
         ramMonitor.stopMonitoring();
         handler.removeCallbacksAndMessages(null);
-        executor.shutdownNow();
         binding = null;
     }
 
