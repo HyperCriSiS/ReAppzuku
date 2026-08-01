@@ -43,7 +43,7 @@
 
 | Voraussetzung | Beschreibung |
 | :--- | :--- |
-| **Android** | 6.0 oder höher. Hintergrundbeschränkungen nur auf Android 11+ verfügbar |
+| **Android** | 7.0 oder höher. Hintergrundbeschränkungen nur auf Android 11+ verfügbar |
 | **Root** oder **Shizuku** | Eines von beiden wird benötigt |
 
 ### Root vs. Shizuku
