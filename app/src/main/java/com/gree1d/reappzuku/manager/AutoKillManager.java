@@ -99,9 +99,6 @@ public class AutoKillManager {
             }
 
             long meminfoStart = System.currentTimeMillis();
-            String meminfoOutput = shellManager.runShellCommandAndGetFullOutput("dumpsys meminfo");
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: meminfo output length: " + (meminfoOutput == null ? "null" : meminfoOutput.trim().length())
-                    + " (took " + (System.currentTimeMillis() - meminfoStart) + "ms)");
 
             Set<String> runningPackages = new HashSet<>();
             Map<String, Long> psRssMap = new HashMap<>();
@@ -109,14 +106,75 @@ public class AutoKillManager {
             PackageManager pm = context.getPackageManager();
             String memorySource = "PSS";
 
-            if (meminfoOutput != null && !meminfoOutput.trim().isEmpty()) {
-                parseTotalPssByProcess(meminfoOutput, pm, runningPackages, psRssMap, pidToPackage);
+            Map<String, List<Integer>> pidsByPackage = new HashMap<>();
+            String pidListOutput = shellManager.runShellCommandAndGetFullOutput("ps -A -o pid,name | grep '\\.'");
+            if (pidListOutput != null) {
+                try (BufferedReader reader = new BufferedReader(new StringReader(pidListOutput))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        String[] parts = line.trim().split("\\s+", 2);
+                        if (parts.length < 2) continue;
+                        String packageName = parts[1].trim();
+                        if (packageName.contains(":")) {
+                            packageName = packageName.substring(0, packageName.indexOf(":"));
+                        }
+                        if (packageName.isEmpty() || !packageName.contains(".")) continue;
+                        try {
+                            int pid = Integer.parseInt(parts[0].trim());
+                            pidsByPackage.computeIfAbsent(packageName, k -> new ArrayList<>()).add(pid);
+                        } catch (NumberFormatException ignored) {
+                        }
+                    }
+                } catch (IOException ignored) {
+                }
+            }
+
+            if (!pidsByPackage.isEmpty()) {
+                int[] allPids = pidsByPackage.values().stream()
+                        .flatMap(List::stream)
+                        .mapToInt(Integer::intValue)
+                        .toArray();
+
+                List<com.gree1d.reappzuku.core.shell.ProcessMemoryInfo> memInfos =
+                        shellManager.getProcessMemoryInfo(allPids);
+
+                AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: getProcessMemoryInfo returned " + memInfos.size()
+                        + " entries for " + allPids.length + " pids (took " + (System.currentTimeMillis() - meminfoStart) + "ms)");
+
+                if (!memInfos.isEmpty()) {
+                    Map<Integer, Long> pssByPid = new HashMap<>();
+                    for (com.gree1d.reappzuku.core.shell.ProcessMemoryInfo info : memInfos) {
+                        pssByPid.put(info.pid, info.totalPssKb);
+                    }
+                    for (Map.Entry<String, List<Integer>> entry : pidsByPackage.entrySet()) {
+                        String packageName = entry.getKey();
+                        try {
+                            pm.getApplicationInfo(packageName, 0);
+                        } catch (PackageManager.NameNotFoundException ignored) {
+                            continue;
+                        }
+                        long totalPss = 0;
+                        boolean anyResolved = false;
+                        for (int pid : entry.getValue()) {
+                            Long pss = pssByPid.get(pid);
+                            if (pss != null) {
+                                totalPss += pss;
+                                anyResolved = true;
+                                pidToPackage.put(pid, packageName);
+                            }
+                        }
+                        if (anyResolved) {
+                            runningPackages.add(packageName);
+                            psRssMap.put(packageName, totalPss);
+                        }
+                    }
+                }
             }
 
             if (runningPackages.isEmpty()) {
                 memorySource = "RSS";
                 AppDebugManager.w(Category.AUTO_KILL_BASE,
-                        "AutoKillManager: dumpsys meminfo yielded no packages — falling back to ps/rss");
+                        "AutoKillManager: getProcessMemoryInfo yielded no packages — falling back to ps/rss");
                 String psOutput = shellManager.runShellCommandAndGetFullOutput(
                         "ps -A -o rss,name | grep '\\.'");
                 if (psOutput == null || psOutput.trim().isEmpty()) {
