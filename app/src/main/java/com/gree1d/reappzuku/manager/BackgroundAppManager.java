@@ -147,11 +147,19 @@ public class BackgroundAppManager {
         }
     };
 
+    private final ExecutorService shellExecutor;
+
     public BackgroundAppManager(Context context, Handler handler, ExecutorService executor,
             ShellManager shellManager) {
+        this(context, handler, executor, executor, shellManager);
+    }
+
+    public BackgroundAppManager(Context context, Handler handler, ExecutorService executor,
+            ExecutorService shellExecutor, ShellManager shellManager) {
         this.context = context;
         this.handler = handler;
         this.executor = executor;
+        this.shellExecutor = shellExecutor;
         this.shellManager = shellManager;
         this.sharedpreferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
     }
@@ -602,7 +610,7 @@ public class BackgroundAppManager {
 
 
     public void loadBackgroundRestrictionApps(Consumer<List<AppModel>> callback) {
-        executor.execute(() -> {
+        shellExecutor.execute(() -> {
             PackageManager pm = context.getPackageManager();
             List<ApplicationInfo> packages = pm.getInstalledApplications(PackageManager.GET_META_DATA);
             Set<String> desiredPackages = getBackgroundRestrictedApps();
@@ -843,7 +851,7 @@ public class BackgroundAppManager {
             return;
         }
 
-        executor.execute(() -> {
+        shellExecutor.execute(() -> {
             Set<String> currentPackages = getActualBackgroundRestrictedApps();
             Set<String> packagesToAllow = new HashSet<>(currentPackages);
             packagesToAllow.removeAll(desiredPackages);
@@ -977,7 +985,7 @@ public class BackgroundAppManager {
             return;
         }
 
-        executor.execute(() -> {
+        shellExecutor.execute(() -> {
             boolean success = true;
             for (String packageName : desired) {
                 if (scheduler != null && scheduler.isProtected(packageName, RestrictionsScheduler.PROTECT_BG_RESTRICTIONS)) {
@@ -1411,7 +1419,7 @@ public class BackgroundAppManager {
 
 
     public void checkAndRepairRestrictions(Set<String> desired, RestrictionsScheduler scheduler) {
-        executor.execute(() -> {
+        shellExecutor.execute(() -> {
             Set<String> hardSet   = getHardRestrictedApps();
             Set<String> manualSet = getManualRestrictedApps();
 
