@@ -106,6 +106,26 @@ public final class ProtectedApps {
         return false;
     }
 
+    public static boolean isProtected(String packageName, String currentKeyboard, String currentLauncher) {
+        if (packageName == null) {
+            return false;
+        }
+
+        if (PROTECTED_PACKAGES.contains(packageName)) {
+            return true;
+        }
+
+        if (packageName.equals(currentKeyboard)) {
+            return true;
+        }
+
+        if (packageName.equals(currentLauncher)) {
+            return true;
+        }
+
+        return false;
+    }
+
     public static boolean isWhitelisted(Context context, String packageName) {
         if (packageName == null) {
             return false;
