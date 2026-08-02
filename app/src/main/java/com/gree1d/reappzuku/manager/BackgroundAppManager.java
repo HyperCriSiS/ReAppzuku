@@ -229,7 +229,8 @@ public class BackgroundAppManager {
             Pattern.compile("^\\s*([\\d,]+)K:\\s*(\\S+)\\s*\\(pid\\s+(\\d+)");
     private static final Pattern SECTION_HEADER_LINE =
             Pattern.compile("^[A-Za-z].*:\\s*$");
-            
+
+
     private void parseTotalPssByProcess(String meminfoOutput, PackageManager pm,
             Map<String, long[]> psAggregated) {
         try (BufferedReader reader = new BufferedReader(new StringReader(meminfoOutput))) {
@@ -286,60 +287,49 @@ public class BackgroundAppManager {
             Set<String> whitelistedApps = getWhitelistedApps();
             Set<String> desiredBackgroundRestrictedApps = getBackgroundRestrictedApps();
             BackgroundRestrictionState backgroundRestrictionState = getBackgroundRestrictionState();
-            String memorySource = "PSS";
 
             if (shellManager.hasAnyShellPermission()) {
+                String command = "ps -A -o pid,rss,name | grep '\\.'";
                 try {
-                    String meminfoOutput = runPs("dumpsys meminfo");
-                    if (meminfoOutput != null && !meminfoOutput.trim().isEmpty()) {
-                        parseTotalPssByProcess(meminfoOutput, packageManager, psAggregated);
-                    }
-
-                    if (psAggregated.isEmpty()) {
-                        memorySource = "RSS";
-                        AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundApps: dumpsys meminfo yielded no packages — falling back to ps/rss");
-                        String command = "ps -A -o pid,rss,name | grep '\\.'";
-                        String fullOutput = runPs(command);
-                        if (fullOutput != null) {
-                            try (BufferedReader reader = new BufferedReader(new StringReader(fullOutput))) {
-                                String line;
-                                while ((line = reader.readLine()) != null) {
-                                    String[] parts = line.trim().split("\\s+");
-                                    if (parts.length >= 3) {
-                                        String packageName = parts[2].trim();
-                                        if (packageName.contains(":")) {
-                                            packageName = packageName.substring(0, packageName.indexOf(":"));
-                                        }
-                                        if (!packageName.isEmpty() && packageName.contains(".")
-                                                && !packageName.startsWith("ERROR:")) {
-                                            try {
-                                                packageManager.getApplicationInfo(packageName, 0);
-                                                long rss = 0;
-                                                int pid = -1;
-                                                try { rss = Long.parseLong(parts[1].trim()); } catch (NumberFormatException ignored) {}
-                                                try { pid = Integer.parseInt(parts[0].trim()); } catch (NumberFormatException ignored) {}
-                                                long[] existing = psAggregated.get(packageName);
-                                                if (existing == null) {
-                                                    psAggregated.put(packageName, new long[]{rss, pid});
-                                                } else {
-                                                    existing[0] += rss;
-                                                    if (pid != -1 && (existing[1] == -1 || pid < existing[1])) {
-                                                        existing[1] = pid;
-                                                    }
+                    String fullOutput = runPs(command);
+                    if (fullOutput != null) {
+                        try (BufferedReader reader = new BufferedReader(new StringReader(fullOutput))) {
+                            String line;
+                            while ((line = reader.readLine()) != null) {
+                                String[] parts = line.trim().split("\\s+");
+                                if (parts.length >= 3) {
+                                    String packageName = parts[2].trim();
+                                    if (packageName.contains(":")) {
+                                        packageName = packageName.substring(0, packageName.indexOf(":"));
+                                    }
+                                    if (!packageName.isEmpty() && packageName.contains(".")
+                                            && !packageName.startsWith("ERROR:")) {
+                                        try {
+                                            packageManager.getApplicationInfo(packageName, 0);
+                                            long rss = 0;
+                                            int pid = -1;
+                                            try { rss = Long.parseLong(parts[1].trim()); } catch (NumberFormatException ignored) {}
+                                            try { pid = Integer.parseInt(parts[0].trim()); } catch (NumberFormatException ignored) {}
+                                            long[] existing = psAggregated.get(packageName);
+                                            if (existing == null) {
+                                                psAggregated.put(packageName, new long[]{rss, pid});
+                                            } else {
+                                                existing[0] += rss;
+                                                if (pid != -1 && (existing[1] == -1 || pid < existing[1])) {
+                                                    existing[1] = pid;
                                                 }
-                                            } catch (PackageManager.NameNotFoundException ignored) {
                                             }
+                                        } catch (PackageManager.NameNotFoundException ignored) {
                                         }
                                     }
                                 }
                             }
-                        } else {
-                            AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundApps failed to get running apps, ps output is null");
-                            handler.post(() -> Toast
-                                    .makeText(context, context.getString(R.string.toast_failed_get_running_apps), Toast.LENGTH_SHORT).show());
                         }
+                    } else {
+                        AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundApps failed to get running apps, ps output is null");
+                        handler.post(() -> Toast
+                                .makeText(context, context.getString(R.string.toast_failed_get_running_apps), Toast.LENGTH_SHORT).show());
                     }
-                    AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundApps: memorySource=" + memorySource);
                 } catch (Exception e) {
                     AppDebugManager.e(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundApps error getting running apps", e);
                     handler.post(() -> Toast
@@ -347,9 +337,6 @@ public class BackgroundAppManager {
                             .show());
                 }
             }
-
-            String currentKeyboard = ProtectedApps.getCurrentKeyboardPackage(context);
-            String currentLauncher = ProtectedApps.getCurrentLauncherPackage(context);
 
             for (Map.Entry<String, long[]> entry : psAggregated.entrySet()) {
                 String packageName = entry.getKey();
@@ -361,7 +348,7 @@ public class BackgroundAppManager {
                         continue;
                     }
 
-                    boolean isProtected = ProtectedApps.isProtected(packageName, currentKeyboard, currentLauncher);
+                    boolean isProtected = ProtectedApps.isProtected(context, packageName);
                     ApplicationInfo appInfo = packageManager.getApplicationInfo(packageName, 0);
 
                     boolean isPersistentApp = (appInfo.flags & ApplicationInfo.FLAG_PERSISTENT) != 0;
@@ -422,7 +409,6 @@ public class BackgroundAppManager {
                 return;
             }
 
-            // --- Phase 1: quick, RAM-less list ---
             if (onQuickList != null) {
                 Map<String, Integer> quickPidByPackage = new HashMap<>();
                 try {
@@ -461,7 +447,6 @@ public class BackgroundAppManager {
                 return;
             }
 
-            // --- Phase 2: full list with PSS (or RSS fallback) memory figures ---
             Map<String, long[]> psAggregated = new HashMap<>();
             String memorySource = "PSS";
 
@@ -572,12 +557,6 @@ public class BackgroundAppManager {
         });
     }
 
-    /**
-     * Shared AppModel-building logic for the quick (RAM-less) phase of
-     * loadBackgroundAppsForMainScreen. withRam is always false here since phase 1 has no
-     * PSS/RSS data yet — kept as a parameter rather than hardcoded in case a future
-     * calling site with RAM data needs it.
-     */
     private List<AppModel> buildAppModelList(Map<String, Integer> pidByPackage, PackageManager packageManager,
             Set<String> hiddenApps, Set<String> whitelistedApps, Set<String> desiredBackgroundRestrictedApps,
             BackgroundRestrictionState backgroundRestrictionState, String currentKeyboard, String currentLauncher,
