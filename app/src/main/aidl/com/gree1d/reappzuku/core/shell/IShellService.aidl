@@ -3,6 +3,7 @@ package com.gree1d.reappzuku.core.shell;
 
 import com.gree1d.reappzuku.core.shell.ShellExecResult;
 import com.gree1d.reappzuku.core.shell.IShellCallback;
+import com.gree1d.reappzuku.core.shell.ProcessMemoryInfo;
 
 /**
  * Interface exposed by the long-lived Shizuku UserService that replaces the old
@@ -20,6 +21,13 @@ interface IShellService {
     // Fire-and-forget call: runs the command and streams output back line by line
     // via the callback, then calls onComplete(exitCode) or onError(message).
     oneway void executeWithCallback(String command, IShellCallback callback) = 2;
+
+    // Blocking call: reads PSS for the given pids via ActivityManager.getProcessMemoryInfo()
+    // from inside the UserService process (shell/root identity), avoiding the large
+    // "dumpsys meminfo" text dump that can overflow the 1MB binder transaction buffer
+    // when polled frequently. Returns one entry per pid that is still alive and
+    // resolvable; dead/unresolvable pids are silently omitted, never null-padded.
+    ProcessMemoryInfo[] getProcessMemoryInfo(in int[] pids) = 3;
 
     // Lets the app process explicitly tear down this UserService's own process.
     // 16777114 is Shizuku's reserved transaction code for the UserService destroy
