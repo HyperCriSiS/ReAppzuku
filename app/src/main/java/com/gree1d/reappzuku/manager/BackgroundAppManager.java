@@ -456,21 +456,22 @@ public class BackgroundAppManager {
             }
 
             Map<String, long[]> psAggregated = new HashMap<>();
+            Map<String, String> packageMemorySource = new HashMap<>();
             String memorySource = "PSS";
 
             try {
-                // Full-list pid collection: same ps parse as the quick-list above, but kept
-                // separate since onQuickList may be null and the two run on independent timing.
+              
                 Map<String, List<Integer>> pidsByPackageForMeminfo = new HashMap<>();
+                Map<Integer, Long> psRssByPid = new HashMap<>();
                 try {
-                    String pidListOutput = runPs("ps -A -o pid,name | grep '\\.'");
+                    String pidListOutput = runPs("ps -A -o pid,rss,name | grep '\\.'");
                     if (pidListOutput != null) {
                         try (BufferedReader reader = new BufferedReader(new StringReader(pidListOutput))) {
                             String line;
                             while ((line = reader.readLine()) != null) {
-                                String[] parts = line.trim().split("\\s+", 2);
-                                if (parts.length < 2) continue;
-                                String packageName = parts[1].trim();
+                                String[] parts = line.trim().split("\\s+", 3);
+                                if (parts.length < 3) continue;
+                                String packageName = parts[2].trim();
                                 if (packageName.contains(":")) {
                                     packageName = packageName.substring(0, packageName.indexOf(":"));
                                 }
@@ -478,6 +479,10 @@ public class BackgroundAppManager {
                                 try {
                                     int pid = Integer.parseInt(parts[0].trim());
                                     pidsByPackageForMeminfo.computeIfAbsent(packageName, k -> new ArrayList<>()).add(pid);
+                                    try {
+                                        psRssByPid.put(pid, Long.parseLong(parts[1].trim()));
+                                    } catch (NumberFormatException ignored) {
+                                    }
                                 } catch (NumberFormatException ignored) {
                                 }
                             }
@@ -503,19 +508,30 @@ public class BackgroundAppManager {
                         }
                         for (Map.Entry<String, List<Integer>> entry : pidsByPackageForMeminfo.entrySet()) {
                             String packageName = entry.getKey();
-                            long totalPss = 0;
+                            long total = 0;
                             int firstPid = -1;
+                            boolean anyPss = false;
+                            boolean anyRssFallback = false;
                             for (int pid : entry.getValue()) {
                                 Long pss = pssByPid.get(pid);
                                 if (pss != null) {
-                                    totalPss += pss;
-                                    if (firstPid == -1) {
-                                        firstPid = pid;
+                                    total += pss;
+                                    anyPss = true;
+                                    if (firstPid == -1) firstPid = pid;
+                                } else {
+                                    Long rss = psRssByPid.get(pid);
+                                    if (rss != null) {
+                                        total += rss;
+                                        anyRssFallback = true;
+                                        if (firstPid == -1) firstPid = pid;
+                                        AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": pid " + pid
+                                                + " (" + packageName + ") missing from getProcessMemoryInfo — using ps RSS fallback: " + rss + " KB");
                                     }
                                 }
                             }
                             if (firstPid != -1) {
-                                psAggregated.put(packageName, new long[]{totalPss, firstPid});
+                                psAggregated.put(packageName, new long[]{total, firstPid});
+                                packageMemorySource.put(packageName, anyPss && anyRssFallback ? "PSS+RSS" : anyPss ? "PSS" : "RSS");
                             }
                         }
                     }
@@ -546,6 +562,7 @@ public class BackgroundAppManager {
                                             try { pid = Integer.parseInt(parts[0].trim()); } catch (NumberFormatException ignored) {}
                                             long[] existing = psAggregated.get(packageName);
                                             if (existing == null) {
+                                                packageMemorySource.put(packageName, "RSS");
                                                 psAggregated.put(packageName, new long[]{rss, pid});
                                             } else {
                                                 existing[0] += rss;
@@ -565,7 +582,10 @@ public class BackgroundAppManager {
                                 .makeText(context, context.getString(R.string.toast_failed_get_running_apps), Toast.LENGTH_SHORT).show());
                     }
                 }
-                AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundAppsForMainScreen: memorySource=" + memorySource);
+                AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundAppsForMainScreen: memorySource=" + memorySource
+                        + " (per-package: PSS=" + packageMemorySource.values().stream().filter(s -> s.equals("PSS")).count()
+                        + ", RSS=" + packageMemorySource.values().stream().filter(s -> s.equals("RSS")).count()
+                        + ", PSS+RSS=" + packageMemorySource.values().stream().filter(s -> s.equals("PSS+RSS")).count() + ")");
             } catch (Exception e) {
                 AppDebugManager.e(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundAppsForMainScreen error getting running apps", e);
                 handler.post(() -> Toast

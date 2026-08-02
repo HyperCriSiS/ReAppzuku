@@ -103,18 +103,20 @@ public class AutoKillManager {
             Set<String> runningPackages = new HashSet<>();
             Map<String, Long> psRssMap = new HashMap<>();
             Map<Integer, String> pidToPackage = new HashMap<>();
+            Map<String, String> packageMemorySource = new HashMap<>();
             PackageManager pm = context.getPackageManager();
             String memorySource = "PSS";
 
             Map<String, List<Integer>> pidsByPackage = new HashMap<>();
-            String pidListOutput = shellManager.runShellCommandAndGetFullOutput("ps -A -o pid,name | grep '\\.'");
+            Map<Integer, Long> psRssByPid = new HashMap<>();
+            String pidListOutput = shellManager.runShellCommandAndGetFullOutput("ps -A -o pid,rss,name | grep '\\.'");
             if (pidListOutput != null) {
                 try (BufferedReader reader = new BufferedReader(new StringReader(pidListOutput))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
-                        String[] parts = line.trim().split("\\s+", 2);
-                        if (parts.length < 2) continue;
-                        String packageName = parts[1].trim();
+                        String[] parts = line.trim().split("\\s+", 3);
+                        if (parts.length < 3) continue;
+                        String packageName = parts[2].trim();
                         if (packageName.contains(":")) {
                             packageName = packageName.substring(0, packageName.indexOf(":"));
                         }
@@ -122,6 +124,10 @@ public class AutoKillManager {
                         try {
                             int pid = Integer.parseInt(parts[0].trim());
                             pidsByPackage.computeIfAbsent(packageName, k -> new ArrayList<>()).add(pid);
+                            try {
+                                psRssByPid.put(pid, Long.parseLong(parts[1].trim()));
+                            } catch (NumberFormatException ignored) {
+                            }
                         } catch (NumberFormatException ignored) {
                         }
                     }
@@ -153,19 +159,33 @@ public class AutoKillManager {
                         } catch (PackageManager.NameNotFoundException ignored) {
                             continue;
                         }
-                        long totalPss = 0;
+                        long total = 0;
                         boolean anyResolved = false;
+                        boolean anyPss = false;
+                        boolean anyRssFallback = false;
                         for (int pid : entry.getValue()) {
                             Long pss = pssByPid.get(pid);
                             if (pss != null) {
-                                totalPss += pss;
+                                total += pss;
                                 anyResolved = true;
+                                anyPss = true;
                                 pidToPackage.put(pid, packageName);
+                            } else {
+                                Long rss = psRssByPid.get(pid);
+                                if (rss != null) {
+                                    total += rss;
+                                    anyResolved = true;
+                                    anyRssFallback = true;
+                                    pidToPackage.put(pid, packageName);
+                                    AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: pid " + pid
+                                            + " (" + packageName + ") missing from getProcessMemoryInfo — using ps RSS fallback: " + rss + " KB");
+                                }
                             }
                         }
                         if (anyResolved) {
                             runningPackages.add(packageName);
-                            psRssMap.put(packageName, totalPss);
+                            psRssMap.put(packageName, total);
+                            packageMemorySource.put(packageName, anyPss && anyRssFallback ? "PSS+RSS" : anyPss ? "PSS" : "RSS");
                         }
                     }
                 }
@@ -197,6 +217,7 @@ public class AutoKillManager {
                         try {
                             pm.getApplicationInfo(packageName, 0);
                             runningPackages.add(packageName);
+                            packageMemorySource.put(packageName, "RSS");
                             try {
                                 long rssKb = Long.parseLong(rssStr);
                                 psRssMap.put(packageName, rssKb);
@@ -209,7 +230,11 @@ public class AutoKillManager {
                 }
             }
 
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: memorySource=" + memorySource + " for this cycle");
+            long pssCount = packageMemorySource.values().stream().filter(s -> s.equals("PSS")).count();
+            long rssCount = packageMemorySource.values().stream().filter(s -> s.equals("RSS")).count();
+            long mixedCount = packageMemorySource.values().stream().filter(s -> s.equals("PSS+RSS")).count();
+            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: memorySource=" + memorySource
+                    + " for this cycle (per-package: PSS=" + pssCount + ", RSS=" + rssCount + ", PSS+RSS=" + mixedCount + ")");
 
             killOrphanShellProcesses(null);
 
@@ -287,7 +312,7 @@ public class AutoKillManager {
                     long rssKb = psRssMap.getOrDefault(pkg, 0L);
                     if (rssKb > 0) {
                         newPendingRss.put(pkg, rssKb);
-                        AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Pending " + memorySource + " for " + pkg + ": " + rssKb + " KB");
+                        AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Pending " + packageMemorySource.getOrDefault(pkg, memorySource) + " for " + pkg + ": " + rssKb + " KB");
                     }
                 }
                 savePendingRss(newPendingRss);
