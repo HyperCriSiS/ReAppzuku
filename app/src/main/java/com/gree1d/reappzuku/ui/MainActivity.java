@@ -304,7 +304,10 @@ public class MainActivity extends BaseActivity {
     }
 
     private void setupListeners() {
-        binding.swiperefreshlayout1.setOnRefreshListener(this::loadBackgroundApps);
+        binding.swiperefreshlayout1.setOnRefreshListener(() -> {
+            AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: swiperefreshlayout1 onRefresh triggered");
+            loadBackgroundApps();
+        });
         binding.killButton.setOnClickListener(view -> killSelectedApps());
         binding.scanButtonLayout.setOnClickListener(v -> showSystemScanDialog());
 
@@ -876,6 +879,13 @@ public class MainActivity extends BaseActivity {
                 });
     }
 
+    /**
+     * Shared by both phases of the new two-phase loadBackgroundApps: the quick, RAM-less
+     * list (shown immediately so the UI isn't blank for the ~5-10s dumpsys meminfo can
+     * take) and the full PSS/RSS-enriched list that follows. Both need the same
+     * selection-restoring, filtering, and count/CPU-monitor refresh — only the
+     * refresh-spinner's stop differs, gated by {@code finished}.
+     */
     private void applyLoadedAppsList(List<AppModel> result, Set<String> selectedPackages, boolean finished) {
         if (binding == null || isFinishing() || isDestroyed()) return;
 
