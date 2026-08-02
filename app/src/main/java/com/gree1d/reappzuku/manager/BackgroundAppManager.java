@@ -278,78 +278,129 @@ public class BackgroundAppManager {
     }
 
     public void loadBackgroundApps(Consumer<List<AppModel>> callback) {
+        loadBackgroundApps(null, callback);
+    }
+
+    public void loadBackgroundApps(Consumer<List<AppModel>> onQuickList, Consumer<List<AppModel>> onFullList) {
         executor.execute(() -> {
-            List<AppModel> result = new ArrayList<>();
             PackageManager packageManager = context.getPackageManager();
-            Map<String, long[]> psAggregated = new HashMap<>();
             Set<String> hiddenApps = getHiddenApps();
             Set<String> whitelistedApps = getWhitelistedApps();
             Set<String> desiredBackgroundRestrictedApps = getBackgroundRestrictedApps();
             BackgroundRestrictionState backgroundRestrictionState = getBackgroundRestrictionState();
+
+            String currentKeyboard = ProtectedApps.getCurrentKeyboardPackage(context);
+            String currentLauncher = ProtectedApps.getCurrentLauncherPackage(context);
+
+            if (!shellManager.hasAnyShellPermission()) {
+                if (onFullList != null) {
+                    handler.post(() -> {
+                        currentAppsList.clear();
+                        onFullList.accept(new ArrayList<>());
+                    });
+                }
+                return;
+            }
+
+            if (onQuickList != null) {
+                Map<String, Integer> quickPidByPackage = new HashMap<>();
+                try {
+                    String quickOutput = runPs("ps -A -o pid,name | grep '\\.'");
+                    if (quickOutput != null) {
+                        try (BufferedReader reader = new BufferedReader(new StringReader(quickOutput))) {
+                            String line;
+                            while ((line = reader.readLine()) != null) {
+                                String[] parts = line.trim().split("\\s+", 2);
+                                if (parts.length < 2) continue;
+                                String packageName = parts[1].trim();
+                                if (packageName.contains(":")) {
+                                    packageName = packageName.substring(0, packageName.indexOf(":"));
+                                }
+                                if (packageName.isEmpty() || !packageName.contains(".")) continue;
+                                try {
+                                    int pid = Integer.parseInt(parts[0].trim());
+                                    quickPidByPackage.putIfAbsent(packageName, pid);
+                                } catch (NumberFormatException ignored) {
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    AppDebugManager.e(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundApps quick-list error", e);
+                }
+
+                List<AppModel> quickResult = buildAppModelList(quickPidByPackage, packageManager, hiddenApps,
+                        whitelistedApps, desiredBackgroundRestrictedApps, backgroundRestrictionState,
+                        currentKeyboard, currentLauncher, /* withRam= */ false);
+                sortAppList(quickResult, SORT_MODE_DEFAULT);
+                handler.post(() -> onQuickList.accept(new ArrayList<>(quickResult)));
+            }
+
+            if (onFullList == null) {
+                return;
+            }
+
+            List<AppModel> result = new ArrayList<>();
+            Map<String, long[]> psAggregated = new HashMap<>();
             String memorySource = "PSS";
 
-            if (shellManager.hasAnyShellPermission()) {
-                try {
-                    String meminfoOutput = runPs("dumpsys meminfo");
-                    if (meminfoOutput != null && !meminfoOutput.trim().isEmpty()) {
-                        parseTotalPssByProcess(meminfoOutput, packageManager, psAggregated);
-                    }
+            try {
+                String meminfoOutput = runPs("dumpsys meminfo");
+                if (meminfoOutput != null && !meminfoOutput.trim().isEmpty()) {
+                    parseTotalPssByProcess(meminfoOutput, packageManager, psAggregated);
+                }
 
-                    if (psAggregated.isEmpty()) {
-                        memorySource = "RSS";
-                        AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundApps: dumpsys meminfo yielded no packages — falling back to ps/rss");
-                        String command = "ps -A -o pid,rss,name | grep '\\.'";
-                        String fullOutput = runPs(command);
-                        if (fullOutput != null) {
-                            try (BufferedReader reader = new BufferedReader(new StringReader(fullOutput))) {
-                                String line;
-                                while ((line = reader.readLine()) != null) {
-                                    String[] parts = line.trim().split("\\s+");
-                                    if (parts.length >= 3) {
-                                        String packageName = parts[2].trim();
-                                        if (packageName.contains(":")) {
-                                            packageName = packageName.substring(0, packageName.indexOf(":"));
-                                        }
-                                        if (!packageName.isEmpty() && packageName.contains(".")
-                                                && !packageName.startsWith("ERROR:")) {
-                                            try {
-                                                packageManager.getApplicationInfo(packageName, 0);
-                                                long rss = 0;
-                                                int pid = -1;
-                                                try { rss = Long.parseLong(parts[1].trim()); } catch (NumberFormatException ignored) {}
-                                                try { pid = Integer.parseInt(parts[0].trim()); } catch (NumberFormatException ignored) {}
-                                                long[] existing = psAggregated.get(packageName);
-                                                if (existing == null) {
-                                                    psAggregated.put(packageName, new long[]{rss, pid});
-                                                } else {
-                                                    existing[0] += rss;
-                                                    if (pid != -1 && (existing[1] == -1 || pid < existing[1])) {
-                                                        existing[1] = pid;
-                                                    }
+                if (psAggregated.isEmpty()) {
+                    memorySource = "RSS";
+                    AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundApps: dumpsys meminfo yielded no packages — falling back to ps/rss");
+                    String command = "ps -A -o pid,rss,name | grep '\\.'";
+                    String fullOutput = runPs(command);
+                    if (fullOutput != null) {
+                        try (BufferedReader reader = new BufferedReader(new StringReader(fullOutput))) {
+                            String line;
+                            while ((line = reader.readLine()) != null) {
+                                String[] parts = line.trim().split("\\s+");
+                                if (parts.length >= 3) {
+                                    String packageName = parts[2].trim();
+                                    if (packageName.contains(":")) {
+                                        packageName = packageName.substring(0, packageName.indexOf(":"));
+                                    }
+                                    if (!packageName.isEmpty() && packageName.contains(".")
+                                            && !packageName.startsWith("ERROR:")) {
+                                        try {
+                                            packageManager.getApplicationInfo(packageName, 0);
+                                            long rss = 0;
+                                            int pid = -1;
+                                            try { rss = Long.parseLong(parts[1].trim()); } catch (NumberFormatException ignored) {}
+                                            try { pid = Integer.parseInt(parts[0].trim()); } catch (NumberFormatException ignored) {}
+                                            long[] existing = psAggregated.get(packageName);
+                                            if (existing == null) {
+                                                psAggregated.put(packageName, new long[]{rss, pid});
+                                            } else {
+                                                existing[0] += rss;
+                                                if (pid != -1 && (existing[1] == -1 || pid < existing[1])) {
+                                                    existing[1] = pid;
                                                 }
-                                            } catch (PackageManager.NameNotFoundException ignored) {
                                             }
+                                        } catch (PackageManager.NameNotFoundException ignored) {
                                         }
                                     }
                                 }
                             }
-                        } else {
-                            AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundApps failed to get running apps, ps output is null");
-                            handler.post(() -> Toast
-                                    .makeText(context, context.getString(R.string.toast_failed_get_running_apps), Toast.LENGTH_SHORT).show());
                         }
+                    } else {
+                        AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundApps failed to get running apps, ps output is null");
+                        handler.post(() -> Toast
+                                .makeText(context, context.getString(R.string.toast_failed_get_running_apps), Toast.LENGTH_SHORT).show());
                     }
-                    AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundApps: memorySource=" + memorySource);
-                } catch (Exception e) {
-                    AppDebugManager.e(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundApps error getting running apps", e);
-                    handler.post(() -> Toast
-                            .makeText(context, context.getString(R.string.toast_error_getting_running_apps, e.getMessage()), Toast.LENGTH_SHORT)
-                            .show());
                 }
+                AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundApps: memorySource=" + memorySource);
+            } catch (Exception e) {
+                AppDebugManager.e(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundApps error getting running apps", e);
+                handler.post(() -> Toast
+                        .makeText(context, context.getString(R.string.toast_error_getting_running_apps, e.getMessage()), Toast.LENGTH_SHORT)
+                        .show());
             }
-
-            String currentKeyboard = ProtectedApps.getCurrentKeyboardPackage(context);
-            String currentLauncher = ProtectedApps.getCurrentLauncherPackage(context);
 
             for (Map.Entry<String, long[]> entry : psAggregated.entrySet()) {
                 String packageName = entry.getKey();
@@ -394,11 +445,52 @@ public class BackgroundAppManager {
             handler.post(() -> {
                 currentAppsList.clear();
                 currentAppsList.addAll(result);
-                if (callback != null) {
-                    callback.accept(new ArrayList<>(result));
-                }
+                onFullList.accept(new ArrayList<>(result));
             });
         });
+    }
+
+    private List<AppModel> buildAppModelList(Map<String, Integer> pidByPackage, PackageManager packageManager,
+            Set<String> hiddenApps, Set<String> whitelistedApps, Set<String> desiredBackgroundRestrictedApps,
+            BackgroundRestrictionState backgroundRestrictionState, String currentKeyboard, String currentLauncher,
+            boolean withRam) {
+        List<AppModel> result = new ArrayList<>();
+        for (Map.Entry<String, Integer> entry : pidByPackage.entrySet()) {
+            String packageName = entry.getKey();
+            int pid = entry.getValue();
+            try {
+                if (hiddenApps.contains(packageName)) {
+                    continue;
+                }
+
+                boolean isProtected = ProtectedApps.isProtected(packageName, currentKeyboard, currentLauncher);
+                ApplicationInfo appInfo = packageManager.getApplicationInfo(packageName, 0);
+
+                boolean isPersistentApp = (appInfo.flags & ApplicationInfo.FLAG_PERSISTENT) != 0;
+                boolean isSystemApp = (appInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
+
+                if (!showSystemApps && isSystemApp || !showPersistentApps && isPersistentApp) {
+                    continue;
+                }
+
+                AppModel appModel = new AppModel(
+                        packageManager.getApplicationLabel(appInfo).toString(),
+                        packageName,
+                        withRam ? formatMemorySize(0) : "-",
+                        0,
+                        getCachedIcon(packageName, appInfo, packageManager),
+                        isSystemApp,
+                        isPersistentApp,
+                        isProtected);
+                appModel.setPid(pid);
+
+                appModel.setWhitelisted(whitelistedApps.contains(packageName));
+                applyBackgroundRestrictionState(appModel, desiredBackgroundRestrictedApps, backgroundRestrictionState);
+                result.add(appModel);
+            } catch (PackageManager.NameNotFoundException ignored) {
+            }
+        }
+        return result;
     }
 
     public void loadBackgroundRestrictionApps(Consumer<List<AppModel>> callback) {
