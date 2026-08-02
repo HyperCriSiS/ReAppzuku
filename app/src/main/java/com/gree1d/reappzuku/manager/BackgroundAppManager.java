@@ -1353,10 +1353,13 @@ public class BackgroundAppManager {
             for (String mode : modes) {
                 String output = shellManager.runShellCommandAndGetFullOutput(
                         "cmd appops query-op --user current " + op + " " + mode);
-                
-                if (output != null && !output.isEmpty()) {
+
+                if (output != null) {
+                   
                     querySucceeded = true;
-                    mergeBackgroundRestrictedPackages(restrictedPackages, output);
+                    if (!output.isEmpty()) {
+                        mergeBackgroundRestrictedPackages(restrictedPackages, output);
+                    }
                 }
             }
         }
@@ -1482,8 +1485,10 @@ public class BackgroundAppManager {
             Set<String> restricted = new HashSet<>();
             String ignoreOut = shellManager.runShellCommandAndGetFullOutput(
                     "cmd appops query-op --user current " + op + " ignore");
-            if (ignoreOut != null) mergeBackgroundRestrictedPackages(restricted, ignoreOut);
-            if (ignoreOut == null) {
+            if (ignoreOut != null) {
+                // Empty string is a valid "no packages restricted" result, not a failure.
+                mergeBackgroundRestrictedPackages(restricted, ignoreOut);
+            } else {
                 AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": collectDriftedOps query-op failed for " + op
                         + ", drift detection may be unreliable for this op");
             }
