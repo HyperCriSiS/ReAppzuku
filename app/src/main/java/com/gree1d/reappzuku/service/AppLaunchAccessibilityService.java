@@ -14,8 +14,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.ShellManager;
@@ -41,10 +41,11 @@ public class AppLaunchAccessibilityService extends AccessibilityService {
     @Override
     public void onCreate() {
         super.onCreate();
-        executor = Executors.newSingleThreadExecutor();
-        shellManager = new ShellManager(getApplicationContext(), handler, executor);
+        App app = (App) getApplicationContext();
+        executor = app.getSharedExecutor();
+        shellManager = app.getShellManager();
         BackgroundAppManager appManager = new BackgroundAppManager(
-                getApplicationContext(), handler, executor, shellManager);
+                getApplicationContext(), handler, executor, app.getShellExecutor(), shellManager);
         autoKillManager = new AutoKillManager(
                 getApplicationContext(), handler, executor, shellManager,
                 appManager.getCurrentAppsList());
@@ -148,9 +149,6 @@ public class AppLaunchAccessibilityService extends AccessibilityService {
     public void onDestroy() {
         super.onDestroy();
         AppDebugManager.d(Category.ADVANCED_CONDITIONS, "AppLaunchAccessibilityService: Service destroyed");
-        if (executor != null) {
-            executor.shutdown();
-        }
     }
 
     private String resolveKillSource(String defaultSource) {

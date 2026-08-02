@@ -3,7 +3,6 @@ package com.gree1d.reappzuku.service;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Handler;
-import android.os.Looper;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 
@@ -18,10 +17,10 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
 
@@ -74,13 +73,14 @@ public class AutoKillWorker extends Worker {
             if (getCurrentRamUsagePercent() < threshold) return Result.success();
         }
 
-        Handler handler = new Handler(Looper.getMainLooper());
-        ExecutorService executor = Executors.newSingleThreadExecutor();
+        App app = (App) getApplicationContext();
+        Handler handler = app.getSharedHandler();
+        ExecutorService executor = app.getSharedExecutor();
 
         try {
-            ShellManager shellManager = new ShellManager(getApplicationContext(), handler, executor);
+            ShellManager shellManager = app.getShellManager();
             BackgroundAppManager appManager = new BackgroundAppManager(
-                    getApplicationContext(), handler, executor, shellManager);
+                    getApplicationContext(), handler, executor, app.getShellExecutor(), shellManager);
             AutoKillManager autoKillManager = new AutoKillManager(
                     getApplicationContext(), handler, executor, shellManager, appManager.getCurrentAppsList());
 
@@ -111,8 +111,6 @@ public class AutoKillWorker extends Worker {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return Result.retry();
-        } finally {
-            executor.shutdown();
         }
     }
 

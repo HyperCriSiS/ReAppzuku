@@ -9,10 +9,10 @@ import android.os.Handler;
 import android.os.Looper;
 
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
@@ -124,15 +124,15 @@ public class HardwareEventReceiver extends BroadcastReceiver {
         pendingKill = () -> {
             pendingKill = null;
             AppDebugManager.i(Category.ADVANCED_CONDITIONS, "HardwareEventReceiver: Executing Auto-Kill triggered by: " + finalDescription);
-            ExecutorService executor = Executors.newSingleThreadExecutor();
-            ShellManager shellManager = new ShellManager(appContext, debounceHandler, executor);
-            BackgroundAppManager appManager = new BackgroundAppManager(appContext, debounceHandler, executor, shellManager);
+            App app = (App) appContext;
+            ExecutorService executor = app.getSharedExecutor();
+            ShellManager shellManager = app.getShellManager();
+            BackgroundAppManager appManager = new BackgroundAppManager(appContext, debounceHandler, executor, app.getShellExecutor(), shellManager);
             AutoKillManager autoKillManager = new AutoKillManager(appContext, debounceHandler, executor, shellManager,
                     appManager.getCurrentAppsList());
 
             autoKillManager.performAutoKill(() -> {
                 AppDebugManager.i(Category.ADVANCED_CONDITIONS, "HardwareEventReceiver: Auto-Kill completed for event: " + finalDescription);
-                executor.shutdown();
             }, resolveKillSource(appContext, "Hardware event: " + finalDescription));
         };
 
