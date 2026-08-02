@@ -460,7 +460,7 @@ public class BackgroundAppManager {
             String memorySource = "PSS";
 
             try {
-              
+                
                 Map<String, List<Integer>> pidsByPackageForMeminfo = new HashMap<>();
                 Map<Integer, Long> psRssByPid = new HashMap<>();
                 try {
@@ -1426,29 +1426,51 @@ public class BackgroundAppManager {
         if (!supportsBackgroundRestriction() || !shellManager.hasAnyShellPermission()) {
             return new BackgroundRestrictionState(fallbackPackages, false);
         }
-    
-        Set<String> restrictedPackages = new HashSet<>();
-        boolean querySucceeded = false;
-    
+
+       
+        List<String> queuedOps = new ArrayList<>();
+        StringBuilder batchedCommand = new StringBuilder();
+        String[] modes = {"ignore", "deny"};
+        int queryIndex = 0;
         for (int i = 0; i < ALL_OPS.length; i++) {
             if (!isOpSupported(i)) continue;
             String op = ALL_OPS[i];
-            String[] modes = {"ignore", "deny"};
-            
             for (String mode : modes) {
-                String output = shellManager.runShellCommandAndGetFullOutput(
-                        "cmd appops query-op --user current " + op + " " + mode);
-
-                if (output != null) {
-                   
-                    querySucceeded = true;
-                    if (!output.isEmpty()) {
-                        mergeBackgroundRestrictedPackages(restrictedPackages, output);
-                    }
-                }
+                String marker = "---APPOPS-" + queryIndex + "---";
+                batchedCommand.append("echo ").append(marker).append("; ")
+                        .append("cmd appops query-op --user current ").append(op).append(" ").append(mode)
+                        .append("; ");
+                queuedOps.add(op + " " + mode);
+                queryIndex++;
             }
         }
-    
+
+        if (queuedOps.isEmpty()) {
+            return new BackgroundRestrictionState(fallbackPackages, false);
+        }
+
+        String combinedOutput = shellManager.runShellCommandAndGetFullOutput(batchedCommand.toString());
+
+        Set<String> restrictedPackages = new HashSet<>();
+        boolean querySucceeded = false;
+
+        if (combinedOutput != null) {
+            querySucceeded = true;
+            String[] sections = combinedOutput.split("---APPOPS-\\d+---");
+           
+            int successfulSections = 0;
+            for (int s = 1; s < sections.length; s++) {
+                String section = sections[s].trim();
+                if (!section.isEmpty()) {
+                    successfulSections++;
+                    mergeBackgroundRestrictedPackages(restrictedPackages, section);
+                }
+            }
+            AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME
+                    + ": getBackgroundRestrictionState batched query: " + queuedOps.size() + " ops sent, "
+                    + (sections.length - 1) + " sections returned, " + successfulSections + " non-empty");
+        }
+
         if (!querySucceeded) {
             AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, 
                 FILE_NAME + ": getBackgroundRestrictionState all appops queries failed, using fallback ("
