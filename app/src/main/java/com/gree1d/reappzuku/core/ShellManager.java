@@ -12,6 +12,7 @@ import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.shell.IShellCallback;
 import com.gree1d.reappzuku.core.shell.IShellService;
+import com.gree1d.reappzuku.core.shell.ProcessMemoryInfo;
 import com.gree1d.reappzuku.core.shell.ShellExecResult;
 import com.gree1d.reappzuku.core.shell.ShizukuUserServiceImpl;
 
@@ -19,6 +20,7 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -311,6 +313,34 @@ public class ShellManager {
         }
         AppDebugManager.w(Category.CORE, "ShellManager: runShellCommandAndGetFullOutput: no Root or Shizuku permission available, command=" + command);
         return null;
+    }
+
+    // Reads PSS for the given pids via the UserService's ActivityManager.getProcessMemoryInfo(),
+    // instead of shelling out to "dumpsys meminfo" and parsing a text dump of every process
+    // in the system. Shizuku-only: the UserService binding is how this call reaches shell/root
+    // identity, so root-only mode (su without Shizuku) returns an empty list rather than
+    // falling back to a su-spawned equivalent.
+    @androidx.annotation.WorkerThread
+    public java.util.List<ProcessMemoryInfo> getProcessMemoryInfo(int[] pids) {
+        if (pids == null || pids.length == 0) {
+            return Collections.emptyList();
+        }
+        if (!hasShizukuPermission()) {
+            AppDebugManager.w(Category.CORE, "ShellManager: getProcessMemoryInfo: Shizuku permission not available");
+            return Collections.emptyList();
+        }
+        IShellService service = awaitUserService();
+        if (service == null) {
+            AppDebugManager.w(Category.CORE, "ShellManager: getProcessMemoryInfo: UserService not bound");
+            return Collections.emptyList();
+        }
+        try {
+            ProcessMemoryInfo[] result = service.getProcessMemoryInfo(pids);
+            return result == null ? Collections.emptyList() : java.util.Arrays.asList(result);
+        } catch (Exception e) {
+            AppDebugManager.e(Category.CORE, "ShellManager: getProcessMemoryInfo failed", e);
+            return Collections.emptyList();
+        }
     }
 
     @androidx.annotation.WorkerThread
