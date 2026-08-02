@@ -460,7 +460,7 @@ public class BackgroundAppManager {
             String memorySource = "PSS";
 
             try {
-                
+               
                 Map<String, List<Integer>> pidsByPackageForMeminfo = new HashMap<>();
                 Map<Integer, Long> psRssByPid = new HashMap<>();
                 try {
@@ -707,7 +707,7 @@ public class BackgroundAppManager {
                         packageName,
                         "-",
                         0,
-                        pm.getApplicationIcon(appInfo),
+                        getCachedIcon(packageName, appInfo, pm),
                         (appInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0,
                         (appInfo.flags & ApplicationInfo.FLAG_PERSISTENT) != 0,
                         ProtectedApps.isProtected(context, packageName));
@@ -1471,6 +1471,7 @@ public class BackgroundAppManager {
         if (combinedOutput != null) {
             querySucceeded = true;
             String[] sections = combinedOutput.split("---APPOPS-\\d+---");
+            
             int successfulSections = 0;
             for (int s = 1; s < sections.length; s++) {
                 String section = sections[s].trim();
