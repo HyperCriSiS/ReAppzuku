@@ -865,7 +865,7 @@ public class MainActivity extends BaseActivity {
                 .map(AppModel::getPackageName)
                 .collect(Collectors.toSet());
 
-        appManager.loadBackgroundApps(
+        appManager.loadBackgroundAppsForMainScreen(
                 quickResult -> {
                     AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: loadBackgroundApps quick list, count=" + quickResult.size());
                     applyLoadedAppsList(quickResult, selectedPackages, /* finished= */ false);
@@ -876,13 +876,6 @@ public class MainActivity extends BaseActivity {
                 });
     }
 
-    /**
-     * Shared by both phases of the new two-phase loadBackgroundApps: the quick, RAM-less
-     * list (shown immediately so the UI isn't blank for the ~5-10s dumpsys meminfo can
-     * take) and the full PSS/RSS-enriched list that follows. Both need the same
-     * selection-restoring, filtering, and count/CPU-monitor refresh — only the
-     * refresh-spinner's stop differs, gated by {@code finished}.
-     */
     private void applyLoadedAppsList(List<AppModel> result, Set<String> selectedPackages, boolean finished) {
         if (binding == null || isFinishing() || isDestroyed()) return;
 
