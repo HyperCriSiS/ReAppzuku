@@ -865,24 +865,42 @@ public class MainActivity extends BaseActivity {
                 .map(AppModel::getPackageName)
                 .collect(Collectors.toSet());
 
-        appManager.loadBackgroundApps(result -> {
-            if (binding == null || isFinishing() || isDestroyed()) return;
+        appManager.loadBackgroundApps(
+                quickResult -> {
+                    AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: loadBackgroundApps quick list, count=" + quickResult.size());
+                    applyLoadedAppsList(quickResult, selectedPackages, /* finished= */ false);
+                },
+                fullResult -> {
+                    AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: loadBackgroundApps finished, count=" + fullResult.size());
+                    applyLoadedAppsList(fullResult, selectedPackages, /* finished= */ true);
+                });
+    }
 
-            fullAppsList.clear();
-            fullAppsList.addAll(result);
+    /**
+     * Shared by both phases of the new two-phase loadBackgroundApps: the quick, RAM-less
+     * list (shown immediately so the UI isn't blank for the ~5-10s dumpsys meminfo can
+     * take) and the full PSS/RSS-enriched list that follows. Both need the same
+     * selection-restoring, filtering, and count/CPU-monitor refresh — only the
+     * refresh-spinner's stop differs, gated by {@code finished}.
+     */
+    private void applyLoadedAppsList(List<AppModel> result, Set<String> selectedPackages, boolean finished) {
+        if (binding == null || isFinishing() || isDestroyed()) return;
 
-            for (AppModel app : fullAppsList) {
-                if (selectedPackages.contains(app.getPackageName()) && !app.isProtected()) {
-                    app.setSelected(true);
-                }
+        fullAppsList.clear();
+        fullAppsList.addAll(result);
+
+        for (AppModel app : fullAppsList) {
+            if (selectedPackages.contains(app.getPackageName()) && !app.isProtected()) {
+                app.setSelected(true);
             }
+        }
 
-            filterApps(currentSearchQuery);
-            binding.runningApps.setText(getString(R.string.main_active_apps_count, fullAppsList.size()));
+        filterApps(currentSearchQuery);
+        binding.runningApps.setText(getString(R.string.main_active_apps_count, fullAppsList.size()));
+        if (finished) {
             binding.swiperefreshlayout1.setRefreshing(false);
-            cpuMonitor.refreshAppsList(fullAppsList);
-            AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: loadBackgroundApps finished, count=" + fullAppsList.size());
-        });
+        }
+        cpuMonitor.refreshAppsList(fullAppsList);
     }
 
     private void filterApps(String query) {
