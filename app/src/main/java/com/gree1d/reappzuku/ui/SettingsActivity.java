@@ -7,7 +7,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Looper;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -22,6 +21,7 @@ import androidx.appcompat.app.AlertDialog;
 
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.databinding.ActivitySettingsBinding;
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.BackupManager;
@@ -42,7 +42,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static com.gree1d.reappzuku.core.AppConstants.*;
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
@@ -61,8 +60,8 @@ public class SettingsActivity extends SettingsActivityDialogs
     private RestrictionsScheduler scheduler;
     private AdditionalScenariosManager additionalScenariosManager;
     private RamKillShortcutManager ramKillShortcutManager;
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private final ExecutorService executor = Executors.newCachedThreadPool();
+    private Handler handler;
+    private ExecutorService executor;
     private int easterEggClickCount = 0;
     private static final int EASTER_EGG_THRESHOLD = 5;
     private PresetManager presetManager;
@@ -129,8 +128,11 @@ public class SettingsActivity extends SettingsActivityDialogs
         binding = ActivitySettingsBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        shellManager = new ShellManager(this.getApplicationContext(), handler, executor);
-        appManager = new BackgroundAppManager(this.getApplicationContext(), handler, executor, shellManager);
+        App app = (App) getApplication();
+        handler = app.getSharedHandler();
+        executor = app.getSharedExecutor();
+        shellManager = app.getShellManager();
+        appManager = new BackgroundAppManager(this.getApplicationContext(), handler, executor, app.getShellExecutor(), shellManager);
         autoKillManager = new AutoKillManager(this.getApplicationContext(), handler, executor, shellManager, appManager.getCurrentAppsList());
         sleepModeManager = new SleepModeManager(this.getApplicationContext(), handler, executor, shellManager);
         backupManager = new BackupManager(this);
@@ -177,8 +179,6 @@ public class SettingsActivity extends SettingsActivityDialogs
     protected void onDestroy() {
         super.onDestroy();
         AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": onDestroy");
-        handler.removeCallbacksAndMessages(null);
-        executor.shutdownNow();
         binding = null;
     }
 

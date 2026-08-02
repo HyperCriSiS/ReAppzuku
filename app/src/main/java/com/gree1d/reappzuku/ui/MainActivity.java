@@ -150,7 +150,7 @@ public class MainActivity extends BaseActivity {
         appliedCustomColor = sharedPreferences.getInt(KEY_ACCENT_CUSTOM_COLOR, ACCENT_CUSTOM_DEFAULT_COLOR);
         appliedOnColor = sharedPreferences.getInt(KEY_ACCENT_ON_COLOR, ACCENT_ON_WHITE);
 
-        appManager = new BackgroundAppManager(this, handler, executor, shellManager);
+        appManager = new BackgroundAppManager(this, handler, executor, app.getShellExecutor(), shellManager);
         autoKillManager = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());
         ramMonitor = new RamMonitor(this, handler, binding.ramUsage, binding.ramUsageText);
         cpuMonitor = new CpuMonitor(handler, executor, shellManager);

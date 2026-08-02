@@ -11,7 +11,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Looper;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.InputType;
@@ -42,10 +41,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import com.gree1d.reappzuku.utils.AppModel;
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.utils.PresetModel;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
@@ -70,8 +69,8 @@ public class PresetSettingsActivity extends BaseActivity {
     private BackgroundAppManager appManager;
     private AutoKillManager autoKillManager;
     private ShellManager shellManager;
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private final ExecutorService executor = Executors.newCachedThreadPool();
+    private Handler handler;
+    private ExecutorService executor;
 
     private int presetNumber;
     private PresetManager presetManager;
@@ -127,8 +126,11 @@ public class PresetSettingsActivity extends BaseActivity {
         AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: onCreate presetNumber=" + presetNumber);
         presetManager = new PresetManager(this);
         sharedPreferences = getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
-        shellManager = new ShellManager(this.getApplicationContext(), handler, executor);
-        appManager = new BackgroundAppManager(this.getApplicationContext(), handler, executor, shellManager);
+        App app = (App) getApplication();
+        handler = app.getSharedHandler();
+        executor = app.getSharedExecutor();
+        shellManager = app.getShellManager();
+        appManager = new BackgroundAppManager(this.getApplicationContext(), handler, executor, app.getShellExecutor(), shellManager);
         autoKillManager = new AutoKillManager(this.getApplicationContext(), handler, executor, shellManager, appManager.getCurrentAppsList());
 
         setupToolbar();
@@ -1091,7 +1093,6 @@ public class PresetSettingsActivity extends BaseActivity {
     protected void onDestroy() {
         AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: onDestroy preset #" + presetNumber);
         super.onDestroy();
-        executor.shutdownNow();
         binding = null;
     }
 }

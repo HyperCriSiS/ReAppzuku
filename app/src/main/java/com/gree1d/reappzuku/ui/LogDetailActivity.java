@@ -6,7 +6,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -30,6 +29,7 @@ import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.BaseActivity;
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.RestrictionsScheduler;
@@ -41,7 +41,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static com.gree1d.reappzuku.core.AppConstants.*;
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
@@ -68,8 +67,8 @@ public class LogDetailActivity extends BaseActivity {
             -1L
     };
 
-    final Handler handler = new Handler(Looper.getMainLooper());
-    final ExecutorService executor = Executors.newCachedThreadPool();
+    Handler handler;
+    ExecutorService executor;
 
     private ShellManager shellManager;
     private BackgroundAppManager appManager;
@@ -105,8 +104,11 @@ public class LogDetailActivity extends BaseActivity {
 
         topOffenderFilterLabels = getResources().getStringArray(R.array.settings_top_offender_filter_labels);
 
-        shellManager = new ShellManager(getApplicationContext(), handler, executor);
-        appManager   = new BackgroundAppManager(getApplicationContext(), handler, executor, shellManager);
+        App app = (App) getApplication();
+        handler  = app.getSharedHandler();
+        executor = app.getSharedExecutor();
+        shellManager = app.getShellManager();
+        appManager   = new BackgroundAppManager(getApplicationContext(), handler, executor, app.getShellExecutor(), shellManager);
 
         toolbar       = findViewById(R.id.log_detail_toolbar);
         filterLayout  = findViewById(R.id.log_detail_filter_layout);
@@ -135,7 +137,6 @@ public class LogDetailActivity extends BaseActivity {
     protected void onDestroy() {
         super.onDestroy();
         AppDebugManager.d(Category.STATISTICS_PAGE, FILE + ": onDestroy");
-        executor.shutdownNow();
     }
 
     android.content.SharedPreferences prefs() {
