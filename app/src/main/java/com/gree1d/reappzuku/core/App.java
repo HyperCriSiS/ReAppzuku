@@ -12,6 +12,7 @@ public class App extends Application {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final ExecutorService shellExecutor = Executors.newSingleThreadExecutor();
     private ShellManager shellManager;
 
     @Override
@@ -34,5 +35,9 @@ public class App extends Application {
 
     public ExecutorService getSharedExecutor() {
         return executor;
+    }
+
+    public ExecutorService getShellExecutor() {
+        return shellExecutor;
     }
 }
