@@ -9,6 +9,7 @@ import android.widget.Toast;
 
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
 
@@ -18,9 +19,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import android.os.Handler;
-import android.os.Looper;
 
 public class KillShortcutActivity extends Activity {
 
@@ -29,8 +28,9 @@ public class KillShortcutActivity extends Activity {
 
     private ShellManager shellManager;
     private AutoKillManager autoKillManager;
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private Handler handler;
+    private ExecutorService executor;
+    private ExecutorService shellExecutor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,7 +51,11 @@ public class KillShortcutActivity extends Activity {
             return;
         }
 
-        shellManager = new ShellManager(this, handler, executor);
+        App app = (App) getApplication();
+        handler = app.getSharedHandler();
+        executor = app.getSharedExecutor();
+        shellExecutor = app.getShellExecutor();
+        shellManager = app.getShellManager();
 
         if (!shellManager.hasAnyShellPermission()) {
             AppDebugManager.w(Category.SHORTCUTS_WIDGETS, TAG + ": no shell permission, aborting");
@@ -62,7 +66,7 @@ public class KillShortcutActivity extends Activity {
 
         autoKillManager = new AutoKillManager(this, handler, executor, shellManager, new ArrayList<>());
 
-        executor.execute(() -> {
+        shellExecutor.execute(() -> {
             String targetPackage = findKillablePackage();
             AppDebugManager.d(Category.SHORTCUTS_WIDGETS, TAG + ": findKillablePackage result=" + targetPackage);
             handler.post(() -> {
@@ -176,6 +180,5 @@ public class KillShortcutActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        executor.shutdown();
     }
 }

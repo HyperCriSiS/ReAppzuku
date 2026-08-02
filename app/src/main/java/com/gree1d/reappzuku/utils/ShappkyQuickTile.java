@@ -8,13 +8,12 @@ import android.service.quicksettings.Tile;
 import android.service.quicksettings.TileService;
 import android.graphics.drawable.Icon;
 import android.os.Handler;
-import android.os.Looper;
 import android.widget.Toast;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
@@ -24,8 +23,9 @@ public class ShappkyQuickTile extends TileService {
 
     private ShellManager shellManager;
     private AutoKillManager autoKillManager;
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private Handler handler;
+    private ExecutorService executor;
+    private ExecutorService shellExecutor;
 
     @Override
     public void onTileAdded() {
@@ -66,16 +66,20 @@ public class ShappkyQuickTile extends TileService {
         super.onClick();
         AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "ShappkyQuickTile: onClick");
         if (shellManager == null) {
-            shellManager = new ShellManager(this, handler, executor);
+            App app = (App) getApplicationContext();
+            handler = app.getSharedHandler();
+            executor = app.getSharedExecutor();
+            shellExecutor = app.getShellExecutor();
+            shellManager = app.getShellManager();
             AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "ShappkyQuickTile: onClick ShellManager initialized");
         }
         if (autoKillManager == null) {
-            BackgroundAppManager appManager = new BackgroundAppManager(this, handler, executor, shellManager);
+            BackgroundAppManager appManager = new BackgroundAppManager(this, handler, executor, shellExecutor, shellManager);
             autoKillManager = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());
             AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "ShappkyQuickTile: onClick AutoKillManager initialized");
         }
 
-        executor.execute(() -> {
+        shellExecutor.execute(() -> {
             if (!shellManager.resolveAnyShellPermission()) {
                 AppDebugManager.w(Category.SHORTCUTS_WIDGETS, "ShappkyQuickTile: onClick no shell permission available");
                 handler.post(() -> {
@@ -187,7 +191,6 @@ public class ShappkyQuickTile extends TileService {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "ShappkyQuickTile: onDestroy, shutting down executor");
-        executor.shutdownNow();
+        AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "ShappkyQuickTile: onDestroy");
     }
 }
