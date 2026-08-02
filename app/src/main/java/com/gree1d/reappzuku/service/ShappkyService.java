@@ -237,6 +237,13 @@ public class ShappkyService extends Service {
                     return;
                 }
                 AppDebugManager.d(Category.CORE, FILE_NAME + ": Shell/root access confirmed, proceeding with service init");
+                if (!shellManager.hasRootAccess()) {
+                    // Bind the Shizuku UserService up front so that BackgroundAppManager's
+                    // appops query-op calls (issued later in initializeManagersAndReceivers)
+                    // don't race the async sticky binder-received listener and time out
+                    // against an unbound service.
+                    shellManager.bindUserService();
+                }
                 initializeManagersAndReceivers();
             });
         });
