@@ -157,6 +157,9 @@ public class AutoKillManager {
 
             boolean presetActive = new PresetManager(context).getActivePresetNumber() != 0;
 
+            String currentKeyboard = ProtectedApps.getCurrentKeyboardPackage(context);
+            String currentLauncher = ProtectedApps.getCurrentLauncherPackage(context);
+
             List<String> toKill = runningPackages.stream()
                     .filter(pkg -> {
                         try {
@@ -164,7 +167,7 @@ public class AutoKillManager {
                                 AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: SKIP (hidden): " + pkg);
                                 return false;
                             }
-                            if (ProtectedApps.isProtected(context, pkg)) {
+                            if (ProtectedApps.isProtected(pkg, currentKeyboard, currentLauncher)) {
                                 AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: SKIP (protected): " + pkg);
                                 return false;
                             }
@@ -431,6 +434,7 @@ public class AutoKillManager {
 
     private static final java.util.regex.Pattern SECTION_HEADER_LINE =
             java.util.regex.Pattern.compile("^[A-Za-z].*:\\s*$");
+
 
     private void parseTotalPssByProcess(String meminfoOutput, PackageManager pm,
             Set<String> runningPackages, Map<String, Long> psRssMap,
