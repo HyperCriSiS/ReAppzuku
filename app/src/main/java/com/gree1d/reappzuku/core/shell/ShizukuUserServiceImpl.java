@@ -1,7 +1,14 @@
 package com.gree1d.reappzuku.core.shell;
 
+import android.app.ActivityManager;
+import android.app.ActivityThread;
+import android.content.Context;
+import android.os.Debug;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -43,7 +50,15 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
     private static final long READ_DRAIN_GRACE_MS = 2_000L;
     private static final int WATCHDOG_POOL_SIZE = 8;
 
+    // Separate single-thread pool for getProcessMemoryInfo(). This call goes through
+    // ActivityManagerService and can take noticeably longer than a typical shell command
+    // when queried for many pids; keeping it off the shared `watchdog` pool means a slow
+    // memory read can't starve the 8 threads that ordinary execute()/executeWithCallback()
+    // calls rely on. Single-threaded is deliberate: callers already poll on their own
+    // interval, so overlapping memory-info requests would just queue at AMS anyway.
+    private static final long MEMINFO_TIMEOUT_MS = 10_000L;
     private final ExecutorService watchdog = Executors.newFixedThreadPool(WATCHDOG_POOL_SIZE);
+    private final ExecutorService meminfoExecutor = Executors.newSingleThreadExecutor();
 
     public ShizukuUserServiceImpl() {
     }
@@ -118,8 +133,58 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
     }
 
     @Override
+    public ProcessMemoryInfo[] getProcessMemoryInfo(int[] pids) {
+        if (pids == null || pids.length == 0) {
+            return new ProcessMemoryInfo[0];
+        }
+        Future<ProcessMemoryInfo[]> future = meminfoExecutor.submit(() -> readProcessMemoryInfo(pids));
+        try {
+            return future.get(MEMINFO_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            future.cancel(true);
+            return new ProcessMemoryInfo[0];
+        }
+    }
+
+    private ProcessMemoryInfo[] readProcessMemoryInfo(int[] pids) {
+        Context context = ActivityThread.currentApplication();
+        if (context == null) {
+            return new ProcessMemoryInfo[0];
+        }
+        ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        if (am == null) {
+            return new ProcessMemoryInfo[0];
+        }
+
+        Debug.MemoryInfo[] rawInfos;
+        try {
+            rawInfos = am.getProcessMemoryInfo(pids);
+        } catch (Exception e) {
+            return new ProcessMemoryInfo[0];
+        }
+        if (rawInfos == null) {
+            return new ProcessMemoryInfo[0];
+        }
+
+        // getProcessMemoryInfo returns entries positionally aligned with the input pids
+        // array, but a dead/unresolvable pid can yield a null or empty entry rather than
+        // throwing — so results are filtered, not zero-padded, and the count returned can
+        // be smaller than pids.length.
+        List<ProcessMemoryInfo> results = new ArrayList<>(rawInfos.length);
+        for (int i = 0; i < rawInfos.length && i < pids.length; i++) {
+            Debug.MemoryInfo info = rawInfos[i];
+            if (info == null) {
+                continue;
+            }
+            results.add(new ProcessMemoryInfo(pids[i], info.getTotalPss()));
+        }
+        return results.toArray(new ProcessMemoryInfo[0]);
+    }
+
+    @Override
     public void destroy() {
         watchdog.shutdownNow();
+        meminfoExecutor.shutdownNow();
         System.exit(0);
     }
 
