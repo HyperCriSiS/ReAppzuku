@@ -688,10 +688,13 @@ public class BackgroundAppManager {
 
     public void loadBackgroundRestrictionApps(Consumer<List<AppModel>> callback) {
         shellExecutor.execute(() -> {
+            long loadStart = System.currentTimeMillis();
             PackageManager pm = context.getPackageManager();
             List<ApplicationInfo> packages = pm.getInstalledApplications(PackageManager.GET_META_DATA);
+            long afterGetInstalled = System.currentTimeMillis();
             Set<String> desiredPackages = getBackgroundRestrictedApps();
             BackgroundRestrictionState state = getBackgroundRestrictionState();
+            long afterState = System.currentTimeMillis();
             List<AppModel> result = new ArrayList<>();
             for (ApplicationInfo appInfo : packages) {
                 String packageName = appInfo.packageName;
@@ -711,8 +714,18 @@ public class BackgroundAppManager {
                 applyBackgroundRestrictionState(model, desiredPackages, state);
                 result.add(model);
             }
+            long afterBuild = System.currentTimeMillis();
 
             Collections.sort(result, (a, b) -> a.getAppName().compareToIgnoreCase(b.getAppName()));
+            long afterSort = System.currentTimeMillis();
+
+            AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundRestrictionApps timing: "
+                    + "getInstalledApplications=" + (afterGetInstalled - loadStart) + "ms, "
+                    + "getBackgroundRestrictionState=" + (afterState - afterGetInstalled) + "ms, "
+                    + "buildModels(" + packages.size() + " packages, icons)=" + (afterBuild - afterState) + "ms, "
+                    + "sort=" + (afterSort - afterBuild) + "ms, "
+                    + "total=" + (afterSort - loadStart) + "ms");
+
             handler.post(() -> callback.accept(result));
         });
     }
@@ -1427,7 +1440,6 @@ public class BackgroundAppManager {
             return new BackgroundRestrictionState(fallbackPackages, false);
         }
 
-       
         List<String> queuedOps = new ArrayList<>();
         StringBuilder batchedCommand = new StringBuilder();
         String[] modes = {"ignore", "deny"};
@@ -1449,7 +1461,9 @@ public class BackgroundAppManager {
             return new BackgroundRestrictionState(fallbackPackages, false);
         }
 
+        long batchStart = System.currentTimeMillis();
         String combinedOutput = shellManager.runShellCommandAndGetFullOutput(batchedCommand.toString());
+        long batchElapsedMs = System.currentTimeMillis() - batchStart;
 
         Set<String> restrictedPackages = new HashSet<>();
         boolean querySucceeded = false;
@@ -1457,7 +1471,6 @@ public class BackgroundAppManager {
         if (combinedOutput != null) {
             querySucceeded = true;
             String[] sections = combinedOutput.split("---APPOPS-\\d+---");
-           
             int successfulSections = 0;
             for (int s = 1; s < sections.length; s++) {
                 String section = sections[s].trim();
@@ -1468,7 +1481,8 @@ public class BackgroundAppManager {
             }
             AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME
                     + ": getBackgroundRestrictionState batched query: " + queuedOps.size() + " ops sent, "
-                    + (sections.length - 1) + " sections returned, " + successfulSections + " non-empty");
+                    + (sections.length - 1) + " sections returned, " + successfulSections + " non-empty"
+                    + ", took " + batchElapsedMs + "ms");
         }
 
         if (!querySucceeded) {
