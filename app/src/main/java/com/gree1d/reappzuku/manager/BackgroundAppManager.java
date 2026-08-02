@@ -459,14 +459,71 @@ public class BackgroundAppManager {
             String memorySource = "PSS";
 
             try {
-                String meminfoOutput = runPs("dumpsys meminfo");
-                if (meminfoOutput != null && !meminfoOutput.trim().isEmpty()) {
-                    parseTotalPssByProcess(meminfoOutput, packageManager, psAggregated);
+                // Full-list pid collection: same ps parse as the quick-list above, but kept
+                // separate since onQuickList may be null and the two run on independent timing.
+                Map<String, List<Integer>> pidsByPackageForMeminfo = new HashMap<>();
+                try {
+                    String pidListOutput = runPs("ps -A -o pid,name | grep '\\.'");
+                    if (pidListOutput != null) {
+                        try (BufferedReader reader = new BufferedReader(new StringReader(pidListOutput))) {
+                            String line;
+                            while ((line = reader.readLine()) != null) {
+                                String[] parts = line.trim().split("\\s+", 2);
+                                if (parts.length < 2) continue;
+                                String packageName = parts[1].trim();
+                                if (packageName.contains(":")) {
+                                    packageName = packageName.substring(0, packageName.indexOf(":"));
+                                }
+                                if (packageName.isEmpty() || !packageName.contains(".")) continue;
+                                try {
+                                    int pid = Integer.parseInt(parts[0].trim());
+                                    pidsByPackageForMeminfo.computeIfAbsent(packageName, k -> new ArrayList<>()).add(pid);
+                                } catch (NumberFormatException ignored) {
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    AppDebugManager.e(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundAppsForMainScreen pid-list error", e);
+                }
+
+                if (!pidsByPackageForMeminfo.isEmpty()) {
+                    int[] allPids = pidsByPackageForMeminfo.values().stream()
+                            .flatMap(List::stream)
+                            .mapToInt(Integer::intValue)
+                            .toArray();
+
+                    List<com.gree1d.reappzuku.core.shell.ProcessMemoryInfo> memInfos =
+                            shellManager.getProcessMemoryInfo(allPids);
+
+                    if (!memInfos.isEmpty()) {
+                        Map<Integer, Long> pssByPid = new HashMap<>();
+                        for (com.gree1d.reappzuku.core.shell.ProcessMemoryInfo info : memInfos) {
+                            pssByPid.put(info.pid, info.totalPssKb);
+                        }
+                        for (Map.Entry<String, List<Integer>> entry : pidsByPackageForMeminfo.entrySet()) {
+                            String packageName = entry.getKey();
+                            long totalPss = 0;
+                            int firstPid = -1;
+                            for (int pid : entry.getValue()) {
+                                Long pss = pssByPid.get(pid);
+                                if (pss != null) {
+                                    totalPss += pss;
+                                    if (firstPid == -1) {
+                                        firstPid = pid;
+                                    }
+                                }
+                            }
+                            if (firstPid != -1) {
+                                psAggregated.put(packageName, new long[]{totalPss, firstPid});
+                            }
+                        }
+                    }
                 }
 
                 if (psAggregated.isEmpty()) {
                     memorySource = "RSS";
-                    AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundAppsForMainScreen: dumpsys meminfo yielded no packages — falling back to ps/rss");
+                    AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundAppsForMainScreen: getProcessMemoryInfo yielded no packages — falling back to ps/rss");
                     String command = "ps -A -o pid,rss,name | grep '\\.'";
                     String fullOutput = runPs(command);
                     if (fullOutput != null) {
