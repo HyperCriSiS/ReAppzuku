@@ -107,24 +107,14 @@ public class AutoKillManager {
             Map<String, Long> psRssMap = new HashMap<>();
             Map<Integer, String> pidToPackage = new HashMap<>();
             PackageManager pm = context.getPackageManager();
+            String memorySource = "PSS";
 
             if (meminfoOutput != null && !meminfoOutput.trim().isEmpty()) {
                 parseTotalPssByProcess(meminfoOutput, pm, runningPackages, psRssMap, pidToPackage);
             }
 
-            if (!runningPackages.isEmpty()) {
-                long swapStart = System.currentTimeMillis();
-                Map<Integer, Long> swapByPid = collectSwapPssByPid();
-                long swapTookMs = System.currentTimeMillis() - swapStart;
-                if (!swapByPid.isEmpty()) {
-                    mergeSwapIntoPss(swapByPid, pidToPackage, psRssMap);
-                    AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: merged swap for " + swapByPid.size() + " pids (took " + swapTookMs + "ms)");
-                } else {
-                    AppDebugManager.w(Category.AUTO_KILL_BASE, "AutoKillManager: swap collection returned 0 pids (took " + swapTookMs + "ms) — check smaps_rollup access under new UserService");
-                }
-            }
-
             if (runningPackages.isEmpty()) {
+                memorySource = "RSS";
                 AppDebugManager.w(Category.AUTO_KILL_BASE,
                         "AutoKillManager: dumpsys meminfo yielded no packages — falling back to ps/rss");
                 String psOutput = shellManager.runShellCommandAndGetFullOutput(
@@ -160,6 +150,8 @@ public class AutoKillManager {
                 } catch (IOException ignored) {
                 }
             }
+
+            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: memorySource=" + memorySource + " for this cycle");
 
             killOrphanShellProcesses(null);
 
@@ -217,7 +209,7 @@ public class AutoKillManager {
                 String pkg = entry.getKey();
                 if (!psRssMap.containsKey(pkg)) {
                     confirmedFreedKb.put(pkg, entry.getValue());
-                    AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Confirmed freed RAM for " + pkg + ": " + entry.getValue() + " KB");
+                    AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Confirmed freed RAM for " + pkg + ": " + entry.getValue() + " KB [" + memorySource + "]");
                 } else {
                     AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Skipped RAM (relaunched): " + pkg);
                 }
@@ -234,7 +226,7 @@ public class AutoKillManager {
                     long rssKb = psRssMap.getOrDefault(pkg, 0L);
                     if (rssKb > 0) {
                         newPendingRss.put(pkg, rssKb);
-                        AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Pending RSS for " + pkg + ": " + rssKb + " KB");
+                        AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Pending " + memorySource + " for " + pkg + ": " + rssKb + " KB");
                     }
                 }
                 savePendingRss(newPendingRss);
@@ -488,47 +480,6 @@ public class AutoKillManager {
                 }
             }
         } catch (IOException ignored) {
-        }
-    }
-
-    private static final java.util.regex.Pattern SWAP_PID_LINE =
-            java.util.regex.Pattern.compile("^(\\d+)\\s+(\\d+)\\s*$");
-
-    private Map<Integer, Long> collectSwapPssByPid() {
-        Map<Integer, Long> swapByPid = new HashMap<>();
-        String swapOutput = shellManager.runShellCommandAndGetFullOutput(
-                "for p in /proc/[0-9]*; do "
-                        + "s=$(timeout -k 1 1 awk '/^SwapPss:/{print $2}' \"$p/smaps_rollup\" 2>/dev/null); "
-                        + "[ -n \"$s\" ] && [ \"$s\" != \"0\" ] && echo \"${p#/proc/} $s\"; "
-                        + "done");
-        if (swapOutput == null || swapOutput.trim().isEmpty()) {
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: collectSwapPssByPid: empty output (no swapped processes, or smaps_rollup unavailable)");
-            return swapByPid;
-        }
-        try (BufferedReader reader = new BufferedReader(new StringReader(swapOutput))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                java.util.regex.Matcher m = SWAP_PID_LINE.matcher(line.trim());
-                if (!m.matches()) continue;
-                try {
-                    int pid = Integer.parseInt(m.group(1));
-                    long swapKb = Long.parseLong(m.group(2));
-                    swapByPid.put(pid, swapKb);
-                } catch (NumberFormatException ignored) {
-                }
-            }
-        } catch (IOException ignored) {
-        }
-        return swapByPid;
-    }
-
-    private void mergeSwapIntoPss(Map<Integer, Long> swapByPid, Map<Integer, String> pidToPackage,
-            Map<String, Long> psRssMap) {
-        for (Map.Entry<Integer, Long> entry : swapByPid.entrySet()) {
-            String packageName = pidToPackage.get(entry.getKey());
-            if (packageName == null) continue;
-            long existing = psRssMap.getOrDefault(packageName, 0L);
-            psRssMap.put(packageName, existing + entry.getValue());
         }
     }
 
