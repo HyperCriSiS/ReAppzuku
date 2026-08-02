@@ -1,7 +1,6 @@
 package com.gree1d.reappzuku.core.shell;
 
 import android.app.ActivityManager;
-import android.app.ActivityThread;
 import android.content.Context;
 import android.os.Debug;
 
@@ -147,7 +146,7 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
     }
 
     private ProcessMemoryInfo[] readProcessMemoryInfo(int[] pids) {
-        Context context = ActivityThread.currentApplication();
+        Context context = currentApplicationViaReflection();
         if (context == null) {
             return new ProcessMemoryInfo[0];
         }
@@ -179,6 +178,23 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
             results.add(new ProcessMemoryInfo(pids[i], info.getTotalPss()));
         }
         return results.toArray(new ProcessMemoryInfo[0]);
+    }
+
+    // android.app.ActivityThread is a hidden/internal API not present in the public SDK
+    // android.jar, so it cannot be imported or called directly — same constraint as the
+    // HiddenApiBypass reflection used elsewhere in this project for USS. This UserService
+    // process has no normal Application/Activity lifecycle of its own, so this is the only
+    // way to obtain a Context here for ActivityManager.getSystemService().
+    private Context currentApplicationViaReflection() {
+        try {
+            Class<?> activityThreadClass = Class.forName("android.app.ActivityThread");
+            java.lang.reflect.Method currentApplicationMethod =
+                    activityThreadClass.getMethod("currentApplication");
+            Object app = currentApplicationMethod.invoke(null);
+            return (Context) app;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Override
