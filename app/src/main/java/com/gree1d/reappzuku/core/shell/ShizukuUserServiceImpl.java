@@ -2,6 +2,7 @@ package com.gree1d.reappzuku.core.shell;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -62,7 +63,7 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
                 }
                 return null;
             });
-            Future<Integer> waitFuture = watchdog.submit(finalProcess::waitFor);
+            Future<Integer> waitFuture = watchdog.submit((Callable<Integer>) finalProcess::waitFor);
 
             int exitCode = awaitProcessExit(finalProcess, waitFuture, readFuture, command);
             awaitReadDrain(finalProcess, readFuture, command);
@@ -100,7 +101,7 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
                 }
                 return null;
             });
-            Future<Integer> waitFuture = watchdog.submit(finalProcess::waitFor);
+            Future<Integer> waitFuture = watchdog.submit((Callable<Integer>) finalProcess::waitFor);
 
             int exitCode = awaitProcessExit(finalProcess, waitFuture, readFuture, command);
             awaitReadDrain(finalProcess, readFuture, command);
@@ -122,11 +123,6 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
         System.exit(0);
     }
 
-    /**
-     * Waits for process exit with the full command timeout. If the process itself
-     * hangs, forcibly destroys it (which also closes its pipes, unblocking the
-     * read task) and cancels both tasks before propagating the timeout.
-     */
     private int awaitProcessExit(Process process, Future<Integer> waitFuture, Future<Void> readFuture, String command) throws Exception {
         try {
             return waitFuture.get(COMMAND_TIMEOUT_MS, TimeUnit.MILLISECONDS);
@@ -138,13 +134,6 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
         }
     }
 
-    /**
-     * Once the process has exited, gives the read task a short grace period to
-     * drain any remaining buffered output. If it still hasn't finished, the
-     * process is stuck holding its pipes open past its own exit (e.g. a
-     * surviving grandchild) rather than the read itself being slow — force
-     * destroy to close the pipes and unblock the reader instead of leaking it.
-     */
     private void awaitReadDrain(Process process, Future<Void> readFuture, String command) {
         try {
             readFuture.get(READ_DRAIN_GRACE_MS, TimeUnit.MILLISECONDS);
