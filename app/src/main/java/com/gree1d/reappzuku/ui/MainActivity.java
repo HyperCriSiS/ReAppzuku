@@ -93,6 +93,7 @@ public class MainActivity extends BaseActivity {
     private String currentSearchQuery = "";
     private int currentSortMode = AppConstants.SORT_MODE_DEFAULT;
     private MenuItem selectAllMenuItem;
+    private volatile boolean loadInFlight = false;
 
     private int appliedAccent;
     private boolean appliedIsAmoled;
@@ -190,7 +191,6 @@ public class MainActivity extends BaseActivity {
             });
         });
 
-        loadBackgroundApps();
         ramMonitor.startMonitoring();
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onCreate finished");
     }
@@ -201,6 +201,7 @@ public class MainActivity extends BaseActivity {
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onDestroy");
         ramMonitor.stopMonitoring();
         handler.removeCallbacksAndMessages(null);
+        loadInFlight = false;
         binding = null;
     }
 
@@ -862,6 +863,12 @@ public class MainActivity extends BaseActivity {
     }
 
     private void loadBackgroundApps() {
+        if (loadInFlight) {
+            AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: loadBackgroundApps skipped, already in flight");
+            return;
+        }
+        loadInFlight = true;
+
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: loadBackgroundApps started");
         binding.swiperefreshlayout1.setRefreshing(true);
 
@@ -878,6 +885,7 @@ public class MainActivity extends BaseActivity {
                 fullResult -> {
                     AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: loadBackgroundApps finished, count=" + fullResult.size());
                     applyLoadedAppsList(fullResult, selectedPackages, /* finished= */ true);
+                    loadInFlight = false;
                 });
     }
 
