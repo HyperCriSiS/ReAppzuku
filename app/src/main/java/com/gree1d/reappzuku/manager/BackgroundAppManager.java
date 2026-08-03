@@ -460,7 +460,7 @@ public class BackgroundAppManager {
             String memorySource = "PSS";
 
             try {
-               
+
                 Map<String, List<Integer>> pidsByPackageForMeminfo = new HashMap<>();
                 Map<Integer, Long> psRssByPid = new HashMap<>();
                 try {
@@ -1442,12 +1442,12 @@ public class BackgroundAppManager {
 
         List<String> queuedOps = new ArrayList<>();
         StringBuilder batchedCommand = new StringBuilder();
-        String[] modes = {"ignore", "deny"};
+        String mode = "ignore";
         int queryIndex = 0;
         for (int i = 0; i < ALL_OPS.length; i++) {
             if (!isOpSupported(i)) continue;
             String op = ALL_OPS[i];
-            for (String mode : modes) {
+            {
                 String marker = "---APPOPS-" + queryIndex + "---";
                 batchedCommand.append("echo ").append(marker).append("; ")
                         .append("cmd appops query-op --user current ").append(op).append(" ").append(mode)
@@ -1471,7 +1471,8 @@ public class BackgroundAppManager {
         if (combinedOutput != null) {
             querySucceeded = true;
             String[] sections = combinedOutput.split("---APPOPS-\\d+---");
-            
+            // sections[0] is whatever preceded the first marker (should be empty); each
+            // subsequent section corresponds 1:1 with queuedOps by index.
             int successfulSections = 0;
             for (int s = 1; s < sections.length; s++) {
                 String section = sections[s].trim();
