@@ -46,7 +46,9 @@ public class CpuMonitor {
         public void run() {
             if (!running) return;
             executor.execute(() -> {
+                if (!running) return;
                 pollCpu();
+                if (!running) return;
                 handler.postDelayed(this, POLL_INTERVAL_MS);
             });
         }

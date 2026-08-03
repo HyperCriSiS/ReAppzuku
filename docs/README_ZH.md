@@ -7,7 +7,7 @@
 <img src="https://img.shields.io/github/v/release/gree1d/ReAppzuku?label=Release&" alt="最新版本">
 <img src="https://img.shields.io/github/downloads/gree1d/ReAppzuku/total?label=%E4%B8%8B%E8%BD%BD%E9%87%8F&color=a855f7" alt="下载量" />
 <img src="https://img.shields.io/badge/许可证-GPLv3-64748b.svg" alt="许可证">
-<img src="https://img.shields.io/badge/Android-6.0%2B-f97316.svg" alt="Android 版本">
+<img src="https://img.shields.io/badge/Android-7.0%2B-f97316.svg" alt="Android 版本">
 <img src="https://img.shields.io/badge/Root-支持-brightgreen.svg"/>
 <img src="https://img.shields.io/badge/Shizuku-支持-brightgreen.svg"/>
 </p>
@@ -52,7 +52,7 @@ ReAppzuku 是 Appzuku（Shappky）的一个分支，增强了对 Android 应用�
 
 | 组件 | 要求 |
 |---|---|
-| Android | 6.0+（后台限制需要 11+） |
+| Android | 7.0+（后台限制需要 11+） |
 | 权限 | Root 或 Shizuku |
 
 ## 🚀 快速开始

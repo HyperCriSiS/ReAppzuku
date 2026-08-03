@@ -7,7 +7,7 @@
 <img src="https://img.shields.io/github/v/release/gree1d/ReAppzuku?label=Release&" alt="Latest Release">
 <img src="https://img.shields.io/github/downloads/gree1d/ReAppzuku/total?label=Downloads&color=a855f7" alt="Downloads">
 <img src="https://img.shields.io/badge/License-GPLv3-64748b.svg" alt="License">
-<img src="https://img.shields.io/badge/Android-6.0%2B-f97316.svg" alt="Android">
+<img src="https://img.shields.io/badge/Android-7.0%2B-f97316.svg" alt="Android">
 <img src="https://img.shields.io/badge/Root-Supported-brightgreen.svg"/>
 <img src="https://img.shields.io/badge/Shizuku-Supported-brightgreen.svg"/>
 </p>
@@ -52,7 +52,7 @@ Root- oder Shizuku-Rechte sind erforderlich.
 
 | Komponente | Voraussetzung |
 | :--- | :--- |
-| Android | 6.0+ (Hintergrundbeschränkungen ab Android 11) |
+| Android | 7.0+ (Hintergrundbeschränkungen ab Android 11) |
 | Zugriff | Root oder Shizuku |
 
 ## 🚀 Schnellstart

@@ -4,16 +4,15 @@ import android.content.ComponentName;
 import android.graphics.drawable.Icon;
 import android.os.Build;
 import android.os.Handler;
-import android.os.Looper;
 import android.service.quicksettings.Tile;
 import android.service.quicksettings.TileService;
 import android.widget.Toast;
 
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
 import com.gree1d.reappzuku.R;
@@ -23,8 +22,9 @@ public class ShappkyBackgroundKillTile extends TileService {
 
     private ShellManager shellManager;
     private AutoKillManager backgroundAppManager;
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private Handler handler;
+    private ExecutorService executor;
+    private ExecutorService shellExecutor;
 
     @Override
     public void onTileAdded() {
@@ -65,16 +65,20 @@ public class ShappkyBackgroundKillTile extends TileService {
         super.onClick();
         AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "ShappkyBackgroundKillTile: onClick");
         if (shellManager == null) {
-            shellManager = new ShellManager(this, handler, executor);
+            App app = (App) getApplicationContext();
+            handler = app.getSharedHandler();
+            executor = app.getSharedExecutor();
+            shellExecutor = app.getShellExecutor();
+            shellManager = app.getShellManager();
             AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "ShappkyBackgroundKillTile: onClick ShellManager initialized");
         }
         if (backgroundAppManager == null) {
-            BackgroundAppManager appManager = new BackgroundAppManager(this, handler, executor, shellManager);
+            BackgroundAppManager appManager = new BackgroundAppManager(this, handler, executor, shellExecutor, shellManager);
             backgroundAppManager = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());
             AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "ShappkyBackgroundKillTile: onClick AutoKillManager initialized");
         }
 
-        executor.execute(() -> {
+        shellExecutor.execute(() -> {
             if (!shellManager.resolveAnyShellPermission()) {
                 AppDebugManager.w(Category.SHORTCUTS_WIDGETS, "ShappkyBackgroundKillTile: onClick no shell permission available");
                 handler.post(() -> {
@@ -97,7 +101,6 @@ public class ShappkyBackgroundKillTile extends TileService {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "ShappkyBackgroundKillTile: onDestroy, shutting down executor");
-        executor.shutdownNow();
+        AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "ShappkyBackgroundKillTile: onDestroy");
     }
 }

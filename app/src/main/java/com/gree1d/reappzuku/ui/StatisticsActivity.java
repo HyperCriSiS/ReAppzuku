@@ -5,7 +5,6 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 
@@ -23,9 +22,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.CollectStatsManager;
 import com.gree1d.reappzuku.core.BaseActivity;
@@ -68,8 +67,9 @@ public class StatisticsActivity extends BaseActivity {
     ShellManager shellManager;
     BackgroundAppManager appManager;
     private CollectStatsManager collectStatsManager;
-    final Handler handler = new Handler(Looper.getMainLooper());
-    final ExecutorService executor = Executors.newCachedThreadPool();
+    Handler handler;
+    ExecutorService executor;
+    ExecutorService shellExecutor;
 
     @SuppressWarnings("unchecked")
     private List<PieEntry>[] chartEntries = new List[CHART_COUNT];
@@ -92,8 +92,12 @@ public class StatisticsActivity extends BaseActivity {
 
         chartPeriodLabels = getResources().getStringArray(R.array.chart_period_labels);
 
-        shellManager        = new ShellManager(getApplicationContext(), handler, executor);
-        appManager          = new BackgroundAppManager(getApplicationContext(), handler, executor, shellManager);
+        App app              = (App) getApplication();
+        handler              = app.getSharedHandler();
+        executor             = app.getSharedExecutor();
+        shellExecutor        = app.getShellExecutor();
+        shellManager         = app.getShellManager();
+        appManager           = new BackgroundAppManager(getApplicationContext(), handler, executor, shellExecutor, shellManager);
         collectStatsManager = new CollectStatsManager(getApplicationContext(), handler, executor, shellManager);
 
         setupToolbar();
@@ -112,7 +116,6 @@ public class StatisticsActivity extends BaseActivity {
     protected void onDestroy() {
         super.onDestroy();
         AppDebugManager.d(Category.STATISTICS_PAGE, FILE + ": onDestroy");
-        executor.shutdownNow();
         binding = null;
     }
 

@@ -98,47 +98,150 @@ public class AutoKillManager {
                 return;
             }
 
-            String psOutput = shellManager.runShellCommandAndGetFullOutput(
-                    "ps -A -o rss,name | grep '\\.'");
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: ps output length: " + (psOutput == null ? "null" : psOutput.trim().length()));
-            if (psOutput == null || psOutput.trim().isEmpty()) {
-                AppDebugManager.w(Category.AUTO_KILL_BASE, "AutoKillManager: ps returned null/empty — aborting kill");
-                if (onComplete != null)
-                    handler.post(onComplete);
-                return;
-            }
+            long meminfoStart = System.currentTimeMillis();
 
             Set<String> runningPackages = new HashSet<>();
             Map<String, Long> psRssMap = new HashMap<>();
+            Map<Integer, String> pidToPackage = new HashMap<>();
+            Map<String, String> packageMemorySource = new HashMap<>();
             PackageManager pm = context.getPackageManager();
-            try (BufferedReader reader = new BufferedReader(new StringReader(psOutput))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    String[] parts = line.trim().split("\\s+", 2);
-                    if (parts.length < 2) continue;
-                    String rssStr = parts[0].trim();
-                    String fullName = parts[1].trim();
-                    String packageName = fullName.contains(":")
-                            ? fullName.substring(0, fullName.indexOf(":"))
-                            : fullName;
-                    if (packageName.isEmpty() || !packageName.contains(".")) continue;
-                    try {
-                        pm.getApplicationInfo(packageName, 0);
-                        runningPackages.add(packageName);
+            String memorySource = "PSS";
+
+            Map<String, List<Integer>> pidsByPackage = new HashMap<>();
+            Map<Integer, Long> psRssByPid = new HashMap<>();
+            String pidListOutput = shellManager.runShellCommandAndGetFullOutput("ps -A -o pid,rss,name | grep '\\.'");
+            if (pidListOutput != null) {
+                try (BufferedReader reader = new BufferedReader(new StringReader(pidListOutput))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        String[] parts = line.trim().split("\\s+", 3);
+                        if (parts.length < 3) continue;
+                        String packageName = parts[2].trim();
+                        if (packageName.contains(":")) {
+                            packageName = packageName.substring(0, packageName.indexOf(":"));
+                        }
+                        if (packageName.isEmpty() || !packageName.contains(".")) continue;
                         try {
-                            long rssKb = Long.parseLong(rssStr);
-                            psRssMap.put(packageName, rssKb);
+                            int pid = Integer.parseInt(parts[0].trim());
+                            pidsByPackage.computeIfAbsent(packageName, k -> new ArrayList<>()).add(pid);
+                            try {
+                                psRssByPid.put(pid, Long.parseLong(parts[1].trim()));
+                            } catch (NumberFormatException ignored) {
+                            }
                         } catch (NumberFormatException ignored) {
                         }
-                    } catch (PackageManager.NameNotFoundException ignored) {
+                    }
+                } catch (IOException ignored) {
+                }
+            }
+
+            if (!pidsByPackage.isEmpty()) {
+                int[] allPids = pidsByPackage.values().stream()
+                        .flatMap(List::stream)
+                        .mapToInt(Integer::intValue)
+                        .toArray();
+
+                List<com.gree1d.reappzuku.core.shell.ProcessMemoryInfo> memInfos =
+                        shellManager.getProcessMemoryInfo(allPids);
+
+                AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: getProcessMemoryInfo returned " + memInfos.size()
+                        + " entries for " + allPids.length + " pids (took " + (System.currentTimeMillis() - meminfoStart) + "ms)");
+
+                if (!memInfos.isEmpty()) {
+                    Map<Integer, Long> pssByPid = new HashMap<>();
+                    for (com.gree1d.reappzuku.core.shell.ProcessMemoryInfo info : memInfos) {
+                        pssByPid.put(info.pid, info.totalPssKb);
+                    }
+                    for (Map.Entry<String, List<Integer>> entry : pidsByPackage.entrySet()) {
+                        String packageName = entry.getKey();
+                        try {
+                            pm.getApplicationInfo(packageName, 0);
+                        } catch (PackageManager.NameNotFoundException ignored) {
+                            continue;
+                        }
+                        long total = 0;
+                        boolean anyResolved = false;
+                        boolean anyPss = false;
+                        boolean anyRssFallback = false;
+                        for (int pid : entry.getValue()) {
+                            Long pss = pssByPid.get(pid);
+                            if (pss != null) {
+                                total += pss;
+                                anyResolved = true;
+                                anyPss = true;
+                                pidToPackage.put(pid, packageName);
+                            } else {
+                                Long rss = psRssByPid.get(pid);
+                                if (rss != null) {
+                                    total += rss;
+                                    anyResolved = true;
+                                    anyRssFallback = true;
+                                    pidToPackage.put(pid, packageName);
+                                    AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: pid " + pid
+                                            + " (" + packageName + ") missing from getProcessMemoryInfo — using ps RSS fallback: " + rss + " KB");
+                                }
+                            }
+                        }
+                        if (anyResolved) {
+                            runningPackages.add(packageName);
+                            psRssMap.put(packageName, total);
+                            packageMemorySource.put(packageName, anyPss && anyRssFallback ? "PSS+RSS" : anyPss ? "PSS" : "RSS");
+                        }
                     }
                 }
-            } catch (IOException ignored) {
             }
+
+            if (runningPackages.isEmpty()) {
+                memorySource = "RSS";
+                AppDebugManager.w(Category.AUTO_KILL_BASE,
+                        "AutoKillManager: getProcessMemoryInfo yielded no packages — falling back to ps/rss");
+                String psOutput = shellManager.runShellCommandAndGetFullOutput(
+                        "ps -A -o rss,name | grep '\\.'");
+                if (psOutput == null || psOutput.trim().isEmpty()) {
+                    AppDebugManager.w(Category.AUTO_KILL_BASE, "AutoKillManager: ps fallback also empty — aborting kill");
+                    if (onComplete != null)
+                        handler.post(onComplete);
+                    return;
+                }
+                try (BufferedReader reader = new BufferedReader(new StringReader(psOutput))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        String[] parts = line.trim().split("\\s+", 2);
+                        if (parts.length < 2) continue;
+                        String rssStr = parts[0].trim();
+                        String fullName = parts[1].trim();
+                        String packageName = fullName.contains(":")
+                                ? fullName.substring(0, fullName.indexOf(":"))
+                                : fullName;
+                        if (packageName.isEmpty() || !packageName.contains(".")) continue;
+                        try {
+                            pm.getApplicationInfo(packageName, 0);
+                            runningPackages.add(packageName);
+                            packageMemorySource.put(packageName, "RSS");
+                            try {
+                                long rssKb = Long.parseLong(rssStr);
+                                psRssMap.put(packageName, rssKb);
+                            } catch (NumberFormatException ignored) {
+                            }
+                        } catch (PackageManager.NameNotFoundException ignored) {
+                        }
+                    }
+                } catch (IOException ignored) {
+                }
+            }
+
+            long pssCount = packageMemorySource.values().stream().filter(s -> s.equals("PSS")).count();
+            long rssCount = packageMemorySource.values().stream().filter(s -> s.equals("RSS")).count();
+            long mixedCount = packageMemorySource.values().stream().filter(s -> s.equals("PSS+RSS")).count();
+            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: memorySource=" + memorySource
+                    + " for this cycle (per-package: PSS=" + pssCount + ", RSS=" + rssCount + ", PSS+RSS=" + mixedCount + ")");
 
             killOrphanShellProcesses(null);
 
             boolean presetActive = new PresetManager(context).getActivePresetNumber() != 0;
+
+            String currentKeyboard = ProtectedApps.getCurrentKeyboardPackage(context);
+            String currentLauncher = ProtectedApps.getCurrentLauncherPackage(context);
 
             List<String> toKill = runningPackages.stream()
                     .filter(pkg -> {
@@ -147,7 +250,7 @@ public class AutoKillManager {
                                 AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: SKIP (hidden): " + pkg);
                                 return false;
                             }
-                            if (ProtectedApps.isProtected(context, pkg)) {
+                            if (ProtectedApps.isProtected(pkg, currentKeyboard, currentLauncher)) {
                                 AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: SKIP (protected): " + pkg);
                                 return false;
                             }
@@ -192,7 +295,7 @@ public class AutoKillManager {
                 String pkg = entry.getKey();
                 if (!psRssMap.containsKey(pkg)) {
                     confirmedFreedKb.put(pkg, entry.getValue());
-                    AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Confirmed freed RAM for " + pkg + ": " + entry.getValue() + " KB");
+                    AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Confirmed freed RAM for " + pkg + ": " + entry.getValue() + " KB [" + memorySource + "]");
                 } else {
                     AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Skipped RAM (relaunched): " + pkg);
                 }
@@ -209,7 +312,7 @@ public class AutoKillManager {
                     long rssKb = psRssMap.getOrDefault(pkg, 0L);
                     if (rssKb > 0) {
                         newPendingRss.put(pkg, rssKb);
-                        AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Pending RSS for " + pkg + ": " + rssKb + " KB");
+                        AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Pending " + packageMemorySource.getOrDefault(pkg, memorySource) + " for " + pkg + ": " + rssKb + " KB");
                     }
                 }
                 savePendingRss(newPendingRss);
@@ -407,6 +510,64 @@ public class AutoKillManager {
                 onComplete.run();
             }
         });
+    }
+
+    private static final java.util.regex.Pattern PSS_PROCESS_LINE =
+            java.util.regex.Pattern.compile("^\\s*([\\d,]+)K:\\s*(\\S+)\\s*\\(pid\\s+(\\d+)");
+
+    private static final java.util.regex.Pattern SECTION_HEADER_LINE =
+            java.util.regex.Pattern.compile("^[A-Za-z].*:\\s*$");
+
+
+    private void parseTotalPssByProcess(String meminfoOutput, PackageManager pm,
+            Set<String> runningPackages, Map<String, Long> psRssMap,
+            Map<Integer, String> pidToPackage) {
+        try (BufferedReader reader = new BufferedReader(new StringReader(meminfoOutput))) {
+            String line;
+            boolean inSection = false;
+
+            while ((line = reader.readLine()) != null) {
+                String trimmed = line.trim();
+
+                if (!inSection) {
+                    if (trimmed.equalsIgnoreCase("Total PSS by process:")) {
+                        inSection = true;
+                    }
+                    continue;
+                }
+
+                java.util.regex.Matcher procMatch = PSS_PROCESS_LINE.matcher(line);
+                if (!procMatch.find()) {
+                    if (trimmed.isEmpty() || SECTION_HEADER_LINE.matcher(trimmed).matches()) {
+                        break;
+                    }
+                    continue;
+                }
+
+                String pssStr = procMatch.group(1).replace(",", "");
+                String rawName = procMatch.group(2);
+                String pidStr = procMatch.group(3);
+                String packageName = rawName.contains(":")
+                        ? rawName.substring(0, rawName.indexOf(":"))
+                        : rawName;
+
+                if (packageName.isEmpty() || !packageName.contains(".")) continue;
+
+                try {
+                    long pssKb = Long.parseLong(pssStr);
+                    pm.getApplicationInfo(packageName, 0);
+                    runningPackages.add(packageName);
+                    long existing = psRssMap.getOrDefault(packageName, 0L);
+                    psRssMap.put(packageName, existing + pssKb);
+                    try {
+                        pidToPackage.put(Integer.parseInt(pidStr), packageName);
+                    } catch (NumberFormatException ignored) {
+                    }
+                } catch (NumberFormatException | PackageManager.NameNotFoundException ignored) {
+                }
+            }
+        } catch (IOException ignored) {
+        }
     }
 
     private String buildKillCommand(String packageName) {

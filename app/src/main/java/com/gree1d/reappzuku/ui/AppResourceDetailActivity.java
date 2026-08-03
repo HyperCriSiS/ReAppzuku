@@ -12,6 +12,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.BaseActivity;
 import com.gree1d.reappzuku.manager.CollectStatsManager;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
@@ -43,7 +44,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class AppResourceDetailActivity extends BaseActivity {
 
@@ -67,8 +67,8 @@ public class AppResourceDetailActivity extends BaseActivity {
     private ShellManager shellManager;
     private BackgroundAppManager appManager;
     private AutoKillManager autoKillManager;
-    private final Handler handler         = new Handler(Looper.getMainLooper());
-    private final ExecutorService executor = Executors.newCachedThreadPool();
+    private Handler handler;
+    private ExecutorService executor;
 
     private String packageName;
     private String appName;
@@ -95,9 +95,12 @@ public class AppResourceDetailActivity extends BaseActivity {
             return;
         }
 
-        shellManager        = new ShellManager(getApplicationContext(), handler, executor);
+        App app              = (App) getApplication();
+        handler              = app.getSharedHandler();
+        executor             = app.getSharedExecutor();
+        shellManager        = app.getShellManager();
         collectStatsManager = new CollectStatsManager(getApplicationContext(), handler, executor, shellManager);
-        appManager           = new BackgroundAppManager(this, handler, executor, shellManager);
+        appManager           = new BackgroundAppManager(this, handler, executor, app.getShellExecutor(), shellManager);
         autoKillManager      = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());
 
         setupToolbar();
@@ -583,8 +586,7 @@ public class AppResourceDetailActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        AppDebugManager.d(Category.STATISTICS_PAGE, TAG + ": onDestroy package=" + packageName + ", shutting down executor");
-        executor.shutdownNow();
+        AppDebugManager.d(Category.STATISTICS_PAGE, TAG + ": onDestroy package=" + packageName);
         binding = null;
     }
 }

@@ -43,7 +43,7 @@
 
 | 要求 | 说明 |
 |---|---|
-| **Android** | 6.0 或更高版本。后台限制功能仅适用于 Android 11+ |
+| **Android** | 7.0 或更高版本。后台限制功能仅适用于 Android 11+ |
 | **Root** 或 **Shizuku** | 二者任选其一 |
 
 ### Root 与 Shizuku

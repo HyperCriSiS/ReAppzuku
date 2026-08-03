@@ -1,24 +1,33 @@
 package com.gree1d.reappzuku.core;
 
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.ServiceConnection;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
+import com.gree1d.reappzuku.core.shell.IShellCallback;
+import com.gree1d.reappzuku.core.shell.IShellService;
+import com.gree1d.reappzuku.core.shell.ProcessMemoryInfo;
+import com.gree1d.reappzuku.core.shell.ShellExecResult;
+import com.gree1d.reappzuku.core.shell.ShizukuUserServiceImpl;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Collections;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 import rikka.shizuku.Shizuku;
-import rikka.shizuku.ShizukuRemoteProcess;
-
 
 public class ShellManager {
 
@@ -28,8 +37,34 @@ public class ShellManager {
 
     private volatile Boolean hasRoot = null;
 
-    @SuppressWarnings("deprecation")
-    private Shizuku.OnRequestPermissionResultListener shizukuPermissionListener;
+    private Shizuku.OnBinderReceivedListener shizukuBinderReceivedListener;
+    private Shizuku.OnBinderDeadListener shizukuBinderDeadListener;
+
+    private static final long SHIZUKU_COMMAND_TIMEOUT_MS = 15_000L;
+
+    private volatile IShellService userService;
+
+    private static final String USER_SERVICE_TAG = "ReAppzukuShellUserService";
+
+    private static final long USER_SERVICE_BIND_WAIT_MS = 3_000L;
+
+    private volatile CountDownLatch userServiceReadyLatch = new CountDownLatch(1);
+
+    private final ServiceConnection userServiceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder binder) {
+            AppDebugManager.d(Category.CORE, "ShellManager: UserService connected");
+            userService = IShellService.Stub.asInterface(binder);
+            userServiceReadyLatch.countDown();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            AppDebugManager.w(Category.CORE, "ShellManager: UserService disconnected");
+            userService = null;
+            userServiceReadyLatch = new CountDownLatch(1);
+        }
+    };
 
     public ShellManager(Context context, Handler handler, ExecutorService executor) {
         this.context = context.getApplicationContext();
@@ -37,14 +72,107 @@ public class ShellManager {
         this.executor = executor;
     }
 
-    public void setShizukuPermissionListener(Shizuku.OnRequestPermissionResultListener listener) {
-        this.shizukuPermissionListener = listener;
-        Shizuku.addRequestPermissionResultListener(shizukuPermissionListener);
+    private Shizuku.UserServiceArgs buildUserServiceArgs() {
+        return new Shizuku.UserServiceArgs(
+                new ComponentName(context.getPackageName(), ShizukuUserServiceImpl.class.getName()))
+                .daemon(false)
+                .processNameSuffix("shell_service")
+                .debuggable(false)
+                .version(1)
+                .tag(USER_SERVICE_TAG);
     }
 
-    public void removeShizukuPermissionListener() {
-        if (shizukuPermissionListener != null) {
-            Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener);
+    private IShellService awaitUserService() {
+        IShellService service = userService;
+        if (service != null) {
+            return service;
+        }
+        try {
+            userServiceReadyLatch.await(USER_SERVICE_BIND_WAIT_MS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return userService;
+    }
+
+
+    public void bindUserService() {
+        if (userService != null) {
+            AppDebugManager.d(Category.CORE, "ShellManager: bindUserService: already bound, skipping");
+            return;
+        }
+        try {
+            if (!Shizuku.pingBinder()) {
+                AppDebugManager.d(Category.CORE, "ShellManager: bindUserService: Shizuku binder not available yet");
+                return;
+            }
+            if (userServiceReadyLatch.getCount() == 0) {
+                userServiceReadyLatch = new CountDownLatch(1);
+            }
+            Shizuku.bindUserService(buildUserServiceArgs(), userServiceConnection);
+        } catch (Exception e) {
+            AppDebugManager.w(Category.CORE, "ShellManager: bindUserService failed", e);
+        }
+    }
+
+    public void unbindUserService() {
+        IShellService service = userService;
+        if (service != null) {
+            try {
+                service.destroy();
+            } catch (Exception e) {
+                AppDebugManager.w(Category.CORE, "ShellManager: unbindUserService: remote destroy() failed", e);
+            }
+        }
+        try {
+            Shizuku.unbindUserService(buildUserServiceArgs(), userServiceConnection, true);
+        } catch (Exception e) {
+            AppDebugManager.w(Category.CORE, "ShellManager: unbindUserService failed", e);
+        } finally {
+            userService = null;
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    public void setShizukuPermissionListener(Shizuku.OnRequestPermissionResultListener listener) {
+        Shizuku.addRequestPermissionResultListener(listener);
+    }
+
+    @SuppressWarnings("deprecation")
+    public void removeShizukuPermissionListener(Shizuku.OnRequestPermissionResultListener listener) {
+        if (listener != null) {
+            Shizuku.removeRequestPermissionResultListener(listener);
+        }
+    }
+
+    public void setShizukuBinderListeners(Runnable onReceived, Runnable onDead) {
+        removeShizukuBinderListeners();
+
+        shizukuBinderReceivedListener = () -> {
+            AppDebugManager.d(Category.CORE, "ShellManager: Shizuku binder received");
+            if (onReceived != null) {
+                handler.post(onReceived);
+            }
+        };
+        shizukuBinderDeadListener = () -> {
+            AppDebugManager.w(Category.CORE, "ShellManager: Shizuku binder died");
+            if (onDead != null) {
+                handler.post(onDead);
+            }
+        };
+
+        Shizuku.addBinderReceivedListenerSticky(shizukuBinderReceivedListener);
+        Shizuku.addBinderDeadListener(shizukuBinderDeadListener);
+    }
+
+    public void removeShizukuBinderListeners() {
+        if (shizukuBinderReceivedListener != null) {
+            Shizuku.removeBinderReceivedListener(shizukuBinderReceivedListener);
+            shizukuBinderReceivedListener = null;
+        }
+        if (shizukuBinderDeadListener != null) {
+            Shizuku.removeBinderDeadListener(shizukuBinderDeadListener);
+            shizukuBinderDeadListener = null;
         }
     }
 
@@ -187,6 +315,34 @@ public class ShellManager {
         return null;
     }
 
+    // Reads PSS for the given pids via the UserService's ActivityManager.getProcessMemoryInfo(),
+    // instead of shelling out to "dumpsys meminfo" and parsing a text dump of every process
+    // in the system. Shizuku-only: the UserService binding is how this call reaches shell/root
+    // identity, so root-only mode (su without Shizuku) returns an empty list rather than
+    // falling back to a su-spawned equivalent.
+    @androidx.annotation.WorkerThread
+    public java.util.List<ProcessMemoryInfo> getProcessMemoryInfo(int[] pids) {
+        if (pids == null || pids.length == 0) {
+            return Collections.emptyList();
+        }
+        if (!hasShizukuPermission()) {
+            AppDebugManager.w(Category.CORE, "ShellManager: getProcessMemoryInfo: Shizuku permission not available");
+            return Collections.emptyList();
+        }
+        IShellService service = awaitUserService();
+        if (service == null) {
+            AppDebugManager.w(Category.CORE, "ShellManager: getProcessMemoryInfo: UserService not bound");
+            return Collections.emptyList();
+        }
+        try {
+            ProcessMemoryInfo[] result = service.getProcessMemoryInfo(pids);
+            return result == null ? Collections.emptyList() : java.util.Arrays.asList(result);
+        } catch (Exception e) {
+            AppDebugManager.e(Category.CORE, "ShellManager: getProcessMemoryInfo failed", e);
+            return Collections.emptyList();
+        }
+    }
+
     @androidx.annotation.WorkerThread
     @androidx.annotation.Nullable
     public String runCommandAndGetOutput(String command) {
@@ -276,33 +432,6 @@ public class ShellManager {
         }
     }
 
-    private boolean executeShizukuCommand(String command) {
-        ShizukuRemoteProcess remote = null;
-        try {
-            remote = Shizuku.newProcess(new String[] { "sh", "-c", command }, null, "/");
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(remote.getInputStream()))) {
-                while (reader.readLine() != null) {
-                }
-            }
-
-            int exitCode = remote.waitFor();
-            if (exitCode != 0) {
-                AppDebugManager.w(Category.CORE, "ShellManager: Shizuku command exited with code " + exitCode + ": " + command);
-            }
-            return exitCode == 0;
-        } catch (Exception e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            AppDebugManager.e(Category.CORE, "ShellManager: Shizuku command failed", e);
-            return false;
-        } finally {
-            if (remote != null) {
-                remote.destroy();
-            }
-        }
-    }
-
     private ShellResult executeRootCommandForResult(String command) {
         Process process = null;
         DataOutputStream os = null;
@@ -347,40 +476,6 @@ public class ShellManager {
         }
     }
 
-    private boolean executeShizukuCommandWithOutput(String command, Consumer<String> outputProcessor) {
-        ShizukuRemoteProcess remote = null;
-        try {
-            remote = Shizuku.newProcess(new String[] { "sh", "-c", command }, null, "/");
-            try (BufferedReader readerInput = new BufferedReader(new InputStreamReader(remote.getInputStream()));
-                    BufferedReader errorReader = new BufferedReader(new InputStreamReader(remote.getErrorStream()))) {
-                String line;
-                while ((line = readerInput.readLine()) != null) {
-                    final String finalLine = line;
-                    handler.post(() -> outputProcessor.accept(finalLine));
-                }
-                while ((line = errorReader.readLine()) != null) {
-                    final String finalLine = line;
-                    handler.post(() -> outputProcessor.accept("ERROR: " + finalLine));
-                }
-            }
-            int exitCode = remote.waitFor();
-            if (exitCode != 0) {
-                AppDebugManager.w(Category.CORE, "ShellManager: Shizuku command with output exited with code " + exitCode + ": " + command);
-            }
-            return exitCode == 0;
-        } catch (Exception e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            AppDebugManager.e(Category.CORE, "ShellManager: Shizuku command with output failed", e);
-            return false;
-        } finally {
-            if (remote != null) {
-                remote.destroy();
-            }
-        }
-    }
-
     private String executeRootCommandAndGetFullOutput(String command) {
         Process process = null;
         DataOutputStream os = null;
@@ -421,66 +516,108 @@ public class ShellManager {
         }
     }
 
-    private String executeShizukuCommandAndGetFullOutput(String command) {
-        ShizukuRemoteProcess remote = null;
-        StringBuilder output = new StringBuilder();
+    private boolean executeShizukuCommand(String command) {
+        IShellService service = awaitUserService();
+        if (service == null) {
+            AppDebugManager.w(Category.CORE, "ShellManager: executeShizukuCommand: UserService not bound, command=" + command);
+            return false;
+        }
         try {
-            remote = Shizuku.newProcess(new String[] { "sh", "-c", command }, null, "/");
-            try (BufferedReader readerInput = new BufferedReader(new InputStreamReader(remote.getInputStream()));
-                    BufferedReader errorReader = new BufferedReader(new InputStreamReader(remote.getErrorStream()))) {
-                String line;
-                while ((line = readerInput.readLine()) != null) {
-                    output.append(line).append("\n");
-                }
-                while ((line = errorReader.readLine()) != null) {
-                    output.append("ERROR: ").append(line).append("\n");
-                }
+            ShellExecResult result = service.execute(command);
+            if (result.exitCode != 0) {
+                AppDebugManager.w(Category.CORE, "ShellManager: Shizuku command exited with code " + result.exitCode + ": " + command);
             }
-            remote.waitFor();
-            return output.toString();
+            return result.succeeded;
         } catch (Exception e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
+            AppDebugManager.e(Category.CORE, "ShellManager: Shizuku command failed", e);
+            return false;
+        }
+    }
+
+    private boolean executeShizukuCommandWithOutput(String command, Consumer<String> outputProcessor) {
+        IShellService service = awaitUserService();
+        if (service == null) {
+            AppDebugManager.w(Category.CORE, "ShellManager: executeShizukuCommandWithOutput: UserService not bound, command=" + command);
+            return false;
+        }
+        try {
+            return executeShizukuCommandWithOutputViaUserService(service, command, outputProcessor);
+        } catch (Exception e) {
+            AppDebugManager.e(Category.CORE, "ShellManager: Shizuku command with output failed", e);
+            return false;
+        }
+    }
+
+    private boolean executeShizukuCommandWithOutputViaUserService(IShellService service, String command, Consumer<String> outputProcessor) throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+        final int[] exitCodeHolder = { -1 };
+        final boolean[] errorHolder = { false };
+
+        IShellCallback callback = new IShellCallback.Stub() {
+            @Override
+            public void onLine(String line, boolean isError) {
+                handler.post(() -> outputProcessor.accept(isError ? "ERROR: " + line : line));
             }
+
+            @Override
+            public void onComplete(int exitCode) {
+                exitCodeHolder[0] = exitCode;
+                latch.countDown();
+            }
+
+            @Override
+            public void onError(String message) {
+                AppDebugManager.w(Category.CORE, "ShellManager: UserService executeWithCallback reported error: " + message);
+                errorHolder[0] = true;
+                latch.countDown();
+            }
+        };
+
+        service.executeWithCallback(command, callback);
+
+        boolean completed = latch.await(SHIZUKU_COMMAND_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        if (!completed) {
+            throw new TimeoutException("UserService executeWithCallback timed out after " + SHIZUKU_COMMAND_TIMEOUT_MS + "ms: " + command);
+        }
+        if (errorHolder[0]) {
+            throw new IOException("UserService executeWithCallback reported an error for: " + command);
+        }
+        int exitCode = exitCodeHolder[0];
+        if (exitCode != 0) {
+            AppDebugManager.w(Category.CORE, "ShellManager: Shizuku command with output exited with code " + exitCode + ": " + command);
+        }
+        return exitCode == 0;
+    }
+
+    private String executeShizukuCommandAndGetFullOutput(String command) {
+        IShellService service = awaitUserService();
+        if (service == null) {
+            AppDebugManager.w(Category.CORE, "ShellManager: executeShizukuCommandAndGetFullOutput: UserService not bound, command=" + command);
+            return null;
+        }
+        try {
+            return service.execute(command).output;
+        } catch (Exception e) {
             AppDebugManager.e(Category.CORE, "ShellManager: Shizuku command get output failed", e);
             return null;
-        } finally {
-            if (remote != null) {
-                remote.destroy();
-            }
         }
     }
 
     private ShellResult executeShizukuCommandForResult(String command) {
-        ShizukuRemoteProcess remote = null;
-        StringBuilder output = new StringBuilder();
+        IShellService service = awaitUserService();
+        if (service == null) {
+            AppDebugManager.w(Category.CORE, "ShellManager: executeShizukuCommandForResult: UserService not bound, command=" + command);
+            return new ShellResult(false, -1, "Shizuku UserService not bound");
+        }
         try {
-            remote = Shizuku.newProcess(new String[] { "sh", "-c", command }, null, "/");
-            try (BufferedReader readerInput = new BufferedReader(new InputStreamReader(remote.getInputStream()));
-                    BufferedReader errorReader = new BufferedReader(new InputStreamReader(remote.getErrorStream()))) {
-                String line;
-                while ((line = readerInput.readLine()) != null) {
-                    output.append(line).append("\n");
-                }
-                while ((line = errorReader.readLine()) != null) {
-                    output.append("ERROR: ").append(line).append("\n");
-                }
+            ShellExecResult result = service.execute(command);
+            if (result.exitCode != 0) {
+                AppDebugManager.w(Category.CORE, "ShellManager: Shizuku command exited with code " + result.exitCode + ": " + command);
             }
-            int exitCode = remote.waitFor();
-            if (exitCode != 0) {
-                AppDebugManager.w(Category.CORE, "ShellManager: Shizuku command exited with code " + exitCode + ": " + command);
-            }
-            return new ShellResult(exitCode == 0, exitCode, output.toString());
+            return new ShellResult(result.succeeded, result.exitCode, result.output);
         } catch (Exception e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
             AppDebugManager.e(Category.CORE, "ShellManager: Shizuku command failed", e);
             return new ShellResult(false, -1, e.getMessage());
-        } finally {
-            if (remote != null) {
-                remote.destroy();
-            }
         }
     }
 

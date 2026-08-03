@@ -26,6 +26,7 @@ import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
 
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
 import com.gree1d.reappzuku.manager.SleepModeManager;
@@ -68,6 +69,7 @@ public class ShappkyService extends Service {
     private CollectStatsManager collectStatsManager;
     private RestrictionsScheduler scheduler;
     private KillTriggerReceiver screenOffReceiver;
+    private BroadcastReceiver packageChangeReceiver;
     private RestrictionsWatchdogManager watchdog;
     private AdditionalScenariosManager additionalScenariosManager;
     private RamKillShortcutManager ramKillShortcutManager;
@@ -204,29 +206,7 @@ public class ShappkyService extends Service {
         super.onCreate();
         AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onCreate started");
 
-        shellManager = new ShellManager(this, handler, executor);
-
-        boolean hasShell = shellManager.resolveAnyShellPermissionBlocking();
-        if (!hasShell) {
-            AppDebugManager.w(Category.CORE, FILE_NAME + ": No shell/root access available, stopping service");
-            stopSelf();
-            return;
-        }
-        AppDebugManager.d(Category.CORE, FILE_NAME + ": Shell/root access confirmed, proceeding with service init");
-
-        appManager = new BackgroundAppManager(this, handler, executor, shellManager);
-        AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": BackgroundAppManager initialized");
-        autoKillManager = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());
-        sleepModeManager = new SleepModeManager(this, handler, executor, shellManager);
-        collectStatsManager = new CollectStatsManager(this, shellManager);
-        scheduler = new RestrictionsScheduler(this, handler, executor, shellManager, appManager, sleepModeManager);
-        autoKillManager.setScheduler(scheduler);
-        sleepModeManager.setScheduler(scheduler);
-        appManager.setScheduler(scheduler);
-        AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": BackgroundAppManager scheduler attached");
-        watchdog = new RestrictionsWatchdogManager(this, handler, appManager, shellManager, scheduler);
         createNotificationChannel();
-
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID_SERVICE)
                 .setContentTitle(getString(R.string.service_notification_title))
                 .setContentText(getString(R.string.service_notification_text))
@@ -246,11 +226,66 @@ public class ShappkyService extends Service {
         isRunning = true;
         AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": Service is now running (isRunning=true)");
 
+        shellManager = ((App) getApplication()).getShellManager();
+
+        executor.execute(() -> {
+            boolean hasShell = shellManager.resolveAnyShellPermissionBlocking();
+            handler.post(() -> {
+                if (!hasShell) {
+                    AppDebugManager.w(Category.CORE, FILE_NAME + ": No shell/root access available, stopping service");
+                    stopSelf();
+                    return;
+                }
+                AppDebugManager.d(Category.CORE, FILE_NAME + ": Shell/root access confirmed, proceeding with service init");
+                if (!shellManager.hasRootAccess()) {
+                    // Bind the Shizuku UserService up front so that BackgroundAppManager's
+                    // appops query-op calls (issued later in initializeManagersAndReceivers)
+                    // don't race the async sticky binder-received listener and time out
+                    // against an unbound service.
+                    shellManager.bindUserService();
+                }
+                initializeManagersAndReceivers();
+            });
+        });
+    }
+
+    private void initializeManagersAndReceivers() {
+        appManager = new BackgroundAppManager(this, handler, executor, shellManager);
+        AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": BackgroundAppManager initialized");
+        autoKillManager = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());
+        sleepModeManager = new SleepModeManager(this, handler, executor, shellManager);
+        collectStatsManager = new CollectStatsManager(this, shellManager);
+        scheduler = new RestrictionsScheduler(this, handler, executor, shellManager, appManager, sleepModeManager);
+        autoKillManager.setScheduler(scheduler);
+        sleepModeManager.setScheduler(scheduler);
+        appManager.setScheduler(scheduler);
+        AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": BackgroundAppManager scheduler attached");
+        watchdog = new RestrictionsWatchdogManager(this, handler, appManager, shellManager, scheduler);
+
         screenOffReceiver = new KillTriggerReceiver();
         IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_SCREEN_OFF);
         filter.addAction(Intent.ACTION_SCREEN_ON);
         registerReceiver(screenOffReceiver, filter);
+
+        packageChangeReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context ctx, Intent intent) {
+                android.net.Uri data = intent.getData();
+                if (data == null) return;
+                String packageName = data.getSchemeSpecificPart();
+                if (packageName == null || appManager == null) return;
+                AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME
+                        + ": packageChangeReceiver invalidating icon cache for " + packageName
+                        + " action=" + intent.getAction());
+                appManager.invalidateIconCache(packageName);
+            }
+        };
+        IntentFilter packageFilter = new IntentFilter();
+        packageFilter.addAction(Intent.ACTION_PACKAGE_REPLACED);
+        packageFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
+        packageFilter.addDataScheme("package");
+        registerReceiver(packageChangeReceiver, packageFilter);
 
         additionalScenariosManager = new AdditionalScenariosManager(this);
         AppDebugManager.d(Category.ADVANCED_CONDITIONS, FILE_NAME + ": AdditionalScenariosManager initialized");
@@ -262,7 +297,8 @@ public class ShappkyService extends Service {
 
         cancelShizukuLostNotification();
         AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku-lost notification cancelled on service create");
-        scheduleShizukuCheck();
+        registerShizukuBinderListeners();
+        scheduleRootOnlyCheck();
         scheduleSnapshotAlarm();
         scheduleWidgetUpdate();
 
@@ -400,39 +436,75 @@ public class ShappkyService extends Service {
         return START_STICKY;
     }
 
-    private void scheduleShizukuCheck() {
-        AppDebugManager.d(Category.CORE, FILE_NAME + ": scheduleShizukuCheck: starting Root/Shizuku poll loop");
+    private void registerShizukuBinderListeners() {
+        AppDebugManager.d(Category.CORE, FILE_NAME + ": registerShizukuBinderListeners: subscribing to Shizuku binder events");
+        shellManager.setShizukuBinderListeners(
+                this::handleShizukuBinderReceived,
+                this::handleShizukuBinderDead
+        );
+    }
+
+    private void unregisterShizukuBinderListeners() {
+        if (shellManager != null) {
+            shellManager.removeShizukuBinderListeners();
+        }
+    }
+
+    private void handleShizukuBinderReceived() {
+        if (!isRunning) return;
+        if (shellManager.hasRootAccess()) {
+            AppDebugManager.d(Category.CORE, FILE_NAME + ": handleShizukuBinderReceived: root access available, ignoring");
+            return;
+        }
+        shellManager.bindUserService();
+        boolean shizukuOk = shellManager.hasShizukuPermission();
+        AppDebugManager.d(Category.CORE, FILE_NAME + ": handleShizukuBinderReceived: permission=" + shizukuOk);
+        if (shizukuOk) {
+            if (shizukuLostNotificationShown) {
+                AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku permission restored, cancelling notification");
+                shizukuLostNotificationShown = false;
+            }
+            cancelShizukuLostNotification();
+        } else {
+
+            if (!shizukuLostNotificationShown) {
+                AppDebugManager.w(Category.CORE, FILE_NAME + ": handleShizukuBinderReceived: binder alive but permission missing, sending notification");
+                shizukuLostNotificationShown = true;
+            }
+            sendShizukuLostNotification();
+        }
+    }
+
+    private void handleShizukuBinderDead() {
+        if (!isRunning) return;
+        if (shellManager.hasRootAccess()) {
+            AppDebugManager.d(Category.CORE, FILE_NAME + ": handleShizukuBinderDead: root access available, ignoring");
+            return;
+        }
+        AppDebugManager.w(Category.CORE, FILE_NAME + ": handleShizukuBinderDead: Shizuku binder died, sending notification");
+        if (!shizukuLostNotificationShown) {
+            shizukuLostNotificationShown = true;
+        }
+        sendShizukuLostNotification();
+    }
+
+    private void scheduleRootOnlyCheck() {
+        AppDebugManager.d(Category.CORE, FILE_NAME + ": scheduleRootOnlyCheck: starting root-only poll loop");
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
                 if (!isRunning) return;
 
                 if (shellManager.hasRootAccess()) {
-                    AppDebugManager.d(Category.CORE, FILE_NAME + ": Root access available, skipping Shizuku check");
-                    handler.postDelayed(this, SHIZUKU_POLL_INTERVAL_MS);
-                    return;
-                }
-
-                boolean shizukuOk = shellManager.hasShizukuPermission();
-                AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku permission check result: " + shizukuOk);
-
-                if (!shizukuOk) {
-                    if (!shizukuLostNotificationShown) {
-                        AppDebugManager.w(Category.CORE, FILE_NAME + ": Shizuku permission lost, sending notification");
-                        shizukuLostNotificationShown = true;
-                    }
-                    sendShizukuLostNotification();
-                } else {
                     if (shizukuLostNotificationShown) {
-                        AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku permission restored, cancelling notification");
                         shizukuLostNotificationShown = false;
+                        cancelShizukuLostNotification();
                     }
-                    cancelShizukuLostNotification();
                 }
 
                 handler.postDelayed(this, SHIZUKU_POLL_INTERVAL_MS);
             }
-        }, 0);
+        }, SHIZUKU_POLL_INTERVAL_MS);
     }
 
     private void sendShizukuLostNotification() {
@@ -715,12 +787,18 @@ public class ShappkyService extends Service {
         scheduleServiceRestart();
         AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": Service restart scheduled via AlarmManager");
         cancelIdleFreezeAlarm();
+        cancelHeartbeatAlarm();
         cancelSnapshotAlarm();
         cancelShizukuLostNotification();
         AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku-lost notification cancelled on service destroy");
+        unregisterShizukuBinderListeners();
+        AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku binder listeners unregistered on service destroy");
         stopRamMonitorNotification();
         if (screenOffReceiver != null) {
             unregisterReceiver(screenOffReceiver);
+        }
+        if (packageChangeReceiver != null) {
+            unregisterReceiver(packageChangeReceiver);
         }
         if (additionalScenariosManager != null) {
             AppDebugManager.d(Category.ADVANCED_CONDITIONS, FILE_NAME + ": Stopping AdditionalScenariosManager (onDestroy)");
@@ -730,9 +808,9 @@ public class ShappkyService extends Service {
             watchdog.stop();
         }
         handler.removeCallbacksAndMessages(null);
-        super.onDestroy();
         executor.shutdownNow();
         AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onDestroy completed, executor shut down");
+        super.onDestroy();
     }
 
     @Override

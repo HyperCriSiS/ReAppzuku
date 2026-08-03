@@ -17,7 +17,7 @@ import com.gree1d.reappzuku.utils.BackgroundRestrictionLog;
 public class RestrictionsWatchdogManager {
 
     private static final String FILE_NAME = "RestrictionsWatchdogManager";
-    private static final long WATCHDOG_INTERVAL_MS = 35 * 60 * 1000L; // 35 minutes
+    private static final long WATCHDOG_INTERVAL_MS = 35 * 60 * 1000L; 
 
     private static final Pattern SLEEP_PACKAGES_SECTION =
             Pattern.compile("(?m)^\\s*Packages:\\n(?:(?!^\\S).*\\n?)*");
@@ -25,6 +25,7 @@ public class RestrictionsWatchdogManager {
             Pattern.compile("(?m)^\\s*User 0:.*(?:\\n(?!\\s*User \\d+:).*)*");
     private static final Pattern SLEEP_SUSPENDED = Pattern.compile("\\bsuspended=(true|false)\\b");
     private static final Pattern SLEEP_ENABLED = Pattern.compile("\\benabled=(\\d+)\\b");
+    private static final Pattern BUCKET_LINE = Pattern.compile("(?m)^([\\w.]+):\\s*(\\d+)\\s*$");
 
     private final Context context;
     private final Handler handler;
@@ -161,19 +162,23 @@ public class RestrictionsWatchdogManager {
     private void checkAndRepairSleepMode() {
         Set<String> permanent = sleepModeManager.getPermanentFreezeApps();
 
+        String fullDump = shellManager.runShellCommandAndGetFullOutput("dumpsys package");
+        if (fullDump == null || fullDump.trim().isEmpty()) {
+            AppDebugManager.w(Category.UTILS, FILE_NAME
+                    + ": checkAndRepairSleepMode: batched dumpsys package fetch failed, skipping this tick");
+            return;
+        }
+
+        Matcher packagesSectionMatcher = SLEEP_PACKAGES_SECTION.matcher(fullDump);
+        String packagesSection = packagesSectionMatcher.find()
+                ? packagesSectionMatcher.group() : fullDump;
+
         for (String pkg : permanent) {
             if (scheduler != null
                     && scheduler.isProtected(pkg, RestrictionsScheduler.PROTECT_SLEEP_MODE)) {
                 AppDebugManager.v(Category.UTILS, FILE_NAME + ": sleep-mode check SKIP (scheduler-protected): " + pkg);
                 continue;
             }
-
-            String dump = shellManager.runShellCommandAndGetFullOutput("dumpsys package " + pkg);
-            if (dump == null || dump.trim().isEmpty()) continue;
-
-            Matcher packagesSectionMatcher = SLEEP_PACKAGES_SECTION.matcher(dump);
-            String packagesSection = packagesSectionMatcher.find()
-                    ? packagesSectionMatcher.group() : dump;
 
             Pattern pkgBlockPattern = Pattern.compile(
                     "(?m)^\\s*Package \\[" + Pattern.quote(pkg) + "\\].*\\n(?:(?!^\\s*Package \\[).*\\n?)*");
@@ -206,10 +211,44 @@ public class RestrictionsWatchdogManager {
         }
     }
 
+    private java.util.Map<String, Integer> fetchAllStandbyBuckets() {
+        String out = shellManager.runShellCommandAndGetFullOutput("am get-standby-bucket");
+        if (out == null || out.trim().isEmpty()) {
+            return null;
+        }
+
+        java.util.Map<String, Integer> buckets = new java.util.HashMap<>();
+        Matcher m = BUCKET_LINE.matcher(out);
+        while (m.find()) {
+            try {
+                buckets.put(m.group(1), Integer.parseInt(m.group(2)));
+            } catch (NumberFormatException ignored) {
+                // skip malformed line
+            }
+        }
+
+        if (buckets.isEmpty()) {
+            AppDebugManager.w(Category.UTILS, FILE_NAME
+                    + ": fetchAllStandbyBuckets: parsed 0 entries from output, treating as failure");
+            return null;
+        }
+
+        AppDebugManager.d(Category.UTILS, FILE_NAME
+                + ": fetchAllStandbyBuckets: parsed " + buckets.size() + " packages in one call");
+        return buckets;
+    }
+
     private void checkAndRepairBuckets(Set<String> desired) {
         Set<String> hardSet   = appManager.getHardRestrictedApps();
         Set<String> mediumSet = appManager.getMediumRestrictedApps();
         Set<String> manualSet = appManager.getManualRestrictedApps();
+
+        java.util.Map<String, Integer> currentBuckets = fetchAllStandbyBuckets();
+        if (currentBuckets == null) {
+            AppDebugManager.w(Category.UTILS, FILE_NAME
+                    + ": checkAndRepairBuckets: batched bucket fetch failed, skipping this tick");
+            return;
+        }
 
         for (String pkg : desired) {
             if (scheduler != null
@@ -246,15 +285,10 @@ public class RestrictionsWatchdogManager {
             }
             if (required == 0) continue;
 
-            String out = shellManager.runShellCommandAndGetFullOutput(
-                    "am get-standby-bucket " + pkg);
-            if (out == null || out.trim().isEmpty()) continue;
-
-            int current;
-            try {
-                current = Integer.parseInt(out.trim());
-            } catch (NumberFormatException e) {
-                AppDebugManager.w(Category.UTILS, FILE_NAME + ": bucket parse error: " + pkg + " out=" + out.trim());
+            Integer current = currentBuckets.get(pkg);
+            if (current == null) {
+                AppDebugManager.w(Category.UTILS, FILE_NAME
+                        + ": checkAndRepairBuckets: no bucket data for " + pkg + ", skipping");
                 continue;
             }
 

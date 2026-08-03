@@ -4,8 +4,10 @@ import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
+import androidx.room.Transaction;
 
 import java.util.List;
+import java.util.Map;
 
 @Dao
 public interface AppStatsDao {
@@ -62,6 +64,13 @@ public interface AppStatsDao {
     @Query("UPDATE app_stats SET appName = :appName " +
            "WHERE packageName = :packageName AND (appName IS NULL OR appName = '')")
     void updateAppName(String packageName, String appName);
+
+    @Transaction
+    default void updateAppNames(Map<String, String> packageNameToAppName) {
+        for (Map.Entry<String, String> entry : packageNameToAppName.entrySet()) {
+            updateAppName(entry.getKey(), entry.getValue());
+        }
+    }
 
     @Query("SELECT COUNT(*) FROM app_stats")
     int getCount();

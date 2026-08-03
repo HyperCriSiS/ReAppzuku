@@ -1,0 +1,43 @@
+// aidl/com/gree1d/reappzuku/core/shell/IShellService.aidl
+package com.gree1d.reappzuku.core.shell;
+
+import com.gree1d.reappzuku.core.shell.ShellExecResult;
+import com.gree1d.reappzuku.core.shell.IShellCallback;
+import com.gree1d.reappzuku.core.shell.ProcessMemoryInfo;
+
+/**
+ * Interface exposed by the long-lived Shizuku UserService that replaces the old
+ * pattern of spawning one ShizukuRemoteProcess per command via Shizuku.newProcess().
+ * The service process itself runs "sh -c <command>" internally and stays alive for
+ * the lifetime of the binding, so no per-command AIDL/binder proxy is created or torn
+ * down — the only long-lived binder is this service connection itself.
+ */
+interface IShellService {
+    // Blocking call: runs the command to completion and returns the full result.
+    // A timeout is enforced service-side (see ShizukuUserServiceImpl) so a hung
+    // command cannot block this call indefinitely.
+    ShellExecResult execute(String command) = 1;
+
+    // Fire-and-forget call: runs the command and streams output back line by line
+    // via the callback, then calls onComplete(exitCode) or onError(message).
+    oneway void executeWithCallback(String command, IShellCallback callback) = 2;
+
+    // Blocking call: reads PSS for the given pids via ActivityManager.getProcessMemoryInfo()
+    // from inside the UserService process (shell/root identity), avoiding the large
+    // "dumpsys meminfo" text dump that can overflow the 1MB binder transaction buffer
+    // when polled frequently. Returns one entry per pid that is still alive and
+    // resolvable; dead/unresolvable pids are silently omitted, never null-padded.
+    ProcessMemoryInfo[] getProcessMemoryInfo(in int[] pids) = 3;
+
+    // Lets the app process explicitly tear down this UserService's own process.
+    // 16777114 is Shizuku's reserved transaction code for the UserService destroy
+    // contract: unbindUserService() alone does NOT kill the remote process, Shizuku
+    // calls this specific method (and expects the implementation to call System.exit())
+    // to actually terminate it. This exact method id must be preserved.
+    //
+    // Note: the aidl compiler requires that EITHER all methods in an interface have
+    // an explicit id OR none do — hence execute()/executeWithCallback() above also
+    // have explicit ids (1, 2) even though their exact values don't matter to Shizuku,
+    // only that they're stable and don't collide with 16777114/16777115.
+    void destroy() = 16777114;
+}

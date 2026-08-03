@@ -57,6 +57,7 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
 import com.gree1d.reappzuku.manager.RamMonitor;
@@ -78,8 +79,9 @@ public class MainActivity extends BaseActivity {
 
     private ActivityMainBinding binding;
     private int currentNavBarHeight = 0;
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private Handler handler;
+    private ExecutorService executor;
+    private ExecutorService shellExecutor;
     private ShellManager shellManager;
     private BackgroundAppManager appManager;
     private AutoKillManager autoKillManager;
@@ -91,6 +93,7 @@ public class MainActivity extends BaseActivity {
     private String currentSearchQuery = "";
     private int currentSortMode = AppConstants.SORT_MODE_DEFAULT;
     private MenuItem selectAllMenuItem;
+    private volatile boolean loadInFlight = false;
 
     private int appliedAccent;
     private boolean appliedIsAmoled;
@@ -108,6 +111,12 @@ public class MainActivity extends BaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onCreate started");
+
+        App app = (App) getApplication();
+        handler = app.getSharedHandler();
+        executor = app.getSharedExecutor();
+        shellExecutor = app.getShellExecutor();
+        shellManager = app.getShellManager();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this,
@@ -144,8 +153,7 @@ public class MainActivity extends BaseActivity {
         appliedCustomColor = sharedPreferences.getInt(KEY_ACCENT_CUSTOM_COLOR, ACCENT_CUSTOM_DEFAULT_COLOR);
         appliedOnColor = sharedPreferences.getInt(KEY_ACCENT_ON_COLOR, ACCENT_ON_WHITE);
 
-        shellManager = new ShellManager(this, handler, executor);
-        appManager = new BackgroundAppManager(this, handler, executor, shellManager);
+        appManager = new BackgroundAppManager(this, handler, executor, shellExecutor, shellManager);
         autoKillManager = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());
         ramMonitor = new RamMonitor(this, handler, binding.ramUsage, binding.ramUsageText);
         cpuMonitor = new CpuMonitor(handler, executor, shellManager);
@@ -174,17 +182,41 @@ public class MainActivity extends BaseActivity {
 
         loadSettingsAndApplyToManager();
 
-        shellManager.setShizukuPermissionListener(shizukuPermissionListener);
-        
         executor.execute(() -> {
             shellManager.resolveAnyShellPermissionBlocking();
-            
-            handler.post(() -> shellManager.checkShellPermissions());
+            handler.post(() -> {
+                if (binding == null || isFinishing() || isDestroyed()) return;
+                shellManager.checkShellPermissions();
+                loadBackgroundApps();
+            });
         });
-        
-        loadBackgroundApps();
+
         ramMonitor.startMonitoring();
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onCreate finished");
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onDestroy");
+        ramMonitor.stopMonitoring();
+        handler.removeCallbacksAndMessages(null);
+        loadInFlight = false;
+        binding = null;
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStart");
+        shellManager.setShizukuPermissionListener(shizukuPermissionListener);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStop");
+        shellManager.removeShizukuPermissionListener(shizukuPermissionListener);
     }
 
     @Override
@@ -221,10 +253,14 @@ public class MainActivity extends BaseActivity {
         binding.bottomNavigation.navIconSettings.setSelected(false);
         binding.bottomNavigation.navIconStatistics.setSelected(false);
         binding.bottomNavigation.navBtnMain.setOnClickListener(v -> {});
-        binding.bottomNavigation.navBtnSettings.setOnClickListener(v ->
-                startActivity(new Intent(this, SettingsActivity.class)));
-        binding.bottomNavigation.navBtnStatistics.setOnClickListener(v ->
-                startActivity(new Intent(this, StatisticsActivity.class)));
+        binding.bottomNavigation.navBtnSettings.setOnClickListener(v -> {
+            startActivity(new Intent(this, SettingsActivity.class));
+            finish();
+        });
+        binding.bottomNavigation.navBtnStatistics.setOnClickListener(v -> {
+            startActivity(new Intent(this, StatisticsActivity.class));
+            finish();
+        });
 
         FocusHighlightUtil.apply(binding.bottomNavigation.navBtnMain, 8, 2);
         FocusHighlightUtil.apply(binding.bottomNavigation.navBtnSettings, 8, 2);
@@ -271,7 +307,10 @@ public class MainActivity extends BaseActivity {
     }
 
     private void setupListeners() {
-        binding.swiperefreshlayout1.setOnRefreshListener(this::loadBackgroundApps);
+        binding.swiperefreshlayout1.setOnRefreshListener(() -> {
+            AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: swiperefreshlayout1 onRefresh triggered");
+            loadBackgroundApps();
+        });
         binding.killButton.setOnClickListener(view -> killSelectedApps());
         binding.scanButtonLayout.setOnClickListener(v -> showSystemScanDialog());
 
@@ -434,7 +473,7 @@ public class MainActivity extends BaseActivity {
                 .create();
         loadingDialog.show();
 
-        executor.execute(() -> {
+        shellExecutor.execute(() -> {
             try {
                 AppTriggersAnalyzer analyzer = new AppTriggersAnalyzer(MainActivity.this, shellManager);
                 List<AppTriggersAnalyzer.TriggerInfo> triggers = analyzer.analyze(app.getPackageName());
@@ -445,7 +484,7 @@ public class MainActivity extends BaseActivity {
 
                 handler.post(() -> {
                     loadingDialog.dismiss();
-                    if (isFinishing() || isDestroyed()) return;
+                    if (binding == null || isFinishing() || isDestroyed()) return;
                     showTriggersResult(app, triggers, status, aggressionScore);
                 });
             } catch (Exception e) {
@@ -470,14 +509,14 @@ public class MainActivity extends BaseActivity {
                 .filter(app -> !app.getPackageName().equals(getPackageName()))
                 .collect(Collectors.toList());
 
-        executor.execute(() -> {
+        shellExecutor.execute(() -> {
             ScanSystem scanner = new ScanSystem(MainActivity.this, shellManager);
             List<ScanSystem.AppLoad> loads = scanner.scan(snapshot);
             AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: system scan finished, scanned=" + snapshot.size() + " loads=" + loads.size());
 
             handler.post(() -> {
                 loadingDialog.dismiss();
-                if (isFinishing() || isDestroyed()) return;
+                if (binding == null || isFinishing() || isDestroyed()) return;
 
                 if (loads.isEmpty()) {
                     AlertDialog emptyDialog = new MaterialAlertDialogBuilder(this)
@@ -824,6 +863,12 @@ public class MainActivity extends BaseActivity {
     }
 
     private void loadBackgroundApps() {
+        if (loadInFlight) {
+            AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: loadBackgroundApps skipped, already in flight");
+            return;
+        }
+        loadInFlight = true;
+
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: loadBackgroundApps started");
         binding.swiperefreshlayout1.setRefreshing(true);
 
@@ -832,22 +877,36 @@ public class MainActivity extends BaseActivity {
                 .map(AppModel::getPackageName)
                 .collect(Collectors.toSet());
 
-        appManager.loadBackgroundApps(result -> {
-            fullAppsList.clear();
-            fullAppsList.addAll(result);
+        appManager.loadBackgroundAppsForMainScreen(
+                quickResult -> {
+                    AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: loadBackgroundApps quick list, count=" + quickResult.size());
+                    applyLoadedAppsList(quickResult, selectedPackages, /* finished= */ false);
+                },
+                fullResult -> {
+                    AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: loadBackgroundApps finished, count=" + fullResult.size());
+                    applyLoadedAppsList(fullResult, selectedPackages, /* finished= */ true);
+                    loadInFlight = false;
+                });
+    }
 
-            for (AppModel app : fullAppsList) {
-                if (selectedPackages.contains(app.getPackageName()) && !app.isProtected()) {
-                    app.setSelected(true);
-                }
+    private void applyLoadedAppsList(List<AppModel> result, Set<String> selectedPackages, boolean finished) {
+        if (binding == null || isFinishing() || isDestroyed()) return;
+
+        fullAppsList.clear();
+        fullAppsList.addAll(result);
+
+        for (AppModel app : fullAppsList) {
+            if (selectedPackages.contains(app.getPackageName()) && !app.isProtected()) {
+                app.setSelected(true);
             }
+        }
 
-            filterApps(currentSearchQuery);
-            binding.runningApps.setText(getString(R.string.main_active_apps_count, fullAppsList.size()));
+        filterApps(currentSearchQuery);
+        binding.runningApps.setText(getString(R.string.main_active_apps_count, fullAppsList.size()));
+        if (finished) {
             binding.swiperefreshlayout1.setRefreshing(false);
-            cpuMonitor.refreshAppsList(fullAppsList);
-            AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: loadBackgroundApps finished, count=" + fullAppsList.size());
-        });
+        }
+        cpuMonitor.refreshAppsList(fullAppsList);
     }
 
     private void filterApps(String query) {
