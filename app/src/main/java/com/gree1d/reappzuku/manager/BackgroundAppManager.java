@@ -34,6 +34,7 @@ import java.util.regex.Pattern;
 
 import com.gree1d.reappzuku.utils.AppModel;
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.ProtectedApps;
 import com.gree1d.reappzuku.utils.BackgroundRestrictionLog;
@@ -139,15 +140,8 @@ public class BackgroundAppManager {
     private RestrictionsScheduler scheduler;
     private AutoKillManager autoKillManager;
 
-    private static final int ICON_CACHE_MAX_BYTES = 24 * 1024 * 1024; 
-    private final LruCache<String, Bitmap> iconCache = new LruCache<String, Bitmap>(ICON_CACHE_MAX_BYTES) {
-        @Override
-        protected int sizeOf(String key, Bitmap bitmap) {
-            return bitmap.getByteCount();
-        }
-    };
-
     private final ExecutorService shellExecutor;
+    private final LruCache<String, Bitmap> iconCache;
 
     public BackgroundAppManager(Context context, Handler handler, ExecutorService executor,
             ShellManager shellManager) {
@@ -161,6 +155,7 @@ public class BackgroundAppManager {
         this.executor = executor;
         this.shellExecutor = shellExecutor;
         this.shellManager = shellManager;
+        this.iconCache = ((App) context.getApplicationContext()).getIconCache();
         this.sharedpreferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
     }
 
@@ -1471,8 +1466,6 @@ public class BackgroundAppManager {
         if (combinedOutput != null) {
             querySucceeded = true;
             String[] sections = combinedOutput.split("---APPOPS-\\d+---");
-            // sections[0] is whatever preceded the first marker (should be empty); each
-            // subsequent section corresponds 1:1 with queuedOps by index.
             int successfulSections = 0;
             for (int s = 1; s < sections.length; s++) {
                 String section = sections[s].trim();
@@ -1609,7 +1602,6 @@ public class BackgroundAppManager {
             String ignoreOut = shellManager.runShellCommandAndGetFullOutput(
                     "cmd appops query-op --user current " + op + " ignore");
             if (ignoreOut != null) {
-                // Empty string is a valid "no packages restricted" result, not a failure.
                 mergeBackgroundRestrictedPackages(restricted, ignoreOut);
             } else {
                 AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": collectDriftedOps query-op failed for " + op
