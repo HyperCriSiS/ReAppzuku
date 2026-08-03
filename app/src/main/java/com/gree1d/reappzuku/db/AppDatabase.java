@@ -8,6 +8,8 @@ import androidx.room.RoomDatabase;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 import androidx.annotation.NonNull;
 
+import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory;
+
 @Database(
     entities = {
         AppStats.class,
@@ -147,6 +149,16 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    private static final int SQL_CACHE_SIZE = 64;
+
+    private static final Callback RAISE_STATEMENT_CACHE_CALLBACK = new Callback() {
+        @Override
+        public void onOpen(@NonNull SupportSQLiteDatabase db) {
+            super.onOpen(db);
+            db.setMaxSqlCacheSize(SQL_CACHE_SIZE);
+        }
+    };
+
     public abstract AppStatsDao appStatsDao();
     public abstract ResourceSnapshotDao resourceSnapshotDao();
     public abstract BgRestrictionLog.Dao bgRestrictionLogDao();
@@ -169,6 +181,8 @@ public abstract class AppDatabase extends RoomDatabase {
                         MIGRATION_9_10,
                         MIGRATION_10_11
                     )
+                    .openHelperFactory(new RequerySQLiteOpenHelperFactory())
+                    .addCallback(RAISE_STATEMENT_CACHE_CALLBACK)
                     .fallbackToDestructiveMigration()
                     .build();
         }
