@@ -81,6 +81,7 @@ public class MainActivity extends BaseActivity {
     private int currentNavBarHeight = 0;
     private Handler handler;
     private ExecutorService executor;
+    private ExecutorService shellExecutor;
     private ShellManager shellManager;
     private BackgroundAppManager appManager;
     private AutoKillManager autoKillManager;
@@ -113,6 +114,7 @@ public class MainActivity extends BaseActivity {
         App app = (App) getApplication();
         handler = app.getSharedHandler();
         executor = app.getSharedExecutor();
+        shellExecutor = app.getShellExecutor();
         shellManager = app.getShellManager();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -150,7 +152,7 @@ public class MainActivity extends BaseActivity {
         appliedCustomColor = sharedPreferences.getInt(KEY_ACCENT_CUSTOM_COLOR, ACCENT_CUSTOM_DEFAULT_COLOR);
         appliedOnColor = sharedPreferences.getInt(KEY_ACCENT_ON_COLOR, ACCENT_ON_WHITE);
 
-        appManager = new BackgroundAppManager(this, handler, executor, app.getShellExecutor(), shellManager);
+        appManager = new BackgroundAppManager(this, handler, executor, shellExecutor, shellManager);
         autoKillManager = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());
         ramMonitor = new RamMonitor(this, handler, binding.ramUsage, binding.ramUsageText);
         cpuMonitor = new CpuMonitor(handler, executor, shellManager);
@@ -470,7 +472,7 @@ public class MainActivity extends BaseActivity {
                 .create();
         loadingDialog.show();
 
-        executor.execute(() -> {
+        shellExecutor.execute(() -> {
             try {
                 AppTriggersAnalyzer analyzer = new AppTriggersAnalyzer(MainActivity.this, shellManager);
                 List<AppTriggersAnalyzer.TriggerInfo> triggers = analyzer.analyze(app.getPackageName());
@@ -506,7 +508,7 @@ public class MainActivity extends BaseActivity {
                 .filter(app -> !app.getPackageName().equals(getPackageName()))
                 .collect(Collectors.toList());
 
-        executor.execute(() -> {
+        shellExecutor.execute(() -> {
             ScanSystem scanner = new ScanSystem(MainActivity.this, shellManager);
             List<ScanSystem.AppLoad> loads = scanner.scan(snapshot);
             AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: system scan finished, scanned=" + snapshot.size() + " loads=" + loads.size());
@@ -879,13 +881,6 @@ public class MainActivity extends BaseActivity {
                 });
     }
 
-    /**
-     * Shared by both phases of the new two-phase loadBackgroundApps: the quick, RAM-less
-     * list (shown immediately so the UI isn't blank for the ~5-10s dumpsys meminfo can
-     * take) and the full PSS/RSS-enriched list that follows. Both need the same
-     * selection-restoring, filtering, and count/CPU-monitor refresh — only the
-     * refresh-spinner's stop differs, gated by {@code finished}.
-     */
     private void applyLoadedAppsList(List<AppModel> result, Set<String> selectedPackages, boolean finished) {
         if (binding == null || isFinishing() || isDestroyed()) return;
 
