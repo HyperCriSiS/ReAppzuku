@@ -238,10 +238,6 @@ public class ShappkyService extends Service {
                 }
                 AppDebugManager.d(Category.CORE, FILE_NAME + ": Shell/root access confirmed, proceeding with service init");
                 if (!shellManager.hasRootAccess()) {
-                    // Bind the Shizuku UserService up front so that BackgroundAppManager's
-                    // appops query-op calls (issued later in initializeManagersAndReceivers)
-                    // don't race the async sticky binder-received listener and time out
-                    // against an unbound service.
                     shellManager.bindUserService();
                 }
                 initializeManagersAndReceivers();
@@ -329,6 +325,10 @@ public class ShappkyService extends Service {
 
         switch (action) {
             case "TRIGGER_KILL":
+                if (autoKillManager == null) {
+                    AppDebugManager.w(Category.AUTO_KILL_BASE, FILE_NAME + ": TRIGGER_KILL received before init complete, ignoring");
+                    break;
+                }
                 executor.execute(() -> {
                     SharedPreferences prefs = getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
                     boolean ramThresholdEnabled = prefs.getBoolean(KEY_RAM_THRESHOLD_ENABLED, false);
@@ -351,6 +351,10 @@ public class ShappkyService extends Service {
                 break;
 
             case "SCREEN_OFF":
+                if (sleepModeManager == null) {
+                    AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME + ": SCREEN_OFF received before init complete, ignoring");
+                    break;
+                }
                 if (sleepModeManager.isSleepModeEnabled()) {
                     scheduleIdleFreezeAlarm();
                     long delayMs = getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
@@ -363,6 +367,10 @@ public class ShappkyService extends Service {
 
             case "SCREEN_ON":
                 handler.postDelayed(() -> {
+                    if (sleepModeManager == null) {
+                        AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME + ": SCREEN_ON fired before init complete, ignoring");
+                        return;
+                    }
                     cancelIdleFreezeAlarm();
                     if (isFrozen) {
                         AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Screen on after idle freeze, unfreezing apps");
@@ -376,6 +384,10 @@ public class ShappkyService extends Service {
                 break;
 
             case "IDLE_FREEZE":
+                if (sleepModeManager == null) {
+                    AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME + ": IDLE_FREEZE received before init complete, ignoring");
+                    break;
+                }
                 if (!sleepModeManager.isSleepModeEnabled()) {
                     AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Sleep mode disabled, skipping freeze");
                     break;
@@ -393,14 +405,26 @@ public class ShappkyService extends Service {
                 break;
 
             case "SCHEDULER_TICK":
+                if (scheduler == null) {
+                    AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": SCHEDULER_TICK received before init complete, ignoring");
+                    break;
+                }
                 scheduler.tick();
                 break;
 
             case "WIDGET_KILL":
+                if (ramKillShortcutManager == null || autoKillManager == null) {
+                    AppDebugManager.w(Category.SHORTCUTS_WIDGETS, FILE_NAME + ": WIDGET_KILL received before init complete, ignoring");
+                    break;
+                }
                 ramKillShortcutManager.performKillAndUpdate(autoKillManager);
                 break;
 
             case "SHORTCUT_KILL_FOREGROUND":
+                if (autoKillManager == null) {
+                    AppDebugManager.w(Category.SHORTCUTS_WIDGETS, FILE_NAME + ": SHORTCUT_KILL_FOREGROUND received before init complete, ignoring");
+                    break;
+                }
                 String targetPkg = intent.getStringExtra("target_package");
                 if (targetPkg != null && !targetPkg.isEmpty()) {
                     AppDebugManager.d(Category.SHORTCUTS_WIDGETS, FILE_NAME + ": SHORTCUT_KILL_FOREGROUND received for " + targetPkg);
@@ -411,6 +435,10 @@ public class ShappkyService extends Service {
                 break;
 
             case "UPDATE_HW_RECEIVERS":
+                if (additionalScenariosManager == null) {
+                    AppDebugManager.w(Category.ADVANCED_CONDITIONS, FILE_NAME + ": UPDATE_HW_RECEIVERS received before init complete, ignoring");
+                    break;
+                }
                 AppDebugManager.d(Category.ADVANCED_CONDITIONS, FILE_NAME + ": UPDATE_HW_RECEIVERS received, updating hardware receiver state");
                 additionalScenariosManager.updateHardwareReceiverState();
                 break;
@@ -425,6 +453,10 @@ public class ShappkyService extends Service {
                 break;
 
             case "TAKE_SNAPSHOT":
+                if (collectStatsManager == null) {
+                    AppDebugManager.w(Category.UTILS, FILE_NAME + ": TAKE_SNAPSHOT received before init complete, ignoring");
+                    break;
+                }
                 AppDebugManager.d(Category.UTILS, FILE_NAME + ": TAKE_SNAPSHOT received");
                 collectStatsManager.takeSnapshotAsync(() -> {
                     releaseSnapshotWakeLock();
