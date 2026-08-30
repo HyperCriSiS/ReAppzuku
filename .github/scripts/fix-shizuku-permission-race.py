@@ -46,8 +46,30 @@ text = replace_once(
     text,
     '''    private final Shizuku.OnRequestPermissionResultListener shizukuPermissionListener = (requestCode, grantResult) -> {\n        AppDebugManager.d(Category.CORE, "MainActivity: Shizuku permission result=" + grantResult);\n        if (grantResult == PackageManager.PERMISSION_GRANTED) {\n            loadBackgroundApps();\n        }\n    };''',
     '''    private final Shizuku.OnRequestPermissionResultListener shizukuPermissionListener = (requestCode, grantResult) -> {\n        AppDebugManager.d(Category.CORE, "MainActivity: Shizuku permission result=" + grantResult);\n        if (grantResult == PackageManager.PERMISSION_GRANTED) {\n            // The first app scan must not start until the asynchronous Shizuku\n            // permission dialog has actually been accepted.\n            loadBackgroundApps();\n        } else {\n            // Keep the list untouched when permission is denied. In particular,\n            // do not leave pull-to-refresh spinning after a manual retry.\n            if (binding != null) {\n                binding.swiperefreshlayout1.setRefreshing(false);\n            }\n        }\n    };''',
-    "The first app scan must not start until the asynchronous Shizuku",
+    "Keep the list untouched when permission is denied",
 )
+
+# Second-stage fix: permission grant and Shizuku UserService readiness are
+# separate. On first launch the Binder can arrive before permission is granted,
+# so the original bind attempt is skipped/failed and must be restarted after the
+# user accepts the permission dialog.
+if "Permission and UserService connection are separate." not in text:
+    old_granted = '''
+        if (grantResult == PackageManager.PERMISSION_GRANTED) {
+            // The first app scan must not start until the asynchronous Shizuku
+            // permission dialog has actually been accepted.
+            loadBackgroundApps();
+'''
+    new_granted = '''
+        if (grantResult == PackageManager.PERMISSION_GRANTED) {
+            // Permission and UserService connection are separate. Explicitly
+            // start the bind here; ShellManager also self-heals this centrally
+            // when this Activity listener was stopped by the permission dialog.
+            shellManager.bindUserService();
+            loadBackgroundApps();
+'''
+    if old_granted in text:
+        text = text.replace(old_granted, new_granted, 1)
 
 text = replace_once(
     text,
