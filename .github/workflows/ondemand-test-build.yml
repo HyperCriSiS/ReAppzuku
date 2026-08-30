@@ -27,12 +27,18 @@ jobs:
         run: python .github/scripts/apply-full-exit.py
       - name: Apply Smart Lifecycle patch
         run: python .github/scripts/apply-smart-lifecycle.py
+      - name: Apply App Behavior compatibility policy
+        run: python .github/scripts/apply-app-behavior-policy.py
       - name: Commit source patch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/java/com/gree1d/reappzuku/core/PreferenceKeys.java \
+          git add app/src/main/AndroidManifest.xml \
+                  app/src/main/java/com/gree1d/reappzuku/core/App.java \
+                  app/src/main/java/com/gree1d/reappzuku/core/PreferenceKeys.java \
                   app/src/main/java/com/gree1d/reappzuku/core/BootReceiver.java \
+                  app/src/main/java/com/gree1d/reappzuku/core/BackgroundWorkPolicy.java \
+                  app/src/main/java/com/gree1d/reappzuku/core/ShizukuWakeReceiver.java \
                   app/src/main/java/com/gree1d/reappzuku/core/ShellManager.java \
                   app/src/main/java/com/gree1d/reappzuku/manager/SmartLifecycleManager.java \
                   app/src/main/java/com/gree1d/reappzuku/service/SmartLifecycleWorker.java \
@@ -65,4 +71,4 @@ jobs:
           gh release create ondemand-test ReAppzuku-1.8.7-ondemand-debug.apk \
             --target "$(git rev-parse HEAD)" \
             --title "ReAppzuku 1.8.7 On-demand Shizuku test" \
-            --notes "Test build: on-demand Shizuku process, optional full exit on Back, Smart Lifecycle app management, and first-launch Shizuku permission/UserService synchronization."
+            --notes "Test build: configurable Shizuku on-demand startup, guarded full exit on Back, Smart Lifecycle app management, background-automation interlocks, and Shizuku permission/UserService synchronization."
