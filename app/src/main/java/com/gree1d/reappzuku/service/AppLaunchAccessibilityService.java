@@ -22,6 +22,7 @@ import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.PresetManager;
+import com.gree1d.reappzuku.manager.SmartLifecycleManager;
 import com.gree1d.reappzuku.core.ProtectedApps;
 
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
@@ -74,6 +75,10 @@ public class AppLaunchAccessibilityService extends AccessibilityService {
         String packageName = packageNameCs.toString();
 
         if (packageName.equals(getPackageName())) return;
+
+        // Optional precision boost for Smart Lifecycle. It does not require the
+        // accessibility service, but uses these events when the service is active.
+        SmartLifecycleManager.recordForeground(getApplicationContext(), packageName);
 
         SharedPreferences prefs = getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
 

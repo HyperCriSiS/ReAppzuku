@@ -1047,4 +1047,16 @@
     <string name="settings_exit_on_back_title">Fully exit app with Back button</string>
     <string name="settings_exit_on_back_subtitle">On the main screen, Back stops the ReAppzuku main process; background features in that process stop too</string>
 
+
+    <!-- Smart Lifecycle -->
+    <string name="settings_smart_lifecycle_title">Smart Lifecycle</string>
+    <string name="settings_smart_lifecycle_subtitle">Standby first, force-stop later. Protects foreground use, media, foreground services, widgets and critical services.</string>
+    <string name="settings_smart_lifecycle_apps_title">Managed apps</string>
+    <string name="settings_smart_lifecycle_apps_subtitle">Uses the Blacklist. Only apps you explicitly select here are managed.</string>
+    <string name="settings_smart_lifecycle_profile_title">Management profile</string>
+    <string name="settings_smart_lifecycle_profile_gentle">Gentle · boot 10 min · standby 2 h · stop 12 h</string>
+    <string name="settings_smart_lifecycle_profile_balanced">Balanced · boot 5 min · standby 1 h · stop 6 h</string>
+    <string name="settings_smart_lifecycle_profile_aggressive">Aggressive · boot 2 min · standby 30 min · stop 2 h</string>
+    <string name="settings_smart_boot_cleanup_title">Clean up boot-started apps</string>
+    <string name="settings_smart_boot_cleanup_subtitle">After the boot grace period, stop managed apps that started by themselves and were not used since boot.</string>
 </resources>

@@ -12,6 +12,7 @@ import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.service.ShappkyService;
 import com.gree1d.reappzuku.manager.RestrictionsScheduler;
 import com.gree1d.reappzuku.service.AutoKillWorker;
+import com.gree1d.reappzuku.service.SmartLifecycleWorker;
 import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_AUTO_KILL_ENABLED;
 import static com.gree1d.reappzuku.core.PreferenceKeys.PREFERENCES_NAME;
 
@@ -42,6 +43,8 @@ public class BootReceiver extends BroadcastReceiver {
                 AutoKillWorker.cancel(context);
                 AppDebugManager.d(Category.CORE, "BootReceiver: Boot complete (" + action + "): service started, worker skipped");
             }
+
+            SmartLifecycleWorker.scheduleAfterBoot(context);
         }
     }
 }

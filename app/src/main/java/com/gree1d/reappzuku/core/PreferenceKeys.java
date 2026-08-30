@@ -82,4 +82,13 @@ public final class PreferenceKeys {
     public static final String KEY_SLEEP_MODE_APPS_FROZEN = "sleep_mode_apps_frozen";
     public static final String KEY_SLEEP_MODE_APPS_SUSPEND_METHOD = "sleep_mode_apps_suspend_method";
 
+    // Smart Lifecycle
+    public static final String KEY_SMART_LIFECYCLE_ENABLED = "smart_lifecycle_enabled";
+    public static final String KEY_SMART_BOOT_CLEANUP_ENABLED = "smart_boot_cleanup_enabled";
+    public static final String KEY_SMART_LIFECYCLE_PROFILE = "smart_lifecycle_profile";
+    public static final String KEY_SMART_BOOT_EPOCH_MS = "smart_boot_epoch_ms";
+    public static final String KEY_SMART_LAST_FOREGROUND_PREFIX = "smart_last_foreground_";
+    public static final String KEY_SMART_BACKGROUND_SINCE_PREFIX = "smart_background_since_";
+    public static final String KEY_SMART_STANDBY_APPLIED_PREFIX = "smart_standby_applied_";
+
 }
