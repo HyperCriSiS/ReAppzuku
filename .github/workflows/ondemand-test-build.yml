@@ -16,6 +16,9 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ondemand-shizuku
+          fetch-depth: 10
+      - name: Recover MainActivity and fix Shizuku permission race
+        run: python .github/scripts/fix-shizuku-permission-race.py
       - name: Apply app behavior patch
         run: python .github/scripts/apply-exit-on-back.py
       - name: Apply full-exit behavior
@@ -59,4 +62,4 @@ jobs:
           gh release create ondemand-test ReAppzuku-1.8.7-ondemand-debug.apk \
             --target "$(git rev-parse HEAD)" \
             --title "ReAppzuku 1.8.7 On-demand Shizuku test" \
-            --notes "Test build: on-demand Shizuku process, optional full exit on Back, and Smart Lifecycle app management (boot cleanup + standby-first + protected force-stop)."
+            --notes "Test build: on-demand Shizuku process, optional full exit on Back, Smart Lifecycle app management, and first-launch Shizuku permission synchronization."
