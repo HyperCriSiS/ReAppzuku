@@ -17,8 +17,10 @@ jobs:
         with:
           ref: ondemand-shizuku
           fetch-depth: 10
-      - name: Recover MainActivity and fix Shizuku permission race
-        run: python .github/scripts/fix-shizuku-permission-race.py
+      - name: Fix Shizuku permission and service readiness
+        run: |
+          python .github/scripts/fix-shizuku-service-readiness.py
+          python .github/scripts/fix-shizuku-permission-race.py
       - name: Apply app behavior patch
         run: python .github/scripts/apply-exit-on-back.py
       - name: Apply full-exit behavior
@@ -31,6 +33,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/src/main/java/com/gree1d/reappzuku/core/PreferenceKeys.java \
                   app/src/main/java/com/gree1d/reappzuku/core/BootReceiver.java \
+                  app/src/main/java/com/gree1d/reappzuku/core/ShellManager.java \
                   app/src/main/java/com/gree1d/reappzuku/manager/SmartLifecycleManager.java \
                   app/src/main/java/com/gree1d/reappzuku/service/SmartLifecycleWorker.java \
                   app/src/main/java/com/gree1d/reappzuku/service/AppLaunchAccessibilityService.java \
@@ -62,4 +65,4 @@ jobs:
           gh release create ondemand-test ReAppzuku-1.8.7-ondemand-debug.apk \
             --target "$(git rev-parse HEAD)" \
             --title "ReAppzuku 1.8.7 On-demand Shizuku test" \
-            --notes "Test build: on-demand Shizuku process, optional full exit on Back, Smart Lifecycle app management, and first-launch Shizuku permission synchronization."
+            --notes "Test build: on-demand Shizuku process, optional full exit on Back, Smart Lifecycle app management, and first-launch Shizuku permission/UserService synchronization."
