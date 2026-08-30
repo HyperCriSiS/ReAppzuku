@@ -14,6 +14,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ondemand-shizuku
+      - name: Apply app behavior patch
+        run: python .github/scripts/apply-exit-on-back.py
+      - name: Commit source patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/gree1d/reappzuku/core/PreferenceKeys.java \
+                  app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java \
+                  app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivity.java \
+                  app/src/main/res/layout/activity_settings.xml \
+                  app/src/main/res/values/strings.xml
+          if ! git diff --cached --quiet; then
+            git commit -m "Add optional exit-on-Back behavior [skip ci]"
+            git push origin HEAD:ondemand-shizuku
+          fi
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
@@ -32,6 +49,6 @@ jobs:
         run: |
           gh release delete ondemand-test --cleanup-tag -y || true
           gh release create ondemand-test ReAppzuku-1.8.7-ondemand-debug.apk \
-            --target "${GITHUB_SHA}" \
+            --target "$(git rev-parse HEAD)" \
             --title "ReAppzuku 1.8.7 On-demand Shizuku test" \
-            --notes "Test build: Shizuku provider isolated into a minimal :shizuku process so the normal ReAppzuku process does not start when Shizuku starts."
+            --notes "Test build: Shizuku provider isolated into a minimal :shizuku process. Adds Settings > App behavior > Exit app with Back button."
