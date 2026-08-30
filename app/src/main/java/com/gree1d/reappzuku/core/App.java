@@ -3,6 +3,7 @@ package com.gree1d.reappzuku.core;
 import android.app.ActivityManager;
 import android.app.Application;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Handler;
 import android.os.Process;
@@ -62,8 +63,17 @@ public class App extends Application {
         // Keep it intentionally minimal so the real ReAppzuku application does
         // not initialize merely because Shizuku was started.
         if (shizukuProviderProcess) {
+            // Keep the Shizuku provider process tiny. The normal process stores
+            // the auto-start policy in the enabled state of this non-exported
+            // receiver, avoiding unreliable cross-process SharedPreferences.
+            Shizuku.addBinderReceivedListenerSticky(() ->
+                    sendBroadcast(new Intent(this, ShizukuWakeReceiver.class)));
             return;
         }
+
+        // Reconcile App Behavior whenever the normal process starts (including
+        // upgrades from builds that predate the configurable option).
+        BackgroundWorkPolicy.enforceCompatibleBehavior(this);
 
         handler = new Handler(Looper.getMainLooper());
         executor = Executors.newSingleThreadExecutor();

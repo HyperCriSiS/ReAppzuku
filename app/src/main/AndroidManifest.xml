@@ -138,6 +138,10 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name="com.gree1d.reappzuku.core.ShizukuWakeReceiver"
+            android:exported="false" />
+
         <receiver android:name="com.gree1d.reappzuku.core.BootReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

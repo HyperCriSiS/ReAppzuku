@@ -1044,8 +1044,11 @@
     
     <!-- App behavior -->
     <string name="settings_section_behavior">App behavior</string>
+    <string name="settings_prevent_shizuku_autostart_title">Prevent automatic start from Shizuku</string>
+    <string name="settings_prevent_shizuku_autostart_subtitle">Keep ReAppzuku on demand when Shizuku starts. Disabled while background automation is active.</string>
+    <string name="settings_app_behavior_blocked">Disable background automation before using this App Behavior option.</string>
     <string name="settings_exit_on_back_title">Fully exit app with Back button</string>
-    <string name="settings_exit_on_back_subtitle">On the main screen, Back stops the ReAppzuku main process; background features in that process stop too</string>
+    <string name="settings_exit_on_back_subtitle">Stop the ReAppzuku main process from the main screen. Disabled while background automation is active.</string>
 
 
     <!-- Smart Lifecycle -->

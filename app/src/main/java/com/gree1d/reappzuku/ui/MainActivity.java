@@ -58,6 +58,7 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.BackgroundWorkPolicy;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
@@ -221,7 +222,8 @@ public class MainActivity extends BaseActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (sharedPreferences.getBoolean(KEY_EXIT_ON_BACK, false)) {
+                if (sharedPreferences.getBoolean(KEY_EXIT_ON_BACK, false)
+                        && BackgroundWorkPolicy.isOnDemandBehaviorAllowed(MainActivity.this)) {
                     // This is deliberately stronger than Android's normal Back action:
                     // release the Shizuku user service, remove the task, then terminate
                     // only ReAppzuku's main process. The isolated :shizuku provider

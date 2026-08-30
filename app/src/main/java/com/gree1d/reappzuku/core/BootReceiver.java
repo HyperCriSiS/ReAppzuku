@@ -29,19 +29,18 @@ public class BootReceiver extends BroadcastReceiver {
         if (Intent.ACTION_BOOT_COMPLETED.equals(action)
                 || "android.intent.action.LOCKED_BOOT_COMPLETED".equals(action)) {
 
-            Intent serviceIntent = new Intent(context, ShappkyService.class);
-            ContextCompat.startForegroundService(context, serviceIntent);
-
             RestrictionsScheduler.scheduleNextStatic(context);
 
             SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
             boolean autoKillEnabled = prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false);
             if (autoKillEnabled) {
+                Intent serviceIntent = new Intent(context, ShappkyService.class);
+                ContextCompat.startForegroundService(context, serviceIntent);
                 AutoKillWorker.schedule(context, "Periodic Kill");
-                AppDebugManager.d(Category.CORE, "BootReceiver: Boot complete (" + action + "): service started, worker scheduled");
+                AppDebugManager.d(Category.CORE, "BootReceiver: Boot complete (" + action + "): background service started, worker scheduled");
             } else {
                 AutoKillWorker.cancel(context);
-                AppDebugManager.d(Category.CORE, "BootReceiver: Boot complete (" + action + "): service started, worker skipped");
+                AppDebugManager.d(Category.CORE, "BootReceiver: Boot complete (" + action + "): no background service requested");
             }
 
             SmartLifecycleWorker.scheduleAfterBoot(context);
