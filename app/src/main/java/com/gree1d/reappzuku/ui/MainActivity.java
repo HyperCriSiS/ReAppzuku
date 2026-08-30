@@ -22,6 +22,7 @@ import android.text.Spannable;
 import android.text.style.ForegroundColorSpan;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.widget.SearchView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -110,6 +111,7 @@ public class MainActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setupBackButtonBehavior();
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onCreate started");
 
         App app = (App) getApplication();
@@ -193,6 +195,26 @@ public class MainActivity extends BaseActivity {
 
         ramMonitor.startMonitoring();
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onCreate finished");
+    }
+
+    private void setupBackButtonBehavior() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (sharedPreferences.getBoolean(KEY_EXIT_ON_BACK, false)) {
+                    // Explicit user-requested exit from the main screen. Remove the
+                    // task from Recents while leaving Android in control of process
+                    // reclamation and any separately requested background features.
+                    finishAndRemoveTask();
+                    return;
+                }
+
+                // Preserve Android's normal Back behavior when the option is disabled.
+                setEnabled(false);
+                getOnBackPressedDispatcher().onBackPressed();
+                setEnabled(true);
+            }
+        });
     }
 
     @Override

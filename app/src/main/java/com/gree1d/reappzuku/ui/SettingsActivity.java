@@ -276,6 +276,7 @@ public class SettingsActivity extends SettingsActivityDialogs
         int[] titleIds = {
             R.id.section_title_information,
             R.id.section_title_appearance,
+            R.id.section_title_behavior,
             R.id.section_title_stability,
             R.id.section_title_autokill,
             R.id.section_title_advanced,
@@ -294,7 +295,8 @@ public class SettingsActivity extends SettingsActivityDialogs
             R.id.switch_periodic_kill,
             R.id.switch_kill_screen_off,
             R.id.switch_ram_threshold,
-            R.id.switch_sleep_mode
+            R.id.switch_sleep_mode,
+            R.id.switch_exit_on_back
         };
         for (int id : switchIds) {
             MaterialSwitch sw = findViewById(id);
@@ -356,6 +358,8 @@ public class SettingsActivity extends SettingsActivityDialogs
         int notificationMode = sharedPreferences.getInt(KEY_NOTIFICATION_MODE, NOTIFICATION_MODE_ALL);
         updateNotificationModeText(notificationMode);
 
+        binding.switchExitOnBack.setChecked(sharedPreferences.getBoolean(KEY_EXIT_ON_BACK, false));
+
         boolean serviceEnabled = getAutoKillPref(KEY_AUTO_KILL_ENABLED, false);
         binding.switchAutoKill.setChecked(serviceEnabled);
 
@@ -404,6 +408,10 @@ public class SettingsActivity extends SettingsActivityDialogs
 
         binding.layoutAccentOnColor.setOnClickListener(v -> showAccentOnColorDialog());
         binding.layoutNotificationMode.setOnClickListener(v -> showNotificationModeDialog());
+
+        binding.switchExitOnBack.setOnCheckedChangeListener((buttonView, isChecked) ->
+                sharedPreferences.edit().putBoolean(KEY_EXIT_ON_BACK, isChecked).apply());
+        binding.layoutExitOnBack.setOnClickListener(v -> binding.switchExitOnBack.toggle());
 
         binding.switchAutoKill.setOnCheckedChangeListener(autoKillListener);
         binding.switchPeriodicKill.setOnCheckedChangeListener(periodicKillListener);

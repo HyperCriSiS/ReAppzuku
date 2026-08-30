@@ -1042,4 +1042,9 @@
     <string name="appdebug_backup_restore">Backup &amp; Restore</string>
     <string name="appdebug_utils">Other Utils</string>
     
+    <!-- App behavior -->
+    <string name="settings_section_behavior">App behavior</string>
+    <string name="settings_exit_on_back_title">Exit app with Back button</string>
+    <string name="settings_exit_on_back_subtitle">On the main screen, Back closes ReAppzuku and removes it from Recents</string>
+
 </resources>
