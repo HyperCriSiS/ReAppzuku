@@ -18,6 +18,8 @@ jobs:
           ref: ondemand-shizuku
       - name: Apply app behavior patch
         run: python .github/scripts/apply-exit-on-back.py
+      - name: Apply full-exit behavior
+        run: python .github/scripts/apply-full-exit.py
       - name: Commit source patch
         run: |
           git config user.name "github-actions[bot]"
@@ -51,4 +53,4 @@ jobs:
           gh release create ondemand-test ReAppzuku-1.8.7-ondemand-debug.apk \
             --target "$(git rev-parse HEAD)" \
             --title "ReAppzuku 1.8.7 On-demand Shizuku test" \
-            --notes "Test build: Shizuku provider isolated into a minimal :shizuku process. Adds Settings > App behavior > Exit app with Back button."
+            --notes "Test build: Shizuku provider isolated into a minimal :shizuku process. Adds Settings > App behavior > Fully exit app with Back button."
