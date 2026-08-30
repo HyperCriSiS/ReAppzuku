@@ -104,8 +104,10 @@ public class MainActivity extends BaseActivity {
     private final Shizuku.OnRequestPermissionResultListener shizukuPermissionListener = (requestCode, grantResult) -> {
         AppDebugManager.d(Category.CORE, "MainActivity: Shizuku permission result=" + grantResult);
         if (grantResult == PackageManager.PERMISSION_GRANTED) {
-            // The first app scan must not start until the asynchronous Shizuku
-            // permission dialog has actually been accepted.
+            // Permission and UserService connection are separate. Explicitly
+            // start the bind here; ShellManager also self-heals this centrally
+            // when this Activity listener was stopped by the permission dialog.
+            shellManager.bindUserService();
             loadBackgroundApps();
         } else {
             // Keep the list untouched when permission is denied. In particular,
