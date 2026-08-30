@@ -1,0 +1,37 @@
+name: On-demand Shizuku test APK
+
+on:
+  push:
+    branches:
+      - ondemand-shizuku
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - name: Grant execute permission
+        run: chmod +x gradlew
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+      - name: Prepare APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk ReAppzuku-1.8.7-ondemand-debug.apk
+      - name: Publish test APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ondemand-test --cleanup-tag -y || true
+          gh release create ondemand-test ReAppzuku-1.8.7-ondemand-debug.apk \
+            --target "${GITHUB_SHA}" \
+            --title "ReAppzuku 1.8.7 On-demand Shizuku test" \
+            --notes "Test build: Shizuku provider isolated into a minimal :shizuku process so the normal ReAppzuku process does not start when Shizuku starts."
