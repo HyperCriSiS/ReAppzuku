@@ -202,10 +202,13 @@ public class MainActivity extends BaseActivity {
             @Override
             public void handleOnBackPressed() {
                 if (sharedPreferences.getBoolean(KEY_EXIT_ON_BACK, false)) {
-                    // Explicit user-requested exit from the main screen. Remove the
-                    // task from Recents while leaving Android in control of process
-                    // reclamation and any separately requested background features.
+                    // This is deliberately stronger than Android's normal Back action:
+                    // release the Shizuku user service, remove the task, then terminate
+                    // only ReAppzuku's main process. The isolated :shizuku provider
+                    // process remains available for the next on-demand launch.
+                    shellManager.unbindUserService();
                     finishAndRemoveTask();
+                    android.os.Process.killProcess(android.os.Process.myPid());
                     return;
                 }
 
