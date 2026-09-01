@@ -1,6 +1,7 @@
 package com.gree1d.reappzuku.utils;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
@@ -37,47 +38,84 @@ public class KillShortcutActivity extends Activity {
         super.onCreate(savedInstanceState);
         AppDebugManager.d(Category.SHORTCUTS_WIDGETS, TAG + ": onCreate, action=" + (getIntent() != null ? getIntent().getAction() : "null"));
 
-        String action = getIntent() != null ? getIntent().getAction() : null;
-        if ("WIDGET_KILL".equals(action)) {
-            AppDebugManager.d(Category.SHORTCUTS_WIDGETS, TAG + ": WIDGET_KILL received, proxying to ShappkyService");
-            Intent service = new Intent(this, com.gree1d.reappzuku.service.ShappkyService.class);
-            service.setAction("WIDGET_KILL");
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(service);
-            } else {
-                startService(service);
+        Intent launchIntent = getIntent();
+        String action = launchIntent != null ? launchIntent.getAction() : null;
+
+        if (ShortcutAuth.ACTION_RAM_KILL_SECURE.equals(action)) {
+            if (!ShortcutAuth.isAuthorized(this, launchIntent)) {
+                AppDebugManager.w(Category.SHORTCUTS_WIDGETS, TAG + ": rejected unauthenticated secure shortcut");
+                finish();
+                return;
             }
-            finish();
+            proxyRamKill();
             return;
         }
 
+        if ("WIDGET_KILL".equals(action)) {
+            // Legacy/static shortcuts cannot carry an install-specific secret. Keep them
+            // functional, but require an explicit user confirmation before privileged work.
+            new AlertDialog.Builder(this)
+                    .setMessage(com.gree1d.reappzuku.R.string.shortcut_ram_kill_confirm_message)
+                    .setNegativeButton(android.R.string.cancel, (dialog, which) -> finish())
+                    .setPositiveButton(com.gree1d.reappzuku.R.string.shortcut_kill_short_label,
+                            (dialog, which) -> proxyRamKill())
+                    .setOnCancelListener(dialog -> finish())
+                    .show();
+            return;
+        }
+
+        // Any other explicit launch can only reach a user-confirmed foreground-app action.
+        // This prevents the exported Activity from acting as a silent privileged deputy.
+        new AlertDialog.Builder(this)
+                .setMessage(com.gree1d.reappzuku.R.string.shortcut_foreground_kill_confirm_message)
+                .setNegativeButton(android.R.string.cancel, (dialog, which) -> finish())
+                .setPositiveButton(com.gree1d.reappzuku.R.string.shortcut_kill_short_label,
+                        (dialog, which) -> executeForegroundKill())
+                .setOnCancelListener(dialog -> finish())
+                .show();
+    }
+
+    private void proxyRamKill() {
+        AppDebugManager.d(Category.SHORTCUTS_WIDGETS, TAG + ": authenticated/confirmed RAM kill, proxying to ShappkyService");
+        Intent service = new Intent(this, com.gree1d.reappzuku.service.ShappkyService.class);
+        service.setAction("WIDGET_KILL");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(service);
+        } else {
+            startService(service);
+        }
+        finish();
+    }
+
+    private void executeForegroundKill() {
         App app = (App) getApplication();
         handler = app.getSharedHandler();
         executor = app.getSharedExecutor();
         shellExecutor = app.getShellExecutor();
         shellManager = app.getShellManager();
 
-        if (!shellManager.hasAnyShellPermission()) {
-            AppDebugManager.w(Category.SHORTCUTS_WIDGETS, TAG + ": no shell permission, aborting");
-            Toast.makeText(getApplicationContext(), "Shizuku or Root permission required", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
+        shellManager.prepareShellBackendAsync(state -> {
+            if (!state.isReady()) {
+                AppDebugManager.w(Category.SHORTCUTS_WIDGETS, TAG + ": shell backend not ready, state=" + state);
+                Toast.makeText(getApplicationContext(), "Shizuku or Root permission required", Toast.LENGTH_SHORT).show();
+                finish();
+                return;
+            }
 
-        autoKillManager = new AutoKillManager(this, handler, executor, shellManager, new ArrayList<>());
-
-        shellExecutor.execute(() -> {
-            String targetPackage = findKillablePackage();
-            AppDebugManager.d(Category.SHORTCUTS_WIDGETS, TAG + ": findKillablePackage result=" + targetPackage);
-            handler.post(() -> {
-                if (targetPackage != null) {
-                    AppDebugManager.d(Category.SHORTCUTS_WIDGETS, TAG + ": killing " + targetPackage);
-                    autoKillManager.killApp(targetPackage, "Shortcut Kill", () -> finish());
-                } else {
-                    AppDebugManager.w(Category.SHORTCUTS_WIDGETS, TAG + ": no killable foreground app found");
-                    Toast.makeText(getApplicationContext(), "No killable foreground app found", Toast.LENGTH_SHORT).show();
-                    finish();
-                }
+            autoKillManager = new AutoKillManager(this, handler, executor, shellManager, new ArrayList<>());
+            shellExecutor.execute(() -> {
+                String targetPackage = findKillablePackage();
+                AppDebugManager.d(Category.SHORTCUTS_WIDGETS, TAG + ": findKillablePackage result=" + targetPackage);
+                handler.post(() -> {
+                    if (targetPackage != null) {
+                        AppDebugManager.d(Category.SHORTCUTS_WIDGETS, TAG + ": killing " + targetPackage);
+                        autoKillManager.killApp(targetPackage, "Shortcut Kill", () -> finish());
+                    } else {
+                        AppDebugManager.w(Category.SHORTCUTS_WIDGETS, TAG + ": no killable foreground app found");
+                        Toast.makeText(getApplicationContext(), "No killable foreground app found", Toast.LENGTH_SHORT).show();
+                        finish();
+                    }
+                });
             });
         });
     }

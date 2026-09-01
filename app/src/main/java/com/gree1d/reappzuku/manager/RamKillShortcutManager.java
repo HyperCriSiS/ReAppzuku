@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
-import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -16,26 +15,29 @@ import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
 
+import androidx.core.content.ContextCompat;
 import androidx.core.content.pm.ShortcutInfoCompat;
 import androidx.core.content.pm.ShortcutManagerCompat;
 import androidx.core.graphics.drawable.IconCompat;
 
-import java.io.RandomAccessFile;
+import com.gree1d.reappzuku.R;
+import com.gree1d.reappzuku.core.AppDebugManager;
+import com.gree1d.reappzuku.core.AppDebugManager.Category;
+import com.gree1d.reappzuku.core.ProtectedApps;
+import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.service.ShappkyService;
+import com.gree1d.reappzuku.utils.KillShortcutActivity;
+import com.gree1d.reappzuku.utils.ShortcutAuth;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import com.gree1d.reappzuku.R;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
-import com.gree1d.reappzuku.core.ShellManager;
-import com.gree1d.reappzuku.service.ShappkyService;
-import com.gree1d.reappzuku.core.ProtectedApps;
-import com.gree1d.reappzuku.utils.KillShortcutActivity;
-
 public class RamKillShortcutManager {
-
     private static final String TAG = "RamKillShortcutManager";
     private static final String SHORTCUT_ID = "ram_kill_shortcut";
     private static final int ICON_SIZE = 108;
@@ -159,7 +161,8 @@ public class RamKillShortcutManager {
     private ShortcutInfoCompat buildShortcut(RamInfo info) {
         Bitmap icon = buildIcon(info);
         Intent killIntent = new Intent(context, KillShortcutActivity.class);
-        killIntent.setAction("WIDGET_KILL");
+        killIntent.setAction(ShortcutAuth.ACTION_RAM_KILL_SECURE);
+        ShortcutAuth.authorize(context, killIntent);
         return new ShortcutInfoCompat.Builder(context, SHORTCUT_ID)
                 .setShortLabel(formatLabel(info))
                 .setLongLabel(formatLabel(info))
@@ -191,28 +194,23 @@ public class RamKillShortcutManager {
     }
 
     private int resolveBackgroundColor() {
-        int nightMode = context.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-        return nightMode == Configuration.UI_MODE_NIGHT_YES ? Color.BLACK : Color.WHITE;
+        return ContextCompat.getColor(context, R.color.primary);
     }
 
     private int resolveTextColor() {
-        int nightMode = context.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-        return nightMode == Configuration.UI_MODE_NIGHT_YES ? Color.WHITE : Color.BLACK;
+        return Color.WHITE;
     }
 
     private String formatLabel(RamInfo info) {
-        if (info == null) return "—";
-        String unit = Locale.getDefault().getLanguage().equals("ru") ? "ГБ" : "GB";
-        String used = String.format(Locale.getDefault(), "%.1f", info.usedKb / (1024f * 1024f));
-        String total = String.format(Locale.getDefault(), "%.1f", info.totalKb / (1024f * 1024f));
-        return used + "/" + total + " " + unit;
+        if (info == null) return context.getString(R.string.settings_add_ram_shortcut_title);
+        return info.percent + "% RAM";
     }
 
     private long readAvailableRamKb() {
-        try (RandomAccessFile reader = new RandomAccessFile("/proc/meminfo", "r")) {
+        try (BufferedReader reader = new BufferedReader(new FileReader("/proc/meminfo"))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                if (line.startsWith("MemAvailable")) {
+                if (line.startsWith("MemAvailable:")) {
                     String[] parts = line.trim().split("\\s+");
                     if (parts.length >= 2) return Long.parseLong(parts[1]);
                 }
@@ -224,38 +222,31 @@ public class RamKillShortcutManager {
     }
 
     private RamInfo readRamInfo() {
-        try (RandomAccessFile reader = new RandomAccessFile("/proc/meminfo", "r")) {
-            long totalKb = 0, availKb = 0;
+        long totalKb = 0;
+        long availableKb = 0;
+        try (BufferedReader reader = new BufferedReader(new FileReader("/proc/meminfo"))) {
             String line;
-            int linesRead = 0;
-            while (linesRead < 5 && (line = reader.readLine()) != null) {
-                if (line.startsWith("MemTotal")) totalKb = parseMemValue(line);
-                else if (line.startsWith("MemAvailable")) availKb = parseMemValue(line);
-                linesRead++;
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith("MemTotal:")) {
+                    String[] parts = line.trim().split("\\s+");
+                    if (parts.length >= 2) totalKb = Long.parseLong(parts[1]);
+                } else if (line.startsWith("MemAvailable:")) {
+                    String[] parts = line.trim().split("\\s+");
+                    if (parts.length >= 2) availableKb = Long.parseLong(parts[1]);
+                }
+                if (totalKb > 0 && availableKb > 0) break;
             }
-            if (totalKb > 0) {
-                long usedKb = totalKb - availKb;
-                return new RamInfo(usedKb, totalKb, (int) (usedKb * 100 / totalKb));
-            }
-        } catch (Exception e) {
+        } catch (IOException | NumberFormatException e) {
             AppDebugManager.e(Category.SHORTCUTS_WIDGETS, "RamKillShortcutManager: readRamInfo failed to read /proc/meminfo", e);
+            return null;
         }
-        return null;
+        if (totalKb <= 0) return null;
+        int percent = (int) Math.round((totalKb - availableKb) * 100.0 / totalKb);
+        return new RamInfo(percent);
     }
 
-    private long parseMemValue(String line) {
-        String[] parts = line.trim().split("\\s+");
-        if (parts.length >= 2) {
-            try { return Long.parseLong(parts[1]); } catch (NumberFormatException ignored) {}
-        }
-        return 0;
-    }
-
-    private static class RamInfo {
-        final long usedKb, totalKb;
+    private static final class RamInfo {
         final int percent;
-        RamInfo(long usedKb, long totalKb, int percent) {
-            this.usedKb = usedKb; this.totalKb = totalKb; this.percent = percent;
-        }
+        RamInfo(int percent) { this.percent = Math.max(0, Math.min(100, percent)); }
     }
 }
