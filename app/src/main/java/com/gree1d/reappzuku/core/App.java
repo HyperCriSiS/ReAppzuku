@@ -94,9 +94,8 @@ public class App extends Application {
 
         shellManager = new ShellManager(this, handler, executor);
 
-        // Handles both an already-running Shizuku instance and a later
-        // Shizuku start/restart while ReAppzuku is open.
-        Shizuku.addBinderReceivedListenerSticky(shellManager::bindUserService);
+        // ShellManager owns the application-lifetime Binder/permission/UserService
+        // state machine and reacts to Shizuku restarts centrally.
     }
 
     public ShellManager getShellManager() {

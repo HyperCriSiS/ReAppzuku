@@ -46,6 +46,8 @@ public class ShellManager {
     private volatile IShellService userService;
     private volatile boolean userServiceBinding = false;
     private volatile boolean shizukuPermissionRequestPending = false;
+    private volatile boolean shizukuBinderEverSeen = false;
+    private volatile boolean shizukuBinderLost = false;
 
     private static final String USER_SERVICE_TAG = "ReAppzukuShellUserService";
 
@@ -62,6 +64,7 @@ public class ShellManager {
                 AppDebugManager.d(Category.CORE,
                         "ShellManager: internal Shizuku permission result=" + grantResult);
                 if (grantResult == PackageManager.PERMISSION_GRANTED) {
+                    shizukuBinderLost = false;
                     // Permission and UserService readiness are separate states.
                     // A first-launch grant must explicitly trigger the UserService bind,
                     // because the Binder may have arrived before permission existed.
@@ -69,11 +72,35 @@ public class ShellManager {
                 }
             };
 
+    private final Shizuku.OnBinderReceivedListener internalBinderReceivedListener = () -> {
+        shizukuBinderEverSeen = true;
+        shizukuBinderLost = false;
+        AppDebugManager.d(Category.CORE, "ShellManager: internal Shizuku binder received");
+        try {
+            if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) bindUserService();
+        } catch (Exception e) {
+            AppDebugManager.w(Category.CORE, "ShellManager: binder readiness check failed", e);
+        }
+    };
+
+    private final Shizuku.OnBinderDeadListener internalBinderDeadListener = () -> {
+        shizukuBinderEverSeen = true;
+        shizukuBinderLost = true;
+        shizukuPermissionRequestPending = false;
+        userService = null;
+        userServiceBinding = false;
+        userServiceReadyLatch.countDown();
+        userServiceReadyLatch = new CountDownLatch(1);
+        AppDebugManager.w(Category.CORE, "ShellManager: Shizuku backend lost");
+    };
+
     private final ServiceConnection userServiceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder binder) {
             AppDebugManager.d(Category.CORE, "ShellManager: UserService connected");
             userService = IShellService.Stub.asInterface(binder);
+            shizukuBinderEverSeen = true;
+            shizukuBinderLost = false;
             userServiceBinding = false;
             userServiceReadyLatch.countDown();
         }
@@ -83,6 +110,7 @@ public class ShellManager {
             AppDebugManager.w(Category.CORE, "ShellManager: UserService disconnected");
             userService = null;
             userServiceBinding = false;
+            userServiceReadyLatch.countDown();
             userServiceReadyLatch = new CountDownLatch(1);
         }
     };
@@ -96,6 +124,8 @@ public class ShellManager {
         // while the system permission dialog is in the foreground, so binding the
         // UserService must not depend on an Activity still being started.
         Shizuku.addRequestPermissionResultListener(internalShizukuPermissionListener);
+        Shizuku.addBinderReceivedListenerSticky(internalBinderReceivedListener);
+        Shizuku.addBinderDeadListener(internalBinderDeadListener);
     }
 
     private Shizuku.UserServiceArgs buildUserServiceArgs() {
@@ -164,6 +194,7 @@ public class ShellManager {
             Shizuku.bindUserService(buildUserServiceArgs(), userServiceConnection);
         } catch (Exception e) {
             userServiceBinding = false;
+            userServiceReadyLatch.countDown();
             AppDebugManager.w(Category.CORE, "ShellManager: bindUserService failed", e);
         }
     }
@@ -256,6 +287,48 @@ public class ShellManager {
         }
     }
 
+    public ShellBackendState getBackendState() {
+        boolean binderAvailable = false;
+        boolean permissionGranted = false;
+        try {
+            binderAvailable = Shizuku.pingBinder();
+            if (binderAvailable) {
+                shizukuBinderEverSeen = true;
+                shizukuBinderLost = false;
+                permissionGranted = Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
+            }
+        } catch (Exception e) {
+            AppDebugManager.w(Category.CORE, "ShellManager: backend probe failed", e);
+        }
+        return ShellBackendState.resolve(
+                Boolean.TRUE.equals(hasRoot), binderAvailable,
+                shizukuBinderEverSeen || shizukuBinderLost, permissionGranted,
+                shizukuPermissionRequestPending, userServiceBinding, userService != null);
+    }
+
+    public boolean isAnyShellReady() {
+        return getBackendState().isReady();
+    }
+
+    @androidx.annotation.WorkerThread
+    public ShellBackendState awaitAnyShellReadyBlocking() {
+        if (hasRoot == null) hasRoot = checkRootAccessBlocking();
+        if (Boolean.TRUE.equals(hasRoot)) return ShellBackendState.ROOT_READY;
+        ShellBackendState state = getBackendState();
+        if (state == ShellBackendState.SHIZUKU_GRANTED || state == ShellBackendState.SHIZUKU_BINDING) {
+            awaitUserService();
+            state = getBackendState();
+        }
+        return state;
+    }
+
+    public void prepareShellBackendAsync(Consumer<ShellBackendState> callback) {
+        executor.execute(() -> {
+            ShellBackendState state = awaitAnyShellReadyBlocking();
+            if (callback != null) handler.post(() -> callback.accept(state));
+        });
+    }
+
     public void checkShellPermissions() {
         if (hasRoot != null && hasRoot) {
             AppDebugManager.d(Category.CORE, "ShellManager: Root access available, skipping Shizuku permission request");
@@ -267,6 +340,8 @@ public class ShellManager {
                         "ShellManager: Shizuku binder unavailable; permission request deferred");
                 return;
             }
+            shizukuBinderEverSeen = true;
+            shizukuBinderLost = false;
 
             if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
                 // Permission may have just been granted while the Activity listener

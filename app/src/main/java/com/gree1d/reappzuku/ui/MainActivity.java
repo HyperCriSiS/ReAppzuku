@@ -58,6 +58,7 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.ShellBackendState;
 import com.gree1d.reappzuku.core.BackgroundWorkPolicy;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
@@ -96,6 +97,7 @@ public class MainActivity extends BaseActivity {
     private int currentSortMode = AppConstants.SORT_MODE_DEFAULT;
     private MenuItem selectAllMenuItem;
     private volatile boolean loadInFlight = false;
+    private volatile boolean shellPreparationInFlight = false;
 
     private int appliedAccent;
     private boolean appliedIsAmoled;
@@ -105,11 +107,9 @@ public class MainActivity extends BaseActivity {
     private final Shizuku.OnRequestPermissionResultListener shizukuPermissionListener = (requestCode, grantResult) -> {
         AppDebugManager.d(Category.CORE, "MainActivity: Shizuku permission result=" + grantResult);
         if (grantResult == PackageManager.PERMISSION_GRANTED) {
-            // Permission and UserService connection are separate. Explicitly
-            // start the bind here; ShellManager also self-heals this centrally
-            // when this Activity listener was stopped by the permission dialog.
-            shellManager.bindUserService();
-            loadBackgroundApps();
+            // Permission is not readiness. Wait for the UserService connection
+            // before any shell-backed app scan starts.
+            prepareShellAndLoadApps();
         } else {
             // Keep the list untouched when permission is denied. In particular,
             // do not leave pull-to-refresh spinning after a manual retry.
@@ -195,24 +195,7 @@ public class MainActivity extends BaseActivity {
 
         loadSettingsAndApplyToManager();
 
-        executor.execute(() -> {
-            boolean hasShellPermission = shellManager.resolveAnyShellPermissionBlocking();
-            handler.post(() -> {
-                if (binding == null || isFinishing() || isDestroyed()) return;
-
-                if (hasShellPermission || shellManager.hasAnyShellPermission()) {
-                    loadBackgroundApps();
-                    return;
-                }
-
-                // Shizuku permission is asynchronous. Request it and stop here;
-                // shizukuPermissionListener continues initialization only after
-                // the user has answered the permission dialog.
-                AppDebugManager.d(Category.CORE,
-                        "MainActivity: waiting for Shizuku permission before first app scan");
-                shellManager.checkShellPermissions();
-            });
-        });
+        prepareShellAndLoadApps();
 
         ramMonitor.startMonitoring();
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onCreate finished");
@@ -909,17 +892,45 @@ public class MainActivity extends BaseActivity {
         return getString(R.string.main_restriction_menu_default);
     }
 
-    private void loadBackgroundApps() {
-        // Central guard for every entry point (initial load, swipe-to-refresh,
-        // restriction changes, permission callback). Never start a shell-backed
-        // scan while the Shizuku permission dialog is still pending.
-        if (!shellManager.hasAnyShellPermission()) {
-            AppDebugManager.d(Category.MAIN_PAGE,
-                    "MainActivity: app scan deferred until shell permission is granted");
-            if (binding != null) {
-                binding.swiperefreshlayout1.setRefreshing(false);
+    private void prepareShellAndLoadApps() {
+        if (shellPreparationInFlight) {
+            AppDebugManager.d(Category.CORE, "MainActivity: shell preparation already in flight");
+            return;
+        }
+        shellPreparationInFlight = true;
+        shellManager.prepareShellBackendAsync(state -> {
+            shellPreparationInFlight = false;
+            if (binding == null || isFinishing() || isDestroyed()) return;
+            AppDebugManager.d(Category.CORE, "MainActivity: shell backend state=" + state);
+            if (state.isReady()) {
+                loadBackgroundApps();
+                return;
             }
-            shellManager.checkShellPermissions();
+            binding.swiperefreshlayout1.setRefreshing(false);
+            if (state.needsPermissionRequest()) {
+                AppDebugManager.d(Category.CORE,
+                        "MainActivity: waiting for Shizuku permission before app scan");
+                shellManager.checkShellPermissions();
+                return;
+            }
+            if (state.isWaiting()) {
+                handler.postDelayed(this::prepareShellAndLoadApps, 500L);
+            } else {
+                AppDebugManager.w(Category.CORE,
+                        "MainActivity: shell backend unavailable; app scan deferred, state=" + state);
+            }
+        });
+    }
+
+    private void loadBackgroundApps() {
+        // Permission is necessary but not sufficient for Shizuku. Every scan is
+        // gated on an actually executable backend.
+        if (!shellManager.isAnyShellReady()) {
+            ShellBackendState state = shellManager.getBackendState();
+            AppDebugManager.d(Category.MAIN_PAGE,
+                    "MainActivity: app scan deferred until shell backend is ready, state=" + state);
+            if (binding != null) binding.swiperefreshlayout1.setRefreshing(false);
+            prepareShellAndLoadApps();
             return;
         }
 

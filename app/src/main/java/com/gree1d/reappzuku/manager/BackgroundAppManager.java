@@ -34,6 +34,7 @@ import java.util.regex.Pattern;
 
 import com.gree1d.reappzuku.utils.AppModel;
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.ShellBackendState;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.ProtectedApps;
@@ -224,7 +225,7 @@ public class BackgroundAppManager {
     }
 
     public boolean canApplyBackgroundRestrictionNow() {
-        return supportsBackgroundRestriction() && shellManager.hasAnyShellPermission();
+        return supportsBackgroundRestriction() && shellManager.isAnyShellReady();
     }
 
 
@@ -402,12 +403,12 @@ public class BackgroundAppManager {
             String currentKeyboard = ProtectedApps.getCurrentKeyboardPackage(context);
             String currentLauncher = ProtectedApps.getCurrentLauncherPackage(context);
 
-            if (!shellManager.hasAnyShellPermission()) {
+            if (!shellManager.isAnyShellReady()) {
+                ShellBackendState state = shellManager.getBackendState();
+                AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME
+                        + ": main-screen scan deferred; shell backend state=" + state);
                 if (onFullList != null) {
-                    handler.post(() -> {
-                        currentAppsList.clear();
-                        onFullList.accept(new ArrayList<>());
-                    });
+                    handler.post(() -> onFullList.accept(new ArrayList<>(currentAppsList)));
                 }
                 return;
             }
@@ -572,9 +573,17 @@ public class BackgroundAppManager {
                             }
                         }
                     } else {
-                        AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundAppsForMainScreen failed to get running apps, ps output is null");
-                        handler.post(() -> Toast
-                                .makeText(context, context.getString(R.string.toast_failed_get_running_apps), Toast.LENGTH_SHORT).show());
+                        ShellBackendState state = shellManager.getBackendState();
+                        if (!state.isReady()) {
+                            AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME
+                                    + ": running-app output unavailable because shell backend is not ready, state=" + state);
+                        } else {
+                            AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME
+                                    + ": loadBackgroundAppsForMainScreen failed to get running apps while backend was ready");
+                            handler.post(() -> Toast.makeText(context,
+                                    context.getString(R.string.toast_failed_get_running_apps),
+                                    Toast.LENGTH_SHORT).show());
+                        }
                     }
                 }
                 AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundAppsForMainScreen: memorySource=" + memorySource
@@ -752,7 +761,7 @@ public class BackgroundAppManager {
     }
 
     public void updateRunningState(List<AppModel> apps, Runnable onComplete) {
-        if (!shellManager.hasAnyShellPermission()) {
+        if (!shellManager.isAnyShellReady()) {
             if (onComplete != null) handler.post(onComplete);
             return;
         }
