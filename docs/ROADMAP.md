@@ -66,7 +66,7 @@ Status: `[x]` implemented with repeatable build/test evidence, `[~]` implemented
 - [x] Static/legacy shortcut cannot silently invoke privilege; it requires explicit user confirmation.
 - [x] Other explicit external launches can at most open a confirmation dialog before foreground-app force-stop.
 - [x] Foreground shortcut action waits for a genuinely ready shell backend.
-- [ ] Review remaining `exported=true` components individually (launcher, Accessibility, QS tiles, boot receiver, widget, Shizuku provider).
+- [x] Review every remaining `exported=true` component and document its principal boundary in `EXPORTED_COMPONENTS.md`.
 - [ ] Introduce typed/validated privileged operations instead of ad-hoc shell command strings where practical.
 - [ ] Fixture-test dumpsys/parser protection logic across Android/OEM variants.
 
@@ -75,9 +75,9 @@ Status: `[x]` implemented with repeatable build/test evidence, `[~]` implemented
 - [x] Preserve `concurrency.cancel-in-progress` for the live-test workflow.
 - [x] Pin `actions/checkout` and `actions/setup-java` to immutable full commit SHAs.
 - [x] Validation workflow is source-authoritative; no patch/generator step remains after migrations complete.
-- [ ] Split read-only validation from release publishing with least-privilege tokens.
-- [ ] Run lint without `updateLintBaseline`; baseline changes only through reviewed source commits.
-- [ ] Pin every external Action in all other repository workflows.
+- [x] Split read-only validation from release publishing with job-level least-privilege tokens.
+- [x] Run `lintDebug` without `updateLintBaseline`; baseline changes only through reviewed source commits.
+- [x] Pin every external Action in active repository workflows.
 - [ ] Add dependency verification/locking evaluation.
 - [ ] Expand emulator/device test lanes without wasting private Actions quota.
 

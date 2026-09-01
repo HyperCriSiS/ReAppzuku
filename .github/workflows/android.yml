@@ -1,41 +1,53 @@
 name: Android CI
 
 on:
-  workflow_dispatch
+  workflow_dispatch:
+
+concurrency:
+  group: android-release-build
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v6
-    - name: set up JDK 17
-      uses: actions/setup-java@v5
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: gradle
-
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-
-    - name: Decode Keystore
-      run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.keystore
-
-    - name: Update Lint Baseline
-      run: ./gradlew updateLintBaseline
-
-    - name: Build Release APK
-      run: ./gradlew assembleRelease
-      env:
-        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v7
-      with:
-        name: app-release
-        path: app/build/outputs/apk/release/app-release.apk
-        
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+      - name: Lint
+        run: ./gradlew lintDebug
+      - name: Compile instrumentation tests
+        run: ./gradlew assembleDebugAndroidTest
+      - name: Verify current Room schema export
+        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
+      - name: Decode Keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.keystore
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      - name: Upload APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: app-release
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+      - name: Remove decoded keystore
+        if: always()
+        run: rm -f app/release.keystore
