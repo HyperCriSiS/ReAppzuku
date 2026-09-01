@@ -194,11 +194,13 @@ public class RamKillShortcutManager {
     }
 
     private int resolveBackgroundColor() {
-        return ContextCompat.getColor(context, R.color.primary);
+        int nightMode = context.getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        return nightMode == android.content.res.Configuration.UI_MODE_NIGHT_YES ? Color.BLACK : Color.WHITE;
     }
 
     private int resolveTextColor() {
-        return Color.WHITE;
+        int nightMode = context.getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        return nightMode == android.content.res.Configuration.UI_MODE_NIGHT_YES ? Color.WHITE : Color.BLACK;
     }
 
     private String formatLabel(RamInfo info) {
