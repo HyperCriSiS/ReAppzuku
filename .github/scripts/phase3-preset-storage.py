@@ -2,6 +2,9 @@
 from pathlib import Path
 P = Path("app/src/main/java/com/gree1d/reappzuku/manager/PresetManager.java")
 text = P.read_text()
+if "public boolean savePresetBlocking(PresetModel model)" in text:
+    print("PresetManager phase 3 patch already applied")
+    raise SystemExit(0)
 start = text.find("    public void savePreset(PresetModel model) {")
 end = text.find("    public PresetModel loadPreset(int presetNumber) {", start)
 if start < 0 or end < 0:
