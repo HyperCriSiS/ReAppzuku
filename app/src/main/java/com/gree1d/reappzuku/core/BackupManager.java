@@ -255,7 +255,11 @@ public class BackupManager {
             JSONArray array = root.getJSONArray(key);
             Set<String> set = new HashSet<>();
             for (int i = 0; i < array.length(); i++) {
-                set.add(array.getString(i));
+                String packageName = array.getString(i);
+                if (!PackageNameValidator.isValid(packageName)) {
+                    throw new IllegalArgumentException("Invalid package name in backup: " + key);
+                }
+                set.add(packageName);
             }
             editor.putStringSet(key, set);
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreSet: " + key + " -> " + set.size() + " items");
@@ -288,6 +292,9 @@ public class BackupManager {
         int count = 0;
         while (keys.hasNext()) {
             String pkg = keys.next();
+            if (!PackageNameValidator.isValid(pkg)) {
+                throw new IllegalArgumentException("Invalid package name in manual ops backup");
+            }
             editor.putInt(KEY_MANUAL_OPS_PREFIX + pkg, masks.getInt(pkg));
             count++;
         }

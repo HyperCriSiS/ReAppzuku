@@ -1,5 +1,4 @@
 <resources>
-    <string name="app_name" translatable="false">ReAppzuku</string>
     <string name="special_thanks_title">Agradecimientos especiales</string>
     <string name="special_thanks_desc">Usuarios que contribuyeron al desarrollo de ReAppzuku:</string>
 
@@ -21,10 +20,12 @@
     
     <plurals name="toast_killed_apps">
         <item quantity="one">%1$d app cerrada · %2$s liberados</item>
+        <item quantity="many">%1$d apps cerradas · %2$s liberados</item>
         <item quantity="other">%1$d apps cerradas · %2$s liberados</item>
     </plurals>
     <plurals name="toast_killed_apps_no_ram">
         <item quantity="one">%d app cerrada</item>
+        <item quantity="many">%d apps cerradas</item>
         <item quantity="other">%d apps cerradas</item>
     </plurals>
     
@@ -187,8 +188,6 @@
     <string name="settings_about_section">Acerca de</string>
 
     <!-- Shell / access mode status -->
-    <string name="settings_shell_shizuku_ok" translatable="false">Shizuku access ✅</string>
-    <string name="settings_shell_root_ok" translatable="false">Root access ✅</string>
     <string name="settings_shell_no_access">Sin acceso ❌</string>
     <string name="settings_shell_mode_title">Modo de acceso</string>
     <string name="settings_requires_privilege">Requiere Root o Shizuku</string>
@@ -201,7 +200,6 @@
     <string name="settings_theme_light">Claro</string>
     <string name="settings_theme_dark">Oscuro</string>
     <string name="settings_theme_amoled">AMOLED (negro)</string>
-    <string name="settings_theme_amoled_short" translatable="false">AMOLED</string>
     <string name="settings_theme_dialog_title">Seleccionar tema</string>
     <string name="settings_accent_title">Color de acento</string>
     <string name="settings_accent_subtitle">Color principal de la interfaz</string>

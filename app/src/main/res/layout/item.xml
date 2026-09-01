@@ -141,7 +141,7 @@
                     android:paddingBottom="1dp"
                     android:text="System"
                     android:textColor="#1A5276"
-                    android:textSize="10sp"
+                    android:textSize="11sp"
                     android:textStyle="bold"
                     android:visibility="gone"
                     android:focusable="false" />
@@ -158,7 +158,7 @@
                     android:paddingBottom="1dp"
                     android:text="Persistent"
                     android:textColor="#6C3483"
-                    android:textSize="10sp"
+                    android:textSize="11sp"
                     android:textStyle="bold"
                     android:visibility="gone"
                     android:focusable="false" />

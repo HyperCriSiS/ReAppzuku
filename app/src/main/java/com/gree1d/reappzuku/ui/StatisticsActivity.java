@@ -470,7 +470,10 @@ public class StatisticsActivity extends BaseActivity {
             row.setLayoutParams(rowLp);
             row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
             row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            row.setBackground(obtainStyledAttributes(new int[]{android.R.attr.selectableItemBackground}).getDrawable(0));
+            android.content.res.TypedArray selectableAttrs =
+                    obtainStyledAttributes(new int[]{android.R.attr.selectableItemBackground});
+            row.setBackground(selectableAttrs.getDrawable(0));
+            selectableAttrs.recycle();
             row.setClickable(true);
             row.setFocusable(true);
             row.setOnClickListener(v -> {

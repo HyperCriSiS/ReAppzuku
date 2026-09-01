@@ -4,6 +4,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import com.gree1d.reappzuku.core.PackageNameValidator;
+
 import java.util.HashSet;
 import java.util.Set;
 
@@ -121,21 +123,21 @@ public class PresetModel {
         JSONArray launchPkgs = obj.optJSONArray("appLaunchTriggerPackages");
         if (launchPkgs != null) {
             for (int i = 0; i < launchPkgs.length(); i++) {
-                model.appLaunchTriggerPackages.add(launchPkgs.getString(i));
+                model.appLaunchTriggerPackages.add(PackageNameValidator.requireValid(launchPkgs.getString(i)));
             }
         }
 
         JSONArray whitelist = obj.optJSONArray("whitelistedApps");
         if (whitelist != null) {
             for (int i = 0; i < whitelist.length(); i++) {
-                model.whitelistedApps.add(whitelist.getString(i));
+                model.whitelistedApps.add(PackageNameValidator.requireValid(whitelist.getString(i)));
             }
         }
 
         JSONArray blacklist = obj.optJSONArray("blacklistedApps");
         if (blacklist != null) {
             for (int i = 0; i < blacklist.length(); i++) {
-                model.blacklistedApps.add(blacklist.getString(i));
+                model.blacklistedApps.add(PackageNameValidator.requireValid(blacklist.getString(i)));
             }
         }
 

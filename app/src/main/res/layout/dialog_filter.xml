@@ -11,6 +11,7 @@
         android:layout_height="wrap_content"
         android:hint="@string/main_search_hint"
         android:inputType="text"
+        android:importantForAutofill="no"
         android:drawableStart="@android:drawable/ic_menu_search"
         android:drawablePadding="8dp"
         android:padding="12dp"

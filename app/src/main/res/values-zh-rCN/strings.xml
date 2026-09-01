@@ -1,5 +1,4 @@
 <resources>
-    <string name="app_name" translatable="false">ReAppzuku</string>
     <string name="special_thanks_title">特别鸣谢</string>
     <string name="special_thanks_desc">为 ReAppzuku 开发做出贡献的用户：</string>
 
@@ -188,8 +187,6 @@
     <string name="settings_about_section">关于</string>
 
     <!-- Shell / access mode status -->
-    <string name="settings_shell_shizuku_ok" translatable="false">Shizuku access ✅</string>
-    <string name="settings_shell_root_ok" translatable="false">Root access ✅</string>
     <string name="settings_shell_no_access">无权限 ❌</string>
     <string name="settings_shell_mode_title">访问模式</string>
     <string name="settings_requires_privilege">需要 Root 或 Shizuku</string>
@@ -202,7 +199,6 @@
     <string name="settings_theme_light">浅色</string>
     <string name="settings_theme_dark">深色</string>
     <string name="settings_theme_amoled">AMOLED（纯黑）</string>
-    <string name="settings_theme_amoled_short" translatable="false">AMOLED</string>
     <string name="settings_theme_dialog_title">选择主题</string>
     <string name="settings_accent_title">强调色</string>
     <string name="settings_accent_subtitle">主界面颜色</string>

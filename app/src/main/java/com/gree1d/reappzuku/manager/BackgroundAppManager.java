@@ -1,5 +1,7 @@
 package com.gree1d.reappzuku.manager;
 
+import com.gree1d.reappzuku.core.PackageNameValidator;
+
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -1527,7 +1529,7 @@ public class BackgroundAppManager {
             return desiredPackages;
         }
         for (String packageName : targetPackages) {
-            if (packageName != null && !packageName.isEmpty() && !packageName.equals(context.getPackageName())) {
+            if (PackageNameValidator.isValid(packageName) && !packageName.equals(context.getPackageName())) {
                 desiredPackages.add(packageName);
             }
         }

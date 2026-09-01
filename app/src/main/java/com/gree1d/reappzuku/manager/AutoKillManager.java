@@ -1,5 +1,7 @@
 package com.gree1d.reappzuku.manager;
 
+import com.gree1d.reappzuku.core.PackageNameValidator;
+
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -441,7 +443,7 @@ public class AutoKillManager {
             }
             return;
         }
-        if (packageName == null || packageName.isEmpty()) {
+        if (!PackageNameValidator.isValid(packageName)) {
             if (onComplete != null) {
                 handler.post(onComplete);
             }
@@ -571,6 +573,7 @@ public class AutoKillManager {
     }
 
     private String buildKillCommand(String packageName) {
+        PackageNameValidator.requireValid(packageName);
         String cmd = (getAutoKillType() == 1 ? "am kill " : "am force-stop ") + packageName;
         AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: buildKillCommand: " + cmd + " (type=" + getAutoKillType() + ")");
         return cmd;
@@ -581,7 +584,7 @@ public class AutoKillManager {
     }
 
     public void killPackageSync(String packageName, String source) {
-        if (packageName == null || packageName.isEmpty()) return;
+        if (!PackageNameValidator.isValid(packageName)) return;
         String cmd = buildKillCommand(packageName);
         AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: killPackageSync: " + cmd + " source=" + source);
         shellManager.runShellCommandAndGetFullOutput(cmd);

@@ -64,6 +64,7 @@
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_battery_chart"
+                        android:contentDescription="@null"
                         android:layout_marginEnd="3dp" />
 
                     <TextView
@@ -79,6 +80,7 @@
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_cpu"
+                        android:contentDescription="@null"
                         android:layout_marginEnd="3dp" />
 
                     <TextView
@@ -94,6 +96,7 @@
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:src="@drawable/ic_ram"
+                        android:contentDescription="@null"
                         android:layout_marginEnd="3dp" />
 
                     <TextView
@@ -272,6 +275,7 @@
 
                         <ImageButton
                             android:id="@+id/btn_chart_prev"
+                            android:contentDescription="@string/action_previous"
                             android:layout_width="36dp"
                             android:layout_height="36dp"
                             android:src="@drawable/ic_back"
@@ -292,6 +296,7 @@
 
                         <ImageButton
                             android:id="@+id/btn_chart_next"
+                            android:contentDescription="@string/action_next"
                             android:layout_width="36dp"
                             android:layout_height="36dp"
                             android:src="@drawable/ic_back"

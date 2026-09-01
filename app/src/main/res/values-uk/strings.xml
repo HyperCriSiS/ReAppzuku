@@ -1,5 +1,4 @@
 <resources>
-    <string name="app_name" translatable="false">ReAppzuku</string>
     <string name="special_thanks_title">Особлива подяка</string>
     <string name="special_thanks_desc">Користувачі, які зробили внесок у розвиток ReAppzuku:</string>
 
@@ -183,8 +182,6 @@
     <string name="settings_about_section">Про застосунок</string>
 
     <!-- Статус режиму доступу -->
-    <string name="settings_shell_shizuku_ok" translatable="false">Shizuku access ✅</string>
-    <string name="settings_shell_root_ok" translatable="false">Root access ✅</string>
     <string name="settings_shell_no_access">Немає доступу ❌</string>
     <string name="settings_shell_mode_title">Режим роботи</string>
     <string name="settings_requires_privilege">Потрібен Root або Shizuku</string>
@@ -197,7 +194,6 @@
     <string name="settings_theme_light">Світла</string>
     <string name="settings_theme_dark">Темна</string>
     <string name="settings_theme_amoled">AMOLED (чорний)</string>
-    <string name="settings_theme_amoled_short" translatable="false">AMOLED</string>
     <string name="settings_theme_dialog_title">Виберіть тему застосунку</string>
     <string name="settings_accent_title">Колірний акцент</string>
     <string name="settings_accent_subtitle">Основний колір інтерфейсу</string>

@@ -32,9 +32,11 @@
         android:fitsSystemWindows="false"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <RelativeLayout
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
             android:background="?android:attr/colorBackground"
             android:paddingTop="4dp"
             android:paddingBottom="4dp"
@@ -43,10 +45,10 @@
 
             <TextView
                 android:id="@+id/running_apps"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_centerVertical="true"
-                android:layout_alignParentStart="true"
+                android:layout_weight="1"
+                android:paddingEnd="8dp"
                 android:paddingTop="4dp"
                 android:paddingBottom="4dp"
                 android:textColor="@color/text_primary"
@@ -56,8 +58,6 @@
                 android:id="@+id/scan_button_layout"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
                 android:text="@string/scan_button_label"
                 android:textColor="@color/text_primary"
                 android:textSize="14sp"
@@ -68,7 +68,7 @@
                 app:rippleColor="@color/text_primary"
                 style="@style/Widget.Material3.Button.TextButton" />
 
-        </RelativeLayout>
+        </LinearLayout>
 
         <LinearLayout
             android:id="@+id/linear1"
