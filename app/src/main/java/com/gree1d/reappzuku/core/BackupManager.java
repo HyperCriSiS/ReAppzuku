@@ -6,6 +6,8 @@ import android.util.Log;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
 
 import com.gree1d.reappzuku.manager.PresetManager;
@@ -21,6 +23,7 @@ public class BackupManager {
     private static final String KEY_MANUAL_OPS_MASKS = "manual_ops_masks";
     private static final String KEY_PRESETS = "presets";
     private static final String KEY_PRESET_PREFIX = "preset_";
+    private static final int MAX_BACKUP_CHARS = 2 * 1024 * 1024;
 
     private final Context context;
     private final SharedPreferences prefs;
@@ -124,14 +127,26 @@ public class BackupManager {
     }
 
     public boolean restoreBackupJson(String json) {
-        AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: start, json length=" + (json != null ? json.length() : -1));
+        AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: start, json length="
+                + (json != null ? json.length() : -1));
+        if (json == null || json.length() == 0 || json.length() > MAX_BACKUP_CHARS) {
+            AppDebugManager.w(Category.BACKUP_RESTORE,
+                    "BackupManager: refusing empty/oversized backup payload");
+            return false;
+        }
+
+        Map<String, ?> mainSnapshot = null;
+        Map<String, ?> preset1Snapshot = null;
+        Map<String, ?> preset2Snapshot = null;
+        PresetManager presetManager = new PresetManager(context);
+        boolean durableWriteStarted = false;
         try {
             JSONObject root = new JSONObject(json);
             int version = root.optInt(KEY_BACKUP_VERSION, -1);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: backup version=" + version);
             if (version > BACKUP_VERSION) {
                 AppDebugManager.w(Category.BACKUP_RESTORE,
-                        "BackupManager: refusing unsupported future backup version=" + version + " supported=" + BACKUP_VERSION);
+                        "BackupManager: refusing unsupported future backup version=" + version
+                                + " supported=" + BACKUP_VERSION);
                 return false;
             }
             if (version < 1) {
@@ -139,37 +154,36 @@ public class BackupManager {
                         "BackupManager: legacy/unversioned backup detected; validating available fields");
             }
 
-            validatePresets(root);
-            SharedPreferences.Editor editor = prefs.edit();
+            // Validate all preset JSON before the first durable write.
+            PresetModel[] restoredPresets = parsePresets(root);
+            boolean containsPresetSection = root.has(KEY_PRESETS);
 
+            // Snapshot every preference file participating in the transaction.
+            mainSnapshot = deepCopyPreferenceMap(prefs.getAll());
+            preset1Snapshot = presetManager.snapshotPresetStorage(PresetModel.PRESET_1);
+            preset2Snapshot = presetManager.snapshotPresetStorage(PresetModel.PRESET_2);
+
+            SharedPreferences.Editor editor = prefs.edit();
             restoreSet(editor, root, KEY_HIDDEN_APPS);
             restoreSet(editor, root, KEY_WHITELISTED_APPS);
             restoreSet(editor, root, KEY_BLACKLISTED_APPS);
             restoreSet(editor, root, KEY_AUTOSTART_DISABLED_APPS);
             restoreSet(editor, root, KEY_HARD_RESTRICTION_APPS);
             restoreSet(editor, root, KEY_MANUAL_RESTRICTION_APPS);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: app lists restored");
-
             restoreManualOpsMasks(editor, root);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: manual ops masks restored");
-
             restoreSet(editor, root, KEY_SLEEP_MODE_APPS);
             restoreSet(editor, root, KEY_SLEEP_MODE_APPS_PERMANENT);
             restoreSet(editor, root, KEY_MEDIUM_RESTRICTION_APPS);
             restoreSet(editor, root, KEY_BATTERY_WHITELIST_REMOVED);
             restoreSet(editor, root, KEY_APP_LAUNCH_TRIGGER_PACKAGES);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: extra sets restored");
 
             restoreInt(editor, root, KEY_KILL_MODE);
             restoreBoolean(editor, root, KEY_AUTO_KILL_ENABLED);
             restoreBoolean(editor, root, KEY_PERIODIC_KILL_ENABLED);
             restoreInt(editor, root, KEY_KILL_INTERVAL);
             restoreBoolean(editor, root, KEY_KILL_ON_SCREEN_OFF);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: kill settings restored");
-
             restoreInt(editor, root, KEY_RAM_THRESHOLD);
             restoreBoolean(editor, root, KEY_RAM_THRESHOLD_ENABLED);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: RAM settings restored");
 
             restoreBoolean(editor, root, KEY_SHOW_SYSTEM_APPS);
             restoreBoolean(editor, root, KEY_SHOW_PERSISTENT_APPS);
@@ -181,18 +195,14 @@ public class BackupManager {
             restoreInt(editor, root, KEY_SORT_MODE);
             restoreInt(editor, root, KEY_NOTIFICATION_MODE);
             restoreInt(editor, root, KEY_AUTO_KILL_TYPE);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: display/UI settings restored");
 
             restoreBoolean(editor, root, KEY_SLEEP_MODE_ENABLED);
             restoreLong(editor, root, KEY_SLEEP_MODE_DELAY);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: sleep mode settings restored");
-
             restoreBoolean(editor, root, KEY_EXIT_ON_BACK);
             restoreBoolean(editor, root, KEY_PREVENT_SHIZUKU_AUTOSTART);
             restoreBoolean(editor, root, KEY_SMART_LIFECYCLE_ENABLED);
             restoreBoolean(editor, root, KEY_SMART_BOOT_CLEANUP_ENABLED);
             restoreInt(editor, root, KEY_SMART_LIFECYCLE_PROFILE);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: fork behavior settings restored");
 
             restoreBoolean(editor, root, KEY_HW_TRIGGER_HEADSET);
             restoreBoolean(editor, root, KEY_HW_TRIGGER_USB);
@@ -203,22 +213,39 @@ public class BackupManager {
             restoreBoolean(editor, root, KEY_HW_TRIGGER_HOTSPOT);
             restoreBoolean(editor, root, KEY_APP_LAUNCH_TRIGGER_ENABLED);
             restoreBoolean(editor, root, KEY_APP_LAUNCH_CLEAR_CACHE);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: hardware triggers restored");
 
-            if (!editor.commit()) {
-                AppDebugManager.e(Category.BACKUP_RESTORE,
-                        "BackupManager: restoreBackupJson: main preferences commit failed");
-                return false;
+            if (containsPresetSection) {
+                // Active preset state is runtime state, not portable configuration.
+                // The imported main settings become the new base state.
+                editor.remove(KEY_ACTIVE_PRESET);
+                for (String key : prefs.getAll().keySet()) {
+                    if (key.startsWith(PresetManager.KEY_BACKUP_PREFIX)) editor.remove(key);
+                }
             }
 
-            restorePresets(root);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: presets restored");
-            BackgroundWorkPolicy.enforceCompatibleBehavior(context);
+            durableWriteStarted = true;
+            if (!editor.commit()) throw new IllegalStateException("main preferences commit failed");
 
+            if (containsPresetSection) {
+                if (!writePresetStorage(presetManager, PresetModel.PRESET_1, restoredPresets[0]))
+                    throw new IllegalStateException("preset 1 commit failed");
+                if (!writePresetStorage(presetManager, PresetModel.PRESET_2, restoredPresets[1]))
+                    throw new IllegalStateException("preset 2 commit failed");
+            }
+
+            // Side effects only after all durable state was committed successfully.
+            if (containsPresetSection) presetManager.restoreAfterBoot();
+            BackgroundWorkPolicy.enforceCompatibleBehavior(context);
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: success");
             return true;
         } catch (Exception e) {
             AppDebugManager.e(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: FAILED", e);
+            if (durableWriteStarted && mainSnapshot != null) {
+                boolean rollbackOk = rollbackRestore(
+                        presetManager, mainSnapshot, preset1Snapshot, preset2Snapshot);
+                AppDebugManager.w(Category.BACKUP_RESTORE,
+                        "BackupManager: restore rollback result=" + rollbackOk);
+            }
             return false;
         }
     }
@@ -282,34 +309,72 @@ public class BackupManager {
         root.put(KEY_PRESETS, presets);
     }
 
-    private void validatePresets(JSONObject root) throws Exception {
-        if (!root.has(KEY_PRESETS)) return;
+    private PresetModel[] parsePresets(JSONObject root) throws Exception {
+        PresetModel[] result = new PresetModel[2];
+        if (!root.has(KEY_PRESETS)) return result;
         JSONObject presets = root.getJSONObject(KEY_PRESETS);
-        for (int presetNumber : new int[]{ PresetModel.PRESET_1, PresetModel.PRESET_2 }) {
+        for (int presetNumber : new int[]{PresetModel.PRESET_1, PresetModel.PRESET_2}) {
             String key = KEY_PRESET_PREFIX + presetNumber;
-            if (presets.has(key)) PresetModel.fromJson(presetNumber, presets.getJSONObject(key));
+            if (presets.has(key)) {
+                result[presetNumber - 1] =
+                        PresetModel.fromJson(presetNumber, presets.getJSONObject(key));
+            }
         }
+        return result;
     }
 
-    private void restorePresets(JSONObject root) throws Exception {
-        if (!root.has(KEY_PRESETS)) {
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restorePresets: no presets in backup, skipping");
-            return;
+    private boolean writePresetStorage(PresetManager manager, int number, PresetModel model) {
+        return model == null
+                ? manager.clearPresetStorageBlocking(number)
+                : manager.savePresetBlocking(model);
+    }
+
+    private boolean rollbackRestore(PresetManager manager,
+                                    Map<String, ?> mainSnapshot,
+                                    Map<String, ?> preset1Snapshot,
+                                    Map<String, ?> preset2Snapshot) {
+        boolean mainOk = restorePreferenceMap(prefs, mainSnapshot);
+        boolean p1Ok = preset1Snapshot != null
+                && manager.restorePresetStorageBlocking(PresetModel.PRESET_1, preset1Snapshot);
+        boolean p2Ok = preset2Snapshot != null
+                && manager.restorePresetStorageBlocking(PresetModel.PRESET_2, preset2Snapshot);
+        try {
+            manager.restoreAfterBoot();
+            BackgroundWorkPolicy.enforceCompatibleBehavior(context);
+        } catch (Exception e) {
+            AppDebugManager.e(Category.BACKUP_RESTORE,
+                    "BackupManager: runtime reconciliation after rollback failed", e);
+            return false;
         }
-        JSONObject presets = root.getJSONObject(KEY_PRESETS);
-        PresetManager presetManager = new PresetManager(context);
-        for (int presetNumber : new int[]{ PresetModel.PRESET_1, PresetModel.PRESET_2 }) {
-            String key = KEY_PRESET_PREFIX + presetNumber;
-            if (!presets.has(key)) {
-                AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restorePresets: preset #" + presetNumber + " not in backup, skipping");
-                continue;
-            }
-            PresetModel model = PresetModel.fromJson(presetNumber, presets.getJSONObject(key));
-            presetManager.savePreset(model);
-            presetManager.scheduleAlarms(model);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restorePresets: preset #" + presetNumber + " restored, name=" + model.name);
+        return mainOk && p1Ok && p2Ok;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, ?> deepCopyPreferenceMap(Map<String, ?> source) {
+        Map<String, Object> copy = new HashMap<>();
+        for (Map.Entry<String, ?> entry : source.entrySet()) {
+            Object value = entry.getValue();
+            if (value instanceof Set) value = new HashSet<>((Set<String>) value);
+            copy.put(entry.getKey(), value);
         }
-        presetManager.checkAndApplyCurrentPreset();
+        return copy;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static boolean restorePreferenceMap(SharedPreferences target, Map<String, ?> values) {
+        SharedPreferences.Editor editor = target.edit().clear();
+        for (Map.Entry<String, ?> entry : values.entrySet()) {
+            Object value = entry.getValue();
+            String key = entry.getKey();
+            if (value instanceof String) editor.putString(key, (String) value);
+            else if (value instanceof Boolean) editor.putBoolean(key, (Boolean) value);
+            else if (value instanceof Integer) editor.putInt(key, (Integer) value);
+            else if (value instanceof Long) editor.putLong(key, (Long) value);
+            else if (value instanceof Float) editor.putFloat(key, (Float) value);
+            else if (value instanceof Set) editor.putStringSet(key, new HashSet<>((Set<String>) value));
+            else throw new IllegalArgumentException("Unsupported preference type for " + key);
+        }
+        return editor.commit();
     }
 
     private void restoreBoolean(SharedPreferences.Editor editor, JSONObject root, String key) throws Exception {
