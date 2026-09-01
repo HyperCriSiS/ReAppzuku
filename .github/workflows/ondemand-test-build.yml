@@ -29,8 +29,14 @@ jobs:
         run: chmod +x gradlew
       - name: Unit tests
         run: ./gradlew testDebugUnitTest
-      - name: Lint
-        run: ./gradlew lintDebug
+      - name: Lint diagnostic
+        run: |
+          rm -f app/lint-baseline.xml
+          ./gradlew lintDebug -Dlint.baselines.continue=true || true
+          echo "===== GENERATED LINT BASELINE BEGIN ====="
+          cat app/lint-baseline.xml
+          echo "===== GENERATED LINT BASELINE END ====="
+          exit 1
       - name: Compile instrumentation tests
         run: ./gradlew assembleDebugAndroidTest
       - name: Verify current Room schema export
