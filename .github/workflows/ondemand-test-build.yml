@@ -15,7 +15,7 @@ jobs:
           ref: ondemand-shizuku
           fetch-depth: 10
       - name: Apply desired-state and core hardening
-        run: python .github/scripts/assurance-phase1-core.py
+        run: python .github/scripts/assurance-phase1-core-wrapper.py
       - name: Apply scheduler and reboot hardening
         run: python .github/scripts/assurance-phase1-scheduler.py
       - name: Apply backup hardening
