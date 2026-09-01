@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="filter_label">Filtro</string>
+    <string name="action_previous">Anterior</string>
+    <string name="action_next">Siguiente</string>
+    <string name="toast_shortcut_killed">Cerrada: %s</string>
+    <string name="settings_section_behavior">Comportamiento de la app</string>
+    <string name="settings_prevent_shizuku_autostart_title">Evitar el inicio automático desde Shizuku</string>
+    <string name="settings_prevent_shizuku_autostart_subtitle">Mantiene ReAppzuku bajo demanda cuando se inicia Shizuku. Se desactiva mientras haya automatización en segundo plano activa.</string>
+    <string name="settings_app_behavior_blocked">Desactiva la automatización en segundo plano antes de usar esta opción.</string>
+    <string name="settings_exit_on_back_title">Cerrar completamente la app con el botón Atrás</string>
+    <string name="settings_exit_on_back_subtitle">Detiene el proceso principal de ReAppzuku desde la pantalla principal. Se desactiva mientras haya automatización en segundo plano activa.</string>
+    <string name="settings_smart_lifecycle_title">Gestión inteligente del ciclo de vida</string>
+    <string name="settings_smart_lifecycle_subtitle">Primero pone en espera y después fuerza la detención. Protege el uso en primer plano, multimedia, servicios en primer plano, widgets y servicios críticos.</string>
+    <string name="settings_smart_lifecycle_apps_title">Apps gestionadas</string>
+    <string name="settings_smart_lifecycle_apps_subtitle">Usa la lista negra. Solo se gestionan las apps seleccionadas explícitamente aquí.</string>
+    <string name="settings_smart_lifecycle_profile_title">Perfil de gestión</string>
+    <string name="settings_smart_lifecycle_profile_gentle">Suave · arranque 10 min · espera 2 h · detener 12 h</string>
+    <string name="settings_smart_lifecycle_profile_balanced">Equilibrado · arranque 5 min · espera 1 h · detener 6 h</string>
+    <string name="settings_smart_lifecycle_profile_aggressive">Agresivo · arranque 2 min · espera 30 min · detener 2 h</string>
+    <string name="settings_smart_boot_cleanup_title">Limpiar apps iniciadas al arrancar</string>
+    <string name="settings_smart_boot_cleanup_subtitle">Tras el periodo de gracia del arranque, detiene las apps gestionadas que se iniciaron solas y no se usaron desde el arranque.</string>
+    <string name="shortcut_ram_kill_confirm_message">¿Ejecutar ahora el acceso directo de limpieza de RAM?</string>
+    <string name="shortcut_foreground_kill_confirm_message">¿Forzar la detención de la app que está actualmente en primer plano?</string>
+</resources>

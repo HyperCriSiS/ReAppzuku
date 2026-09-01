@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="filter_label">Фильтр</string>
+    <string name="action_previous">Назад</string>
+    <string name="action_next">Далее</string>
+    <string name="widget_kills">Завершения за 12 ч</string>
+    <string name="widget_freed">Освобождено ОЗУ</string>
+    <string name="widget_last_kill">Последнее завершение</string>
+    <string name="widget_ram">ОЗУ</string>
+    <string name="settings_section_behavior">Поведение приложения</string>
+    <string name="settings_prevent_shizuku_autostart_title">Запретить автоматический запуск из Shizuku</string>
+    <string name="settings_prevent_shizuku_autostart_subtitle">ReAppzuku запускается только по запросу при запуске Shizuku. Недоступно, пока активна фоновая автоматизация.</string>
+    <string name="settings_app_behavior_blocked">Сначала отключите фоновую автоматизацию, чтобы использовать эту настройку.</string>
+    <string name="settings_exit_on_back_title">Полностью закрывать приложение кнопкой «Назад»</string>
+    <string name="settings_exit_on_back_subtitle">Останавливает основной процесс ReAppzuku с главного экрана. Недоступно, пока активна фоновая автоматизация.</string>
+    <string name="settings_smart_lifecycle_title">Умное управление жизненным циклом</string>
+    <string name="settings_smart_lifecycle_subtitle">Сначала переводит в режим ожидания, затем принудительно останавливает. Защищает активное приложение, мультимедиа, foreground-сервисы, виджеты и критические службы.</string>
+    <string name="settings_smart_lifecycle_apps_title">Управляемые приложения</string>
+    <string name="settings_smart_lifecycle_apps_subtitle">Использует черный список. Управляются только явно выбранные здесь приложения.</string>
+    <string name="settings_smart_lifecycle_profile_title">Профиль управления</string>
+    <string name="settings_smart_lifecycle_profile_gentle">Мягкий · загрузка 10 мин · ожидание 2 ч · стоп 12 ч</string>
+    <string name="settings_smart_lifecycle_profile_balanced">Сбалансированный · загрузка 5 мин · ожидание 1 ч · стоп 6 ч</string>
+    <string name="settings_smart_lifecycle_profile_aggressive">Агрессивный · загрузка 2 мин · ожидание 30 мин · стоп 2 ч</string>
+    <string name="settings_smart_boot_cleanup_title">Очищать самозапустившиеся приложения</string>
+    <string name="settings_smart_boot_cleanup_subtitle">После периода ожидания при загрузке останавливает управляемые приложения, которые запустились сами и не использовались после загрузки.</string>
+    <string name="shortcut_ram_kill_confirm_message">Запустить сейчас ярлык очистки ОЗУ?</string>
+    <string name="shortcut_foreground_kill_confirm_message">Принудительно остановить текущее приложение на переднем плане?</string>
+</resources>

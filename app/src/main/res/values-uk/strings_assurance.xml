@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="filter_label">Фільтр</string>
+    <string name="action_previous">Назад</string>
+    <string name="action_next">Далі</string>
+    <string name="widget_kills">Завершення за 12 год</string>
+    <string name="widget_freed">Звільнено ОЗП</string>
+    <string name="widget_last_kill">Останнє завершення</string>
+    <string name="widget_ram">ОЗП</string>
+    <string name="settings_section_behavior">Поведінка застосунку</string>
+    <string name="settings_prevent_shizuku_autostart_title">Заборонити автоматичний запуск із Shizuku</string>
+    <string name="settings_prevent_shizuku_autostart_subtitle">ReAppzuku запускається лише на вимогу під час запуску Shizuku. Недоступно, поки активна фонова автоматизація.</string>
+    <string name="settings_app_behavior_blocked">Спочатку вимкніть фонову автоматизацію, щоб використовувати цю опцію.</string>
+    <string name="settings_exit_on_back_title">Повністю закривати застосунок кнопкою «Назад»</string>
+    <string name="settings_exit_on_back_subtitle">Зупиняє основний процес ReAppzuku з головного екрана. Недоступно, поки активна фонова автоматизація.</string>
+    <string name="settings_smart_lifecycle_title">Розумне керування життєвим циклом</string>
+    <string name="settings_smart_lifecycle_subtitle">Спочатку переводить у режим очікування, а потім примусово зупиняє. Захищає активне використання, мультимедіа, foreground-сервіси, віджети та критичні служби.</string>
+    <string name="settings_smart_lifecycle_apps_title">Керовані застосунки</string>
+    <string name="settings_smart_lifecycle_apps_subtitle">Використовує чорний список. Керуються лише застосунки, які явно вибрані тут.</string>
+    <string name="settings_smart_lifecycle_profile_title">Профіль керування</string>
+    <string name="settings_smart_lifecycle_profile_gentle">М’який · завантаження 10 хв · очікування 2 год · стоп 12 год</string>
+    <string name="settings_smart_lifecycle_profile_balanced">Збалансований · завантаження 5 хв · очікування 1 год · стоп 6 год</string>
+    <string name="settings_smart_lifecycle_profile_aggressive">Агресивний · завантаження 2 хв · очікування 30 хв · стоп 2 год</string>
+    <string name="settings_smart_boot_cleanup_title">Очищати самозапущені застосунки</string>
+    <string name="settings_smart_boot_cleanup_subtitle">Після пільгового періоду завантаження зупиняє керовані застосунки, які запустилися самі й не використовувалися після завантаження.</string>
+    <string name="shortcut_ram_kill_confirm_message">Запустити зараз ярлик очищення ОЗП?</string>
+    <string name="shortcut_foreground_kill_confirm_message">Примусово зупинити поточний застосунок на передньому плані?</string>
+</resources>
