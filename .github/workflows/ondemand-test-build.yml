@@ -11,15 +11,20 @@ permissions:
   contents: write
 
 jobs:
-  repair-and-build:
+  restore-and-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Restore source and apply phase 2 readiness diff
-        run: python .github/scripts/repair-phase2-source.py
-      - name: Commit repaired authoritative source
+      - name: Restore last known-good application source
+        run: |
+          git checkout 6e7ceb2be9ce48c1ba96aed49d89794b58128194 -- \
+            app/src/main/java/com/gree1d/reappzuku/core/ShellManager.java \
+            app/src/main/java/com/gree1d/reappzuku/core/App.java \
+            app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java \
+            app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java
+      - name: Commit restored authoritative source
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -28,7 +33,7 @@ jobs:
             app/src/main/java/com/gree1d/reappzuku/core/App.java \
             app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java \
             app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java
-          git commit -m "Repair source and apply shell readiness phase 2 [skip ci]"
+          git commit -m "Restore phase 1 source after connector write failure [skip ci]"
           git push origin HEAD:ondemand-shizuku
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -42,17 +47,3 @@ jobs:
         run: ./gradlew testDebugUnitTest
       - name: Build debug APK
         run: ./gradlew assembleDebug
-      - name: Prepare APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk ReAppzuku-1.8.7-ondemand-debug.apk
-      - name: Publish test APK
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          sha256sum ReAppzuku-1.8.7-ondemand-debug.apk | tee ReAppzuku-1.8.7-ondemand-debug.apk.sha256
-          gh release delete ondemand-test --cleanup-tag -y || true
-          gh release create ondemand-test \
-            ReAppzuku-1.8.7-ondemand-debug.apk \
-            ReAppzuku-1.8.7-ondemand-debug.apk.sha256 \
-            --target "$(git rev-parse HEAD)" \
-            --title "ReAppzuku 1.8.7 Shell readiness Phase 2 test" \
-            --notes "Phase 2 live-test build: explicit Shizuku/Root backend readiness states. App scanning waits for UserService READY rather than treating permission grant as readiness."
