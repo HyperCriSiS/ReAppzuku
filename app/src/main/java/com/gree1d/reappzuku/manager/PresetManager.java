@@ -9,6 +9,7 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
+import com.gree1d.reappzuku.core.ExactAlarmCapability;
 import com.gree1d.reappzuku.manager.AdditionalScenariosManager;
 import com.gree1d.reappzuku.service.AutoKillWorker;
 
@@ -453,10 +454,16 @@ public class PresetManager {
         }
         long activateTime = nextAlarmTime(model.startHour, model.startMinute);
         long deactivateTime = nextAlarmTime(model.endHour, model.endMinute);
-        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, activateTime,
-                buildPendingIntent(model.presetNumber, ACTION_PRESET_ACTIVATE));
-        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, deactivateTime,
-                buildPendingIntent(model.presetNumber, ACTION_PRESET_DEACTIVATE));
+        boolean activateExact = ExactAlarmCapability.scheduleExactOrBestEffort(
+                context, alarmManager, AlarmManager.RTC_WAKEUP, activateTime,
+                buildPendingIntent(model.presetNumber, ACTION_PRESET_ACTIVATE), true);
+        boolean deactivateExact = ExactAlarmCapability.scheduleExactOrBestEffort(
+                context, alarmManager, AlarmManager.RTC_WAKEUP, deactivateTime,
+                buildPendingIntent(model.presetNumber, ACTION_PRESET_DEACTIVATE), true);
+        if (!activateExact || !deactivateExact) {
+            AppDebugManager.w(Category.AUTO_KILL_PRESETS,
+                    "PresetManager: exact alarm permission unavailable; using best-effort timing for preset #" + model.presetNumber);
+        }
         AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: scheduleAlarms #" + model.presetNumber
                 + " | activateAt=" + model.startHour + ":" + String.format("%02d", model.startMinute)
                 + " (ms=" + activateTime + ")"
@@ -478,8 +485,13 @@ public class PresetManager {
         next.set(Calendar.SECOND, 0);
         next.set(Calendar.MILLISECOND, 0);
         next.add(Calendar.DAY_OF_YEAR, 1);
-        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.getTimeInMillis(),
-                buildPendingIntent(presetNumber, action));
+        boolean exact = ExactAlarmCapability.scheduleExactOrBestEffort(
+                context, alarmManager, AlarmManager.RTC_WAKEUP, next.getTimeInMillis(),
+                buildPendingIntent(presetNumber, action), true);
+        if (!exact) {
+            AppDebugManager.w(Category.AUTO_KILL_PRESETS,
+                    "PresetManager: rescheduleNextAlarm using best-effort timing for preset #" + presetNumber + " action=" + action);
+        }
         AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: rescheduleNextAlarm #" + presetNumber + " action=" + action
                 + " nextAt=" + hour + ":" + String.format("%02d", minute)
                 + " tomorrow ms=" + next.getTimeInMillis());
@@ -540,6 +552,16 @@ public class PresetManager {
                 + " crossesMidnight=" + (endMinutes <= startMinutes)
                 + " → active=" + active);
         return active;
+    }
+
+    public void restoreAfterBoot() {
+        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: restoreAfterBoot: rebuilding preset alarms");
+        for (int number : new int[]{PresetModel.PRESET_1, PresetModel.PRESET_2}) {
+            PresetModel model = loadPreset(number);
+            if (model != null && model.enabled) scheduleAlarms(model);
+            else cancelAlarms(number);
+        }
+        checkAndApplyCurrentPreset();
     }
 
     public void checkAndApplyCurrentPreset() {

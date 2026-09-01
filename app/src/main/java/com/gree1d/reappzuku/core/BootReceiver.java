@@ -11,6 +11,7 @@ import com.gree1d.reappzuku.core.AppDebugManager.Category;
 
 import com.gree1d.reappzuku.service.ShappkyService;
 import com.gree1d.reappzuku.manager.RestrictionsScheduler;
+import com.gree1d.reappzuku.manager.PresetManager;
 import com.gree1d.reappzuku.service.AutoKillWorker;
 import com.gree1d.reappzuku.service.SmartLifecycleWorker;
 import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_AUTO_KILL_ENABLED;
@@ -26,10 +27,10 @@ public class BootReceiver extends BroadcastReceiver {
             return;
         }
 
-        if (Intent.ACTION_BOOT_COMPLETED.equals(action)
-                || "android.intent.action.LOCKED_BOOT_COMPLETED".equals(action)) {
+        if (Intent.ACTION_BOOT_COMPLETED.equals(action)) {
 
             RestrictionsScheduler.scheduleNextStatic(context);
+            new PresetManager(context).restoreAfterBoot();
 
             SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
             boolean autoKillEnabled = prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false);

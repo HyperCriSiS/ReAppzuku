@@ -1,0 +1,77 @@
+# ReAppzuku Assurance Roadmap
+
+Source: `CHECK_MATRIX.md`, `QUALITY_GATES.md`, Red-Team review and live-device feedback.
+
+Status: `[x]` implemented, `[~]` implemented but live evidence pending, `[ ]` open.
+
+## Phase 1 — Live hardening baseline
+
+- [~] Central desired-state rule: intentional Auto-Kill disable must beat service self-restart.
+- [~] Fork-owned update provenance (`HyperCriSiS/ReAppzuku`); ignore non-version test tags.
+- [~] Restore preset alarms/state after normal boot.
+- [~] Central exact-alarm capability with safe best-effort fallback when permission is unavailable.
+- [~] Keep only `SCHEDULE_EXACT_ALARM`; remove redundant `USE_EXACT_ALARM`.
+- [~] Remove obsolete locked-boot path for credential-protected configuration.
+- [~] Remove destructive Room migration fallback; missing migration must fail visibly rather than erase logs/statistics.
+- [~] Backup v5: include Smart Lifecycle and App Behavior settings, reject future formats, validate presets before main commit.
+- [~] Accessibility config: correct settings activity and remove unnecessary view-tree flag.
+- [~] First pure JVM policy/version tests.
+- [~] Checked-in source becomes authoritative; normal CI no longer patches/commits application source.
+
+### Live test checklist for Phase 1
+
+1. Fresh install / Shizuku permission removed: app waits for permission + UserService readiness and then loads apps.
+2. Grant Shizuku slowly; rotate/background during dialog; no `Failed to get running Apps output` race.
+3. Enable Auto-Kill, then disable it and wait >10 s: foreground service must stay off.
+4. Enable Auto-Kill, kill ReAppzuku service/process externally: recovery may restart it while desired state remains enabled.
+5. Reboot with Auto-Kill disabled: no persistent foreground service should appear.
+6. Reboot with an enabled timed preset: preset alarms are rebuilt and the currently active time window is reconciled.
+7. Deny/remove exact-alarm access: preset/scheduler must not crash; timing degrades to best-effort.
+8. Backup/restore: Exit-on-Back, Prevent Shizuku Auto-Start and Smart Lifecycle settings round-trip.
+9. Update check must never navigate to or install from the upstream `gree1d/ReAppzuku` channel.
+
+## Phase 2 — Privilege state machine PROVEN
+
+- [ ] Extract explicit backend states: unavailable / permission-pending / granted / service-binding / ready / lost.
+- [ ] Unit-test state transitions and concurrent callers.
+- [ ] Instrumentation probes for binder-late, deny→grant, activity recreation, service death and Shizuku restart.
+- [ ] Never map `waiting` to a generic shell failure in UI/logs.
+
+## Phase 3 — Persistence and migration
+
+- [ ] Make backup restore fully transactional across main prefs + preset prefs with rollback/staging.
+- [ ] Commit every Room schema 1…current and add MigrationTestHelper coverage.
+- [ ] Define Android Auto Backup/data-extraction policy versus ReAppzuku's explicit backup format.
+- [ ] Add corrupt/legacy/future/oversized-backup tests.
+
+## Phase 4 — CI and supply chain
+
+- [ ] Split read-only validation from release publishing with least-privilege tokens.
+- [ ] Run lint without `updateLintBaseline`; baseline changes only through reviewed source commits.
+- [ ] Pin external GitHub Actions to immutable full SHAs.
+- [ ] Add dependency verification/locking evaluation.
+- [ ] Expand unit/instrumentation test lanes and preserve `concurrency.cancel-in-progress`.
+
+## Phase 5 — Privileged surface hardening
+
+- [ ] Review every `exported=true` component and caller/principal boundary.
+- [ ] Separate public shortcut routing from privileged executor.
+- [ ] Introduce typed/validated privileged operations instead of ad-hoc command strings where practical.
+- [ ] Fixture-test dumpsys/parser protection logic across Android/OEM variants.
+
+## Phase 6 — Android 17 / API 37
+
+- [ ] Add Android 17/API 37 runtime compatibility lane before changing target SDK.
+- [ ] Plan compatible AGP/toolchain migration separately.
+- [ ] Re-test hidden APIs, Accessibility, FGS, WorkManager, alarm behavior and process/memory assumptions.
+
+## Phase 7 — UX, i18n, maintainability
+
+- [ ] Propagate fork-specific Smart Lifecycle/App Behavior strings to supported locales.
+- [ ] Explain blocking automation directly beside disabled App Behavior controls.
+- [ ] Split large managers behind testable facades (`PrivilegedShell`, `AlarmScheduler`, `ProtectionPolicy`, `BackupCodec`, `Clock`).
+- [ ] Keep CHECK_MATRIX status/evidence current after every high-impact change.
+
+## Stable-release gate
+
+A candidate is not stable until all P0 findings are `PROVEN`, no P1 is unowned, reboot/permission/migration paths have repeatable evidence, update provenance is correct, and the release artifact/signing identity + rollback path are recorded.

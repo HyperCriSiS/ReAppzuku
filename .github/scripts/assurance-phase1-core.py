@@ -210,7 +210,7 @@ s = p.read_text(encoding="utf-8")
 s = s.replace("https://api.github.com/repos/gree1d/ReAppzuku/releases/latest", "https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases/latest")
 s = s.replace("https://github.com/gree1d/ReAppzuku/releases", "https://github.com/HyperCriSiS/ReAppzuku/releases")
 start = s.find("    public static boolean isNewer(String remote, String local) {")
-end = s.find("    public static final class ReleaseInfo", start)
+end = s.find("    public static String getAppVersion", start)
 if start < 0 or end < 0:
     raise RuntimeError("UpdateChecker version helper block not found")
 s = s[:start] + '''    public static boolean isNewer(String remote, String local) {

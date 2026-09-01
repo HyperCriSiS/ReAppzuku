@@ -17,7 +17,7 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 public class BackupManager {
     private static final String TAG = "BackupManager";
     private static final String KEY_BACKUP_VERSION = "backup_version";
-    private static final int BACKUP_VERSION = 4;
+    private static final int BACKUP_VERSION = 5;
     private static final String KEY_MANUAL_OPS_MASKS = "manual_ops_masks";
     private static final String KEY_PRESETS = "presets";
     private static final String KEY_PRESET_PREFIX = "preset_";
@@ -93,6 +93,13 @@ public class BackupManager {
             root.put(KEY_SLEEP_MODE_DELAY, prefs.getLong(KEY_SLEEP_MODE_DELAY, AppConstants.DEFAULT_SLEEP_MODE_DELAY_MS));
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: sleep mode settings written");
 
+            root.put(KEY_EXIT_ON_BACK, getSafeBool(KEY_EXIT_ON_BACK, false));
+            root.put(KEY_PREVENT_SHIZUKU_AUTOSTART, getSafeBool(KEY_PREVENT_SHIZUKU_AUTOSTART, true));
+            root.put(KEY_SMART_LIFECYCLE_ENABLED, getSafeBool(KEY_SMART_LIFECYCLE_ENABLED, false));
+            root.put(KEY_SMART_BOOT_CLEANUP_ENABLED, getSafeBool(KEY_SMART_BOOT_CLEANUP_ENABLED, true));
+            root.put(KEY_SMART_LIFECYCLE_PROFILE, prefs.getInt(KEY_SMART_LIFECYCLE_PROFILE, 1));
+            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: fork behavior settings written");
+
             root.put(KEY_HW_TRIGGER_HEADSET, getSafeBool(KEY_HW_TRIGGER_HEADSET, false));
             root.put(KEY_HW_TRIGGER_USB, getSafeBool(KEY_HW_TRIGGER_USB, false));
             root.put(KEY_HW_TRIGGER_CHARGER, getSafeBool(KEY_HW_TRIGGER_CHARGER, false));
@@ -122,7 +129,17 @@ public class BackupManager {
             JSONObject root = new JSONObject(json);
             int version = root.optInt(KEY_BACKUP_VERSION, -1);
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: backup version=" + version);
+            if (version > BACKUP_VERSION) {
+                AppDebugManager.w(Category.BACKUP_RESTORE,
+                        "BackupManager: refusing unsupported future backup version=" + version + " supported=" + BACKUP_VERSION);
+                return false;
+            }
+            if (version < 1) {
+                AppDebugManager.w(Category.BACKUP_RESTORE,
+                        "BackupManager: legacy/unversioned backup detected; validating available fields");
+            }
 
+            validatePresets(root);
             SharedPreferences.Editor editor = prefs.edit();
 
             restoreSet(editor, root, KEY_HIDDEN_APPS);
@@ -170,6 +187,13 @@ public class BackupManager {
             restoreLong(editor, root, KEY_SLEEP_MODE_DELAY);
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: sleep mode settings restored");
 
+            restoreBoolean(editor, root, KEY_EXIT_ON_BACK);
+            restoreBoolean(editor, root, KEY_PREVENT_SHIZUKU_AUTOSTART);
+            restoreBoolean(editor, root, KEY_SMART_LIFECYCLE_ENABLED);
+            restoreBoolean(editor, root, KEY_SMART_BOOT_CLEANUP_ENABLED);
+            restoreInt(editor, root, KEY_SMART_LIFECYCLE_PROFILE);
+            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: fork behavior settings restored");
+
             restoreBoolean(editor, root, KEY_HW_TRIGGER_HEADSET);
             restoreBoolean(editor, root, KEY_HW_TRIGGER_USB);
             restoreBoolean(editor, root, KEY_HW_TRIGGER_CHARGER);
@@ -181,10 +205,15 @@ public class BackupManager {
             restoreBoolean(editor, root, KEY_APP_LAUNCH_CLEAR_CACHE);
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: hardware triggers restored");
 
-            editor.apply();
+            if (!editor.commit()) {
+                AppDebugManager.e(Category.BACKUP_RESTORE,
+                        "BackupManager: restoreBackupJson: main preferences commit failed");
+                return false;
+            }
 
             restorePresets(root);
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: presets restored");
+            BackgroundWorkPolicy.enforceCompatibleBehavior(context);
 
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: success");
             return true;
@@ -251,6 +280,15 @@ public class BackupManager {
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: putPresets: preset #" + presetNumber + " written, name=" + model.name);
         }
         root.put(KEY_PRESETS, presets);
+    }
+
+    private void validatePresets(JSONObject root) throws Exception {
+        if (!root.has(KEY_PRESETS)) return;
+        JSONObject presets = root.getJSONObject(KEY_PRESETS);
+        for (int presetNumber : new int[]{ PresetModel.PRESET_1, PresetModel.PRESET_2 }) {
+            String key = KEY_PRESET_PREFIX + presetNumber;
+            if (presets.has(key)) PresetModel.fromJson(presetNumber, presets.getJSONObject(key));
+        }
     }
 
     private void restorePresets(JSONObject root) throws Exception {

@@ -20,28 +20,23 @@ public final class BackgroundWorkPolicy {
 
     private BackgroundWorkPolicy() {}
 
+    public static boolean shouldRunForegroundService(boolean autoKillEnabled) {
+        return AutomationDesiredState.shouldRunForegroundService(autoKillEnabled);
+    }
+
+    public static boolean shouldRunForegroundService(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
+        return shouldRunForegroundService(prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false));
+    }
+
     public static boolean requiresBackgroundContinuity(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
-
-        // The foreground/background management service and everything attached
-        // to it (periodic kill, screen-off actions, RAM threshold, HW triggers,
-        // sleep mode, etc.) is represented by the master service switch.
-        if (prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false)) return true;
-
-        // Smart Lifecycle is intentionally independent from the legacy service
-        // and uses WorkManager, so it must be considered separately.
-        if (prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false)) return true;
-
-        // Defensive: do not allow process-killing behavior while a sleep mode or
-        // preset remains active even if preferences temporarily become inconsistent.
-        if (prefs.getBoolean(KEY_SLEEP_MODE_ENABLED, false)) return true;
-        if (prefs.getInt(KEY_ACTIVE_PRESET, 0) != 0) return true;
-
-        // Restriction schedules are AlarmManager-based and can be enabled without
-        // keeping the Auto-Kill screen open. Treat any enabled entry as automation.
-        if (hasEnabledRestrictionSchedule(prefs)) return true;
-
-        return false;
+        return AutomationDesiredState.requiresBackgroundContinuity(
+                prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false),
+                prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false),
+                prefs.getBoolean(KEY_SLEEP_MODE_ENABLED, false),
+                prefs.getInt(KEY_ACTIVE_PRESET, 0) != 0,
+                hasEnabledRestrictionSchedule(prefs));
     }
 
     private static boolean hasEnabledRestrictionSchedule(SharedPreferences prefs) {

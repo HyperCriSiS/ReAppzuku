@@ -199,7 +199,6 @@ public abstract class AppDatabase extends RoomDatabase {
                     .openHelperFactory(new RequerySQLiteOpenHelperFactory())
                     .addCallback(RAISE_STATEMENT_CACHE_CALLBACK)
                     .setQueryCallback(LOG_QUERY_CALLBACK, app.getSharedExecutor())
-                    .fallbackToDestructiveMigration()
                     .build();
         }
         return instance;

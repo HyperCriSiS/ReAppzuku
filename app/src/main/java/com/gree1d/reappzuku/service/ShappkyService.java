@@ -42,6 +42,7 @@ import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.utils.AppzukuWidget;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
+import com.gree1d.reappzuku.core.BackgroundWorkPolicy;
 
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
@@ -653,6 +654,22 @@ public class ShappkyService extends Service {
         am.set(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 3000, pi);
     }
 
+    private void cancelServiceRestart() {
+        AlarmManager am = (AlarmManager) getSystemService(ALARM_SERVICE);
+        if (am == null) return;
+        Intent intent = new Intent(this, RestartReceiver.class);
+        PendingIntent pi = PendingIntent.getBroadcast(
+                this,
+                RESTART_ALARM_REQUEST_CODE,
+                intent,
+                PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE
+        );
+        if (pi != null) {
+            am.cancel(pi);
+            pi.cancel();
+        }
+    }
+
     private static final long SNAPSHOT_INTERVAL_MS = 15 * 60 * 1000L;
     private static final long WIDGET_UPDATE_INTERVAL_MS = 60 * 1000L;
 
@@ -784,8 +801,13 @@ public class ShappkyService extends Service {
     public void onDestroy() {
         AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onDestroy called, stopping service");
         isRunning = false;
-        scheduleServiceRestart();
-        AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": Service restart scheduled via AlarmManager");
+        if (BackgroundWorkPolicy.shouldRunForegroundService(this)) {
+            scheduleServiceRestart();
+            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": Service restart scheduled because Auto-Kill is still enabled");
+        } else {
+            cancelServiceRestart();
+            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": Service restart suppressed because Auto-Kill is disabled");
+        }
         cancelIdleFreezeAlarm();
         cancelHeartbeatAlarm();
         cancelSnapshotAlarm();
@@ -840,6 +862,11 @@ public class ShappkyService extends Service {
     public static class RestartReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
+            if (!BackgroundWorkPolicy.shouldRunForegroundService(context)) {
+                AppDebugManager.d(Category.FOREGROUND_SERVICE,
+                        "ShappkyService.RestartReceiver: ignoring stale restart alarm because Auto-Kill is disabled");
+                return;
+            }
             if (!ShappkyService.isRunning()) {
                 AppDebugManager.d(Category.FOREGROUND_SERVICE, "ShappkyService.RestartReceiver: Service not running, restarting via " +
                         (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? "startForegroundService" : "startService"));

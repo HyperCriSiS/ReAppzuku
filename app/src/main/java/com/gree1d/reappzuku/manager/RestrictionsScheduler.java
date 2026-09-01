@@ -11,6 +11,7 @@ import android.os.Handler;
 
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
+import com.gree1d.reappzuku.core.ExactAlarmCapability;
 import com.gree1d.reappzuku.db.AppDatabase;
 import com.gree1d.reappzuku.db.SchedulerLog;
 
@@ -439,10 +440,11 @@ public class RestrictionsScheduler {
         AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (am == null) return;
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nearest, getAlarmIntent());
-        } else {
-            am.setExact(AlarmManager.RTC_WAKEUP, nearest, getAlarmIntent());
+        boolean exact = ExactAlarmCapability.scheduleExactOrBestEffort(
+                context, am, AlarmManager.RTC_WAKEUP, nearest, getAlarmIntent(), true);
+        if (!exact) {
+            AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER,
+                    "RestrictionsScheduler: exact alarm permission unavailable; using best-effort timing");
         }
 
         AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: scheduleNext: alarm in " + ((nearest - now) / 1000 / 60) + " min");
@@ -486,10 +488,11 @@ public class RestrictionsScheduler {
         if (am == null) return;
 
         PendingIntent pi = getAlarmIntent(context);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nearest, pi);
-        } else {
-            am.setExact(AlarmManager.RTC_WAKEUP, nearest, pi);
+        boolean exact = ExactAlarmCapability.scheduleExactOrBestEffort(
+                context, am, AlarmManager.RTC_WAKEUP, nearest, pi, true);
+        if (!exact) {
+            AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER,
+                    "RestrictionsScheduler: scheduleNextStatic using best-effort timing");
         }
         AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: scheduleNextStatic: alarm in " + ((nearest - now) / 1000 / 60) + " min");
     }

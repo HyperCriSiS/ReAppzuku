@@ -29,6 +29,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
+import com.gree1d.reappzuku.core.ReleaseVersion;
 import com.gree1d.reappzuku.service.UpdateCheckWorker;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
@@ -54,9 +55,9 @@ public class UpdateChecker {
     private static final String FILE_NAME = "UpdateChecker";
 
     static final String GITHUB_API_URL =
-            "https://api.github.com/repos/gree1d/ReAppzuku/releases/latest";
+            "https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases/latest";
     private static final String RELEASES_URL =
-            "https://github.com/gree1d/ReAppzuku/releases";
+            "https://github.com/HyperCriSiS/ReAppzuku/releases";
 
     private static final String CHANNEL_ID = "reappzuku_updates";
     private static final int    NOTIF_ID   = 9001;
@@ -175,30 +176,7 @@ public class UpdateChecker {
     }
 
     public static boolean isNewer(String remote, String local) {
-        if (remote == null || remote.isEmpty()) return false;
-        try {
-            int[] r = parseVersion(remote.replaceFirst("^v", ""));
-            int[] l = parseVersion(local.replaceFirst("^v", ""));
-            for (int i = 0; i < Math.max(r.length, l.length); i++) {
-                int rv = i < r.length ? r[i] : 0;
-                int lv = i < l.length ? l[i] : 0;
-                if (rv > lv) return true;
-                if (rv < lv) return false;
-            }
-            return false;
-        } catch (Exception e) {
-            AppDebugManager.w(Category.UTILS, FILE_NAME + ": Version parse failed: remote=" + remote + " local=" + local);
-            return false;
-        }
-    }
-
-    private static int[] parseVersion(String v) {
-        String[] parts = v.split("\\.");
-        int[] nums = new int[parts.length];
-        for (int i = 0; i < parts.length; i++) {
-            nums[i] = Integer.parseInt(parts[i].replaceAll("[^0-9]", ""));
-        }
-        return nums;
+        return ReleaseVersion.isNewer(remote, local);
     }
 
     public static String getAppVersion(Context context) {

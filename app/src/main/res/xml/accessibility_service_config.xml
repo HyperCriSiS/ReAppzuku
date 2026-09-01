@@ -2,7 +2,6 @@
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagIncludeNotImportantViews"
     android:notificationTimeout="100"
     android:description="@string/accessibility_service_description"
-    android:settingsActivity="com.gree1d.reappzuku.SettingsActivity" />
+    android:settingsActivity="com.gree1d.reappzuku.ui.SettingsActivity" />
