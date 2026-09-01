@@ -14,24 +14,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Apply shortcut color regression fix
-        run: |
-          python .github/scripts/fix-shortcut-color-regression.py
-          python .github/scripts/fix-shortcut-color-regression.py
-      - name: Commit authoritative shortcut fix
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/java/com/gree1d/reappzuku/manager/RamKillShortcutManager.java
-          if ! git diff --cached --quiet; then
-            git commit -m "Fix shortcut icon color regression [skip ci]"
-            git push origin HEAD:ondemand-shizuku
-          fi
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           java-version: '17'
           distribution: temurin
@@ -57,6 +42,6 @@ jobs:
           gh release create ondemand-test \
             ReAppzuku-1.8.7-ondemand-debug.apk \
             ReAppzuku-1.8.7-ondemand-debug.apk.sha256 \
-            --target "$(git rev-parse HEAD)" \
+            --target "${GITHUB_SHA}" \
             --title "ReAppzuku 1.8.7 Assurance Phase 5 test" \
-            --notes "Live-test build with Phases 1-4 plus exported-shortcut privilege hardening. Dynamic RAM shortcuts use an install-specific authentication token; legacy/static and external launches require explicit user confirmation before privileged actions. Includes transactional backup restore, explicit Shizuku readiness, Room migration evidence, and platform-backup exclusion."
+            --notes "Live-test build with Phases 1-5: explicit Shizuku readiness state machine, desired background-state enforcement, preset reboot recovery, transactional versioned backup restore, non-destructive Room policy with v2→v11 migration test compilation, explicit platform-backup exclusion, and exported-shortcut privilege hardening. Dynamic RAM shortcuts use an install-specific token; legacy/static entry points require explicit user confirmation."
