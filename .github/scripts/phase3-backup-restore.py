@@ -2,6 +2,9 @@
 from pathlib import Path
 P = Path("app/src/main/java/com/gree1d/reappzuku/core/BackupManager.java")
 text = P.read_text()
+if "durableWriteStarted = false" in text:
+    print("Backup restore phase 3 already applied")
+    raise SystemExit(0)
 if "MAX_BACKUP_CHARS" not in text:
     text = text.replace('    private static final String KEY_PRESET_PREFIX = "preset_";\n',
                         '    private static final String KEY_PRESET_PREFIX = "preset_";\n    private static final int MAX_BACKUP_CHARS = 2 * 1024 * 1024;\n', 1)
