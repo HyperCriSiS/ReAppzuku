@@ -11,34 +11,10 @@ permissions:
   contents: write
 
 jobs:
-  phase3-and-build:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Apply transactional backup storage
-        run: |
-          python .github/scripts/phase3-preset-storage.py
-          python .github/scripts/phase3-backup-restore.py
-          python .github/scripts/phase3-backup-helpers.py
-          # Prove the migration scripts are safe to re-run.
-          python .github/scripts/phase3-preset-storage.py
-          python .github/scripts/phase3-backup-restore.py
-          python .github/scripts/phase3-backup-helpers.py
-      - name: Commit authoritative Phase 3 source
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            app/src/main/java/com/gree1d/reappzuku/core/BackupManager.java \
-            app/src/main/java/com/gree1d/reappzuku/manager/PresetManager.java
-          if git diff --cached --quiet; then
-            echo "No Phase 3 source changes to commit"
-          else
-            git commit -m "Implement transactional backup restore phase 3 [skip ci]"
-            git push origin HEAD:ondemand-shizuku
-          fi
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
@@ -49,6 +25,10 @@ jobs:
         run: chmod +x gradlew
       - name: Unit tests
         run: ./gradlew testDebugUnitTest
+      - name: Compile instrumentation tests
+        run: ./gradlew assembleDebugAndroidTest
+      - name: Verify current Room schema export
+        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
       - name: Build debug APK
         run: ./gradlew assembleDebug
       - name: Prepare APK
@@ -62,6 +42,6 @@ jobs:
           gh release create ondemand-test \
             ReAppzuku-1.8.7-ondemand-debug.apk \
             ReAppzuku-1.8.7-ondemand-debug.apk.sha256 \
-            --target "$(git rev-parse HEAD)" \
-            --title "ReAppzuku 1.8.7 Transactional Backup Phase 3 test" \
-            --notes "Phase 3 live-test build: backup restore now validates before writing, snapshots all participating preference stores, commits synchronously, rolls back partial failures, reconciles runtime state only after durable success, limits import size, and treats active preset state as non-portable runtime state. Includes Phase 1 and Phase 2 hardening."
+            --target "${GITHUB_SHA}" \
+            --title "ReAppzuku 1.8.7 Assurance Phase 4 test" \
+            --notes "Live-test build with Phase 1-3 hardening plus explicit platform-backup exclusion and compiled Room migration evidence for the supported v2→v11 path. The instrumentation migration test validates the final schema and preservation of existing statistics data when executed on Android."
