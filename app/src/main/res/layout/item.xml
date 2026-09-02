@@ -180,6 +180,7 @@
 
             <ImageView
                 android:id="@+id/btn_overflow"
+                android:contentDescription="@string/a11y_app_action"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:scaleType="fitCenter"
