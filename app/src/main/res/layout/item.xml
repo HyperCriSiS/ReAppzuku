@@ -27,6 +27,7 @@
 
         <ImageView
             android:id="@+id/app_icon"
+            android:contentDescription="@null"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_marginEnd="8dp"
@@ -65,6 +66,7 @@
 
                 <ImageView
                     android:id="@+id/protected_icon"
+                    android:contentDescription="@string/a11y_protected_app"
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:layout_marginStart="4dp"
@@ -79,6 +81,7 @@
 
                 <ImageView
                     android:id="@+id/status_icon"
+                    android:contentDescription="@string/a11y_app_status"
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:layout_marginStart="4dp"
@@ -196,6 +199,7 @@
 
             <ImageView
                 android:id="@+id/btn_app_action"
+                android:contentDescription="@string/a11y_app_action"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:scaleType="fitCenter"

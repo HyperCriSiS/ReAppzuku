@@ -1435,7 +1435,8 @@ abstract class SettingsActivityDialogs extends BaseActivity {
 
             android.widget.RadioButton rb = new android.widget.RadioButton(this);
             rb.setText(name);
-            rb.setId(1000 + presetNumber);
+            rb.setId(android.view.View.generateViewId());
+            rb.setTag(presetNumber);
             rb.setPadding(dp12, dp12, dp12, dp12);
             rb.setLayoutParams(new android.widget.LinearLayout.LayoutParams(
                     0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -1470,7 +1471,9 @@ abstract class SettingsActivityDialogs extends BaseActivity {
             android.view.View row = group.getChildAt(i);
             android.widget.RadioButton rb = findRadioButton(row);
             if (rb == null) continue;
-            int presetNumber = rb.getId() - 1000;
+            Object presetTag = rb.getTag();
+            if (!(presetTag instanceof Integer)) continue;
+            int presetNumber = (Integer) presetTag;
 
             android.view.View.OnClickListener openPreset = v -> {
                 dialog.dismiss();

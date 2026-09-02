@@ -37,6 +37,7 @@
 
                 <ImageView
                     android:id="@+id/sheet_app_icon"
+                    android:contentDescription="@null"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:scaleType="fitCenter" />

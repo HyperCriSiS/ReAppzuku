@@ -129,15 +129,18 @@ public class BackgroundAppsRecyclerViewAdapter extends RecyclerView.Adapter<Back
             binding.badgeSystem.setVisibility(!persistent && app.isSystemApp() ? View.VISIBLE : View.GONE);
 
             binding.protectedIcon.setVisibility(app.isProtected() ? View.VISIBLE : View.GONE);
+            binding.protectedIcon.setContentDescription(context.getString(R.string.a11y_protected_app));
 
             boolean isTimerFreeze = context.getSharedPreferences(PreferenceKeys.PREFERENCES_NAME, Context.MODE_PRIVATE)
                     .getStringSet(PreferenceKeys.KEY_SLEEP_MODE_APPS, Collections.emptySet())
                     .contains(app.getPackageName());
             if (isTimerFreeze) {
                 binding.statusIcon.setImageResource(R.drawable.ic_freeze);
+                binding.statusIcon.setContentDescription(context.getString(R.string.a11y_sleep_mode_app));
                 binding.statusIcon.setVisibility(View.VISIBLE);
             } else if (app.isWhitelisted()) {
                 binding.statusIcon.setImageResource(R.drawable.ic_whitelist);
+                binding.statusIcon.setContentDescription(context.getString(R.string.a11y_whitelisted_app));
                 binding.statusIcon.setVisibility(View.VISIBLE);
             } else {
                 binding.statusIcon.setVisibility(View.GONE);
@@ -229,6 +232,8 @@ public class BackgroundAppsRecyclerViewAdapter extends RecyclerView.Adapter<Back
                         app.isSelected()
                                 ? R.drawable.ic_checkbox_checked
                                 : R.drawable.ic_checkbox_unchecked);
+                binding.btnAppAction.setContentDescription(context.getString(
+                        app.isSelected() ? R.string.a11y_deselect_app : R.string.a11y_select_app));
                 binding.btnAppAction.setOnClickListener(v -> {
                     int pos = getAdapterPosition();
                     if (actionListener != null && pos != RecyclerView.NO_POSITION) {
@@ -239,6 +244,7 @@ public class BackgroundAppsRecyclerViewAdapter extends RecyclerView.Adapter<Back
             } else {
                 binding.btnAppAction.setAlpha(1.0f);
                 binding.btnAppAction.setImageResource(R.drawable.ic_force_stop);
+                binding.btnAppAction.setContentDescription(context.getString(R.string.a11y_force_stop_app));
                 binding.btnAppAction.setVisibility(View.VISIBLE);
                 binding.btnAppAction.setClickable(true);
                 binding.btnAppAction.setOnClickListener(v -> {
