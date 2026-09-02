@@ -24,12 +24,14 @@ jobs:
           python .github/scripts/phase7-platform-accessibility.py
           python .github/scripts/phase7-locale-cleanup.py
           python .github/scripts/phase7-lint-errors-guarded.py
+          python .github/scripts/phase7-overflow-accessibility.py
           git diff > /tmp/phase7-first.diff
           python .github/scripts/phase7-contextcompat-import.py
           python .github/scripts/phase7-package-validation.py
           python .github/scripts/phase7-platform-accessibility.py
           python .github/scripts/phase7-locale-cleanup.py
           python .github/scripts/phase7-lint-errors-guarded.py
+          python .github/scripts/phase7-overflow-accessibility.py
           git diff > /tmp/phase7-second.diff
           cmp /tmp/phase7-first.diff /tmp/phase7-second.diff
       - name: Commit authoritative Phase 7 source
@@ -38,7 +40,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/src/main app/src/test
           if ! git diff --cached --quiet; then
-            git commit -m "Resolve remaining Phase 7 lint errors [skip ci]"
+            git commit -m "Resolve final Phase 7 accessibility warning [skip ci]"
             git push origin HEAD:ondemand-shizuku
           fi
       - name: Set up JDK 17
