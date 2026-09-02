@@ -4,15 +4,16 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ondemand-shizuku-test
+  group: android17-api37-runtime
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  validate:
+  api37-runtime:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -27,50 +28,126 @@ jobs:
           cache: gradle
       - name: Grant execute permission
         run: chmod +x gradlew
-      - name: Unit tests
-        run: ./gradlew testDebugUnitTest
-      - name: Lint
-        run: ./gradlew lintDebug
-      - name: Compile instrumentation tests
-        run: ./gradlew assembleDebugAndroidTest
-      - name: Verify current Room schema export
-        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
-      - name: Prepare APK and digest
+
+      - name: Install Android 17 emulator image
+        shell: bash
         run: |
-          mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/ReAppzuku-1.8.7-ondemand-debug.apk
-          cd dist
-          sha256sum ReAppzuku-1.8.7-ondemand-debug.apk | tee ReAppzuku-1.8.7-ondemand-debug.apk.sha256
-      - name: Upload validated APK
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          AVDMANAGER="$(command -v avdmanager)"
+          yes | "${SDKMANAGER}" --licenses >/dev/null || true
+          "${SDKMANAGER}" \
+            "platform-tools" \
+            "emulator" \
+            "platforms;android-37" \
+            "system-images;android-37;google_apis;x86_64"
+          echo "no" | "${AVDMANAGER}" create avd \
+            --force \
+            --name reappzuku-api37 \
+            --package "system-images;android-37;google_apis;x86_64"
+
+      - name: Boot Android 17 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+          fi
+          nohup emulator @reappzuku-api37 \
+            -no-window \
+            -no-audio \
+            -no-boot-anim \
+            -no-snapshot-load \
+            -no-snapshot-save \
+            -gpu swiftshader_indirect \
+            -accel auto \
+            > /tmp/api37-emulator.log 2>&1 &
+          echo "$!" > /tmp/api37-emulator.pid
+          adb wait-for-device
+          timeout 360 bash -c '
+            until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do
+              sleep 5
+            done
+          '
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+          test "$(adb shell getprop ro.build.version.sdk | tr -d '\r')" = "37"
+          adb shell getprop ro.build.version.release
+          adb shell getprop ro.build.version.incremental
+
+      - name: Build app and instrumentation APKs
+        run: ./gradlew assembleDebug assembleDebugAndroidTest
+
+      - name: Install app and enable target-37 MessageQueue behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_APK="app/build/outputs/apk/debug/app-debug.apk"
+          TEST_APK="$(find app/build/outputs/apk/androidTest -type f -name '*.apk' | head -n 1)"
+          test -f "${APP_APK}"
+          test -f "${TEST_APK}"
+          adb install -r "${APP_APK}"
+          adb install -r "${TEST_APK}"
+          adb shell am compat enable USE_NEW_MESSAGEQUEUE com.gree1d.reappzuku
+          adb shell am compat state USE_NEW_MESSAGEQUEUE com.gree1d.reappzuku || true
+
+      - name: Run Android instrumentation on API 37
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation \
+              | tr -d '\r' \
+              | sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' \
+              | head -n 1
+          )"
+          test -n "${INSTRUMENTATION}"
+          adb shell am instrument -w -r "${INSTRUMENTATION}" | tee /tmp/api37-instrumentation.txt
+          grep -Eq 'OK \([0-9]+ tests?\)' /tmp/api37-instrumentation.txt
+
+      - name: Launcher smoke test with lock-free MessageQueue
+        shell: bash
+        run: |
+          set -euo pipefail
+          adb shell am force-stop com.gree1d.reappzuku
+          adb logcat -c
+          adb shell monkey \
+            -p com.gree1d.reappzuku \
+            -c android.intent.category.LAUNCHER \
+            1 >/tmp/api37-monkey.txt 2>&1 || true
+          sleep 8
+          adb logcat -d -b crash > /tmp/api37-crash.txt
+          if grep -q 'com.gree1d.reappzuku' /tmp/api37-crash.txt; then
+            cat /tmp/api37-crash.txt
+            exit 1
+          fi
+          adb shell dumpsys package com.gree1d.reappzuku \
+            | grep -E 'versionName=|targetSdk=' \
+            | head -20
+
+      - name: Collect API 37 evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p api37-evidence
+          for file in /tmp/api37-emulator.log /tmp/api37-instrumentation.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt; do
+            if [ -f "${file}" ]; then
+              cp "${file}" api37-evidence/
+            fi
+          done
+
+      - name: Upload API 37 evidence
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: ondemand-apk
-          path: dist/
-          if-no-files-found: error
-          retention-days: 3
+          name: android17-api37-evidence
+          path: |
+            api37-evidence/
+            app/build/reports/androidTests/
+          if-no-files-found: warn
+          retention-days: 7
 
-  publish:
-    needs: validate
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download validated APK
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: ondemand-apk
-          path: dist
-      - name: Publish test APK
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release delete ondemand-test --repo "${GITHUB_REPOSITORY}" --cleanup-tag -y || true
-          gh release create ondemand-test \
-            dist/ReAppzuku-1.8.7-ondemand-debug.apk \
-            dist/ReAppzuku-1.8.7-ondemand-debug.apk.sha256 \
-            --repo "${GITHUB_REPOSITORY}" \
-            --target "${GITHUB_SHA}" \
-            --title "ReAppzuku 1.8.7 Assurance Phase 7 test" \
-            --notes "Validated source-authoritative build with all Assurance Phase 1-7 hardening: Shizuku readiness and on-demand process policy, background desired-state enforcement, transactional backup restore, non-destructive Room policy, exported shortcut/principal hardening, package-name validation at privileged boundaries, Android platform/accessibility fixes, fork i18n, zero-error lint gate with reviewed warning baseline, immutable Action pins, and least-privilege validation/publishing separation."
+      - name: Stop emulator
+        if: always()
+        run: adb emu kill || true
