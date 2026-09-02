@@ -56,7 +56,6 @@ jobs:
           rm -f app/lint-baseline.xml
           set +e
           ./gradlew lintDebug
-          lint_status=$?
           set -e
           REPORT=app/build/reports/lint-results-debug.xml
           test -s "$REPORT"
@@ -65,14 +64,10 @@ jobs:
             grep -B2 -A8 'severity="Error"' "$REPORT" | head -240
             exit 1
           fi
-          if [ "$lint_status" -ne 0 ]; then
-            echo "lintDebug failed without any reported Error issue"
-            exit "$lint_status"
-          fi
-      - name: Create reviewed historical warning baseline
-        run: |
-          ./gradlew updateLintBaseline
           test -s app/lint-baseline.xml
+          echo "Lint contains no errors; the expected first-run warning baseline was generated."
+      - name: Review generated historical warning baseline
+        run: |
           if grep -Eq 'id="(UnspecifiedRegisterReceiverFlag|PermissionImpliesUnsupportedHardware|ClickableViewAccessibility|RelativeOverlap|Recycle|LabelFor|Autofill|ContentDescription|MissingTvBanner|ResourceType|Instantiatable|MissingLeanbackSupport|NewApi|WrongThread|CoarseFineLocation|QueryAllPackagesPermission)"' app/lint-baseline.xml; then
             echo "A lint category that must be fixed is still present in the baseline"
             grep -E 'id="(UnspecifiedRegisterReceiverFlag|PermissionImpliesUnsupportedHardware|ClickableViewAccessibility|RelativeOverlap|Recycle|LabelFor|Autofill|ContentDescription|MissingTvBanner|ResourceType|Instantiatable|MissingLeanbackSupport|NewApi|WrongThread|CoarseFineLocation|QueryAllPackagesPermission)"' app/lint-baseline.xml
