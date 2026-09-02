@@ -50,6 +50,10 @@ jobs:
           test -x "${SDKMANAGER}"
           test -x "${AVDMANAGER}"
 
+          export ANDROID_AVD_HOME="${RUNNER_TEMP}/android-avd"
+          mkdir -p "${ANDROID_AVD_HOME}"
+          echo "ANDROID_AVD_HOME=${ANDROID_AVD_HOME}" >> "${GITHUB_ENV}"
+
           yes | "${SDKMANAGER}" --licenses >/dev/null || true
 
           AVAILABLE="$("${SDKMANAGER}" --list --channel=3)"
@@ -87,6 +91,9 @@ jobs:
             --force \
             --name reappzuku-api37 \
             --package "${IMAGE_PACKAGE}"
+          test -f "${ANDROID_AVD_HOME}/reappzuku-api37.ini"
+          "${SDK_ROOT}/emulator/emulator" -list-avds | tee /tmp/api37-avds.txt
+          grep -Fxq 'reappzuku-api37' /tmp/api37-avds.txt
 
       - name: Boot Android 17 emulator
         shell: bash
