@@ -2,7 +2,7 @@
 
 > Adapted from the Voice-platform Architecture Control Matrix.
 >
-> Audit baseline: `ondemand-shizuku`, 2026-08-31.
+> Audit baseline: `ondemand-shizuku`, refreshed 2026-09-02.
 
 ## Purpose
 
@@ -29,19 +29,19 @@ Only **PROVEN** is fully closed.
 | A03 | Privileged shell / Shizuku UserService | RISK | Arbitrary shell transport is powerful; readiness, death/rebind and command safety need tests/facades. |
 | A04 | Running-app discovery / app-state collection | RISK | Depends on shell output/platform internals; failures are mostly runtime-detected, not contract-tested. |
 | A05 | Manual restrictions / freeze / force-stop / app ops | RISK | High-impact privileged actions lack typed command boundary and validation tests. |
-| A06 | AutoKill / `ShappkyService` / periodic worker | **RISK-P0** | Intentional service stop can currently schedule an unconditional restart. |
+| A06 | AutoKill / `ShappkyService` / periodic worker | DECIDED | Desired-state guard prevents an intentional disable from being undone; live process-death evidence remains pending. |
 | A07 | Smart Lifecycle | DECIDED | Conservative blacklist/protection design exists; state/false-positive/reboot evidence missing. |
 | A08 | Sleep / freeze lifecycle | RISK | Interacts with FGS, alarms, screen state and restoration without state-machine tests. |
-| A09 | Presets / Restrictions Scheduler / exact alarms | **RISK-P1** | Preset AlarmManager state is not rebuilt on boot; exact-alarm permission model is incomplete. |
-| A10 | Accessibility / app-launch tracking | RISK | Settings activity path is stale and service requests broader view inclusion than needed. |
+| A09 | Presets / Restrictions Scheduler / exact alarms | DECIDED | Boot recovery and central exact-alarm capability are implemented; reboot/permission-revocation runtime evidence remains pending. |
+| A10 | Accessibility / app-launch tracking | DECIDED | Service configuration and unnecessary view-tree scope were corrected; Android runtime evidence remains pending. |
 | A11 | Boot / process death / restart / recovery | **RISK-P0** | Multiple independent recovery paths can contradict user intent; reboot restoration is incomplete. |
 | A12 | Settings / App Behavior / compatibility interlocks | DECIDED | Central policy now exists; truth table needs exhaustive tests. |
-| A13 | Backup / restore | **RISK-P1** | Restore is non-transactional, version compatibility is not enforced, and new settings are omitted. |
-| A14 | Room DB / statistics / logs | **RISK-P1** | `fallbackToDestructiveMigration()` can discard data; historical schema evidence is incomplete. |
-| A15 | Update channel / release / rollback | **RISK-P0** | Update checker still targets upstream `gree1d/ReAppzuku`, which can replace the fork. |
-| A16 | Exported surfaces: shortcuts / tiles / receivers / widget | RISK | Exported privileged entry points need caller/principal review and abuse tests. |
-| A17 | UI / error recovery / accessibility / i18n | RISK | New fork features are not translated in existing locale files; some error states are technical rather than actionable. |
-| A18 | Build / CI / dependencies / supply chain | **RISK-P1** | CI mutates source, auto-updates lint baseline, has no test gate, and Actions are not SHA-pinned. |
+| A13 | Backup / restore | DECIDED | Validate-first transactional restore, future-version rejection and fork settings are implemented; Android fault-injection evidence remains pending. |
+| A14 | Room DB / statistics / logs | DECIDED | Destructive fallback was removed and v2→v11 migration instrumentation compiles; API-37 execution and schema-history evidence remain open. |
+| A15 | Update channel / release / rollback | DECIDED | Update provenance is fork-owned and release artifact digest is recorded; signing/rollback evidence remains incomplete. |
+| A16 | Exported surfaces: shortcuts / tiles / receivers / widget | DECIDED | Shortcut confused-deputy path is hardened and all exported principals are documented; repeatable abuse probes remain pending. |
+| A17 | UI / error recovery / accessibility / i18n | DECIDED | Fork feature translations and lint-critical accessibility fixes are complete; broader runtime/UX evidence remains pending. |
+| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins and zero-error lint gate are in place; dependency verification and broader emulator lanes remain open. |
 
 ## Axis B — independent lenses
 
@@ -103,6 +103,45 @@ The table intentionally stays conservative: a successful APK build alone is not 
 No runtime surface is currently marked fully PROVEN. That is intentional until repeatable evidence exists.
 
 ---
+
+
+## Evidence/status refresh — 2026-09-02
+
+The finding narratives below are retained as audit provenance. This refresh supersedes their
+historical “current” wording where implementation has moved on.
+
+- **CM-P0-01:** implementation fixed. Desired-state guards prevent intentional Auto-Kill disable
+  from being undone; live process-death/recovery evidence is still required.
+- **CM-P0-02:** implementation fixed. Update provenance points to `HyperCriSiS/ReAppzuku`; the
+  2026-09-02 assurance release was published from the fork with an explicit SHA-256.
+- **CM-P0-03:** state model/readiness gating improved and JVM-tested; Android binder-late,
+  deny→grant, service-death and Shizuku-restart probes remain open.
+- **CM-P1-01 / CM-P1-02:** boot preset recovery and one central exact-alarm capability are
+  implemented; device reboot and permission-revocation evidence remains open.
+- **CM-P1-03:** restore is validate-first, bounded, future-version aware and transactional with
+  rollback; dedicated Android fault injection remains open.
+- **CM-P1-04:** destructive Room fallback is removed. v2→v11 `MigrationTestHelper` instrumentation
+  compiles and is scheduled for the API-37 runtime lane.
+- **CM-P1-05 / 06 / 07:** normal CI is source-authoritative, immutable-SHA pinned and split into
+  read-only validation and writable publishing. Lint must show zero errors before its reviewed
+  warning baseline is accepted.
+- **CM-P1-09:** accessibility service settings path/scope are corrected.
+- **CM-P1-10:** exported shortcut privilege boundary is authenticated/confirmed and remaining
+  exported principals are documented in `EXPORTED_COMPONENTS.md`.
+- **CM-P1-11:** Android cloud/device-transfer backup is explicitly excluded; the versioned
+  ReAppzuku backup is the configuration contract.
+- **CM-P1-12:** a manual Android-17/API-37 runtime lane is staged before target migration; execution
+  evidence is the next roadmap step.
+- **CM-P2-02:** package identifiers imported from backups/presets and high-impact shell boundaries
+  now pass a shared package-name validator; typed privileged operations remain a longer-term goal.
+- **CM-P2-04:** fork-specific Smart Lifecycle, App Behavior, shortcut-security and accessibility
+  strings are propagated to ES/RU/UK/ZH.
+
+Latest assurance evidence:
+- workflow run `33577363239`: zero lint errors, reviewed historical-warning baseline, JVM tests,
+  instrumentation-test compilation, Room schema-11 check and debug APK build all passed;
+- release target: `e202e38c049a0d4a7cfc561f7a9c8348c9abd8ae`;
+- APK SHA-256: `d841e34685d790197266c1e9c90a11619a33a219377892f2c429c00930dbf5d4`.
 
 # High-priority findings
 

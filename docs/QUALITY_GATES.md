@@ -184,6 +184,21 @@ For high-impact changes, DONE requires:
 - P1 risks have explicit owner/issue;
 - release provenance is preserved.
 
+
+## Current gate evidence — 2026-09-02
+
+- Assurance run `33577363239` completed with zero lint errors before baseline acceptance.
+- The committed lint baseline contains reviewed historical warnings only; security, compatibility,
+  accessibility and correctness categories explicitly listed by the migration gate were not accepted
+  into the baseline.
+- JVM tests, `assembleDebugAndroidTest`, Room schema-11 presence and `assembleDebug` all passed.
+- Release `ondemand-test` targets `e202e38c049a0d4a7cfc561f7a9c8348c9abd8ae`; APK SHA-256 is
+  `d841e34685d790197266c1e9c90a11619a33a219377892f2c429c00930dbf5d4`.
+- The normal workflow is source-authoritative again: validation has `contents: read`; only the
+  downstream publish job receives `contents: write`.
+- Next compatibility evidence is the manual Android 17/API 37 emulator lane, deliberately executed
+  before any `compileSdk`/`targetSdk` migration.
+
 ## Immediate conversion plan
 
 ### Phase 1 — P0 containment

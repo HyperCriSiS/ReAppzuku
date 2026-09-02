@@ -1,0 +1,153 @@
+name: Android 17 API 37 runtime compatibility
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: android17-api37-runtime
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  api37-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Install Android 17 emulator image
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          AVDMANAGER="$(command -v avdmanager)"
+          yes | "${SDKMANAGER}" --licenses >/dev/null || true
+          "${SDKMANAGER}" \
+            "platform-tools" \
+            "emulator" \
+            "platforms;android-37" \
+            "system-images;android-37;google_apis;x86_64"
+          echo "no" | "${AVDMANAGER}" create avd \
+            --force \
+            --name reappzuku-api37 \
+            --package "system-images;android-37;google_apis;x86_64"
+
+      - name: Boot Android 17 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+          fi
+          nohup emulator @reappzuku-api37 \
+            -no-window \
+            -no-audio \
+            -no-boot-anim \
+            -no-snapshot-load \
+            -no-snapshot-save \
+            -gpu swiftshader_indirect \
+            -accel auto \
+            > /tmp/api37-emulator.log 2>&1 &
+          echo "$!" > /tmp/api37-emulator.pid
+          adb wait-for-device
+          timeout 360 bash -c '
+            until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do
+              sleep 5
+            done
+          '
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+          test "$(adb shell getprop ro.build.version.sdk | tr -d '\r')" = "37"
+          adb shell getprop ro.build.version.release
+          adb shell getprop ro.build.version.incremental
+
+      - name: Build app and instrumentation APKs
+        run: ./gradlew assembleDebug assembleDebugAndroidTest
+
+      - name: Install app and enable target-37 MessageQueue behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_APK="app/build/outputs/apk/debug/app-debug.apk"
+          TEST_APK="$(find app/build/outputs/apk/androidTest -type f -name '*.apk' | head -n 1)"
+          test -f "${APP_APK}"
+          test -f "${TEST_APK}"
+          adb install -r "${APP_APK}"
+          adb install -r "${TEST_APK}"
+          adb shell am compat enable USE_NEW_MESSAGEQUEUE com.gree1d.reappzuku
+          adb shell am compat state USE_NEW_MESSAGEQUEUE com.gree1d.reappzuku || true
+
+      - name: Run Android instrumentation on API 37
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation \
+              | tr -d '\r' \
+              | sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' \
+              | head -n 1
+          )"
+          test -n "${INSTRUMENTATION}"
+          adb shell am instrument -w -r "${INSTRUMENTATION}" | tee /tmp/api37-instrumentation.txt
+          grep -Eq 'OK \([0-9]+ tests?\)' /tmp/api37-instrumentation.txt
+
+      - name: Launcher smoke test with lock-free MessageQueue
+        shell: bash
+        run: |
+          set -euo pipefail
+          adb shell am force-stop com.gree1d.reappzuku
+          adb logcat -c
+          adb shell monkey \
+            -p com.gree1d.reappzuku \
+            -c android.intent.category.LAUNCHER \
+            1 >/tmp/api37-monkey.txt 2>&1 || true
+          sleep 8
+          adb logcat -d -b crash > /tmp/api37-crash.txt
+          if grep -q 'com.gree1d.reappzuku' /tmp/api37-crash.txt; then
+            cat /tmp/api37-crash.txt
+            exit 1
+          fi
+          adb shell dumpsys package com.gree1d.reappzuku \
+            | grep -E 'versionName=|targetSdk=' \
+            | head -20
+
+      - name: Collect API 37 evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p api37-evidence
+          for file in /tmp/api37-emulator.log /tmp/api37-instrumentation.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt; do
+            if [ -f "${file}" ]; then
+              cp "${file}" api37-evidence/
+            fi
+          done
+
+      - name: Upload API 37 evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: android17-api37-evidence
+          path: |
+            api37-evidence/
+            app/build/reports/androidTests/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Stop emulator
+        if: always()
+        run: adb emu kill || true

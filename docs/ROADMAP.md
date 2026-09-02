@@ -78,18 +78,32 @@ Status: `[x]` implemented with repeatable build/test evidence, `[~]` implemented
 - [x] Split read-only validation from release publishing with job-level least-privilege tokens.
 - [x] Run `lintDebug` without `updateLintBaseline`; baseline changes only through reviewed source commits.
 - [x] Pin every external Action in active repository workflows.
+- [x] Establish a reviewed warning-only lint baseline: full scan must contain zero errors before a baseline may be accepted.
 - [ ] Add dependency verification/locking evaluation.
-- [ ] Expand emulator/device test lanes without wasting private Actions quota.
+- [~] Expand emulator/device test lanes without wasting private Actions quota; a manual API 37 lane is staged first.
+
+### Assurance evidence — 2026-09-02
+
+- Workflow run `33577363239` passed unit tests, zero-error full lint, reviewed warning baseline,
+  `assembleDebugAndroidTest`, Room schema-11 existence check, and debug APK build.
+- Release `ondemand-test` targets commit `e202e38c049a0d4a7cfc561f7a9c8348c9abd8ae`.
+- Published APK SHA-256:
+  `d841e34685d790197266c1e9c90a11619a33a219377892f2c429c00930dbf5d4`.
+- Normal validation returns to a read-only Validate -> writable Publish split after the one-time
+  migration workflow.
 
 ## Phase 7 — Android 17 / API 37
 
-- [ ] Add Android 17/API 37 runtime compatibility lane before changing target SDK.
-- [ ] Plan compatible AGP/toolchain migration separately.
-- [ ] Re-test hidden APIs, Accessibility, FGS, WorkManager, alarm behavior and process/memory assumptions.
+- [~] Add Android 17/API 37 runtime compatibility lane before changing target SDK; manual CI lane is staged, execution evidence pending.
+- [x] Plan compatible AGP/toolchain migration separately in `ANDROID17_COMPATIBILITY.md`.
+- [ ] Execute the API 37 lane and re-test hidden APIs, Accessibility, FGS, WorkManager, alarm behavior and process/memory assumptions.
+- [ ] Migrate build tooling to an API-37-capable AGP/Gradle combination while keeping `targetSdk 36`.
+- [ ] Raise `compileSdk` to 37 and validate before changing target behavior.
+- [ ] Raise `targetSdk` to 37 only after target-37 behavior probes pass.
 
 ## Phase 8 — UX, i18n, maintainability
 
-- [ ] Propagate fork-specific Smart Lifecycle/App Behavior/security strings to supported locales.
+- [x] Propagate fork-specific Smart Lifecycle/App Behavior/security strings to supported locales.
 - [ ] Explain blocking automation directly beside disabled App Behavior controls.
 - [ ] Split large managers behind testable facades (`PrivilegedShell`, `AlarmScheduler`, `ProtectionPolicy`, `BackupCodec`, `Clock`).
 - [ ] Keep `CHECK_MATRIX.md` status/evidence current after every high-impact change.
