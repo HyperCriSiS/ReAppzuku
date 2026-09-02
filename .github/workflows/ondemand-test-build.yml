@@ -51,11 +51,34 @@ jobs:
           test -x "${AVDMANAGER}"
 
           yes | "${SDKMANAGER}" --licenses >/dev/null || true
-          "${SDKMANAGER}" \
+
+          AVAILABLE="$("${SDKMANAGER}" --list --channel=3)"
+          IMAGE_PACKAGE=""
+          for candidate in \
+            "system-images;android-37;google_apis;x86_64" \
+            "system-images;android-CinnamonBun;google_apis;x86_64" \
+            "system-images;android-37;google_apis_playstore;x86_64" \
+            "system-images;android-CinnamonBun;google_apis_playstore;x86_64"
+          do
+            if printf '%s\n' "${AVAILABLE}" | grep -Fq "${candidate}"; then
+              IMAGE_PACKAGE="${candidate}"
+              break
+            fi
+          done
+
+          if [ -z "${IMAGE_PACKAGE}" ]; then
+            printf '%s\n' "${AVAILABLE}" \
+              | grep -Ei 'system-images;.*(37|CinnamonBun).*x86_64' \
+              | head -40
+            echo "No Android 17 x86_64 system image is available in sdkmanager channel 3."
+            exit 1
+          fi
+
+          echo "Using Android 17 image: ${IMAGE_PACKAGE}"
+          "${SDKMANAGER}" --channel=3 \
             "platform-tools" \
             "emulator" \
-            "platforms;android-37" \
-            "system-images;android-37;google_apis;x86_64"
+            "${IMAGE_PACKAGE}"
 
           echo "${SDK_ROOT}/platform-tools" >> "${GITHUB_PATH}"
           echo "${SDK_ROOT}/emulator" >> "${GITHUB_PATH}"
@@ -63,7 +86,7 @@ jobs:
           echo "no" | "${AVDMANAGER}" create avd \
             --force \
             --name reappzuku-api37 \
-            --package "system-images;android-37;google_apis;x86_64"
+            --package "${IMAGE_PACKAGE}"
 
       - name: Boot Android 17 emulator
         shell: bash
