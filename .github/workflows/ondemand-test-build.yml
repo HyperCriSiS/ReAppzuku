@@ -33,14 +33,33 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SDKMANAGER="$(command -v sdkmanager)"
-          AVDMANAGER="$(command -v avdmanager)"
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          test -n "${SDK_ROOT}"
+          test -d "${SDK_ROOT}"
+
+          SDKMANAGER="$(
+            find "${SDK_ROOT}/cmdline-tools" -type f -path '*/bin/sdkmanager' 2>/dev/null \
+              | sort -V \
+              | tail -n 1
+          )"
+          AVDMANAGER="$(
+            find "${SDK_ROOT}/cmdline-tools" -type f -path '*/bin/avdmanager' 2>/dev/null \
+              | sort -V \
+              | tail -n 1
+          )"
+          test -x "${SDKMANAGER}"
+          test -x "${AVDMANAGER}"
+
           yes | "${SDKMANAGER}" --licenses >/dev/null || true
           "${SDKMANAGER}" \
             "platform-tools" \
             "emulator" \
             "platforms;android-37" \
             "system-images;android-37;google_apis;x86_64"
+
+          echo "${SDK_ROOT}/platform-tools" >> "${GITHUB_PATH}"
+          echo "${SDK_ROOT}/emulator" >> "${GITHUB_PATH}"
+
           echo "no" | "${AVDMANAGER}" create avd \
             --force \
             --name reappzuku-api37 \
