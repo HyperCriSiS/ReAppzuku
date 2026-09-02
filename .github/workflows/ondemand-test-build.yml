@@ -55,10 +55,10 @@ jobs:
           AVAILABLE="$("${SDKMANAGER}" --list --channel=3)"
           IMAGE_PACKAGE=""
           for candidate in \
-            "system-images;android-37;google_apis;x86_64" \
-            "system-images;android-CinnamonBun;google_apis;x86_64" \
-            "system-images;android-37;google_apis_playstore;x86_64" \
-            "system-images;android-CinnamonBun;google_apis_playstore;x86_64"
+            "system-images;android-37.0;google_apis;x86_64" \
+            "system-images;android-37.0;google_apis_playstore;x86_64" \
+            "system-images;android-37.1;google_apis_ps16k;x86_64" \
+            "system-images;android-37.1;google_apis_playstore_ps16k;x86_64"
           do
             if printf '%s\n' "${AVAILABLE}" | grep -Fq "${candidate}"; then
               IMAGE_PACKAGE="${candidate}"
