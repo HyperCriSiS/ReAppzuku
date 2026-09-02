@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="a11y_protected_app">App protegida</string>
+    <string name="a11y_app_status">Estado de la app</string>
+    <string name="a11y_sleep_mode_app">App gestionada por el modo de reposo</string>
+    <string name="a11y_whitelisted_app">App en la lista blanca</string>
+    <string name="a11y_app_action">Acción de la app</string>
+    <string name="a11y_select_app">Seleccionar app</string>
+    <string name="a11y_deselect_app">Deseleccionar app</string>
+    <string name="a11y_force_stop_app">Forzar detención de la app</string>
+    <string name="a11y_select_all">Seleccionar todas las apps</string>
+    <string name="a11y_unselect_all">Borrar selección de apps</string>
+</resources>
