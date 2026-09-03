@@ -185,7 +185,7 @@ For high-impact changes, DONE requires:
 - release provenance is preserved.
 
 
-## Current gate evidence — 2026-09-02
+## Current gate evidence — 2026-09-04
 
 - Assurance run `33577363239` completed with zero lint errors before baseline acceptance.
 - The committed lint baseline contains reviewed historical warnings only; security, compatibility,
@@ -196,8 +196,9 @@ For high-impact changes, DONE requires:
   `d841e34685d790197266c1e9c90a11619a33a219377892f2c429c00930dbf5d4`.
 - The normal workflow is source-authoritative again: validation has `contents: read`; only the
   downstream publish job receives `contents: write`.
-- Next compatibility evidence is the manual Android 17/API 37 emulator lane, deliberately executed
-  before any `compileSdk`/`targetSdk` migration.
+- The Android 17/API 37 lane was exercised before any `compileSdk`/`targetSdk` migration. Build, API-37 boot, user unlock and PackageManager readiness are repeatable; one run installed both APKs and enabled `USE_NEW_MESSAGEQUEUE`, but current repeated runs are blocked at the preview PackageManager transaction by `Broken pipe (32)`. This is tracked as `RISK/BLOCKED`, not compatibility failure and not `PROVEN`.
+- Run `33812905493` retried only that known transport failure three times with non-streaming installation; all three pushes succeeded and all three PackageManager calls failed identically. No application-signature, parse, permission or `INSTALL_FAILED_*` error appeared, so further retries on the same preview image are prohibited by the quota/quality policy.
+- The temporary API-37 dispatch path was removed after evidence collection. Commit `031a8634db725bb93185d3e55819dc8b5165e96d` restores the exact least-privilege Validate -> Publish workflow.
 
 ## Immediate conversion plan
 
