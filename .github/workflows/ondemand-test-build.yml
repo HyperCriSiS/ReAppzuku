@@ -34,15 +34,15 @@ jobs:
       - name: Grant execute permission
         run: chmod +x gradlew
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest
+        run: ./gradlew testDebugUnitTest --warning-mode all
       - name: Lint
-        run: ./gradlew lintDebug
+        run: ./gradlew lintDebug --warning-mode all
       - name: Compile instrumentation tests
-        run: ./gradlew assembleDebugAndroidTest
+        run: ./gradlew assembleDebugAndroidTest --warning-mode all
       - name: Verify current Room schema export
         run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
       - name: Build debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug --warning-mode all
       - name: Prepare APK and digest
         run: |
           mkdir -p dist
