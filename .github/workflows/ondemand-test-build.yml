@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish validated ondemand-test release
+        description: Ignored during one-time Room schema extraction
         required: false
         type: boolean
         default: false
@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  extract-room-schema:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -33,51 +33,14 @@ jobs:
           cache: gradle
       - name: Grant execute permission
         run: chmod +x gradlew
-      - name: Unit tests
-        run: ./gradlew testDebugUnitTest --warning-mode all
-      - name: Lint
-        run: ./gradlew lintDebug --warning-mode all
-      - name: Compile instrumentation tests
-        run: ./gradlew assembleDebugAndroidTest --warning-mode all
-      - name: Verify current Room schema export
+      - name: Generate Room schema from source
+        run: ./gradlew clean compileDebugJavaWithJavac --no-build-cache --rerun-tasks --warning-mode all
+      - name: Verify generated Room schema 11
         run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --warning-mode all
-      - name: Prepare APK and digest
-        run: |
-          mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/ReAppzuku-1.8.7-ondemand-debug.apk
-          cd dist
-          sha256sum ReAppzuku-1.8.7-ondemand-debug.apk | tee ReAppzuku-1.8.7-ondemand-debug.apk.sha256
-      - name: Upload validated APK
+      - name: Upload authoritative Room schema 11
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: ondemand-apk
-          path: dist/
+          name: room-schema-11
+          path: app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
           if-no-files-found: error
-          retention-days: 3
-
-  publish:
-    if: ${{ inputs.publish }}
-    needs: validate
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download validated APK
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: ondemand-apk
-          path: dist
-      - name: Publish test APK
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release delete ondemand-test --repo "${GITHUB_REPOSITORY}" --cleanup-tag -y || true
-          gh release create ondemand-test \
-            dist/ReAppzuku-1.8.7-ondemand-debug.apk \
-            dist/ReAppzuku-1.8.7-ondemand-debug.apk.sha256 \
-            --repo "${GITHUB_REPOSITORY}" \
-            --target "${GITHUB_SHA}" \
-            --title "ReAppzuku 1.8.7 Assurance Phase 7 test" \
-            --notes "Validated source-authoritative build with all Assurance Phase 1-7 hardening: Shizuku readiness and on-demand process policy, background desired-state enforcement, transactional backup restore, non-destructive Room policy, exported shortcut/principal hardening, package-name validation at privileged boundaries, Android platform/accessibility fixes, fork i18n, zero-error lint gate with reviewed warning baseline, immutable Action pins, and least-privilege validation/publishing separation."
+          retention-days: 1
