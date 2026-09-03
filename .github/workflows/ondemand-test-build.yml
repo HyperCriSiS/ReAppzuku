@@ -29,6 +29,16 @@ jobs:
       - name: Grant execute permission
         run: chmod +x gradlew
 
+      - name: Install stable emulator runtime library
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          if ! sudo apt-get install -y --no-install-recommends libpulse0t64; then
+            sudo apt-get install -y --no-install-recommends libpulse0
+          fi
+          ldconfig -p | grep -F 'libpulse.so.0'
+
       - name: Install Android 17 emulator image
         shell: bash
         run: |
