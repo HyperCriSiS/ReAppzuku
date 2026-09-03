@@ -1,6 +1,6 @@
 # Android 17 / API 37 compatibility plan
 
-Status: staged before any `compileSdk` or `targetSdk` migration.
+Status: runtime lane exercised before any `compileSdk` or `targetSdk` migration. The current API 37 preview environment is **RISK/BLOCKED** by repeatable PackageManager transport failure before repeatable instrumentation; runtime compatibility is therefore not `PROVEN`. Toolchain-only migration may proceed with `targetSdk 36`, while this runtime gate remains open.
 
 ## Current build baseline
 
@@ -84,7 +84,7 @@ Android 17 adds process memory limits based on device RAM. ReAppzuku must be obs
 
 ## Evidence contract for the API 37 lane
 
-The manual workflow `.github/workflows/android17-runtime.yml` must:
+The API 37 runtime evidence lane (temporarily dispatched through the already registered test workflow while the feature branch is not on the default branch) must:
 
 1. use only read repository permission;
 2. boot an API 37 emulator;
@@ -96,5 +96,21 @@ The manual workflow `.github/workflows/android17-runtime.yml` must:
 8. upload bounded diagnostic evidence;
 9. never publish a release.
 
-A successful lane upgrades the first Phase-7 roadmap item from staged to proven runtime evidence,
-and also supplies the missing emulator execution evidence for the Room migration test.
+A successful lane upgrades the runtime item to `PROVEN` and also supplies the missing emulator execution evidence for the Room migration test. A blocked preview environment must remain `RISK/BLOCKED`; infrastructure failures must not be relabelled as app compatibility failures or accepted as proof.
+
+## Runtime evidence — 2026-09-04
+
+The API 37 lane was exercised repeatedly against `system-images;android-37.0;google_apis;x86_64` with a stable-channel Android Emulator. The lane itself is now deterministic enough to separate app evidence from emulator failure:
+
+- APK and AndroidTest APK compile successfully before emulator boot.
+- KVM is available; API 37 boots to `sys.boot_completed=1`.
+- User 0 reaches `RUNNING_UNLOCKED`; ReAppzuku is not a Direct-Boot app and credential-encrypted preferences are not accessed before that gate.
+- `/data` is expanded to 8 GiB and has roughly 6.8 GiB free.
+- PackageManager readiness is explicitly verified before installation.
+- Run `33699862420` installed both APKs successfully and enabled `USE_NEW_MESSAGEQUEUE`; its instrumentation process then started too early while user 0 was still locked, which was corrected in later lane revisions.
+- Runs `33700842763`, `33812502601`, and `33812905493` reached a healthy boot/unlocked/package-ready state but the preview system server returned `Failure calling service package: Broken pipe (32)` when the APK install transaction began.
+- Run `33812905493` pushed the exact app APK successfully three times using non-streaming install; every PackageManager transaction then failed with the same `Broken pipe (32)` even after the service recovered between attempts. No `INSTALL_FAILED_*`, signature, parse, permission, or APK validation error was reported.
+
+Conclusion: API 37 runtime compatibility is **not proven and not disproven**. The current blocker is the preview emulator/system-server PackageManager transport, with one earlier successful install showing that the APK itself is installable on the same API 37 image. Do not spend additional private Actions quota retrying the same image. Re-run this lane when an updated API 37 image/emulator combination or another repeatable API 37 execution environment is available.
+
+After the bounded investigation, the normal least-privilege Validate -> Publish workflow was restored from the known-good assurance state in commit `031a8634db725bb93185d3e55819dc8b5165e96d`.
