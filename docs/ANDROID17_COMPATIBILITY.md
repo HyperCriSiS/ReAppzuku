@@ -1,29 +1,24 @@
 # Android 17 / API 37 compatibility plan
 
-Status: runtime lane exercised before any `compileSdk` or `targetSdk` migration. The current API 37 preview environment is **RISK/BLOCKED** by repeatable PackageManager transport failure before repeatable instrumentation; runtime compatibility is therefore not `PROVEN`. Toolchain-only migration may proceed with `targetSdk 36`, while this runtime gate remains open.
+Status: toolchain migration and `compileSdk 37` are **PROVEN** with `targetSdk 36`. The API 37 runtime environment remains **RISK/BLOCKED** by repeatable PackageManager transport failure before repeatable instrumentation; runtime compatibility is therefore not `PROVEN`, and `targetSdk 37` remains blocked.
 
 ## Current build baseline
 
-- `compileSdk 36`
+- `compileSdk 37`
 - `targetSdk 36`
 - `minSdk 24`
-- Android Gradle Plugin `8.10.0`
-- Gradle `8.11.1`
+- Android Gradle Plugin `9.4.0`
+- Gradle `9.6.0`
 - JDK 17
-- Kotlin Android / Compose plugin `2.0.21`
+- AGP built-in Kotlin with Kotlin/Compose compiler `2.3.21`
 
-This baseline is intentionally retained for the first Android 17 runtime lane so operating-system
-regressions can be separated from build-tool migration regressions.
+The original API-36/AGP-8 baseline was retained for the first Android 17 runtime investigation so operating-system regressions could be separated from build-tool migration regressions. That isolation is complete; the current build baseline above is now validated independently.
 
 ## Official toolchain constraint
 
-API level 37 requires Android Gradle Plugin 9.1.1 or newer. AGP 9.1 requires Gradle 9.3.1 and
-JDK 17. Therefore `compileSdk 37` is not treated as a one-line version bump from the current
-AGP 8.10 build.
+API level 37 requires an API-37-capable Android Gradle Plugin. ReAppzuku now uses AGP `9.4.0`, Gradle `9.6.0` and JDK 17. AGP 9 built-in Kotlin is enabled; the former explicit `org.jetbrains.kotlin.android` plugin and temporary AGP-9 compatibility opt-outs have been removed.
 
-AGP 9 also enables built-in Kotlin support by default. The existing explicit
-`org.jetbrains.kotlin.android` setup must be migrated or deliberately opted out; this is a separate
-build-system change and will not be mixed into the first runtime test.
+The migration was intentionally staged and proven before raising `compileSdk`, so build-system failures remain distinguishable from Android-17 API/behavior failures.
 
 ## Migration order
 
@@ -114,3 +109,11 @@ The API 37 lane was exercised repeatedly against `system-images;android-37.0;goo
 Conclusion: API 37 runtime compatibility is **not proven and not disproven**. The current blocker is the preview emulator/system-server PackageManager transport, with one earlier successful install showing that the APK itself is installable on the same API 37 image. Do not spend additional private Actions quota retrying the same image. Re-run this lane when an updated API 37 image/emulator combination or another repeatable API 37 execution environment is available.
 
 After the bounded investigation, the normal least-privilege Validate -> Publish workflow was restored from the known-good assurance state in commit `031a8634db725bb93185d3e55819dc8b5165e96d`.
+
+## Toolchain / compile SDK evidence — 2026-09-04
+
+- Commit `9168ec54a79464d9d3e522ff8a82068020271854` migrated the build to AGP `9.4.0`, Gradle `9.6.0` and AGP built-in Kotlin with Kotlin/Compose compiler `2.3.21`, while keeping `compileSdk 36` / `targetSdk 36`.
+- Run `33814172310` passed unit tests, lint, AndroidTest APK compilation, Room schema-11 validation and debug APK assembly. Publish was deliberately skipped.
+- Commit `65a597b5eb8b5854f24f9d0ceb8c24c529f6ec78` raised only `compileSdk` to 37; `targetSdk` remained 36.
+- Run `33815939003` passed the same complete validation chain under `compileSdk 37`. The resulting validation APK SHA-256 is `50f07dc229729b0df68c14d6550cf0f52c286297c8ae541fc62f57c18a5c9912`; publish was deliberately skipped.
+- Therefore toolchain compatibility and API-37 compilation are `PROVEN`. Runtime compatibility remains independently `RISK/BLOCKED`, and `targetSdk 37` must not be enabled until those runtime probes pass.

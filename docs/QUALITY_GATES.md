@@ -1,104 +1,98 @@
-# ReAppzuku Quality Gates
+# ReAppzuku quality gates
 
-> Adapted from the Voice-platform quality-gate process.
-> These gates turn `docs/CHECK_MATRIX.md` findings into repeatable release rules.
+This document turns `CHECK_MATRIX.md` into executable engineering gates. A status is `PROVEN` only with repeatable evidence. Compilation alone is never sufficient proof for lifecycle, privilege, migration or reboot behavior.
 
-## Gate 0 — Pre-code design gate
+## Gate 1 — Privileged backend readiness
 
-Required for changes touching privilege, process topology, background execution, app killing,
-backup, database, exported components or Android policy.
+The app must distinguish:
+- backend unavailable;
+- Shizuku permission required;
+- permission request pending;
+- permission granted but service not yet ready;
+- UserService binding;
+- backend ready;
+- backend lost after previously being available;
+- root ready.
 
-Before code:
-- state the user-visible goal;
-- state the desired-state invariant;
-- list lifecycle transitions;
-- identify conflicting controllers;
-- define failure/recovery behavior;
-- define what evidence will prove the change.
+Required evidence:
+- JVM state-transition tests;
+- delayed Shizuku binder probe;
+- deny -> grant probe;
+- Activity recreation while permission is pending;
+- service death / Shizuku restart recovery;
+- no privileged command before READY.
 
-No feature may introduce a second independent source of truth when an existing policy object can own
-the decision.
+A waiting/binding state must never be surfaced as a generic shell-command failure.
 
-## Gate 1 — Privilege/backend readiness
+## Gate 2 — Desired state / recovery
 
-No privileged operation may execute merely because Shizuku permission is granted.
+Every long-lived automation needs an explicit desired-state predicate independent of observed process state.
 
-The backend is ready only when:
-- root backend is actually executable; or
-- Shizuku binder exists, permission is granted, and UserService is connected.
+Required probes:
+- enable -> process death -> desired service recovers;
+- disable -> restart receiver -> service remains disabled;
+- duplicate boot/schedule callbacks are idempotent;
+- stale callbacks after disable are harmless.
 
-Required tests:
-- deny -> grant;
-- delayed bind;
-- binder/service death;
-- Shizuku restart;
-- Activity recreation during permission dialog;
-- repeated concurrent callers.
+## Gate 3 — Alarm / reboot behavior
 
-## Gate 2 — Desired background state
+Exact-alarm use must be capability-driven.
 
-There must be one explicit answer to: **Should ReAppzuku be running in the background now?**
+Required:
+- only the permission model actually needed by the app is declared;
+- `canScheduleExactAlarms()` gates exact scheduling where Android requires it;
+- a documented inexact fallback exists;
+- preset/restriction alarms are rebuilt after boot;
+- no credential-encrypted preference read during locked boot unless direct-boot storage is explicitly introduced.
 
-Controllers that affect this include:
-- AutoKill/background service;
-- Smart Lifecycle;
-- Sleep;
-- Presets;
-- Restrictions Scheduler;
-- App Behavior options.
+## Gate 4 — Backup / restore transaction
 
-Required invariant:
-- explicit user disable dominates self-restart logic;
-- recovery may restart only when persisted desired state still requires it;
-- no boot receiver or alarm may silently re-enable a disabled behavior.
+Restore must be all-or-nothing from the user's perspective.
 
-## Gate 3 — High-impact action safety
+Required:
+- size cap before parsing;
+- reject unsupported future versions;
+- parse/validate entire payload before first durable mutation;
+- snapshot all touched preference stores;
+- durable main/preset writes before runtime side effects;
+- rollback all stores if a later durable write fails;
+- best-effort runtime reconciliation after rollback;
+- active-preset base state cannot overwrite newly imported settings later;
+- corrupt, legacy, future and oversized fixtures.
 
-Before force-stop/freeze/disable/app-op changes:
-- target package is validated;
-- protected-app policy is applied;
-- current foreground/user-critical state is checked where applicable;
-- action is idempotent or has defined repeated behavior;
-- failure is surfaced truthfully.
+Android platform backup/device-transfer restore is explicitly disabled; ReAppzuku's versioned backup format is the configuration migration contract.
 
-Long-term target: typed privileged operations instead of ad-hoc shell strings.
+## Gate 5 — Room migration
 
-## Gate 4 — Alarm / scheduler correctness
+No destructive fallback in production.
 
-For any exact-alarm feature:
-- one exact-alarm permission model is used;
-- `canScheduleExactAlarms()` is checked where required;
-- denial has actionable UI;
-- reboot rebuilds alarms;
-- permission revocation is recoverable;
-- time zone / clock changes are considered;
-- repeated scheduling is idempotent.
+Required:
+- continuous explicit migrations in source;
+- exported schema for every version from the point this fork begins preserving them;
+- historical schemas are sourced from genuine artifacts/history, never fabricated;
+- `MigrationTestHelper` executes every supported historical path;
+- representative rows survive migration;
+- final schema validation passes.
 
-## Gate 5 — Backup / restore / migration
+Current constraint: upstream preserved schema 2 but not authentic schemas 1 and 3–10. Supported helper evidence therefore begins at v2 unless genuine older schemas are recovered.
 
-Restore must be:
-1. parsed;
-2. version-validated;
-3. fully validated without side effects;
-4. staged;
-5. committed;
-6. runtime state reconciled only after durable commit.
+## Gate 6 — Exported / privileged entry points
 
-A failed restore must not leave a partially applied configuration.
+For every `android:exported="true"` component document:
+- intended caller principal;
+- input validation;
+- privilege gained by reaching the component;
+- replay/forgery risk;
+- denial/degraded behavior when Shizuku/root is absent.
 
-All durable fork-owned settings must round-trip unless explicitly documented as non-portable/runtime.
+No untrusted external intent may become a generic privileged shell executor.
 
-Database upgrades:
-- no destructive fallback in release unless user explicitly opted into data reset;
-- every supported Room schema is committed;
-- migration tests are required.
-
-## Gate 6 — Exported component / principal boundary
-
-For every `exported=true` component:
-- why it must be exported is documented;
-- accepted callers/actions/data are defined;
-- privileged effects are separated from public routing where practical;
+Required:
+- dynamic privileged shortcut has an unguessable install-local authenticator;
+- authenticator comparison is constant-time;
+- static/legacy shortcut requires explicit user confirmation before privilege;
+- explicit external Activity launches can only route through user confirmation;
+- authenticated foreground action waits for shell READY;
 - explicit-intent abuse is tested;
 - untrusted extras never become raw privileged shell commands.
 
@@ -199,6 +193,9 @@ For high-impact changes, DONE requires:
 - The Android 17/API 37 lane was exercised before any `compileSdk`/`targetSdk` migration. Build, API-37 boot, user unlock and PackageManager readiness are repeatable; one run installed both APKs and enabled `USE_NEW_MESSAGEQUEUE`, but current repeated runs are blocked at the preview PackageManager transaction by `Broken pipe (32)`. This is tracked as `RISK/BLOCKED`, not compatibility failure and not `PROVEN`.
 - Run `33812905493` retried only that known transport failure three times with non-streaming installation; all three pushes succeeded and all three PackageManager calls failed identically. No application-signature, parse, permission or `INSTALL_FAILED_*` error appeared, so further retries on the same preview image are prohibited by the quota/quality policy.
 - The temporary API-37 dispatch path was removed after evidence collection. Commit `031a8634db725bb93185d3e55819dc8b5165e96d` restores the exact least-privilege Validate -> Publish workflow.
+- Run `33814172310` proved AGP 9.4.0 / Gradle 9.6.0 / built-in Kotlin 2.3.21 at SDK 36 across unit, lint, AndroidTest compile, Room schema and APK gates; publish was skipped.
+- Run `33815939003` proved the same gate chain after raising only `compileSdk` to 37 while `targetSdk` remained 36. Validation APK SHA-256: `50f07dc229729b0df68c14d6550cf0f52c286297c8ae541fc62f57c18a5c9912`.
+- Toolchain/API-37 compilation are therefore `PROVEN`; target-37 behavior remains gated by the separately blocked runtime lane.
 
 ## Immediate conversion plan
 

@@ -1,59 +1,64 @@
-# ReAppzuku Assurance Roadmap
+# ReAppzuku assurance roadmap
 
-Source: `CHECK_MATRIX.md`, `QUALITY_GATES.md`, Red-Team review and live-device feedback.
+This roadmap converts the assurance matrix into a bounded engineering sequence. Work is ordered by blast radius: prevent silent privileged misbehavior first, then make persistence/recovery trustworthy, then harden interfaces and finally widen compatibility/UX coverage.
 
-Status: `[x]` implemented with repeatable build/test evidence, `[~]` implemented but Android live/runtime evidence still pending, `[ ]` open.
+Status convention:
+- `[x]` implemented in source;
+- `[~]` implemented but repeatable live evidence is incomplete;
+- `[ ]` not implemented / open.
 
-## Phase 1 — Live hardening baseline
+## Phase 1 — Lifecycle, provenance and scheduling baseline
 
-- [x] Central desired-state rule: intentional Auto-Kill disable beats service self-restart.
-- [x] Fork-owned update provenance (`HyperCriSiS/ReAppzuku`); ignore non-version test tags.
-- [~] Restore preset alarms/state after normal boot.
-- [x] Central exact-alarm capability with safe best-effort fallback when permission is unavailable.
-- [x] Keep only `SCHEDULE_EXACT_ALARM`; remove redundant `USE_EXACT_ALARM`.
-- [x] Remove obsolete locked-boot path for credential-protected configuration.
-- [x] Remove destructive Room migration fallback; missing migration fails visibly rather than erasing logs/statistics.
-- [x] Backup v5 includes Smart Lifecycle/App Behavior settings and rejects future formats.
-- [x] Accessibility config: correct settings activity and remove unnecessary view-tree flag.
-- [x] First pure JVM policy/version tests.
-- [x] Checked-in source is authoritative; normal CI no longer patches/commits application source.
+- [x] Model desired AutoKill service state separately from observed process state.
+- [x] Prevent intentional service disable from being undone by restart paths.
+- [x] Update checker points at the fork-owned repository and ignores the rolling `ondemand-test` tag.
+- [x] Strict numeric release-version comparison.
+- [x] Restore preset scheduling after reboot.
+- [x] Centralize exact-alarm capability and fall back when exact alarms are unavailable.
+- [x] Keep only `SCHEDULE_EXACT_ALARM`; remove unnecessary exact-alarm declaration.
+- [x] Remove locked-boot path because configuration lives in credential-encrypted storage.
+- [x] Remove destructive Room fallback.
+- [x] Backup format v5 includes fork behavior settings and rejects future versions.
+- [x] Accessibility configuration no longer requests unnecessary view-tree reporting.
+- [x] First JVM regression tests and source-authoritative CI gates.
 
-### Live test checklist
+### Live evidence still required
 
-1. Fresh install / Shizuku permission removed: app waits for permission + UserService readiness and then loads apps.
-2. Grant Shizuku slowly; rotate/background during dialog; no `Failed to get running Apps output` race.
-3. Enable Auto-Kill, then disable it and wait >10 s: foreground service must stay off.
-4. Enable Auto-Kill, kill ReAppzuku service/process externally: recovery may restart it while desired state remains enabled.
-5. Reboot with Auto-Kill disabled: no persistent foreground service should appear.
-6. Reboot with an enabled timed preset: preset alarms are rebuilt and the currently active time window is reconciled.
-7. Deny/remove exact-alarm access: preset/scheduler must not crash; timing degrades to best-effort.
-8. Backup/restore: Exit-on-Back, Prevent Shizuku Auto-Start and Smart Lifecycle settings round-trip.
-9. Update check must never navigate to or install from upstream `gree1d/ReAppzuku`.
+- [ ] Fresh Shizuku permission flow: launch without grant, grant later, list loads only after backend is ready.
+- [ ] AutoKill disable survives process death/restart.
+- [ ] Reboot restores presets/restrictions without duplicate work.
+- [ ] Exact-alarm denied path falls back correctly.
+- [ ] Backup/restore round-trip on a real device, including App Behavior settings and preset state.
+- [ ] Fork update provenance on a real installed test build.
 
-## Phase 2 — Privilege state machine
+## Phase 2 — Explicit shell readiness state machine
 
-- [x] Explicit backend states: unavailable / permission-required / pending / granted / service-binding / ready / lost plus Root-ready.
-- [x] Unit-test the pure readiness-state transition model.
-- [~] App scan is gated on actual backend readiness, not permission alone.
-- [x] `waiting/binding` is no longer mapped to generic running-app failure.
-- [ ] Android instrumentation/live probes for binder-late, deny→grant, Activity recreation, service death and Shizuku restart.
+- [x] Explicit backend states distinguish unavailable, permission-required/pending/granted, binding, ready and lost.
+- [x] ShellManager owns app-lifetime binder receive/death state and waiter release.
+- [x] Operational app scans require a genuinely ready backend, not merely permission.
+- [x] MainActivity waits/retries only for transitional states instead of mapping waiting to generic shell failure.
+- [x] JVM transition tests cover root precedence, permission/readiness separation and lost state.
+- [ ] Instrument binder-late, deny -> grant, Activity recreation and Shizuku restart/service-death recovery.
+- [ ] Add event-driven UI recovery when Shizuku appears after MainActivity is already open if live testing shows the current callback chain is insufficient.
 
-## Phase 3 — Transactional backup / restore
+## Phase 3 — Transactional backup and restore
 
-- [x] Validate all imported preset/config data before first durable write.
-- [x] 2 MiB import-size guard and future-version rejection.
-- [x] Snapshot main preferences and both preset stores before commit.
-- [x] Synchronous commit across participating stores with rollback on partial failure.
-- [x] Runtime reconciliation only after durable success.
-- [x] Active-preset/base-snapshot state treated as runtime state rather than portable configuration.
-- [x] Full preset section removes stale local presets missing from imported backup.
-- [~] Add dedicated fault-injection/round-trip Android tests for rollback and runtime reconciliation.
+- [x] Snapshot main + both preset stores before writes.
+- [x] Stage and validate all backup content before first durable commit.
+- [x] Full preset-section restore clears omitted local preset slots; legacy backups without a preset section preserve them.
+- [x] Active-preset runtime backup keys are cleared before imported settings become the new base.
+- [x] Main + preset preference writes use synchronous commits during restore.
+- [x] Runtime/alarm/service reconciliation happens only after durable writes succeed.
+- [x] Failed writes/runtime reconciliation roll preferences back and best-effort restore old runtime state.
+- [x] Reject oversized (>2 MiB), malformed and future-version backup payloads.
+- [ ] Add focused automated restore tests for corrupt/legacy/future/oversized/rollback paths.
+- [ ] Live-test transactional rollback and active-preset restore.
 
-## Phase 4 — Persistence / Room / platform backup
+## Phase 4 — Persistence and migration evidence
 
 - [x] Explicitly exclude Android cloud backup and device-transfer restore; ReAppzuku's versioned backup remains the configuration contract.
 - [x] Room schema export configured and current schema 11 generation verified in CI.
-- [x] `MigrationTestHelper` instrumentation test for supported historical schema v2 → v11 compiles.
+- [x] `MigrationTestHelper` instrumentation test for supported historical schema v2 -> v11 compiles.
 - [~] Migration test validates preservation of existing `app_stats` data and final schema when executed on Android.
 - [ ] Execute migration test on emulator/device in CI or release-validation lane.
 - [ ] Commit generated schema 11 and every schema from now on. Historical schemas 1 and 3–10 were never preserved upstream and must not be fabricated.
@@ -97,8 +102,8 @@ Status: `[x]` implemented with repeatable build/test evidence, `[~]` implemented
 - [~] Android 17/API 37 runtime compatibility lane exists and has been executed before changing target SDK; build/boot/unlock/package-readiness are proven, but repeatable installation/instrumentation is `RISK/BLOCKED` by preview PackageManager `Broken pipe (32)` failures.
 - [x] Plan compatible AGP/toolchain migration separately in `ANDROID17_COMPATIBILITY.md`.
 - [~] Execute the API 37 lane and re-test hidden APIs, Accessibility, FGS, WorkManager, alarm behavior and process/memory assumptions; current preview environment blocks the lane before those app probes can complete.
-- [ ] Migrate build tooling to an API-37-capable AGP/Gradle combination while keeping `targetSdk 36`.
-- [ ] Raise `compileSdk` to 37 and validate before changing target behavior.
+- [x] Migrate build tooling to an API-37-capable AGP/Gradle combination while keeping `targetSdk 36`.
+- [x] Raise `compileSdk` to 37 and validate before changing target behavior.
 - [ ] Raise `targetSdk` to 37 only after target-37 behavior probes pass.
 
 ### Android 17 runtime evidence — 2026-09-04
@@ -108,6 +113,9 @@ Status: `[x]` implemented with repeatable build/test evidence, `[~]` implemented
 - Run `33812905493`: API-37 image setup, app/androidTest build, stable-emulator boot, API=37 verification, `RUNNING_UNLOCKED`, PackageManager readiness and free-space checks all passed. Three non-streaming app installation attempts each pushed the 19,343,120-byte APK successfully, then failed only at the PackageManager transaction with `Failure calling service package: Broken pipe (32)`.
 - No APK validation/signature/parse/`INSTALL_FAILED_*` error was observed. Runtime compatibility therefore remains `RISK/BLOCKED`, not failed and not `PROVEN`. No further Actions retries should be spent on the same preview image.
 - The temporary runtime workflow was removed from the release path; normal read-only Validate -> write-only Publish CI was restored in `031a8634db725bb93185d3e55819dc8b5165e96d`.
+- Run `33814172310` proved the AGP 9.4.0 / Gradle 9.6.0 / built-in Kotlin 2.3.21 migration at `compileSdk 36`, `targetSdk 36`: unit tests, lint, AndroidTest compilation, Room schema validation and APK build all passed; publishing was skipped.
+- Run `33815939003` then proved `compileSdk 37` with `targetSdk 36` through the same gates. The validated APK SHA-256 is `50f07dc229729b0df68c14d6550cf0f52c286297c8ae541fc62f57c18a5c9912`; publishing was skipped.
+- The remaining Android-17 blocker is runtime execution only. `targetSdk 37` stays blocked until the API-37 runtime probes can execute repeatably.
 
 ## Phase 8 — UX, i18n, maintainability
 
