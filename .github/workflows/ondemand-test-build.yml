@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Ignored during one-time Room schema extraction
+        description: Ignored during one-time Room schema commit
         required: false
         type: boolean
         default: false
@@ -14,17 +14,17 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  extract-room-schema:
+  commit-room-schema:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          persist-credentials: false
+          persist-credentials: true
       - name: Set up JDK 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
@@ -35,17 +35,19 @@ jobs:
         run: chmod +x gradlew
       - name: Generate Room schema from source
         run: ./gradlew clean compileDebugJavaWithJavac --no-build-cache --rerun-tasks --warning-mode all
-      - name: Verify generated Room schema 11
-        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
-      - name: Emit authoritative Room schema 11
+      - name: Commit only authoritative Room schema 11
         run: |
-          printf 'ROOM_SCHEMA_11_BASE64='
-          base64 -w0 app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
-          printf '\n'
-      - name: Upload authoritative Room schema 11
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: room-schema-11
-          path: app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
-          if-no-files-found: error
-          retention-days: 1
+          set -euo pipefail
+          schema='app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json'
+          test -f "$schema"
+          git add -- "$schema"
+          test "$(git diff --cached --name-only | wc -l)" -eq 1
+          test "$(git diff --cached --name-only)" = "$schema"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if git diff --cached --quiet; then
+            echo 'Schema 11 is already committed.'
+            exit 0
+          fi
+          git commit -m 'Commit authoritative Room schema 11 [skip ci]'
+          git push origin HEAD:ondemand-shizuku
