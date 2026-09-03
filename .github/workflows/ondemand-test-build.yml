@@ -37,6 +37,11 @@ jobs:
         run: ./gradlew clean compileDebugJavaWithJavac --no-build-cache --rerun-tasks --warning-mode all
       - name: Verify generated Room schema 11
         run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
+      - name: Emit authoritative Room schema 11
+        run: |
+          printf 'ROOM_SCHEMA_11_BASE64='
+          base64 -w0 app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
+          printf '\n'
       - name: Upload authoritative Room schema 11
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
