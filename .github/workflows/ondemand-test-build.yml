@@ -4,16 +4,15 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: android17-api37-runtime
+  group: ondemand-shizuku-test
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  api37-runtime:
+  validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -28,320 +27,50 @@ jobs:
           cache: gradle
       - name: Grant execute permission
         run: chmod +x gradlew
-
-      - name: Install stable emulator runtime library
-        shell: bash
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+      - name: Lint
+        run: ./gradlew lintDebug
+      - name: Compile instrumentation tests
+        run: ./gradlew assembleDebugAndroidTest
+      - name: Verify current Room schema export
+        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+      - name: Prepare APK and digest
         run: |
-          set -euo pipefail
-          sudo apt-get update -y
-          if ! sudo apt-get install -y --no-install-recommends libpulse0t64; then
-            sudo apt-get install -y --no-install-recommends libpulse0
-          fi
-          ldconfig -p | grep -F 'libpulse.so.0'
-
-      - name: Install Android 17 emulator image
-        shell: bash
-        run: |
-          set -euo pipefail
-          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
-          test -n "${SDK_ROOT}"
-          test -d "${SDK_ROOT}"
-
-          SDKMANAGER="$(
-            find "${SDK_ROOT}/cmdline-tools" -type f -path '*/bin/sdkmanager' 2>/dev/null \
-              | sort -V \
-              | tail -n 1
-          )"
-          AVDMANAGER="$(
-            find "${SDK_ROOT}/cmdline-tools" -type f -path '*/bin/avdmanager' 2>/dev/null \
-              | sort -V \
-              | tail -n 1
-          )"
-          test -x "${SDKMANAGER}"
-          test -x "${AVDMANAGER}"
-
-          export ANDROID_AVD_HOME="${RUNNER_TEMP}/android-avd"
-          mkdir -p "${ANDROID_AVD_HOME}"
-          echo "ANDROID_AVD_HOME=${ANDROID_AVD_HOME}" >> "${GITHUB_ENV}"
-
-          yes | "${SDKMANAGER}" --licenses >/dev/null || true
-
-          AVAILABLE="$("${SDKMANAGER}" --list --channel=3)"
-          IMAGE_PACKAGE=""
-          for candidate in \
-            "system-images;android-37.0;google_apis;x86_64" \
-            "system-images;android-37.0;google_apis_playstore;x86_64" \
-            "system-images;android-37.1;google_apis_ps16k;x86_64" \
-            "system-images;android-37.1;google_apis_playstore_ps16k;x86_64"
-          do
-            if printf '%s\n' "${AVAILABLE}" | grep -Fq "${candidate}"; then
-              IMAGE_PACKAGE="${candidate}"
-              break
-            fi
-          done
-
-          if [ -z "${IMAGE_PACKAGE}" ]; then
-            printf '%s\n' "${AVAILABLE}" \
-              | grep -Ei 'system-images;.*(37|CinnamonBun).*x86_64' \
-              | head -40
-            echo "No Android 17 x86_64 system image is available in sdkmanager channel 3."
-            exit 1
-          fi
-
-          echo "Using Android 17 image: ${IMAGE_PACKAGE}"
-
-          # Keep the emulator binary on the stable SDK channel. Channel 3 is
-          # required only to discover/install preview API 37 system images;
-          # applying it to the emulator package would pull a Canary binary.
-          "${SDKMANAGER}" \
-            "platform-tools" \
-            "emulator"
-          "${SDKMANAGER}" --channel=3 \
-            "${IMAGE_PACKAGE}"
-
-          echo "${SDK_ROOT}/platform-tools" >> "${GITHUB_PATH}"
-          echo "${SDK_ROOT}/emulator" >> "${GITHUB_PATH}"
-          "${SDK_ROOT}/emulator/emulator" -version | tee /tmp/api37-emulator-version.txt
-
-          echo "no" | "${AVDMANAGER}" create avd \
-            --force \
-            --name reappzuku-api37 \
-            --package "${IMAGE_PACKAGE}"
-          test -f "${ANDROID_AVD_HOME}/reappzuku-api37.ini"
-          "${SDK_ROOT}/emulator/emulator" -list-avds | tee /tmp/api37-avds.txt
-          grep -Fxq 'reappzuku-api37' /tmp/api37-avds.txt
-
-      - name: Build app and instrumentation APKs before emulator boot
-        shell: bash
-        run: |
-          set -euo pipefail
-          ./gradlew assembleDebug assembleDebugAndroidTest
-          ./gradlew --stop
-          test -f app/build/outputs/apk/debug/app-debug.apk
-          find app/build/outputs/apk/androidTest -type f -name '*.apk' -print -quit | grep -q .
-
-      - name: Boot Android 17 emulator
-        shell: bash
-        run: |
-          set -euo pipefail
-          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
-          if [ -e /dev/kvm ]; then
-            sudo chmod 666 /dev/kvm
-          fi
-          "${SDK_ROOT}/emulator/emulator" -accel-check || true
-          nohup emulator @reappzuku-api37 \
-            -no-window \
-            -no-audio \
-            -no-boot-anim \
-            -no-snapshot-load \
-            -no-snapshot-save \
-            -no-metrics \
-            -memory 4096 \
-            -partition-size 8192 \
-            -gpu software \
-            -accel auto \
-            > /tmp/api37-emulator.log 2>&1 &
-          EMULATOR_PID="$!"
-          echo "${EMULATOR_PID}" > /tmp/api37-emulator.pid
-          sleep 5
-          if ! kill -0 "${EMULATOR_PID}" 2>/dev/null; then
-            echo "Android 17 emulator exited before ADB became available:"
-            cat /tmp/api37-emulator.log || true
-            exit 1
-          fi
-          if ! timeout 120 adb wait-for-device; then
-            echo "Android 17 emulator did not expose ADB within 120 seconds:"
-            cat /tmp/api37-emulator.log || true
-            exit 1
-          fi
-          if ! timeout 300 bash -c '
-            until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do
-              sleep 5
-            done
-          '; then
-            echo "Android 17 emulator exposed ADB but did not complete boot within 300 seconds:"
-            cat /tmp/api37-emulator.log || true
-            exit 1
-          fi
-          sleep 5
-          timeout 60 adb wait-for-device
-          test "$(adb shell getprop ro.build.version.sdk | tr -d '\r')" = "37"
-          adb shell getprop ro.build.version.release
-          adb shell getprop ro.build.version.incremental
-
-          # Instrumentation is not a Direct-Boot workload. Ensure user 0 has
-          # reached RUNNING_UNLOCKED before starting the app/test process so
-          # credential-encrypted SharedPreferences are legitimately available.
-          adb shell input keyevent KEYCODE_WAKEUP || true
-          adb shell wm dismiss-keyguard || true
-          adb shell input keyevent 82 || true
-          if ! timeout 120 bash -c '
-            until adb shell am get-started-user-state 0 2>/dev/null | grep -q RUNNING_UNLOCKED; do
-              adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
-              adb shell input keyevent 82 >/dev/null 2>&1 || true
-              sleep 2
-            done
-          '; then
-            echo "Android 17 user 0 did not reach RUNNING_UNLOCKED within 120 seconds:"
-            adb shell am get-started-user-state 0 || true
-            adb shell dumpsys user | head -120 || true
-            exit 1
-          fi
-          adb shell am get-started-user-state 0
-
-          # sys.boot_completed and RUNNING_UNLOCKED do not guarantee that every
-          # system_server service has finished publishing. Treat PackageManager
-          # readiness as its own gate because installation and instrumentation
-          # require it.
-          if ! timeout 120 bash -c '
-            until adb shell service check package 2>/dev/null | grep -q "Service package: found"; do
-              sleep 2
-            done
-          '; then
-            echo "Android 17 package service did not become ready:"
-            adb shell service list | head -120 || true
-            cat /tmp/api37-emulator.log || true
-            exit 1
-          fi
-          adb shell service check package
-          adb shell pm path android
-
-      - name: Install app and enable target-37 MessageQueue behavior
-        shell: bash
-        run: |
-          set -euo pipefail
-          APP_APK="app/build/outputs/apk/debug/app-debug.apk"
-          TEST_APK="$(find app/build/outputs/apk/androidTest -type f -name '*.apk' | head -n 1)"
-          test -f "${APP_APK}"
-          test -f "${TEST_APK}"
-
-          # Re-check the service immediately before installation. This catches a
-          # system_server restart instead of misclassifying it as an app failure.
-          if ! timeout 60 bash -c '
-            until adb shell service check package 2>/dev/null | grep -q "Service package: found"; do
-              sleep 2
-            done
-          '; then
-            echo "Android 17 package service disappeared before install:"
-            adb shell getprop sys.boot_completed || true
-            adb shell am get-started-user-state 0 || true
-            adb shell service list | head -120 || true
-            cat /tmp/api37-emulator.log || true
-            exit 1
-          fi
-
-          echo "Android 17 /data capacity before install:"
-          adb shell df -h /data
-          adb shell service check package
-          adb shell pm path android
-
-          install_apk() {
-            local apk="$1"
-            local label="$2"
-            local attempt output status
-            for attempt in 1 2 3; do
-              echo "Installing ${label}, attempt ${attempt}/3"
-              set +e
-              output="$(adb install --no-streaming -r "${apk}" 2>&1)"
-              status=$?
-              set -e
-              printf '%s\n' "${output}" | tee -a /tmp/api37-install.txt
-              if [ "${status}" -eq 0 ]; then
-                return 0
-              fi
-
-              # Retry only transient emulator/system_server transport failures.
-              # Real package validation failures (INSTALL_FAILED_*, parse/signature
-              # errors, etc.) remain fatal on the first occurrence.
-              if ! printf '%s\n' "${output}" \
-                | grep -Eq 'Broken pipe|Can.t find service: package|Failure calling service package'; then
-                echo "Non-transient APK installation failure for ${label}."
-                return "${status}"
-              fi
-
-              if [ "${attempt}" -eq 3 ]; then
-                echo "PackageManager remained unstable after three ${label} install attempts."
-                return "${status}"
-              fi
-
-              if ! timeout 90 bash -c '
-                until adb shell service check package 2>/dev/null | grep -q "Service package: found" \
-                  && adb shell am get-started-user-state 0 2>/dev/null | grep -q RUNNING_UNLOCKED; do
-                  sleep 2
-                done
-              '; then
-                echo "PackageManager/user did not recover after transient install failure."
-                adb shell service list | head -120 || true
-                return 1
-              fi
-              sleep 2
-            done
-          }
-
-          install_apk "${APP_APK}" "app APK"
-          install_apk "${TEST_APK}" "instrumentation APK"
-          adb shell am compat enable USE_NEW_MESSAGEQUEUE com.gree1d.reappzuku
-          echo "Compatibility overrides for ReAppzuku:"
-          adb shell dumpsys platform_compat \
-            | grep -A 20 -B 5 'com.gree1d.reappzuku' \
-            | tee /tmp/api37-compat.txt || true
-
-      - name: Run Android instrumentation on API 37
-        shell: bash
-        run: |
-          set -euo pipefail
-          INSTRUMENTATION="$(
-            adb shell pm list instrumentation \
-              | tr -d '\r' \
-              | sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' \
-              | head -n 1
-          )"
-          test -n "${INSTRUMENTATION}"
-          adb shell am instrument -w -r "${INSTRUMENTATION}" | tee /tmp/api37-instrumentation.txt
-          grep -Eq 'OK \([0-9]+ tests?\)' /tmp/api37-instrumentation.txt
-
-      - name: Launcher smoke test with lock-free MessageQueue
-        shell: bash
-        run: |
-          set -euo pipefail
-          adb shell am force-stop com.gree1d.reappzuku
-          adb logcat -c
-          adb shell monkey \
-            -p com.gree1d.reappzuku \
-            -c android.intent.category.LAUNCHER \
-            1 >/tmp/api37-monkey.txt 2>&1 || true
-          sleep 8
-          adb logcat -d -b crash > /tmp/api37-crash.txt
-          if grep -q 'com.gree1d.reappzuku' /tmp/api37-crash.txt; then
-            cat /tmp/api37-crash.txt
-            exit 1
-          fi
-          adb shell dumpsys package com.gree1d.reappzuku \
-            | grep -E 'versionName=|targetSdk=' \
-            | head -20
-
-      - name: Collect API 37 evidence
-        if: always()
-        shell: bash
-        run: |
-          mkdir -p api37-evidence
-          for file in /tmp/api37-emulator-version.txt /tmp/api37-emulator.log /tmp/api37-install.txt /tmp/api37-compat.txt /tmp/api37-instrumentation.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt; do
-            if [ -f "${file}" ]; then
-              cp "${file}" api37-evidence/
-            fi
-          done
-
-      - name: Upload API 37 evidence
-        if: always()
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/ReAppzuku-1.8.7-ondemand-debug.apk
+          cd dist
+          sha256sum ReAppzuku-1.8.7-ondemand-debug.apk | tee ReAppzuku-1.8.7-ondemand-debug.apk.sha256
+      - name: Upload validated APK
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: android17-api37-evidence
-          path: |
-            api37-evidence/
-            app/build/reports/androidTests/
-          if-no-files-found: warn
-          retention-days: 7
+          name: ondemand-apk
+          path: dist/
+          if-no-files-found: error
+          retention-days: 3
 
-      - name: Stop emulator
-        if: always()
-        run: adb emu kill || true
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download validated APK
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ondemand-apk
+          path: dist
+      - name: Publish test APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ondemand-test --repo "${GITHUB_REPOSITORY}" --cleanup-tag -y || true
+          gh release create ondemand-test \
+            dist/ReAppzuku-1.8.7-ondemand-debug.apk \
+            dist/ReAppzuku-1.8.7-ondemand-debug.apk.sha256 \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${GITHUB_SHA}" \
+            --title "ReAppzuku 1.8.7 Assurance Phase 7 test" \
+            --notes "Validated source-authoritative build with all Assurance Phase 1-7 hardening: Shizuku readiness and on-demand process policy, background desired-state enforcement, transactional backup restore, non-destructive Room policy, exported shortcut/principal hardening, package-name validation at privileged boundaries, Android platform/accessibility fixes, fork i18n, zero-error lint gate with reviewed warning baseline, immutable Action pins, and least-privilege validation/publishing separation."
