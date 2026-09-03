@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = 'com.gree1d.reappzuku'
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.gree1d.reappzuku"
