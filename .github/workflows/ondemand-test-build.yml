@@ -79,13 +79,19 @@ jobs:
           fi
 
           echo "Using Android 17 image: ${IMAGE_PACKAGE}"
-          "${SDKMANAGER}" --channel=3 \
+
+          # Keep the emulator binary on the stable SDK channel. Channel 3 is
+          # required only to discover/install preview API 37 system images;
+          # applying it to the emulator package would pull a Canary binary.
+          "${SDKMANAGER}" \
             "platform-tools" \
-            "emulator" \
+            "emulator"
+          "${SDKMANAGER}" --channel=3 \
             "${IMAGE_PACKAGE}"
 
           echo "${SDK_ROOT}/platform-tools" >> "${GITHUB_PATH}"
           echo "${SDK_ROOT}/emulator" >> "${GITHUB_PATH}"
+          "${SDK_ROOT}/emulator/emulator" -version | tee /tmp/api37-emulator-version.txt
 
           echo "no" | "${AVDMANAGER}" create avd \
             --force \
@@ -265,7 +271,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p api37-evidence
-          for file in /tmp/api37-emulator.log /tmp/api37-compat.txt /tmp/api37-instrumentation.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt; do
+          for file in /tmp/api37-emulator-version.txt /tmp/api37-emulator.log /tmp/api37-compat.txt /tmp/api37-instrumentation.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt; do
             if [ -f "${file}" ]; then
               cp "${file}" api37-evidence/
             fi
