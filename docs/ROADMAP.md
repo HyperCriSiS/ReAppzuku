@@ -80,7 +80,7 @@ Status: `[x]` implemented with repeatable build/test evidence, `[~]` implemented
 - [x] Pin every external Action in active repository workflows.
 - [x] Establish a reviewed warning-only lint baseline: full scan must contain zero errors before a baseline may be accepted.
 - [ ] Add dependency verification/locking evaluation.
-- [~] Expand emulator/device test lanes without wasting private Actions quota; a manual API 37 lane is staged first.
+- [~] Expand emulator/device test lanes without wasting private Actions quota; the API 37 lane has been exercised and is currently blocked by preview PackageManager transport instability before repeatable instrumentation.
 
 ### Assurance evidence — 2026-09-02
 
@@ -94,12 +94,20 @@ Status: `[x]` implemented with repeatable build/test evidence, `[~]` implemented
 
 ## Phase 7 — Android 17 / API 37
 
-- [~] Add Android 17/API 37 runtime compatibility lane before changing target SDK; manual CI lane is staged, execution evidence pending.
+- [~] Android 17/API 37 runtime compatibility lane exists and has been executed before changing target SDK; build/boot/unlock/package-readiness are proven, but repeatable installation/instrumentation is `RISK/BLOCKED` by preview PackageManager `Broken pipe (32)` failures.
 - [x] Plan compatible AGP/toolchain migration separately in `ANDROID17_COMPATIBILITY.md`.
-- [ ] Execute the API 37 lane and re-test hidden APIs, Accessibility, FGS, WorkManager, alarm behavior and process/memory assumptions.
+- [~] Execute the API 37 lane and re-test hidden APIs, Accessibility, FGS, WorkManager, alarm behavior and process/memory assumptions; current preview environment blocks the lane before those app probes can complete.
 - [ ] Migrate build tooling to an API-37-capable AGP/Gradle combination while keeping `targetSdk 36`.
 - [ ] Raise `compileSdk` to 37 and validate before changing target behavior.
 - [ ] Raise `targetSdk` to 37 only after target-37 behavior probes pass.
+
+### Android 17 runtime evidence — 2026-09-04
+
+- Run `33699862420`: both app and instrumentation APKs installed successfully on API 37 and `USE_NEW_MESSAGEQUEUE` was enabled; instrumentation then exposed a lane bug because user 0 had not yet reached `RUNNING_UNLOCKED`.
+- The lane was corrected to require `RUNNING_UNLOCKED`, a ready PackageManager service, 8 GiB `/data`, stable-channel emulator binaries, explicit runner libraries, and build-before-emulator resource separation.
+- Run `33812905493`: API-37 image setup, app/androidTest build, stable-emulator boot, API=37 verification, `RUNNING_UNLOCKED`, PackageManager readiness and free-space checks all passed. Three non-streaming app installation attempts each pushed the 19,343,120-byte APK successfully, then failed only at the PackageManager transaction with `Failure calling service package: Broken pipe (32)`.
+- No APK validation/signature/parse/`INSTALL_FAILED_*` error was observed. Runtime compatibility therefore remains `RISK/BLOCKED`, not failed and not `PROVEN`. No further Actions retries should be spent on the same preview image.
+- The temporary runtime workflow was removed from the release path; normal read-only Validate -> write-only Publish CI was restored in `031a8634db725bb93185d3e55819dc8b5165e96d`.
 
 ## Phase 8 — UX, i18n, maintainability
 
