@@ -234,8 +234,52 @@ jobs:
           adb shell df -h /data
           adb shell service check package
           adb shell pm path android
-          adb install -r "${APP_APK}"
-          adb install -r "${TEST_APK}"
+
+          install_apk() {
+            local apk="$1"
+            local label="$2"
+            local attempt output status
+            for attempt in 1 2 3; do
+              echo "Installing ${label}, attempt ${attempt}/3"
+              set +e
+              output="$(adb install --no-streaming -r "${apk}" 2>&1)"
+              status=$?
+              set -e
+              printf '%s\n' "${output}" | tee -a /tmp/api37-install.txt
+              if [ "${status}" -eq 0 ]; then
+                return 0
+              fi
+
+              # Retry only transient emulator/system_server transport failures.
+              # Real package validation failures (INSTALL_FAILED_*, parse/signature
+              # errors, etc.) remain fatal on the first occurrence.
+              if ! printf '%s\n' "${output}" \
+                | grep -Eq 'Broken pipe|Can.t find service: package|Failure calling service package'; then
+                echo "Non-transient APK installation failure for ${label}."
+                return "${status}"
+              fi
+
+              if [ "${attempt}" -eq 3 ]; then
+                echo "PackageManager remained unstable after three ${label} install attempts."
+                return "${status}"
+              fi
+
+              if ! timeout 90 bash -c '
+                until adb shell service check package 2>/dev/null | grep -q "Service package: found" \
+                  && adb shell am get-started-user-state 0 2>/dev/null | grep -q RUNNING_UNLOCKED; do
+                  sleep 2
+                done
+              '; then
+                echo "PackageManager/user did not recover after transient install failure."
+                adb shell service list | head -120 || true
+                return 1
+              fi
+              sleep 2
+            done
+          }
+
+          install_apk "${APP_APK}" "app APK"
+          install_apk "${TEST_APK}" "instrumentation APK"
           adb shell am compat enable USE_NEW_MESSAGEQUEUE com.gree1d.reappzuku
           echo "Compatibility overrides for ReAppzuku:"
           adb shell dumpsys platform_compat \
@@ -281,7 +325,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p api37-evidence
-          for file in /tmp/api37-emulator-version.txt /tmp/api37-emulator.log /tmp/api37-compat.txt /tmp/api37-instrumentation.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt; do
+          for file in /tmp/api37-emulator-version.txt /tmp/api37-emulator.log /tmp/api37-install.txt /tmp/api37-compat.txt /tmp/api37-instrumentation.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt; do
             if [ -f "${file}" ]; then
               cp "${file}" api37-evidence/
             fi
