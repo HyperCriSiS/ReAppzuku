@@ -61,7 +61,7 @@ Status convention:
 - [x] `MigrationTestHelper` instrumentation test for supported historical schema v2 -> v11 compiles.
 - [~] Migration test validates preservation of existing `app_stats` data and final schema when executed on Android.
 - [ ] Execute migration test on emulator/device in CI or release-validation lane.
-- [ ] Commit generated schema 11 and every schema from now on. Historical schemas 1 and 3–10 were never preserved upstream and must not be fabricated.
+- [x] Commit compiler-generated schema 11 and preserve every schema from now on. Historical schemas 1 and 3–10 were never preserved upstream and must not be fabricated.
 
 ## Phase 5 — Privileged surface hardening
 
@@ -84,10 +84,11 @@ Status convention:
 - [x] Run `lintDebug` without `updateLintBaseline`; baseline changes only through reviewed source commits.
 - [x] Pin every external Action in active repository workflows.
 - [x] Establish a reviewed warning-only lint baseline: full scan must contain zero errors before a baseline may be accepted.
+- [x] Remove the ReAppzuku-owned Gradle-10 Groovy assignment deprecation identified by `--warning-mode all`.
 - [ ] Add dependency verification/locking evaluation.
 - [~] Expand emulator/device test lanes without wasting private Actions quota; the API 37 lane has been exercised and is currently blocked by preview PackageManager transport instability before repeatable instrumentation.
 
-### Assurance evidence — 2026-09-02
+### Assurance evidence — 2026-09-04
 
 - Workflow run `33577363239` passed unit tests, zero-error full lint, reviewed warning baseline,
   `assembleDebugAndroidTest`, Room schema-11 existence check, and debug APK build.
@@ -96,6 +97,8 @@ Status convention:
   `d841e34685d790197266c1e9c90a11619a33a219377892f2c429c00930dbf5d4`.
 - Normal validation returns to a read-only Validate -> writable Publish split after the one-time
   migration workflow.
+- Runs `33816595259` and `33816830268` independently forced Room compilation with cache disabled and generated schema 11 from the current source model.
+- One-time run `33816989187` was guarded to stage exactly one path and committed only `app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json` as commit `8707be6`.
 
 ## Phase 7 — Android 17 / API 37
 

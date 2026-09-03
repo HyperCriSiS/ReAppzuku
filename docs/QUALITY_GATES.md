@@ -178,7 +178,6 @@ For high-impact changes, DONE requires:
 - P1 risks have explicit owner/issue;
 - release provenance is preserved.
 
-
 ## Current gate evidence — 2026-09-04
 
 - Assurance run `33577363239` completed with zero lint errors before baseline acceptance.
@@ -195,6 +194,8 @@ For high-impact changes, DONE requires:
 - The temporary API-37 dispatch path was removed after evidence collection. Commit `031a8634db725bb93185d3e55819dc8b5165e96d` restores the exact least-privilege Validate -> Publish workflow.
 - Run `33814172310` proved AGP 9.4.0 / Gradle 9.6.0 / built-in Kotlin 2.3.21 at SDK 36 across unit, lint, AndroidTest compile, Room schema and APK gates; publish was skipped.
 - Run `33815939003` proved the same gate chain after raising only `compileSdk` to 37 while `targetSdk` remained 36. Validation APK SHA-256: `50f07dc229729b0df68c14d6550cf0f52c286297c8ae541fc62f57c18a5c9912`.
+- `--warning-mode all` isolated the only ReAppzuku-owned Gradle-10 build-script deprecation to `settings.gradle:17`; it was corrected to assignment syntax and subsequent forced compiler runs no longer emit the deprecation.
+- Runs `33816595259` and `33816830268` generated Room schema 11 from source with cache disabled and rerun tasks forced. Run `33816989187` staged exactly one allowed path and committed compiler-generated `11.json` as `8707be6`, removing the prior cache-dependence of the schema existence gate.
 - Toolchain/API-37 compilation are therefore `PROVEN`; target-37 behavior remains gated by the separately blocked runtime lane.
 
 ## Immediate conversion plan
