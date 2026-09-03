@@ -95,6 +95,15 @@ jobs:
           "${SDK_ROOT}/emulator/emulator" -list-avds | tee /tmp/api37-avds.txt
           grep -Fxq 'reappzuku-api37' /tmp/api37-avds.txt
 
+      - name: Build app and instrumentation APKs before emulator boot
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew assembleDebug assembleDebugAndroidTest
+          ./gradlew --stop
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          find app/build/outputs/apk/androidTest -type f -name '*.apk' -print -quit | grep -q .
+
       - name: Boot Android 17 emulator
         shell: bash
         run: |
@@ -164,8 +173,22 @@ jobs:
           fi
           adb shell am get-started-user-state 0
 
-      - name: Build app and instrumentation APKs
-        run: ./gradlew assembleDebug assembleDebugAndroidTest
+          # sys.boot_completed and RUNNING_UNLOCKED do not guarantee that every
+          # system_server service has finished publishing. Treat PackageManager
+          # readiness as its own gate because installation and instrumentation
+          # require it.
+          if ! timeout 120 bash -c '
+            until adb shell service check package 2>/dev/null | grep -q "Service package: found"; do
+              sleep 2
+            done
+          '; then
+            echo "Android 17 package service did not become ready:"
+            adb shell service list | head -120 || true
+            cat /tmp/api37-emulator.log || true
+            exit 1
+          fi
+          adb shell service check package
+          adb shell pm path android
 
       - name: Install app and enable target-37 MessageQueue behavior
         shell: bash
@@ -175,9 +198,26 @@ jobs:
           TEST_APK="$(find app/build/outputs/apk/androidTest -type f -name '*.apk' | head -n 1)"
           test -f "${APP_APK}"
           test -f "${TEST_APK}"
+
+          # Re-check the service immediately before installation. This catches a
+          # system_server restart instead of misclassifying it as an app failure.
+          if ! timeout 60 bash -c '
+            until adb shell service check package 2>/dev/null | grep -q "Service package: found"; do
+              sleep 2
+            done
+          '; then
+            echo "Android 17 package service disappeared before install:"
+            adb shell getprop sys.boot_completed || true
+            adb shell am get-started-user-state 0 || true
+            adb shell service list | head -120 || true
+            cat /tmp/api37-emulator.log || true
+            exit 1
+          fi
+
           echo "Android 17 /data capacity before install:"
-          adb shell df -h /data || true
-          adb shell pm trim-caches 1G || true
+          adb shell df -h /data
+          adb shell service check package
+          adb shell pm path android
           adb install -r "${APP_APK}"
           adb install -r "${TEST_APK}"
           adb shell am compat enable USE_NEW_MESSAGEQUEUE com.gree1d.reappzuku
