@@ -112,6 +112,7 @@ jobs:
             -no-snapshot-save \
             -no-metrics \
             -memory 4096 \
+            -partition-size 8192 \
             -gpu software \
             -accel auto \
             > /tmp/api37-emulator.log 2>&1 &
@@ -154,6 +155,9 @@ jobs:
           TEST_APK="$(find app/build/outputs/apk/androidTest -type f -name '*.apk' | head -n 1)"
           test -f "${APP_APK}"
           test -f "${TEST_APK}"
+          echo "Android 17 /data capacity before install:"
+          adb shell df -h /data || true
+          adb shell pm trim-caches 1G || true
           adb install -r "${APP_APK}"
           adb install -r "${TEST_APK}"
           adb shell am compat enable USE_NEW_MESSAGEQUEUE com.gree1d.reappzuku
