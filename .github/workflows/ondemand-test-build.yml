@@ -2,6 +2,12 @@ name: On-demand Shizuku test APK
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish validated ondemand-test release
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: ondemand-shizuku-test
@@ -52,6 +58,7 @@ jobs:
           retention-days: 3
 
   publish:
+    if: ${{ inputs.publish }}
     needs: validate
     runs-on: ubuntu-latest
     permissions:
