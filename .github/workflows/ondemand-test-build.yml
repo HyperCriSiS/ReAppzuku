@@ -27,7 +27,7 @@ jobs:
           cache: gradle
       - name: Grant execute permission
         run: chmod +x gradlew
-      - name: Generate comprehensive dependency assurance state
+      - name: Generate lock state then verification metadata
         run: |
           set -euo pipefail
           cat > /tmp/dependency-locking.init.gradle <<'EOF'
@@ -40,8 +40,14 @@ jobs:
           ./gradlew \
             --init-script /tmp/dependency-locking.init.gradle \
             --write-locks \
-            --write-verification-metadata sha256 \
             :app:dependencies > /tmp/dependency-report.txt
+          ./gradlew \
+            --init-script /tmp/dependency-locking.init.gradle \
+            --write-verification-metadata sha256 \
+            testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
+      - name: Verify generated state with normal resolution
+        run: |
+          set -euo pipefail
           ./gradlew \
             --init-script /tmp/dependency-locking.init.gradle \
             testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
