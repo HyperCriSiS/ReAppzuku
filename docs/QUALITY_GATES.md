@@ -138,7 +138,7 @@ Required:
 - external GitHub Actions are pinned to immutable full SHAs;
 - token permissions are least-privilege;
 - stale runs use concurrency cancellation;
-- Gradle dependency verification/locking is evaluated.
+- Gradle dependency verification/locking is enforced with reviewed, committed lock state and SHA-256 metadata.
 
 Publishing is a separate job/workflow with `contents: write`.
 
@@ -197,6 +197,8 @@ For high-impact changes, DONE requires:
 - `--warning-mode all` isolated the only ReAppzuku-owned Gradle-10 build-script deprecation to `settings.gradle:17`; it was corrected to assignment syntax and subsequent forced compiler runs no longer emit the deprecation.
 - Runs `33816595259` and `33816830268` generated Room schema 11 from source with cache disabled and rerun tasks forced. Run `33816989187` staged exactly one allowed path and committed compiler-generated `11.json` as `8707be6`, removing the prior cache-dependence of the schema existence gate.
 - Toolchain/API-37 compilation are therefore `PROVEN`; target-37 behavior remains gated by the separately blocked runtime lane.
+- Dependency-assurance run `33832156664` generated the committed `app/gradle.lockfile` and `gradle/verification-metadata.xml`, then repeated unit, lint, AndroidTest compile and APK gates without write flags. Artifact `9922094160` has SHA-256 `43c53cc13431cd2b2513fb0d9108836d548dd4b33b5673e9ddd49e4b1954918c`.
+- Dependency refreshes must be explicit reviewed changes: update lock state with `./gradlew :app:dependencies --write-locks`, refresh verification metadata while running the validation task set with `--write-verification-metadata sha256`, then rerun the same validation tasks with no write flags.
 
 ## Immediate conversion plan
 

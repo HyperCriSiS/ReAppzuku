@@ -91,7 +91,7 @@ Status convention:
 - [x] Pin every external Action in active repository workflows.
 - [x] Establish a reviewed warning-only lint baseline: full scan must contain zero errors before a baseline may be accepted.
 - [x] Remove the ReAppzuku-owned Gradle-10 Groovy assignment deprecation identified by `--warning-mode all`.
-- [ ] Add dependency verification/locking evaluation.
+- [x] Enforce Gradle dependency verification with committed SHA-256 metadata and dependency locking.
 - [~] Expand emulator/device test lanes without wasting private Actions quota; the API 37 lane has been exercised and is currently blocked by preview PackageManager transport instability before repeatable instrumentation.
 
 ### Assurance evidence — 2026-09-04
@@ -105,6 +105,8 @@ Status convention:
   migration workflow.
 - Runs `33816595259` and `33816830268` independently forced Room compilation with cache disabled and generated schema 11 from the current source model.
 - One-time run `33816989187` was guarded to stage exactly one path and committed only `app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json` as commit `8707be6`.
+- Dependency-assurance run `33832156664` generated `app/gradle.lockfile` and SHA-256 `gradle/verification-metadata.xml`, then passed unit, lint, AndroidTest compile and APK build again without metadata-writing flags.
+- Artifact `9922094160` is preserved by SHA-256 `43c53cc13431cd2b2513fb0d9108836d548dd4b33b5673e9ddd49e4b1954918c`; its exact generated files are committed and normal builds now enforce them.
 
 ## Phase 7 — Android 17 / API 37
 
