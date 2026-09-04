@@ -1,17 +1,17 @@
-name: Materialize dependency assurance evidence
+name: Finalize dependency assurance hardening
 
 on:
   workflow_dispatch:
 
 concurrency:
-  group: dependency-assurance-materialize-${{ github.ref }}
+  group: dependency-assurance-finalize-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
   contents: write
 
 jobs:
-  materialize:
+  finalize:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -20,31 +20,74 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           persist-credentials: true
+          fetch-depth: 0
 
-      - name: Download and verify dependency assurance artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ARTIFACT_ID: "9922094160"
-          ARTIFACT_SHA256: "43c53cc13431cd2b2513fb0d9108836d548dd4b33b5673e9ddd49e4b1954918c"
+      - name: Apply permanent dependency assurance state
         run: |
-          mkdir -p /tmp/dependency-assurance
-          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > /tmp/dependency-assurance.zip
-          echo "${ARTIFACT_SHA256}  /tmp/dependency-assurance.zip" | sha256sum --check --strict
-          unzip -q /tmp/dependency-assurance.zip -d /tmp/dependency-assurance
-          test -s /tmp/dependency-assurance/gradle/verification-metadata.xml
-          test -s /tmp/dependency-assurance/app/gradle.lockfile
-          mkdir -p gradle app
-          cp /tmp/dependency-assurance/gradle/verification-metadata.xml gradle/verification-metadata.xml
-          cp /tmp/dependency-assurance/app/gradle.lockfile app/gradle.lockfile
+          set -euo pipefail
+          test -s gradle/verification-metadata.xml
+          test -s app/gradle.lockfile
+          python3 - <<'PY'
+          from pathlib import Path
 
-      - name: Commit exact generated evidence
+          build = Path("app/build.gradle")
+          text = build.read_text()
+          block = "\ndependencyLocking {\n    lockAllConfigurations()\n}\n"
+          if "dependencyLocking {" not in text:
+              marker = "\ndependencies {\n"
+              if marker not in text:
+                  raise SystemExit("dependencies block marker missing")
+              text = text.replace(marker, block + marker, 1)
+              build.write_text(text)
+
+          roadmap = Path("docs/ROADMAP.md")
+          text = roadmap.read_text()
+          old = "- [ ] Add dependency verification/locking evaluation."
+          new = "- [x] Enforce Gradle dependency verification with committed SHA-256 metadata and dependency locking."
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise SystemExit("ROADMAP dependency-assurance marker missing")
+          evidence_marker = "- One-time run `33816989187` was guarded to stage exactly one path and committed only `app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json` as commit `8707be6`.\n"
+          evidence = (
+              "- Dependency-assurance run `33832156664` generated `app/gradle.lockfile` and SHA-256 `gradle/verification-metadata.xml`, then passed unit, lint, AndroidTest compile and APK build again without metadata-writing flags.\n"
+              "- Artifact `9922094160` is preserved by SHA-256 `43c53cc13431cd2b2513fb0d9108836d548dd4b33b5673e9ddd49e4b1954918c`; its exact generated files are committed and normal builds now enforce them.\n"
+          )
+          if evidence not in text:
+              if evidence_marker not in text:
+                  raise SystemExit("ROADMAP evidence marker missing")
+              text = text.replace(evidence_marker, evidence_marker + evidence, 1)
+          roadmap.write_text(text)
+
+          quality = Path("docs/QUALITY_GATES.md")
+          text = quality.read_text()
+          old = "- Gradle dependency verification/locking is evaluated."
+          new = "- Gradle dependency verification/locking is enforced with reviewed, committed lock state and SHA-256 metadata."
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise SystemExit("QUALITY_GATES dependency-assurance marker missing")
+          evidence_marker = "- Toolchain/API-37 compilation are therefore `PROVEN`; target-37 behavior remains gated by the separately blocked runtime lane.\n"
+          evidence = (
+              "- Dependency-assurance run `33832156664` generated the committed `app/gradle.lockfile` and `gradle/verification-metadata.xml`, then repeated unit, lint, AndroidTest compile and APK gates without write flags. Artifact `9922094160` has SHA-256 `43c53cc13431cd2b2513fb0d9108836d548dd4b33b5673e9ddd49e4b1954918c`.\n"
+              "- Dependency refreshes must be explicit reviewed changes: update lock state with `./gradlew :app:dependencies --write-locks`, refresh verification metadata while running the validation task set with `--write-verification-metadata sha256`, then rerun the same validation tasks with no write flags.\n"
+          )
+          if evidence not in text:
+              if evidence_marker not in text:
+                  raise SystemExit("QUALITY_GATES evidence marker missing")
+              text = text.replace(evidence_marker, evidence_marker + evidence, 1)
+          quality.write_text(text)
+          PY
+
+          git show 26906e79f9aae8aaf7b5eb9c09def4078a2dd4a1:.github/workflows/ondemand-test-build.yml > .github/workflows/ondemand-test-build.yml
+          git rm -f .github/workflows/dependency-assurance-eval.yml
+          git add app/build.gradle docs/ROADMAP.md docs/QUALITY_GATES.md .github/workflows/ondemand-test-build.yml
+          git diff --cached --check
+
+      - name: Commit permanent hardening
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add gradle/verification-metadata.xml app/gradle.lockfile
-          if git diff --cached --quiet; then
-            echo "Dependency assurance evidence already materialized."
-            exit 0
-          fi
-          git commit -m "Add generated dependency assurance evidence"
+          git commit -m "Enforce dependency locking and verification"
           git push origin "HEAD:${GITHUB_REF_NAME}"
