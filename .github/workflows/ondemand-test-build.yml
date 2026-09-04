@@ -1,70 +1,50 @@
-name: On-demand Shizuku test APK
+name: Materialize dependency assurance evidence
 
 on:
   workflow_dispatch:
 
 concurrency:
-  group: ondemand-shizuku-test
-  cancel-in-progress: true
+  group: dependency-assurance-materialize-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  dependency-assurance-eval:
+  materialize:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          persist-credentials: false
-      - name: Set up JDK 17
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
-        with:
-          java-version: '17'
-          distribution: temurin
-          cache: gradle
-      - name: Grant execute permission
-        run: chmod +x gradlew
-      - name: Generate lock state then verification metadata
+          ref: ${{ github.ref_name }}
+          persist-credentials: true
+
+      - name: Download and verify dependency assurance artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: "9922094160"
+          ARTIFACT_SHA256: "43c53cc13431cd2b2513fb0d9108836d548dd4b33b5673e9ddd49e4b1954918c"
         run: |
-          set -euo pipefail
-          cat > /tmp/dependency-locking.init.gradle <<'EOF'
-          allprojects {
-              dependencyLocking {
-                  lockAllConfigurations()
-              }
-          }
-          EOF
-          ./gradlew \
-            --init-script /tmp/dependency-locking.init.gradle \
-            --write-locks \
-            :app:dependencies > /tmp/dependency-report.txt
-          ./gradlew \
-            --init-script /tmp/dependency-locking.init.gradle \
-            --write-verification-metadata sha256 \
-            testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
-      - name: Verify generated state with normal resolution
+          mkdir -p /tmp/dependency-assurance
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > /tmp/dependency-assurance.zip
+          echo "${ARTIFACT_SHA256}  /tmp/dependency-assurance.zip" | sha256sum --check --strict
+          unzip -q /tmp/dependency-assurance.zip -d /tmp/dependency-assurance
+          test -s /tmp/dependency-assurance/gradle/verification-metadata.xml
+          test -s /tmp/dependency-assurance/app/gradle.lockfile
+          mkdir -p gradle app
+          cp /tmp/dependency-assurance/gradle/verification-metadata.xml gradle/verification-metadata.xml
+          cp /tmp/dependency-assurance/app/gradle.lockfile app/gradle.lockfile
+
+      - name: Commit exact generated evidence
         run: |
-          set -euo pipefail
-          ./gradlew \
-            --init-script /tmp/dependency-locking.init.gradle \
-            testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
-      - name: Print generated assurance state
-        run: |
-          set -euo pipefail
-          echo '---BEGIN VERIFICATION METADATA---'
-          cat gradle/verification-metadata.xml
-          echo '---END VERIFICATION METADATA---'
-          echo '---BEGIN APP LOCKFILE---'
-          cat app/gradle.lockfile
-          echo '---END APP LOCKFILE---'
-      - name: Upload dependency assurance evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: dependency-assurance-evidence
-          path: |
-            gradle/verification-metadata.xml
-            **/gradle.lockfile
-          if-no-files-found: error
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gradle/verification-metadata.xml app/gradle.lockfile
+          if git diff --cached --quiet; then
+            echo "Dependency assurance evidence already materialized."
+            exit 0
+          fi
+          git commit -m "Add generated dependency assurance evidence"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
