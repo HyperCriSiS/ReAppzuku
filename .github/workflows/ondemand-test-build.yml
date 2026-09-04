@@ -2,12 +2,6 @@ name: On-demand Shizuku test APK
 
 on:
   workflow_dispatch:
-    inputs:
-      publish:
-        description: Ignored during one-time lint baseline audit
-        required: false
-        type: boolean
-        default: false
 
 concurrency:
   group: ondemand-shizuku-test
@@ -17,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  audit-lint-baseline:
+  validate:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -33,10 +27,19 @@ jobs:
           cache: gradle
       - name: Grant execute permission
         run: chmod +x gradlew
-      - name: Generate reviewed lint baseline diff only
-        run: |
-          set -euo pipefail
-          cp app/lint-baseline.xml /tmp/lint-baseline-before.xml
-          ./gradlew updateLintBaseline
-          git diff -- app/lint-baseline.xml | tee /tmp/lint-baseline.diff
-          test -s /tmp/lint-baseline.diff
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+      - name: Lint
+        run: ./gradlew lintDebug
+      - name: Compile instrumentation tests
+        run: ./gradlew assembleDebugAndroidTest
+      - name: Verify current Room schema export
+        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+      - name: Upload debug APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: reappzuku-ondemand-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
