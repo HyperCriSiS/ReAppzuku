@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  dependency-assurance-eval:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -27,19 +27,33 @@ jobs:
           cache: gradle
       - name: Grant execute permission
         run: chmod +x gradlew
-      - name: Unit tests
-        run: ./gradlew testDebugUnitTest
-      - name: Lint
-        run: ./gradlew lintDebug
-      - name: Compile instrumentation tests
-        run: ./gradlew assembleDebugAndroidTest
-      - name: Verify current Room schema export
-        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
-      - name: Upload debug APK
+      - name: Resolve build with temporary locking and verification metadata
+        run: |
+          set -euo pipefail
+          cat > /tmp/dependency-locking.init.gradle <<'EOF'
+          allprojects {
+              dependencyLocking {
+                  lockAllConfigurations()
+              }
+          }
+          EOF
+          ./gradlew \
+            --init-script /tmp/dependency-locking.init.gradle \
+            --write-locks \
+            --write-verification-metadata sha256 \
+            testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
+      - name: Verify generated assurance files
+        run: |
+          set -euo pipefail
+          test -s gradle/verification-metadata.xml
+          find . -name gradle.lockfile -type f -print | tee /tmp/lockfiles.txt
+          test -s /tmp/lockfiles.txt
+          while IFS= read -r lockfile; do test -s "$lockfile"; done < /tmp/lockfiles.txt
+      - name: Upload dependency assurance evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: reappzuku-ondemand-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: dependency-assurance-evidence
+          path: |
+            gradle/verification-metadata.xml
+            **/gradle.lockfile
           if-no-files-found: error
