@@ -27,7 +27,7 @@ jobs:
           cache: gradle
       - name: Grant execute permission
         run: chmod +x gradlew
-      - name: Resolve build with temporary locking and verification metadata
+      - name: Generate comprehensive dependency assurance state
         run: |
           set -euo pipefail
           cat > /tmp/dependency-locking.init.gradle <<'EOF'
@@ -41,14 +41,19 @@ jobs:
             --init-script /tmp/dependency-locking.init.gradle \
             --write-locks \
             --write-verification-metadata sha256 \
+            :app:dependencies > /tmp/dependency-report.txt
+          ./gradlew \
+            --init-script /tmp/dependency-locking.init.gradle \
             testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
-      - name: Verify generated assurance files
+      - name: Print generated assurance state
         run: |
           set -euo pipefail
-          test -s gradle/verification-metadata.xml
-          find . -name gradle.lockfile -type f -print | tee /tmp/lockfiles.txt
-          test -s /tmp/lockfiles.txt
-          while IFS= read -r lockfile; do test -s "$lockfile"; done < /tmp/lockfiles.txt
+          echo '---BEGIN VERIFICATION METADATA---'
+          cat gradle/verification-metadata.xml
+          echo '---END VERIFICATION METADATA---'
+          echo '---BEGIN APP LOCKFILE---'
+          cat app/gradle.lockfile
+          echo '---END APP LOCKFILE---'
       - name: Upload dependency assurance evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
