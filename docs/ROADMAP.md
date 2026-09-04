@@ -51,8 +51,14 @@ Status convention:
 - [x] Runtime/alarm/service reconciliation happens only after durable writes succeed.
 - [x] Failed writes/runtime reconciliation roll preferences back and best-effort restore old runtime state.
 - [x] Reject oversized (>2 MiB), malformed and future-version backup payloads.
-- [ ] Add focused automated restore tests for corrupt/legacy/future/oversized/rollback paths.
+- [x] Add focused automated restore tests for corrupt/legacy/future/oversized/rollback paths.
 - [ ] Live-test transactional rollback and active-preset restore.
+
+### Transactional restore test coverage — 2026-09-04
+
+- Android instrumentation coverage now exercises malformed JSON, unversioned legacy payloads, future-version rejection, the 2 MiB input bound, and restoration from captured main/preset rollback snapshots.
+- The rollback helper is exercised against real Android `SharedPreferences` and `PresetManager` storage without changing production behavior.
+- Runtime execution of these tests remains part of the Android evidence lane; source/AndroidTest compilation is the immediate CI gate.
 
 ## Phase 4 — Persistence and migration evidence
 
