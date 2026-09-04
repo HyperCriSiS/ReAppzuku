@@ -1,4 +1,4 @@
-name: Finalize dependency assurance hardening
+name: Finalize dependency assurance source state
 
 on:
   workflow_dispatch:
@@ -20,9 +20,8 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           persist-credentials: true
-          fetch-depth: 0
 
-      - name: Apply permanent dependency assurance state
+      - name: Apply permanent dependency assurance source state
         run: |
           set -euo pipefail
           test -s gradle/verification-metadata.xml
@@ -48,15 +47,15 @@ jobs:
               text = text.replace(old, new, 1)
           elif new not in text:
               raise SystemExit("ROADMAP dependency-assurance marker missing")
-          evidence_marker = "- One-time run `33816989187` was guarded to stage exactly one path and committed only `app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json` as commit `8707be6`.\n"
+          marker = "- One-time run `33816989187` was guarded to stage exactly one path and committed only `app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json` as commit `8707be6`.\n"
           evidence = (
               "- Dependency-assurance run `33832156664` generated `app/gradle.lockfile` and SHA-256 `gradle/verification-metadata.xml`, then passed unit, lint, AndroidTest compile and APK build again without metadata-writing flags.\n"
               "- Artifact `9922094160` is preserved by SHA-256 `43c53cc13431cd2b2513fb0d9108836d548dd4b33b5673e9ddd49e4b1954918c`; its exact generated files are committed and normal builds now enforce them.\n"
           )
           if evidence not in text:
-              if evidence_marker not in text:
+              if marker not in text:
                   raise SystemExit("ROADMAP evidence marker missing")
-              text = text.replace(evidence_marker, evidence_marker + evidence, 1)
+              text = text.replace(marker, marker + evidence, 1)
           roadmap.write_text(text)
 
           quality = Path("docs/QUALITY_GATES.md")
@@ -67,24 +66,21 @@ jobs:
               text = text.replace(old, new, 1)
           elif new not in text:
               raise SystemExit("QUALITY_GATES dependency-assurance marker missing")
-          evidence_marker = "- Toolchain/API-37 compilation are therefore `PROVEN`; target-37 behavior remains gated by the separately blocked runtime lane.\n"
+          marker = "- Toolchain/API-37 compilation are therefore `PROVEN`; target-37 behavior remains gated by the separately blocked runtime lane.\n"
           evidence = (
               "- Dependency-assurance run `33832156664` generated the committed `app/gradle.lockfile` and `gradle/verification-metadata.xml`, then repeated unit, lint, AndroidTest compile and APK gates without write flags. Artifact `9922094160` has SHA-256 `43c53cc13431cd2b2513fb0d9108836d548dd4b33b5673e9ddd49e4b1954918c`.\n"
               "- Dependency refreshes must be explicit reviewed changes: update lock state with `./gradlew :app:dependencies --write-locks`, refresh verification metadata while running the validation task set with `--write-verification-metadata sha256`, then rerun the same validation tasks with no write flags.\n"
           )
           if evidence not in text:
-              if evidence_marker not in text:
+              if marker not in text:
                   raise SystemExit("QUALITY_GATES evidence marker missing")
-              text = text.replace(evidence_marker, evidence_marker + evidence, 1)
+              text = text.replace(marker, marker + evidence, 1)
           quality.write_text(text)
           PY
-
-          git show 26906e79f9aae8aaf7b5eb9c09def4078a2dd4a1:.github/workflows/ondemand-test-build.yml > .github/workflows/ondemand-test-build.yml
-          git rm -f .github/workflows/dependency-assurance-eval.yml
-          git add app/build.gradle docs/ROADMAP.md docs/QUALITY_GATES.md .github/workflows/ondemand-test-build.yml
+          git add app/build.gradle docs/ROADMAP.md docs/QUALITY_GATES.md
           git diff --cached --check
 
-      - name: Commit permanent hardening
+      - name: Commit permanent source hardening
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
