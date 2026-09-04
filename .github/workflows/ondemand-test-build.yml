@@ -1,45 +1,57 @@
-name: On-demand Shizuku test APK
+name: Refresh dependency verification evidence
 
 on:
   workflow_dispatch:
 
 concurrency:
-  group: ondemand-shizuku-test
-  cancel-in-progress: true
+  group: dependency-verification-refresh-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  validate:
+  refresh:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          persist-credentials: false
+          persist-credentials: true
       - name: Set up JDK 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           java-version: '17'
           distribution: temurin
-          cache: gradle
       - name: Grant execute permission
         run: chmod +x gradlew
-      - name: Unit tests
-        run: ./gradlew testDebugUnitTest
-      - name: Lint
-        run: ./gradlew lintDebug
-      - name: Compile instrumentation tests
-        run: ./gradlew assembleDebugAndroidTest
-      - name: Verify current Room schema export
-        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
-      - name: Upload debug APK
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: reappzuku-ondemand-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+      - name: Refresh complete SHA-256 verification metadata
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon --refresh-dependencies --write-verification-metadata sha256 \
+            testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
+          git diff --exit-code -- app/gradle.lockfile
+          test -s gradle/verification-metadata.xml
+      - name: Re-prove from an empty dependency cache
+        run: |
+          set -euo pipefail
+          ./gradlew --stop || true
+          rm -rf ~/.gradle/caches/modules-2 ~/.gradle/caches/transforms-*
+          ./gradlew --no-daemon --refresh-dependencies \
+            testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
+      - name: Commit only refreshed verification metadata
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gradle/verification-metadata.xml
+          if git diff --cached --quiet; then
+            echo "Verification metadata already complete."
+            exit 0
+          fi
+          test "$(git diff --cached --name-only | wc -l)" -eq 1
+          test "$(git diff --cached --name-only)" = "gradle/verification-metadata.xml"
+          git diff --cached --check
+          git commit -m "Complete dependency verification metadata"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
