@@ -1,0 +1,53 @@
+name: Dependency assurance evaluation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - name: Grant execute permission
+        run: chmod +x gradlew
+      - name: Resolve build with temporary dependency locking and verification metadata
+        run: |
+          set -euo pipefail
+          cat > /tmp/dependency-locking.init.gradle <<'EOF'
+          allprojects {
+              dependencyLocking {
+                  lockAllConfigurations()
+              }
+          }
+          EOF
+          ./gradlew \
+            --init-script /tmp/dependency-locking.init.gradle \
+            --write-locks \
+            --write-verification-metadata sha256 \
+            testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
+      - name: Verify generated assurance files
+        run: |
+          set -euo pipefail
+          test -s gradle/verification-metadata.xml
+          find . -name gradle.lockfile -type f -print -exec test -s {} \;
+      - name: Upload dependency assurance evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: dependency-assurance-evidence
+          path: |
+            gradle/verification-metadata.xml
+            **/gradle.lockfile
+          if-no-files-found: error
