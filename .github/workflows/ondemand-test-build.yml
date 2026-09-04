@@ -1,89 +1,45 @@
-name: Finalize dependency assurance source state
+name: On-demand Shizuku test APK
 
 on:
   workflow_dispatch:
 
 concurrency:
-  group: dependency-assurance-finalize-${{ github.ref }}
-  cancel-in-progress: false
+  group: ondemand-shizuku-test
+  cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  finalize:
+  validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ github.ref_name }}
-          persist-credentials: true
-
-      - name: Apply permanent dependency assurance source state
-        run: |
-          set -euo pipefail
-          test -s gradle/verification-metadata.xml
-          test -s app/gradle.lockfile
-          python3 - <<'PY'
-          from pathlib import Path
-
-          build = Path("app/build.gradle")
-          text = build.read_text()
-          block = "\ndependencyLocking {\n    lockAllConfigurations()\n}\n"
-          if "dependencyLocking {" not in text:
-              marker = "\ndependencies {\n"
-              if marker not in text:
-                  raise SystemExit("dependencies block marker missing")
-              text = text.replace(marker, block + marker, 1)
-              build.write_text(text)
-
-          roadmap = Path("docs/ROADMAP.md")
-          text = roadmap.read_text()
-          old = "- [ ] Add dependency verification/locking evaluation."
-          new = "- [x] Enforce Gradle dependency verification with committed SHA-256 metadata and dependency locking."
-          if old in text:
-              text = text.replace(old, new, 1)
-          elif new not in text:
-              raise SystemExit("ROADMAP dependency-assurance marker missing")
-          marker = "- One-time run `33816989187` was guarded to stage exactly one path and committed only `app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json` as commit `8707be6`.\n"
-          evidence = (
-              "- Dependency-assurance run `33832156664` generated `app/gradle.lockfile` and SHA-256 `gradle/verification-metadata.xml`, then passed unit, lint, AndroidTest compile and APK build again without metadata-writing flags.\n"
-              "- Artifact `9922094160` is preserved by SHA-256 `43c53cc13431cd2b2513fb0d9108836d548dd4b33b5673e9ddd49e4b1954918c`; its exact generated files are committed and normal builds now enforce them.\n"
-          )
-          if evidence not in text:
-              if marker not in text:
-                  raise SystemExit("ROADMAP evidence marker missing")
-              text = text.replace(marker, marker + evidence, 1)
-          roadmap.write_text(text)
-
-          quality = Path("docs/QUALITY_GATES.md")
-          text = quality.read_text()
-          old = "- Gradle dependency verification/locking is evaluated."
-          new = "- Gradle dependency verification/locking is enforced with reviewed, committed lock state and SHA-256 metadata."
-          if old in text:
-              text = text.replace(old, new, 1)
-          elif new not in text:
-              raise SystemExit("QUALITY_GATES dependency-assurance marker missing")
-          marker = "- Toolchain/API-37 compilation are therefore `PROVEN`; target-37 behavior remains gated by the separately blocked runtime lane.\n"
-          evidence = (
-              "- Dependency-assurance run `33832156664` generated the committed `app/gradle.lockfile` and `gradle/verification-metadata.xml`, then repeated unit, lint, AndroidTest compile and APK gates without write flags. Artifact `9922094160` has SHA-256 `43c53cc13431cd2b2513fb0d9108836d548dd4b33b5673e9ddd49e4b1954918c`.\n"
-              "- Dependency refreshes must be explicit reviewed changes: update lock state with `./gradlew :app:dependencies --write-locks`, refresh verification metadata while running the validation task set with `--write-verification-metadata sha256`, then rerun the same validation tasks with no write flags.\n"
-          )
-          if evidence not in text:
-              if marker not in text:
-                  raise SystemExit("QUALITY_GATES evidence marker missing")
-              text = text.replace(marker, marker + evidence, 1)
-          quality.write_text(text)
-          PY
-          git add app/build.gradle docs/ROADMAP.md docs/QUALITY_GATES.md
-          git diff --cached --check
-
-      - name: Commit permanent source hardening
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Enforce dependency locking and verification"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          persist-credentials: false
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - name: Grant execute permission
+        run: chmod +x gradlew
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+      - name: Lint
+        run: ./gradlew lintDebug
+      - name: Compile instrumentation tests
+        run: ./gradlew assembleDebugAndroidTest
+      - name: Verify current Room schema export
+        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+      - name: Upload debug APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: reappzuku-ondemand-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
