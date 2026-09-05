@@ -1,0 +1,50 @@
+name: One-time scheduling facade gate
+
+on:
+  push:
+    branches: [ondemand-shizuku]
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-commit:
+    if: contains(github.event.head_commit.message, '[maintainability-gate]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ondemand-shizuku
+          persist-credentials: true
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - name: Apply scheduling facade refactor
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          python3 .github/scripts/apply_scheduling_facades.py
+          git diff --check
+          ! grep -q '^import android.app.AlarmManager;' app/src/main/java/com/gree1d/reappzuku/manager/PresetManager.java
+          ! grep -q '^import android.app.AlarmManager;' app/src/main/java/com/gree1d/reappzuku/manager/RestrictionsScheduler.java
+          ! grep -q 'ExactAlarmCapability' app/src/main/java/com/gree1d/reappzuku/manager/PresetManager.java
+          ! grep -q 'ExactAlarmCapability' app/src/main/java/com/gree1d/reappzuku/manager/RestrictionsScheduler.java
+      - name: Validate scheduling facades and app
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
+      - name: Commit validated scheduling facade integration
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            app/src/main/java/com/gree1d/reappzuku/manager/PresetManager.java \
+            app/src/main/java/com/gree1d/reappzuku/manager/RestrictionsScheduler.java \
+            docs/ROADMAP.md \
+            docs/CHECK_MATRIX.md
+          test "$(git diff --cached --name-only | wc -l)" -eq 4
+          git commit -m 'Route scheduling through testable clock and alarm facades'
+          git push origin HEAD:ondemand-shizuku
