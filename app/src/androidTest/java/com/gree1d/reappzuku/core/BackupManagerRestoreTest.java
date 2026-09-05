@@ -1,6 +1,7 @@
 package com.gree1d.reappzuku.core;
 
 import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_EXIT_ON_BACK;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -31,6 +32,9 @@ public class BackupManagerRestoreTest {
         context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         prefs = context.getSharedPreferences(PreferenceKeys.PREFERENCES_NAME, Context.MODE_PRIVATE);
         assertTrue(prefs.edit().clear().commit());
+        PresetManager presetManager = new PresetManager(context);
+        assertTrue(presetManager.clearPresetStorageBlocking(PresetModel.PRESET_1));
+        assertTrue(presetManager.clearPresetStorageBlocking(PresetModel.PRESET_2));
     }
 
     @Test
@@ -74,6 +78,57 @@ public class BackupManagerRestoreTest {
         BackupManager manager = new BackupManager(context);
 
         assertFalse(manager.restoreBackupJson(oversized));
+    }
+
+    @Test
+    public void failureAfterMainCommitRollsBackPersistedMainState() throws Exception {
+        assertTrue(prefs.edit().putBoolean(KEY_EXIT_ON_BACK, false).commit());
+        JSONObject backup = new JSONObject().put(KEY_EXIT_ON_BACK, true);
+
+        BackupManager manager = new BackupManager(
+                context,
+                new BackupCodec(),
+                point -> {
+                    if (point == BackupManager.RestoreCommitPoint.AFTER_MAIN_COMMIT) {
+                        throw new IllegalStateException("injected failure after main commit");
+                    }
+                });
+
+        assertFalse(manager.restoreBackupJson(backup.toString()));
+        assertFalse(prefs.getBoolean(KEY_EXIT_ON_BACK, true));
+    }
+
+    @Test
+    public void failureAfterFirstPresetCommitRollsBackMainAndPresetStorage() throws Exception {
+        PresetManager presetManager = new PresetManager(context);
+        PresetModel original = new PresetModel(PresetModel.PRESET_1);
+        original.name = "before";
+        original.enabled = false;
+        assertTrue(presetManager.savePresetBlocking(original));
+        assertTrue(prefs.edit().putBoolean(KEY_EXIT_ON_BACK, false).commit());
+
+        PresetModel incoming = new PresetModel(PresetModel.PRESET_1);
+        incoming.name = "after";
+        incoming.enabled = false;
+        JSONObject presets = new JSONObject().put("preset_1", incoming.toJson());
+        JSONObject backup = new JSONObject()
+                .put(KEY_EXIT_ON_BACK, true)
+                .put("presets", presets);
+
+        BackupManager manager = new BackupManager(
+                context,
+                new BackupCodec(),
+                point -> {
+                    if (point == BackupManager.RestoreCommitPoint.AFTER_PRESET_1_COMMIT) {
+                        throw new IllegalStateException("injected failure after preset 1 commit");
+                    }
+                });
+
+        assertFalse(manager.restoreBackupJson(backup.toString()));
+        assertFalse(prefs.getBoolean(KEY_EXIT_ON_BACK, true));
+        PresetModel restored = presetManager.loadPreset(PresetModel.PRESET_1);
+        assertEquals("before", restored.name);
+        assertFalse(restored.enabled);
     }
 
     @Test

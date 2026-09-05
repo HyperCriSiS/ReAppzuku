@@ -25,16 +25,35 @@ public class BackupManager {
     private final Context context;
     private final SharedPreferences prefs;
     private final BackupCodec backupCodec;
+    private final RestoreFaultInjector restoreFaultInjector;
+
+    enum RestoreCommitPoint {
+        AFTER_MAIN_COMMIT,
+        AFTER_PRESET_1_COMMIT,
+        AFTER_PRESET_2_COMMIT
+    }
+
+    interface RestoreFaultInjector {
+        RestoreFaultInjector NONE = point -> { };
+
+        void afterCommit(RestoreCommitPoint point);
+    }
 
     public BackupManager(Context context) {
-        this(context, new BackupCodec());
+        this(context, new BackupCodec(), RestoreFaultInjector.NONE);
     }
 
     BackupManager(Context context, BackupCodec backupCodec) {
+        this(context, backupCodec, RestoreFaultInjector.NONE);
+    }
+
+    BackupManager(Context context, BackupCodec backupCodec, RestoreFaultInjector restoreFaultInjector) {
         if (backupCodec == null) throw new IllegalArgumentException("backupCodec == null");
+        if (restoreFaultInjector == null) throw new IllegalArgumentException("restoreFaultInjector == null");
         this.context = context.getApplicationContext();
         this.prefs = context.getSharedPreferences(PreferenceKeys.PREFERENCES_NAME, Context.MODE_PRIVATE);
         this.backupCodec = backupCodec;
+        this.restoreFaultInjector = restoreFaultInjector;
     }
 
     private boolean getSafeBool(String key, boolean defVal) {
@@ -233,12 +252,15 @@ public class BackupManager {
 
             durableWriteStarted = true;
             if (!editor.commit()) throw new IllegalStateException("main preferences commit failed");
+            restoreFaultInjector.afterCommit(RestoreCommitPoint.AFTER_MAIN_COMMIT);
 
             if (containsPresetSection) {
                 if (!writePresetStorage(presetManager, PresetModel.PRESET_1, restoredPresets[0]))
                     throw new IllegalStateException("preset 1 commit failed");
+                restoreFaultInjector.afterCommit(RestoreCommitPoint.AFTER_PRESET_1_COMMIT);
                 if (!writePresetStorage(presetManager, PresetModel.PRESET_2, restoredPresets[1]))
                     throw new IllegalStateException("preset 2 commit failed");
+                restoreFaultInjector.afterCommit(RestoreCommitPoint.AFTER_PRESET_2_COMMIT);
             }
 
             // Side effects only after all durable state was committed successfully.
