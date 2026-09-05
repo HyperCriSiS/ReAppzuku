@@ -36,6 +36,8 @@ jobs:
           AVDMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name avdmanager | sort | tail -1)"
           ADB="$SDK_ROOT/platform-tools/adb"
           EMULATOR="$SDK_ROOT/emulator/emulator"
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
           test -x "$SDKMANAGER"
           test -x "$AVDMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
@@ -46,6 +48,9 @@ jobs:
             --name reappzuku-api36 \
             --package "system-images;android-36;google_apis;x86_64" \
             --device pixel_6
+          echo "AVD home: $ANDROID_AVD_HOME"
+          "$EMULATOR" -list-avds
+          find "$ANDROID_AVD_HOME" -maxdepth 2 -type f -o -type d | sort | head -100
           sudo chmod 666 /dev/kvm || true
           "$ADB" start-server
           "$EMULATOR" -avd reappzuku-api36 \
