@@ -41,6 +41,12 @@ public class RealRebootRecoveryInstrumentationTest {
     private static final String SMART_PERIODIC_WORK = "SmartLifecyclePeriodic";
     private static final String SMART_BOOT_WORK = "SmartLifecycleBootCleanup";
 
+    // BOOT_COMPLETED is an ordered system broadcast and can legitimately reach a
+    // third-party app tens of seconds after sys.boot_completed/user unlock on a
+    // busy fresh emulator. Assert eventual reconciliation, not an artificial
+    // 20-second delivery deadline.
+    private static final long POST_REBOOT_RECOVERY_TIMEOUT_MS = 90_000L;
+
     private Context targetContext;
     private SharedPreferences prefs;
     private SharedPreferences markerPrefs;
@@ -174,7 +180,7 @@ public class RealRebootRecoveryInstrumentationTest {
     }
 
     private void awaitCondition(CheckedCondition condition, String failureMessage) throws Exception {
-        long deadline = android.os.SystemClock.elapsedRealtime() + 20_000L;
+        long deadline = android.os.SystemClock.elapsedRealtime() + POST_REBOOT_RECOVERY_TIMEOUT_MS;
         Throwable lastFailure = null;
         while (android.os.SystemClock.elapsedRealtime() < deadline) {
             try {
