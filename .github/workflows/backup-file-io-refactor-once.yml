@@ -1,0 +1,141 @@
+name: One-time backup file I/O integration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ondemand-shizuku
+          persist-credentials: true
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+
+      - name: Route Settings backup URI I/O through bounded facade
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivityDialogs.java')
+          text = path.read_text()
+
+          for line in [
+              'import java.io.BufferedReader;\n',
+              'import java.io.InputStream;\n',
+              'import java.io.InputStreamReader;\n',
+              'import java.io.OutputStream;\n',
+              'import java.nio.charset.StandardCharsets;\n',
+          ]:
+              text = text.replace(line, '')
+
+          anchor = 'import com.gree1d.reappzuku.core.BackupManager;\n'
+          facade_import = 'import com.gree1d.reappzuku.core.BackupFileStore;\n'
+          if facade_import not in text:
+              assert anchor in text
+              text = text.replace(anchor, facade_import + anchor, 1)
+
+          replacement = '''    protected void exportBackup(Uri uri) {
+              getExecutor().execute(() -> {
+                  AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup started");
+                  String json = getBackupManager().createBackupJson();
+                  if (json == null) {
+                      AppDebugManager.e(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup: createBackupJson returned null");
+                      getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_backup_create_failed), Toast.LENGTH_SHORT).show());
+                      return;
+                  }
+                  try {
+                      new BackupFileStore(getContentResolver()).write(uri, json);
+                      AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup success");
+                      getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_backup_success), Toast.LENGTH_SHORT).show());
+                  } catch (Exception e) {
+                      AppDebugManager.e(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup failed", e);
+                      getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_backup_export_failed, e.getMessage()), Toast.LENGTH_SHORT).show());
+                  }
+              });
+          }
+
+          protected void importBackup(Uri uri) {
+              getExecutor().execute(() -> {
+                  AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": importBackup started");
+                  try {
+                      String json = new BackupFileStore(getContentResolver()).read(uri);
+                      boolean success = getBackupManager().restoreBackupJson(json);
+                      getHandler().post(() -> {
+                          if (success) {
+                              AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": importBackup restore success");
+                              Set<String> restoredRestrictedApps = new java.util.HashSet<>(
+                                      getSharedPreferences().getStringSet(KEY_AUTOSTART_DISABLED_APPS, new java.util.HashSet<>()));
+                              Runnable finishRestore = () -> {
+                                  applyAutomationStateFromPreferences();
+                                  loadSettings();
+                                  updateKillModeVisibility();
+                                  if (getAppManager().supportsBackgroundRestriction()
+                                          && !restoredRestrictedApps.isEmpty()
+                                          && !getAppManager().canApplyBackgroundRestrictionNow()) {
+                                      Toast.makeText(this, getString(R.string.settings_restore_need_permission), Toast.LENGTH_LONG).show();
+                                  } else {
+                                      Toast.makeText(this, getString(R.string.settings_restore_success), Toast.LENGTH_SHORT).show();
+                                  }
+                              };
+                              if (getAppManager().canApplyBackgroundRestrictionNow()) {
+                                  getAppManager().applyBackgroundRestriction(restoredRestrictedApps, finishRestore);
+                              } else {
+                                  finishRestore.run();
+                              }
+                          } else {
+                              AppDebugManager.w(Category.SETTINGS_PAGE, FILE_NAME + ": importBackup: restoreBackupJson returned false");
+                              Toast.makeText(this, getString(R.string.settings_restore_failed), Toast.LENGTH_SHORT).show();
+                          }
+                      });
+                  } catch (Exception e) {
+                      AppDebugManager.e(Category.SETTINGS_PAGE, FILE_NAME + ": importBackup failed", e);
+                      getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_restore_import_failed, e.getMessage()), Toast.LENGTH_SHORT).show());
+                  }
+              });
+          }
+
+          protected void showSpecialThanksDialog'''
+
+          pattern = re.compile(
+              r'    protected void exportBackup\(Uri uri\) \{.*?\n    \}\n\n'
+              r'    protected void importBackup\(Uri uri\) \{.*?\n    \}\n\n'
+              r'    protected void showSpecialThanksDialog',
+              re.S)
+          text, count = pattern.subn(replacement, text, count=1)
+          assert count == 1, f'expected one backup method block, replaced {count}'
+          assert 'openInputStream(uri)' not in text
+          assert 'openOutputStream(uri)' not in text
+          assert 'new BackupFileStore(getContentResolver()).read(uri)' in text
+          assert 'new BackupFileStore(getContentResolver()).write(uri, json)' in text
+          path.write_text(text)
+          PY
+
+      - name: Validate integration
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
+
+      - name: Commit validated source change
+        run: |
+          set -euo pipefail
+          git diff --check
+          test -n "$(git status --porcelain app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivityDialogs.java)"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivityDialogs.java
+          git commit -m 'Route backup file I/O through bounded facade'
+          git push origin HEAD:ondemand-shizuku
