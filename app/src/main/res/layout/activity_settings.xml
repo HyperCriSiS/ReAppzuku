@@ -322,6 +322,18 @@
                             android:textStyle="bold" />
                     </LinearLayout>
 
+                    <TextView
+                        android:id="@+id/text_app_behavior_blocked"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingHorizontal="8dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="4dp"
+                        android:text="@string/settings_app_behavior_blocked"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"
+                        android:visibility="gone" />
+
                     <LinearLayout
                         android:id="@+id/layout_prevent_shizuku_autostart"
                         android:layout_width="match_parent"

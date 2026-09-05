@@ -8,6 +8,8 @@ import android.content.pm.PackageManager;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.EnumSet;
+
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 
 /**
@@ -17,6 +19,14 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
  */
 public final class BackgroundWorkPolicy {
     private static final String KEY_RESTRICTIONS_SCHEDULES = "restrictions_schedules";
+
+    public enum Blocker {
+        AUTO_KILL,
+        SMART_LIFECYCLE,
+        SLEEP_MODE,
+        ACTIVE_PRESET,
+        RESTRICTIONS_SCHEDULE
+    }
 
     private BackgroundWorkPolicy() {}
 
@@ -29,14 +39,33 @@ public final class BackgroundWorkPolicy {
         return shouldRunForegroundService(prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false));
     }
 
-    public static boolean requiresBackgroundContinuity(Context context) {
+    public static EnumSet<Blocker> getActiveBlockers(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
-        return AutomationDesiredState.requiresBackgroundContinuity(
+        return resolveActiveBlockers(
                 prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false),
                 prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false),
                 prefs.getBoolean(KEY_SLEEP_MODE_ENABLED, false),
                 prefs.getInt(KEY_ACTIVE_PRESET, 0) != 0,
                 hasEnabledRestrictionSchedule(prefs));
+    }
+
+    static EnumSet<Blocker> resolveActiveBlockers(
+            boolean autoKillEnabled,
+            boolean smartLifecycleEnabled,
+            boolean sleepModeEnabled,
+            boolean activePreset,
+            boolean restrictionsScheduleEnabled) {
+        EnumSet<Blocker> blockers = EnumSet.noneOf(Blocker.class);
+        if (autoKillEnabled) blockers.add(Blocker.AUTO_KILL);
+        if (smartLifecycleEnabled) blockers.add(Blocker.SMART_LIFECYCLE);
+        if (sleepModeEnabled) blockers.add(Blocker.SLEEP_MODE);
+        if (activePreset) blockers.add(Blocker.ACTIVE_PRESET);
+        if (restrictionsScheduleEnabled) blockers.add(Blocker.RESTRICTIONS_SCHEDULE);
+        return blockers;
+    }
+
+    public static boolean requiresBackgroundContinuity(Context context) {
+        return !getActiveBlockers(context).isEmpty();
     }
 
     private static boolean hasEnabledRestrictionSchedule(SharedPreferences prefs) {

@@ -25,4 +25,4 @@
     <string name="settings_smart_boot_cleanup_subtitle">Після пільгового періоду завантаження зупиняє керовані застосунки, які запустилися самі й не використовувалися після завантаження.</string>
     <string name="shortcut_ram_kill_confirm_message">Запустити зараз ярлик очищення ОЗП?</string>
     <string name="shortcut_foreground_kill_confirm_message">Примусово зупинити поточний застосунок на передньому плані?</string>
-</resources>
+    <string name="settings_app_behavior_blocked_by">Недоступно, доки активне: %1$s</string>\n</resources>

@@ -15,6 +15,7 @@ import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.PrivilegedShell;
 import com.gree1d.reappzuku.manager.AutoKillManager;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.R;
@@ -78,6 +79,7 @@ public class ShappkyQuickTile extends TileService {
             autoKillManager = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());
             AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "ShappkyQuickTile: onClick AutoKillManager initialized");
         }
+        final PrivilegedShell privilegedShell = new PrivilegedShell(shellManager);
 
         shellExecutor.execute(() -> {
             if (!shellManager.resolveAnyShellPermission()) {
@@ -128,8 +130,8 @@ public class ShappkyQuickTile extends TileService {
 
                 final String killedPackage = packageName;
                 AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "ShappkyQuickTile: onClick killing foreground pkg=" + killedPackage);
-                String cmd = "am force-stop " + killedPackage;
-                shellManager.runShellCommand(cmd, () -> {
+                privilegedShell.killPackage(
+                        killedPackage, PrivilegedShell.KillMode.FORCE_STOP, () -> {
                     AppDebugManager.i(Category.SHORTCUTS_WIDGETS, "ShappkyQuickTile: onClick kill success pkg=" + killedPackage);
                     executor.execute(() -> autoKillManager.recordQuickTileKill(killedPackage));
                     handler.post(() -> {

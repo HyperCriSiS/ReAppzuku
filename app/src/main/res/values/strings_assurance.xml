@@ -3,4 +3,4 @@
     <string name="filter_label">Filter</string>
     <string name="action_previous">Previous</string>
     <string name="action_next">Next</string>
-</resources>
+    <string name="settings_app_behavior_blocked_by">Unavailable while active: %1$s</string>\n</resources>

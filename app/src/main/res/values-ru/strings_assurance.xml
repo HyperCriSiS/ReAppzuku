@@ -25,4 +25,4 @@
     <string name="settings_smart_boot_cleanup_subtitle">После периода ожидания при загрузке останавливает управляемые приложения, которые запустились сами и не использовались после загрузки.</string>
     <string name="shortcut_ram_kill_confirm_message">Запустить сейчас ярлык очистки ОЗУ?</string>
     <string name="shortcut_foreground_kill_confirm_message">Принудительно остановить текущее приложение на переднем плане?</string>
-</resources>
+    <string name="settings_app_behavior_blocked_by">Недоступно, пока активно: %1$s</string>\n</resources>

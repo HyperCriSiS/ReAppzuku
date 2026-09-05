@@ -22,4 +22,4 @@
     <string name="settings_smart_boot_cleanup_subtitle">Tras el periodo de gracia del arranque, detiene las apps gestionadas que se iniciaron solas y no se usaron desde el arranque.</string>
     <string name="shortcut_ram_kill_confirm_message">¿Ejecutar ahora el acceso directo de limpieza de RAM?</string>
     <string name="shortcut_foreground_kill_confirm_message">¿Forzar la detención de la app que está actualmente en primer plano?</string>
-</resources>
+    <string name="settings_app_behavior_blocked_by">No disponible mientras esté activo: %1$s</string>\n</resources>

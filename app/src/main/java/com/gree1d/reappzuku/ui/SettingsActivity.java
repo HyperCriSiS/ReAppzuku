@@ -710,6 +710,7 @@ public class SettingsActivity extends SettingsActivityDialogs
 
     private void updateAppBehaviorAvailability() {
         boolean blocked = BackgroundWorkPolicy.enforceCompatibleBehavior(this);
+        Set<BackgroundWorkPolicy.Blocker> blockers = BackgroundWorkPolicy.getActiveBlockers(this);
         boolean enabled = !blocked;
         float alpha = enabled ? 1.0f : 0.5f;
 
@@ -724,6 +725,44 @@ public class SettingsActivity extends SettingsActivityDialogs
         binding.layoutExitOnBack.setEnabled(enabled);
         binding.layoutPreventShizukuAutostart.setAlpha(alpha);
         binding.layoutExitOnBack.setAlpha(alpha);
+
+        if (blocked && !blockers.isEmpty()) {
+            binding.textAppBehaviorBlocked.setText(getString(
+                    R.string.settings_app_behavior_blocked_by,
+                    formatAppBehaviorBlockers(blockers)));
+            binding.textAppBehaviorBlocked.setVisibility(View.VISIBLE);
+        } else {
+            binding.textAppBehaviorBlocked.setVisibility(View.GONE);
+        }
+    }
+
+    private String formatAppBehaviorBlockers(Set<BackgroundWorkPolicy.Blocker> blockers) {
+        List<String> labels = new ArrayList<>();
+        for (BackgroundWorkPolicy.Blocker blocker : blockers) {
+            switch (blocker) {
+                case AUTO_KILL:
+                    labels.add(getString(R.string.settings_section_kill_rules));
+                    break;
+                case SMART_LIFECYCLE:
+                    labels.add(getString(R.string.settings_smart_lifecycle_title));
+                    break;
+                case SLEEP_MODE:
+                    labels.add(getString(R.string.settings_sleep_mode_title));
+                    break;
+                case ACTIVE_PRESET:
+                    labels.add(getString(R.string.settings_presets_title));
+                    break;
+                case RESTRICTIONS_SCHEDULE:
+                    labels.add(getString(R.string.settings_restrictions_scheduler_title));
+                    break;
+            }
+        }
+        StringBuilder joined = new StringBuilder();
+        for (String label : labels) {
+            if (joined.length() > 0) joined.append(", ");
+            joined.append(label);
+        }
+        return joined.toString();
     }
 
     private void updateSmartLifecycleOptionsVisibility(boolean enabled) {
