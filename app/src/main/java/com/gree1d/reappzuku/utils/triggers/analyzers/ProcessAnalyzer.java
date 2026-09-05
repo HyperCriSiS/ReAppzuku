@@ -45,13 +45,6 @@ public class ProcessAnalyzer {
     private static final Pattern FGS_OPT_IN_PAT      = Pattern.compile("fgsStartedWhileOptIn=(true|false)");
 
 
-// ---- CONST:BINDER_PATS ----
-    private static final Pattern[] BINDER_PATS = {
-            Pattern.compile("ProcessRecord\\{[^}]+\\s([\\w.]+)/"),
-            Pattern.compile("client=ProcessRecord\\{[^}]+\\s([\\w.]+)/")
-    };
-
-
 // ---- analyzeProcessState ----
     public List<TriggerInfo> analyzeProcessState(String packageName) {
         List<TriggerInfo> list = new ArrayList<>();
@@ -59,38 +52,13 @@ public class ProcessAnalyzer {
                 "dumpsys activity processes");
         if (output == null || output.trim().isEmpty()) return list;
 
-        boolean inBlock    = false;
-        int     adj        = Integer.MAX_VALUE;
-        String  procState  = null;
-        boolean persistent = false;
+        ProcessDumpParser.ProcessStateSnapshot state =
+                ProcessDumpParser.parseProcessState(output, packageName);
+        if (state == null) return list;
 
-        Pattern procPat  = Pattern.compile(
-                "ProcessRecord\\{[^}]+\\s" + Pattern.quote(packageName) + "/");
-        Pattern adjPat   = Pattern.compile("\\badj=([-\\d]+)");
-        Pattern statePat = Pattern.compile("\\bcurProcState=(\\w+)");
-
-        for (String line : output.split("\n")) {
-            if (procPat.matcher(line).find()) {
-                inBlock    = true;
-                persistent = line.contains("persistent=true");
-                continue;
-            }
-            if (inBlock && line.trim().startsWith("ProcessRecord{")
-                    && !line.contains(packageName)) break;
-            if (!inBlock) continue;
-
-            Matcher mAdj = adjPat.matcher(line);
-            if (mAdj.find() && adj == Integer.MAX_VALUE)
-                adj = Integer.parseInt(mAdj.group(1));
-
-            Matcher mState = statePat.matcher(line);
-            if (mState.find() && procState == null)
-                procState = mState.group(1);
-
-            if (line.contains("persistent=true")) persistent = true;
-        }
-
-        if (procState == null && adj == Integer.MAX_VALUE) return list;
+        int adj = state.adj;
+        String procState = state.procState;
+        boolean persistent = state.persistent;
 
         String label = mapProcState(procState, adj);
         AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": analyzeProcessState: pkg=" + packageName + " procState=" + procState + " adj=" + adj + " label=" + label + " persistent=" + persistent);
@@ -218,7 +186,7 @@ public class ProcessAnalyzer {
         for (String line : output.split("\n")) {
             String t = line.trim();
 
-            if (t.contains("ServiceRecord") && t.contains(packageName)) {
+            if (ProcessDumpParser.isServiceRecordForPackage(t, packageName)) {
                 if (inBlock) {
                     emitServiceTriggers(list, currentSvc, packageName, fgType, notifChannel,
                             notifImport, killable, isForeground, isSticky, isBfslPush,
@@ -236,7 +204,8 @@ public class ProcessAnalyzer {
                 fgsAllowStartReason = null;
                 continue;
             }
-            if (inBlock && t.contains("ServiceRecord") && !t.contains(packageName)) {
+            if (inBlock && ProcessDumpParser.isServiceRecordLine(t)
+                    && !ProcessDumpParser.isServiceRecordForPackage(t, packageName)) {
                 emitServiceTriggers(list, currentSvc, packageName, fgType, notifChannel,
                         notifImport, killable, isForeground, isSticky, isBfslPush,
                         fgsAllowStartReason);
@@ -310,13 +279,12 @@ public class ProcessAnalyzer {
                 }
             }
 
-            for (Pattern bp : BINDER_PATS) {
-                Matcher m = bp.matcher(t);
-                if (m.find()) {
-                    String pkg = m.group(1);
-                    if (!pkg.equals(packageName) && !pkg.equals("android")
-                            && !binders.contains(pkg)) binders.add(pkg);
-                }
+            String binderPackage = ProcessDumpParser.extractProcessRecordPackage(t);
+            if (binderPackage != null
+                    && !binderPackage.equals(packageName)
+                    && !binderPackage.equals("android")
+                    && !binders.contains(binderPackage)) {
+                binders.add(binderPackage);
             }
         }
 
@@ -530,14 +498,7 @@ public class ProcessAnalyzer {
 
 // ---- extractServiceShortName ----
     public String extractServiceShortName(String line, String packageName) {
-        Matcher m = Pattern.compile("ServiceRecord\\{[^}]+\\s([\\w./]+)\\}").matcher(line);
-        if (!m.find()) return null;
-        String full = m.group(1);
-        if (!full.contains("/")) return full;
-        String cls = full.substring(full.indexOf('/') + 1);
-        if (cls.startsWith("."))               return cls.substring(1);
-        if (cls.startsWith(packageName + ".")) return cls.substring(packageName.length() + 1);
-        return cls;
+        return ProcessDumpParser.extractServiceShortName(line, packageName);
     }
 
 }
