@@ -240,6 +240,11 @@ public class MainActivity extends BaseActivity {
         super.onStart();
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStart");
         shellManager.setShizukuPermissionListener(shizukuPermissionListener);
+        // The Binder can arrive after the first backend probe has already observed
+        // SHIZUKU_UNAVAILABLE. Re-enter preparation when it becomes available so a
+        // first-run permission request cannot be lost in that race. The listener is
+        // sticky, which also covers a Binder that arrived just before onStart().
+        shellManager.setShizukuBinderListeners(this::prepareShellAndLoadApps, null);
     }
 
     @Override
@@ -247,6 +252,7 @@ public class MainActivity extends BaseActivity {
         super.onStop();
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStop");
         shellManager.removeShizukuPermissionListener(shizukuPermissionListener);
+        shellManager.removeShizukuBinderListeners();
     }
 
     @Override
@@ -894,7 +900,10 @@ public class MainActivity extends BaseActivity {
 
     private void prepareShellAndLoadApps() {
         if (shellPreparationInFlight) {
-            AppDebugManager.d(Category.CORE, "MainActivity: shell preparation already in flight");
+            AppDebugManager.d(Category.CORE, "MainActivity: shell preparation already in flight; retry queued");
+            // Binder delivery/onResume can race the initial asynchronous probe. A
+            // delayed retry preserves that state change instead of dropping it.
+            handler.postDelayed(this::prepareShellAndLoadApps, 100L);
             return;
         }
         shellPreparationInFlight = true;
