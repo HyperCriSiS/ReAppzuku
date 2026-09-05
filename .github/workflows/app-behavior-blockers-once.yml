@@ -3,8 +3,6 @@ name: One-time App Behavior blocker gate
 on:
   push:
     branches: [ondemand-shizuku]
-    paths:
-      - '.github/scripts/apply_app_behavior_blockers.py'
 
 permissions:
   contents: write
