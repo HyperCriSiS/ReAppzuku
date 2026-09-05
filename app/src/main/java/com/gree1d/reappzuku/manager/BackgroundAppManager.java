@@ -1,6 +1,7 @@
 package com.gree1d.reappzuku.manager;
 
 import com.gree1d.reappzuku.core.PackageNameValidator;
+import com.gree1d.reappzuku.core.PrivilegedShell;
 
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
@@ -61,7 +62,6 @@ public class BackgroundAppManager {
     private static final String SYSTEM_EXEMPT_FROM_SUSPENSION_OP = "SYSTEM_EXEMPT_FROM_SUSPENSION";
     private static final String RUN_USER_INITIATED_JOBS_OP = "RUN_USER_INITIATED_JOBS";
     private static final Pattern PACKAGE_NAME_PATTERN = Pattern.compile("[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z0-9_]+)+");
-    private static final String FORCE_STOP_COMMAND_PREFIX = "am force-stop ";
     private static final int STANDBY_BUCKET_RARE = 40;
     private static final int STANDBY_BUCKET_RESTRICTED = 45;
 
@@ -136,6 +136,7 @@ public class BackgroundAppManager {
     private final Handler handler;
     private final ExecutorService executor;
     private final ShellManager shellManager;
+    private final PrivilegedShell privilegedShell;
     private final List<AppModel> currentAppsList = new ArrayList<>();
     private boolean showSystemApps = false;
     private boolean showPersistentApps = false;
@@ -158,6 +159,7 @@ public class BackgroundAppManager {
         this.executor = executor;
         this.shellExecutor = shellExecutor;
         this.shellManager = shellManager;
+        this.privilegedShell = new PrivilegedShell(shellManager);
         this.iconCache = ((App) context.getApplicationContext()).getIconCache();
         this.sharedpreferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
     }
@@ -990,7 +992,7 @@ public class BackgroundAppManager {
                     if (autoKillManager != null) {
                         autoKillManager.killPackageSync(packageName);
                     } else {
-                        shellManager.runShellCommandForResult(FORCE_STOP_COMMAND_PREFIX + packageName);
+                        privilegedShell.forceStopPackage(packageName);
                     }
                     if (opsCount[0] == 0) success = false;
                     logRestrictionResult(packageName, "reapply-manual", null, null, opsCount, manualBucket);
@@ -1001,7 +1003,7 @@ public class BackgroundAppManager {
                     if (autoKillManager != null) {
                         autoKillManager.killPackageSync(packageName);
                     } else {
-                        shellManager.runShellCommandForResult(FORCE_STOP_COMMAND_PREFIX + packageName);
+                        privilegedShell.forceStopPackage(packageName);
                     }
                     if (opsCount[0] == 0) success = false;
                     logRestrictionResult(packageName, "reapply-hard", null, null, opsCount, STANDBY_BUCKET_RESTRICTED);
@@ -1011,13 +1013,13 @@ public class BackgroundAppManager {
                     if (autoKillManager != null) {
                         autoKillManager.killPackageSync(packageName);
                     } else {
-                        shellManager.runShellCommandForResult(FORCE_STOP_COMMAND_PREFIX + packageName);
+                        privilegedShell.forceStopPackage(packageName);
                     }
                     if (opsCount[0] == 0) success = false;
                     logRestrictionResult(packageName, "reapply-medium", null, null, opsCount, STANDBY_BUCKET_RARE);
                 } else {
-                    ShellManager.ShellResult restrictResult = shellManager
-                            .runShellCommandForResult(buildBackgroundRestrictionCommand(packageName, "ignore"));
+                    ShellManager.ShellResult restrictResult = privilegedShell.setAppOp(
+                            packageName, BACKGROUND_RESTRICTION_OP, PrivilegedShell.AppOpMode.IGNORE);
                     if (!restrictResult.succeeded()) {
                         success = false;
                         logRestrictionResult(packageName, "reapply-soft", restrictResult, null);
@@ -1026,7 +1028,7 @@ public class BackgroundAppManager {
                     if (autoKillManager != null) {
                         autoKillManager.killPackageSync(packageName);
                     } else {
-                        shellManager.runShellCommandForResult(FORCE_STOP_COMMAND_PREFIX + packageName);
+                        privilegedShell.forceStopPackage(packageName);
                     }
                     logRestrictionResult(packageName, "reapply-soft", restrictResult, null);
                 }
@@ -1109,8 +1111,8 @@ public class BackgroundAppManager {
                     if (opsCount[0] == 0) success = false;
                     logRestrictionResult(packageName, "reapply-medium", null, null, opsCount, STANDBY_BUCKET_RARE);
                 } else {
-                    ShellManager.ShellResult result = shellManager
-                            .runShellCommandForResult(buildBackgroundRestrictionCommand(packageName, "ignore"));
+                    ShellManager.ShellResult result = privilegedShell.setAppOp(
+                            packageName, BACKGROUND_RESTRICTION_OP, PrivilegedShell.AppOpMode.IGNORE);
                     if (!result.succeeded()) success = false;
                     logRestrictionResult(packageName, "reapply-soft", result, null);
                 }
@@ -1175,26 +1177,16 @@ public class BackgroundAppManager {
     }
 
 
-    private String buildBackgroundRestrictionCommand(String packageName, String mode) {
-        return "cmd appops set --user current " + packageName + " " + BACKGROUND_RESTRICTION_OP + " " + mode;
-    }
-
-    private String buildHardRestrictionCommand(String packageName, String mode) {
-        return "cmd appops set --user current " + packageName + " " + FOREGROUND_RESTRICTION_OP + " " + mode;
-    }
-
     private boolean applyBucket(String packageName, int bucket) {
-        boolean ok = shellManager.runShellCommandForResult(
-                "am set-standby-bucket " + packageName + " " + bucket)
-                .succeeded();
+        boolean ok = privilegedShell.setStandbyBucket(
+                packageName, PrivilegedShell.StandbyBucket.fromLegacyValue(bucket)).succeeded();
         AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": applyBucket " + packageName + " bucket=" + bucket + " ok=" + ok);
         return ok;
     }
     
     private boolean resetBucket(String packageName) {
-        boolean ok = shellManager.runShellCommandForResult(
-                "am set-standby-bucket " + packageName + " active")
-                .succeeded();
+        boolean ok = privilegedShell.setStandbyBucket(
+                packageName, PrivilegedShell.StandbyBucket.ACTIVE).succeeded();
         AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": resetBucket " + packageName + " ok=" + ok);
         return ok;
     }
@@ -1218,8 +1210,8 @@ public class BackgroundAppManager {
                 continue;
             }
             appliedMask |= (1 << i);
-            boolean succeeded = shellManager.runShellCommandForResult(
-                    "cmd appops set --user current " + packageName + " " + ALL_OPS[i] + " " + mode)
+            boolean succeeded = privilegedShell.setAppOp(packageName, ALL_OPS[i],
+                    PrivilegedShell.AppOpMode.fromShellValue(mode))
                     .succeeded();
             if (succeeded) {
                 ok++;
@@ -1254,8 +1246,8 @@ public class BackgroundAppManager {
                 AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ":   [SKIP] " + ALL_OPS[i] + " (sdk " + Build.VERSION.SDK_INT + " < " + OP_MIN_SDK[i] + ")");
                 continue;
             }
-            boolean succeeded = shellManager.runShellCommandForResult(
-                    "cmd appops set --user current " + packageName + " " + ALL_OPS[i] + " " + mode)
+            boolean succeeded = privilegedShell.setAppOp(packageName, ALL_OPS[i],
+                    PrivilegedShell.AppOpMode.fromShellValue(mode))
                     .succeeded();
             if (succeeded) {
                 ok++;
@@ -1298,8 +1290,8 @@ public class BackgroundAppManager {
                 AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ":   [SKIP] " + ALL_OPS[i] + " (sdk " + Build.VERSION.SDK_INT + " < " + OP_MIN_SDK[i] + ")");
                 continue;
             }
-            boolean succeeded = shellManager.runShellCommandForResult(
-                    "cmd appops set --user current " + packageName + " " + ALL_OPS[i] + " " + mode)
+            boolean succeeded = privilegedShell.setAppOp(packageName, ALL_OPS[i],
+                    PrivilegedShell.AppOpMode.fromShellValue(mode))
                     .succeeded();
             if (succeeded) {
                 ok++;
@@ -1347,8 +1339,8 @@ public class BackgroundAppManager {
                 break;
             case SOFT:
             default:
-                boolean ok = shellManager.runShellCommandForResult(
-                        buildBackgroundRestrictionCommand(packageName, "default")).succeeded();
+                boolean ok = privilegedShell.setAppOp(
+                        packageName, BACKGROUND_RESTRICTION_OP, PrivilegedShell.AppOpMode.DEFAULT).succeeded();
                 counts = ok ? new int[]{1, 0} : new int[]{0, 1};
                 break;
         }
@@ -1381,8 +1373,8 @@ public class BackgroundAppManager {
                 break;
             case SOFT:
             default:
-                boolean ok = shellManager.runShellCommandForResult(
-                        buildBackgroundRestrictionCommand(packageName, "ignore")).succeeded();
+                boolean ok = privilegedShell.setAppOp(
+                        packageName, BACKGROUND_RESTRICTION_OP, PrivilegedShell.AppOpMode.IGNORE).succeeded();
                 counts = ok ? new int[]{1, 0} : new int[]{0, 1};
                 break;
         }
@@ -1409,8 +1401,8 @@ public class BackgroundAppManager {
 
     private void applyBatteryWhitelistRemoval(String packageName) {
         if (!isInBatteryWhitelist(packageName)) return;
-        ShellManager.ShellResult result = shellManager.runShellCommandForResult(
-                "cmd deviceidle whitelist -" + packageName);
+        ShellManager.ShellResult result = privilegedShell.updateDeviceIdleWhitelist(
+                packageName, PrivilegedShell.DeviceIdleWhitelistAction.REMOVE);
         if (result.succeeded()) {
             Set<String> removed = getBatteryWhitelistRemoved();
             removed.add(packageName);
@@ -1423,7 +1415,8 @@ public class BackgroundAppManager {
     private void restoreBatteryWhitelist(String packageName) {
         Set<String> removed = getBatteryWhitelistRemoved();
         if (!removed.contains(packageName)) return;
-        shellManager.runShellCommandForResult("cmd deviceidle whitelist +" + packageName);
+        privilegedShell.updateDeviceIdleWhitelist(
+                packageName, PrivilegedShell.DeviceIdleWhitelistAction.ADD);
         removed.remove(packageName);
         saveBatteryWhitelistRemoved(removed);
         BackgroundRestrictionLog.log(context, packageName, "allow",
@@ -1572,9 +1565,8 @@ public class BackgroundAppManager {
                 List<String> failedOps = new ArrayList<>();
                 List<String> repairedOps = new ArrayList<>();
                 for (String op : missing) {
-                    boolean succeeded = shellManager.runShellCommandForResult(
-                            "cmd appops set --user current " + pkg + " " + op + " ignore")
-                            .succeeded();
+                    boolean succeeded = privilegedShell.setAppOp(
+                            pkg, op, PrivilegedShell.AppOpMode.IGNORE).succeeded();
                     if (succeeded) { ok++; repairedOps.add(op); } else { fail++; failedOps.add(op); }
                 }
 

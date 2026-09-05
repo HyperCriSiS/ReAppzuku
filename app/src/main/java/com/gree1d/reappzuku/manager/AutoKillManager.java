@@ -1,6 +1,7 @@
 package com.gree1d.reappzuku.manager;
 
 import com.gree1d.reappzuku.core.PackageNameValidator;
+import com.gree1d.reappzuku.core.PrivilegedShell;
 
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
@@ -45,6 +46,7 @@ public class AutoKillManager {
     private final Handler handler;
     private final ExecutorService executor;
     private final ShellManager shellManager;
+    private final PrivilegedShell privilegedShell;
     private final SharedPreferences sharedpreferences;
     private final List<AppModel> currentAppsList;
     private RestrictionsScheduler scheduler;
@@ -55,6 +57,7 @@ public class AutoKillManager {
         this.handler = handler;
         this.executor = executor;
         this.shellManager = shellManager;
+        this.privilegedShell = new PrivilegedShell(shellManager);
         this.currentAppsList = currentAppsList;
         this.sharedpreferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
     }
@@ -319,11 +322,8 @@ public class AutoKillManager {
                 }
                 savePendingRss(newPendingRss);
 
-                String killCommand = toKill.stream()
-                        .map(this::buildKillCommand)
-                        .collect(Collectors.joining("; "));
-
-                shellManager.runShellCommandAndGetFullOutput(killCommand);
+                privilegedShell.killPackagesAndGetFullOutput(
+                        toKill, PrivilegedShell.KillMode.fromAutoKillType(getAutoKillType()));
 
                 sendKillNotification(toKill.size());
 
@@ -407,14 +407,13 @@ public class AutoKillManager {
             }
         }
 
-        String command = packageNames.stream()
-                .map(this::buildKillCommand)
-                .collect(Collectors.joining("; "));
+        final PrivilegedShell.KillMode killMode =
+                PrivilegedShell.KillMode.fromAutoKillType(getAutoKillType());
 
         final long finalTotalKb = totalKb;
         final List<String> packagesToLog = new ArrayList<>(packageNames);
         final Map<String, Long> recoveredToLog = new HashMap<>(recoveredKbByPackage);
-        shellManager.runShellCommand(command, () -> {
+        privilegedShell.killPackages(packageNames, killMode, () -> {
             executor.execute(() -> {
                 recordSuccessfulKills(packagesToLog, recoveredToLog, "Manual Kill");
                 killOrphanShellProcesses(new HashSet<>(packagesToLog));
@@ -462,7 +461,8 @@ public class AutoKillManager {
             recoveredKbByPackage.put(packageToKill, appRamBytes);
         }
         final long finalAppRamBytes = appRamBytes;
-        shellManager.runShellCommand(buildKillCommand(packageToKill), () -> {
+        privilegedShell.killPackage(packageToKill,
+                PrivilegedShell.KillMode.fromAutoKillType(getAutoKillType()), () -> {
             executor.execute(() -> {
                 recordSuccessfulKills(Collections.singletonList(packageToKill), recoveredKbByPackage, source);
                 killOrphanShellProcesses(Collections.singleton(packageToKill));
@@ -493,15 +493,14 @@ public class AutoKillManager {
             }
             return;
         }
-        if (packageName == null || packageName.isEmpty()) {
+        if (!PackageNameValidator.isValid(packageName)) {
             if (onComplete != null) {
                 handler.post(onComplete);
             }
             return;
         }
 
-        String command = "pm uninstall " + packageName;
-        shellManager.runShellCommand(command, () -> {
+        privilegedShell.uninstallPackage(packageName, () -> {
             Toast.makeText(context, context.getString(R.string.toast_uninstall_sent, packageName), Toast.LENGTH_SHORT).show();
             if (onComplete != null) {
                 onComplete.run();
@@ -572,22 +571,17 @@ public class AutoKillManager {
         }
     }
 
-    private String buildKillCommand(String packageName) {
-        PackageNameValidator.requireValid(packageName);
-        String cmd = (getAutoKillType() == 1 ? "am kill " : "am force-stop ") + packageName;
-        AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: buildKillCommand: " + cmd + " (type=" + getAutoKillType() + ")");
-        return cmd;
-    }
-
     public void killPackageSync(String packageName) {
         killPackageSync(packageName, "Manual Kill");
     }
 
     public void killPackageSync(String packageName, String source) {
         if (!PackageNameValidator.isValid(packageName)) return;
-        String cmd = buildKillCommand(packageName);
-        AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: killPackageSync: " + cmd + " source=" + source);
-        shellManager.runShellCommandAndGetFullOutput(cmd);
+        PrivilegedShell.KillMode killMode =
+                PrivilegedShell.KillMode.fromAutoKillType(getAutoKillType());
+        AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: killPackageSync: pkg="
+                + packageName + " type=" + killMode + " source=" + source);
+        privilegedShell.killPackageAndGetFullOutput(packageName, killMode);
 
         long appRamBytes = 0;
         for (AppModel app : currentAppsList) {
@@ -732,7 +726,7 @@ public class AutoKillManager {
             }
         }
         if (!toKill.isEmpty()) {
-            shellManager.runShellCommandAndGetFullOutput("kill -9 " + String.join(" ", toKill));
+            privilegedShell.killPidsAndGetFullOutput(toKill);
             AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Killed orphan shell PIDs: " + toKill);
         }
     }
