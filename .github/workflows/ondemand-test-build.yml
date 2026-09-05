@@ -1,25 +1,24 @@
-name: Guarded parser fixture validation
+name: On-demand Shizuku test APK
 
 on:
   workflow_dispatch:
 
 concurrency:
-  group: parser-fixture-validation-${{ github.ref }}
-  cancel-in-progress: false
+  group: ondemand-shizuku-test
+  cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  validate-and-commit:
+  validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ github.ref_name }}
-          persist-credentials: true
+          persist-credentials: false
       - name: Set up JDK 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
@@ -28,128 +27,19 @@ jobs:
           cache: gradle
       - name: Grant execute permission
         run: chmod +x gradlew
-      - name: Materialize guarded parser changes
-        env:
-          PARSER_B64: cGFja2FnZSBjb20uZ3JlZTFkLnJlYXBwenVrdS51dGlscy50cmlnZ2Vycy5hbmFseXplcnM7CgppbXBvcnQgamF2YS51dGlsLnJlZ2V4Lk1hdGNoZXI7CmltcG9ydCBqYXZhLnV0aWwucmVnZXguUGF0dGVybjsKCi8qKgogKiBQdXJlIHRleHQgcGFyc2luZyBmb3IgdGhlIHNtYWxsIHN1YnNldCBvZiBBY3Rpdml0eU1hbmFnZXIgZHVtcHMgY29uc3VtZWQgYnkKICoge0BsaW5rIFByb2Nlc3NBbmFseXplcn0uIEtlZXBpbmcgdGhpcyBBbmRyb2lkLWZyZWUgbWFrZXMgZm9ybWF0IGRyaWZ0IGFjcm9zcwogKiBBbmRyb2lkIHJlbGVhc2VzIGFuZCBPRU0gYnVpbGRzIGZpeHR1cmUtdGVzdGFibGUgb24gdGhlIEpWTS4KICovCmZpbmFsIGNsYXNzIFByb2Nlc3NEdW1wUGFyc2VyIHsKCiAgICBwcml2YXRlIHN0YXRpYyBmaW5hbCBQYXR0ZXJuIEFESl9QQVRURVJOID0gUGF0dGVybi5jb21waWxlKCJcXGJhZGo9KFstK10/XFxkKykiKTsKICAgIHByaXZhdGUgc3RhdGljIGZpbmFsIFBhdHRlcm4gQ1VSX1NUQVRFX1BBVFRFUk4gPQogICAgICAgICAgICBQYXR0ZXJuLmNvbXBpbGUoIlxcYmN1clByb2NTdGF0ZT0oW0EtWmEtejAtOV9dKykiKTsKICAgIHByaXZhdGUgc3RhdGljIGZpbmFsIFBhdHRlcm4gU0VUX1NUQVRFX1BBVFRFUk4gPQogICAgICAgICAgICBQYXR0ZXJuLmNvbXBpbGUoIlxcYnNldFByb2NTdGF0ZT0oW0EtWmEtejAtOV9dKykiKTsKICAgIHByaXZhdGUgc3RhdGljIGZpbmFsIFBhdHRlcm4gU0VSVklDRV9DT01QT05FTlRfUEFUVEVSTiA9IFBhdHRlcm4uY29tcGlsZSgKICAgICAgICAgICAgIlNlcnZpY2VSZWNvcmRcXHtbXn1cXHJcXG5dKlxccyhbQS1aYS16MC05Xy5dKy9bQS1aYS16MC05Xy4kXSspXFxzKlxcfSIpOwogICAgcHJpdmF0ZSBzdGF0aWMgZmluYWwgUGF0dGVybiBBTllfUFJPQ0VTU19SRUNPUkRfUEFUVEVSTiA9IFBhdHRlcm4uY29tcGlsZSgKICAgICAgICAgICAgIlByb2Nlc3NSZWNvcmRcXHtbXn1cXHJcXG5dKlxccyg/OlxcZCs6KT8iCiAgICAgICAgICAgICAgICAgICAgKyAiKFtBLVphLXowLTlfXSsoPzpcXC5bQS1aYS16MC05X10rKSopIgogICAgICAgICAgICAgICAgICAgICsgIig/OjpbQS1aYS16MC05Xy4tXSspPy8iKTsKCiAgICBwcml2YXRlIFByb2Nlc3NEdW1wUGFyc2VyKCkgewogICAgfQoKICAgIHN0YXRpYyBQcm9jZXNzU3RhdGVTbmFwc2hvdCBwYXJzZVByb2Nlc3NTdGF0ZShTdHJpbmcgb3V0cHV0LCBTdHJpbmcgcGFja2FnZU5hbWUpIHsKICAgICAgICBpZiAob3V0cHV0ID09IG51bGwgfHwgb3V0cHV0LnRyaW0oKS5pc0VtcHR5KCkgfHwgcGFja2FnZU5hbWUgPT0gbnVsbCB8fCBwYWNrYWdlTmFtZS5pc0VtcHR5KCkpIHsKICAgICAgICAgICAgcmV0dXJuIG51bGw7CiAgICAgICAgfQoKICAgICAgICBQYXR0ZXJuIHRhcmdldEhlYWRlciA9IHByb2Nlc3NSZWNvcmRQYXR0ZXJuKHBhY2thZ2VOYW1lKTsKICAgICAgICBib29sZWFuIGluVGFyZ2V0QmxvY2sgPSBmYWxzZTsKICAgICAgICBpbnQgYWRqID0gSW50ZWdlci5NQVhfVkFMVUU7CiAgICAgICAgU3RyaW5nIHByb2NTdGF0ZSA9IG51bGw7CiAgICAgICAgYm9vbGVhbiBwZXJzaXN0ZW50ID0gZmFsc2U7CgogICAgICAgIGZvciAoU3RyaW5nIGxpbmUgOiBvdXRwdXQuc3BsaXQoIlxccj9cXG4iKSkgewogICAgICAgICAgICBib29sZWFuIHRhcmdldEhlYWRlckxpbmUgPSBpc1RvcExldmVsUHJvY2Vzc0hlYWRlcihsaW5lKQogICAgICAgICAgICAgICAgICAgICYmIHRhcmdldEhlYWRlci5tYXRjaGVyKGxpbmUpLmZpbmQoKTsKICAgICAgICAgICAgaWYgKHRhcmdldEhlYWRlckxpbmUpIHsKICAgICAgICAgICAgICAgIGluVGFyZ2V0QmxvY2sgPSB0cnVlOwogICAgICAgICAgICB9IGVsc2UgaWYgKGluVGFyZ2V0QmxvY2sgJiYgaXNUb3BMZXZlbFByb2Nlc3NIZWFkZXIobGluZSkpIHsKICAgICAgICAgICAgICAgIGJyZWFrOwogICAgICAgICAgICB9CgogICAgICAgICAgICBpZiAoIWluVGFyZ2V0QmxvY2spIHsKICAgICAgICAgICAgICAgIGNvbnRpbnVlOwogICAgICAgICAgICB9CgogICAgICAgICAgICBNYXRjaGVyIGFkak1hdGNoZXIgPSBBREpfUEFUVEVSTi5tYXRjaGVyKGxpbmUpOwogICAgICAgICAgICBpZiAoYWRqTWF0Y2hlci5maW5kKCkgJiYgYWRqID09IEludGVnZXIuTUFYX1ZBTFVFKSB7CiAgICAgICAgICAgICAgICB0cnkgewogICAgICAgICAgICAgICAgICAgIGFkaiA9IEludGVnZXIucGFyc2VJbnQoYWRqTWF0Y2hlci5ncm91cCgxKSk7CiAgICAgICAgICAgICAgICB9IGNhdGNoIChOdW1iZXJGb3JtYXRFeGNlcHRpb24gaWdub3JlZCkgewogICAgICAgICAgICAgICAgICAgIC8vIFRyZWF0IG1hbGZvcm1lZCBPRU0gb3V0cHV0IGFzIGFic2VudCByYXRoZXIgdGhhbiBjcmFzaGluZyBhbmFseXNpcy4KICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfQoKICAgICAgICAgICAgaWYgKHByb2NTdGF0ZSA9PSBudWxsKSB7CiAgICAgICAgICAgICAgICBNYXRjaGVyIHN0YXRlTWF0Y2hlciA9IENVUl9TVEFURV9QQVRURVJOLm1hdGNoZXIobGluZSk7CiAgICAgICAgICAgICAgICBpZiAoc3RhdGVNYXRjaGVyLmZpbmQoKSkgewogICAgICAgICAgICAgICAgICAgIHByb2NTdGF0ZSA9IHN0YXRlTWF0Y2hlci5ncm91cCgxKTsKICAgICAgICAgICAgICAgIH0gZWxzZSB7CiAgICAgICAgICAgICAgICAgICAgc3RhdGVNYXRjaGVyID0gU0VUX1NUQVRFX1BBVFRFUk4ubWF0Y2hlcihsaW5lKTsKICAgICAgICAgICAgICAgICAgICBpZiAoc3RhdGVNYXRjaGVyLmZpbmQoKSkgewogICAgICAgICAgICAgICAgICAgICAgICBwcm9jU3RhdGUgPSBzdGF0ZU1hdGNoZXIuZ3JvdXAoMSk7CiAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgfQogICAgICAgICAgICB9CgogICAgICAgICAgICBpZiAobGluZS5jb250YWlucygicGVyc2lzdGVudD10cnVlIikpIHsKICAgICAgICAgICAgICAgIHBlcnNpc3RlbnQgPSB0cnVlOwogICAgICAgICAgICB9CiAgICAgICAgfQoKICAgICAgICBpZiAoIWluVGFyZ2V0QmxvY2sgfHwgKHByb2NTdGF0ZSA9PSBudWxsICYmIGFkaiA9PSBJbnRlZ2VyLk1BWF9WQUxVRSAmJiAhcGVyc2lzdGVudCkpIHsKICAgICAgICAgICAgcmV0dXJuIG51bGw7CiAgICAgICAgfQogICAgICAgIHJldHVybiBuZXcgUHJvY2Vzc1N0YXRlU25hcHNob3QoYWRqLCBwcm9jU3RhdGUsIHBlcnNpc3RlbnQpOwogICAgfQoKICAgIHN0YXRpYyBTdHJpbmcgZXh0cmFjdFByb2Nlc3NSZWNvcmRQYWNrYWdlKFN0cmluZyBsaW5lKSB7CiAgICAgICAgaWYgKGxpbmUgPT0gbnVsbCkgewogICAgICAgICAgICByZXR1cm4gbnVsbDsKICAgICAgICB9CiAgICAgICAgTWF0Y2hlciBtYXRjaGVyID0gQU5ZX1BST0NFU1NfUkVDT1JEX1BBVFRFUk4ubWF0Y2hlcihsaW5lKTsKICAgICAgICByZXR1cm4gbWF0Y2hlci5maW5kKCkgPyBtYXRjaGVyLmdyb3VwKDEpIDogbnVsbDsKICAgIH0KCiAgICBzdGF0aWMgYm9vbGVhbiBpc1NlcnZpY2VSZWNvcmRGb3JQYWNrYWdlKFN0cmluZyBsaW5lLCBTdHJpbmcgcGFja2FnZU5hbWUpIHsKICAgICAgICBTdHJpbmcgY29tcG9uZW50ID0gZXh0cmFjdFNlcnZpY2VDb21wb25lbnQobGluZSk7CiAgICAgICAgaWYgKGNvbXBvbmVudCA9PSBudWxsIHx8IHBhY2thZ2VOYW1lID09IG51bGwpIHsKICAgICAgICAgICAgcmV0dXJuIGZhbHNlOwogICAgICAgIH0KICAgICAgICBpbnQgc2xhc2ggPSBjb21wb25lbnQuaW5kZXhPZignLycpOwogICAgICAgIHJldHVybiBzbGFzaCA+IDAgJiYgcGFja2FnZU5hbWUuZXF1YWxzKGNvbXBvbmVudC5zdWJzdHJpbmcoMCwgc2xhc2gpKTsKICAgIH0KCiAgICBzdGF0aWMgYm9vbGVhbiBpc1NlcnZpY2VSZWNvcmRMaW5lKFN0cmluZyBsaW5lKSB7CiAgICAgICAgcmV0dXJuIGV4dHJhY3RTZXJ2aWNlQ29tcG9uZW50KGxpbmUpICE9IG51bGw7CiAgICB9CgogICAgc3RhdGljIFN0cmluZyBleHRyYWN0U2VydmljZVNob3J0TmFtZShTdHJpbmcgbGluZSwgU3RyaW5nIHBhY2thZ2VOYW1lKSB7CiAgICAgICAgU3RyaW5nIGNvbXBvbmVudCA9IGV4dHJhY3RTZXJ2aWNlQ29tcG9uZW50KGxpbmUpOwogICAgICAgIGlmIChjb21wb25lbnQgPT0gbnVsbCkgewogICAgICAgICAgICByZXR1cm4gbnVsbDsKICAgICAgICB9CiAgICAgICAgaW50IHNsYXNoID0gY29tcG9uZW50LmluZGV4T2YoJy8nKTsKICAgICAgICBpZiAoc2xhc2ggPCAwIHx8IHNsYXNoID09IGNvbXBvbmVudC5sZW5ndGgoKSAtIDEpIHsKICAgICAgICAgICAgcmV0dXJuIGNvbXBvbmVudDsKICAgICAgICB9CgogICAgICAgIFN0cmluZyBjbHMgPSBjb21wb25lbnQuc3Vic3RyaW5nKHNsYXNoICsgMSk7CiAgICAgICAgaWYgKGNscy5zdGFydHNXaXRoKCIuIikpIHsKICAgICAgICAgICAgcmV0dXJuIGNscy5zdWJzdHJpbmcoMSk7CiAgICAgICAgfQogICAgICAgIGlmIChwYWNrYWdlTmFtZSAhPSBudWxsICYmIGNscy5zdGFydHNXaXRoKHBhY2thZ2VOYW1lICsgIi4iKSkgewogICAgICAgICAgICByZXR1cm4gY2xzLnN1YnN0cmluZyhwYWNrYWdlTmFtZS5sZW5ndGgoKSArIDEpOwogICAgICAgIH0KICAgICAgICByZXR1cm4gY2xzOwogICAgfQoKICAgIHByaXZhdGUgc3RhdGljIFBhdHRlcm4gcHJvY2Vzc1JlY29yZFBhdHRlcm4oU3RyaW5nIHBhY2thZ2VOYW1lKSB7CiAgICAgICAgcmV0dXJuIFBhdHRlcm4uY29tcGlsZSgKICAgICAgICAgICAgICAgICJQcm9jZXNzUmVjb3JkXFx7W159XFxyXFxuXSpcXHMoPzpcXGQrOik/IgogICAgICAgICAgICAgICAgICAgICAgICArIFBhdHRlcm4ucXVvdGUocGFja2FnZU5hbWUpCiAgICAgICAgICAgICAgICAgICAgICAgICsgIig/OjpbQS1aYS16MC05Xy4tXSspPy8iKTsKICAgIH0KCiAgICBwcml2YXRlIHN0YXRpYyBib29sZWFuIGlzVG9wTGV2ZWxQcm9jZXNzSGVhZGVyKFN0cmluZyBsaW5lKSB7CiAgICAgICAgU3RyaW5nIHRyaW1tZWQgPSBsaW5lLnRyaW0oKTsKICAgICAgICByZXR1cm4gdHJpbW1lZC5zdGFydHNXaXRoKCJQcm9jZXNzUmVjb3JkeyIpCiAgICAgICAgICAgICAgICB8fCAodHJpbW1lZC5zdGFydHNXaXRoKCIqQVBQKiIpICYmIHRyaW1tZWQuY29udGFpbnMoIlByb2Nlc3NSZWNvcmR7IikpOwogICAgfQoKICAgIHByaXZhdGUgc3RhdGljIFN0cmluZyBleHRyYWN0U2VydmljZUNvbXBvbmVudChTdHJpbmcgbGluZSkgewogICAgICAgIGlmIChsaW5lID09IG51bGwpIHsKICAgICAgICAgICAgcmV0dXJuIG51bGw7CiAgICAgICAgfQogICAgICAgIE1hdGNoZXIgbWF0Y2hlciA9IFNFUlZJQ0VfQ09NUE9ORU5UX1BBVFRFUk4ubWF0Y2hlcihsaW5lKTsKICAgICAgICByZXR1cm4gbWF0Y2hlci5maW5kKCkgPyBtYXRjaGVyLmdyb3VwKDEpIDogbnVsbDsKICAgIH0KCiAgICBzdGF0aWMgZmluYWwgY2xhc3MgUHJvY2Vzc1N0YXRlU25hcHNob3QgewogICAgICAgIGZpbmFsIGludCBhZGo7CiAgICAgICAgZmluYWwgU3RyaW5nIHByb2NTdGF0ZTsKICAgICAgICBmaW5hbCBib29sZWFuIHBlcnNpc3RlbnQ7CgogICAgICAgIFByb2Nlc3NTdGF0ZVNuYXBzaG90KGludCBhZGosIFN0cmluZyBwcm9jU3RhdGUsIGJvb2xlYW4gcGVyc2lzdGVudCkgewogICAgICAgICAgICB0aGlzLmFkaiA9IGFkajsKICAgICAgICAgICAgdGhpcy5wcm9jU3RhdGUgPSBwcm9jU3RhdGU7CiAgICAgICAgICAgIHRoaXMucGVyc2lzdGVudCA9IHBlcnNpc3RlbnQ7CiAgICAgICAgfQogICAgfQp9Cg==
-          PARSER_TEST_B64: cGFja2FnZSBjb20uZ3JlZTFkLnJlYXBwenVrdS51dGlscy50cmlnZ2Vycy5hbmFseXplcnM7CgppbXBvcnQgb3JnLmp1bml0LlRlc3Q7CgppbXBvcnQgc3RhdGljIG9yZy5qdW5pdC5Bc3NlcnQuYXNzZXJ0RXF1YWxzOwppbXBvcnQgc3RhdGljIG9yZy5qdW5pdC5Bc3NlcnQuYXNzZXJ0RmFsc2U7CmltcG9ydCBzdGF0aWMgb3JnLmp1bml0LkFzc2VydC5hc3NlcnROdWxsOwppbXBvcnQgc3RhdGljIG9yZy5qdW5pdC5Bc3NlcnQuYXNzZXJ0VHJ1ZTsKCnB1YmxpYyBjbGFzcyBQcm9jZXNzRHVtcFBhcnNlclRlc3QgewoKICAgIEBUZXN0CiAgICBwdWJsaWMgdm9pZCBwYXJzZXNBb3NwUHJvY2Vzc1JlY29yZFdpdGhQaWRQcmVmaXgoKSB7CiAgICAgICAgU3RyaW5nIGR1bXAgPSAiIgogICAgICAgICAgICAgICAgKyAiKkFQUCogVUlEIDEwMTIzIFByb2Nlc3NSZWNvcmR7YTFiMmMzIDEyMzQ6Y29tLmV4YW1wbGUuYXBwL3UwYTEyM31cbiIKICAgICAgICAgICAgICAgICsgIiAgYWRqPTIwMCBtYXhBZGo9OTk5XG4iCiAgICAgICAgICAgICAgICArICIgIGN1clByb2NTdGF0ZT1UT1AgY2FjaGVkPWZhbHNlXG4iOwoKICAgICAgICBQcm9jZXNzRHVtcFBhcnNlci5Qcm9jZXNzU3RhdGVTbmFwc2hvdCBzdGF0ZSA9CiAgICAgICAgICAgICAgICBQcm9jZXNzRHVtcFBhcnNlci5wYXJzZVByb2Nlc3NTdGF0ZShkdW1wLCAiY29tLmV4YW1wbGUuYXBwIik7CgogICAgICAgIGFzc2VydEVxdWFscygyMDAsIHN0YXRlLmFkaik7CiAgICAgICAgYXNzZXJ0RXF1YWxzKCJUT1AiLCBzdGF0ZS5wcm9jU3RhdGUpOwogICAgICAgIGFzc2VydEZhbHNlKHN0YXRlLnBlcnNpc3RlbnQpOwogICAgfQoKICAgIEBUZXN0CiAgICBwdWJsaWMgdm9pZCBwYXJzZXNPZW1TdHlsZVJlbW90ZVByb2Nlc3NBbmRTZXRQcm9jU3RhdGUoKSB7CiAgICAgICAgU3RyaW5nIGR1bXAgPSAiIgogICAgICAgICAgICAgICAgKyAiUHJvY2Vzc1JlY29yZHtmZjAxIGNvbS5leGFtcGxlLmFwcDpwdXNoL3UwYTMyMSBwZXJzaXN0ZW50PXRydWV9XHJcbiIKICAgICAgICAgICAgICAgICsgIiAgc2V0UHJvY1N0YXRlPUZPUkVHUk9VTkRfU0VSVklDRSBhZGo9MTAwXHJcbiI7CgogICAgICAgIFByb2Nlc3NEdW1wUGFyc2VyLlByb2Nlc3NTdGF0ZVNuYXBzaG90IHN0YXRlID0KICAgICAgICAgICAgICAgIFByb2Nlc3NEdW1wUGFyc2VyLnBhcnNlUHJvY2Vzc1N0YXRlKGR1bXAsICJjb20uZXhhbXBsZS5hcHAiKTsKCiAgICAgICAgYXNzZXJ0RXF1YWxzKDEwMCwgc3RhdGUuYWRqKTsKICAgICAgICBhc3NlcnRFcXVhbHMoIkZPUkVHUk9VTkRfU0VSVklDRSIsIHN0YXRlLnByb2NTdGF0ZSk7CiAgICAgICAgYXNzZXJ0VHJ1ZShzdGF0ZS5wZXJzaXN0ZW50KTsKICAgIH0KCiAgICBAVGVzdAogICAgcHVibGljIHZvaWQgaWdub3Jlc05laWdoYm9yaW5nUGFja2FnZU5hbWVBbmRTdG9wc0F0TmV4dFByb2Nlc3MoKSB7CiAgICAgICAgU3RyaW5nIGR1bXAgPSAiIgogICAgICAgICAgICAgICAgKyAiKkFQUCogVUlEIDEwMTI0IFByb2Nlc3NSZWNvcmR7YWFhYSAyMjIyOmNvbS5leGFtcGxlLmFwcDIvdTBhMTI0fVxuIgogICAgICAgICAgICAgICAgKyAiICBhZGo9MCBjdXJQcm9jU3RhdGU9UEVSU0lTVEVOVFxuIgogICAgICAgICAgICAgICAgKyAiKkFQUCogVUlEIDEwMTIzIFByb2Nlc3NSZWNvcmR7YmJiYiAzMzMzOmNvbS5leGFtcGxlLmFwcC91MGExMjN9XG4iCiAgICAgICAgICAgICAgICArICIgIGFkaj03MDAgY3VyUHJvY1N0YXRlPUNBQ0hFRF9FTVBUWVxuIgogICAgICAgICAgICAgICAgKyAiKkFQUCogVUlEIDEwMTI1IFByb2Nlc3NSZWNvcmR7Y2NjYyA0NDQ0OmNvbS5vdGhlci5hcHAvdTBhMTI1fVxuIgogICAgICAgICAgICAgICAgKyAiICBhZGo9MCBjdXJQcm9jU3RhdGU9UEVSU0lTVEVOVFxuIjsKCiAgICAgICAgUHJvY2Vzc0R1bXBQYXJzZXIuUHJvY2Vzc1N0YXRlU25hcHNob3Qgc3RhdGUgPQogICAgICAgICAgICAgICAgUHJvY2Vzc0R1bXBQYXJzZXIucGFyc2VQcm9jZXNzU3RhdGUoZHVtcCwgImNvbS5leGFtcGxlLmFwcCIpOwoKICAgICAgICBhc3NlcnRFcXVhbHMoNzAwLCBzdGF0ZS5hZGopOwogICAgICAgIGFzc2VydEVxdWFscygiQ0FDSEVEX0VNUFRZIiwgc3RhdGUucHJvY1N0YXRlKTsKICAgICAgICBhc3NlcnRGYWxzZShzdGF0ZS5wZXJzaXN0ZW50KTsKICAgIH0KCiAgICBAVGVzdAogICAgcHVibGljIHZvaWQgcmV0dXJuc051bGxXaGVuVGFyZ2V0UHJvY2Vzc0lzQWJzZW50KCkgewogICAgICAgIFN0cmluZyBkdW1wID0gIlByb2Nlc3NSZWNvcmR7YWFhYSAyMjIyOmNvbS5vdGhlci5hcHAvdTBhMTI0fVxuICBhZGo9MTAwXG4iOwogICAgICAgIGFzc2VydE51bGwoUHJvY2Vzc0R1bXBQYXJzZXIucGFyc2VQcm9jZXNzU3RhdGUoZHVtcCwgImNvbS5leGFtcGxlLmFwcCIpKTsKICAgIH0KCiAgICBAVGVzdAogICAgcHVibGljIHZvaWQgZXh0cmFjdHNQYWNrYWdlRnJvbVBpZEFuZFJlbW90ZVByb2Nlc3NCaW5kZXJSZWNvcmRzKCkgewogICAgICAgIGFzc2VydEVxdWFscygiY29tLnB1c2guY2xpZW50IiwgUHJvY2Vzc0R1bXBQYXJzZXIuZXh0cmFjdFByb2Nlc3NSZWNvcmRQYWNrYWdlKAogICAgICAgICAgICAgICAgImNsaWVudD1Qcm9jZXNzUmVjb3Jke2FiY2QgNTU1NTpjb20ucHVzaC5jbGllbnQ6cmVtb3RlL3UwYTIwMH0iKSk7CiAgICAgICAgYXNzZXJ0RXF1YWxzKCJhbmRyb2lkIiwgUHJvY2Vzc0R1bXBQYXJzZXIuZXh0cmFjdFByb2Nlc3NSZWNvcmRQYWNrYWdlKAogICAgICAgICAgICAgICAgIlByb2Nlc3NSZWNvcmR7ZWYwMSBhbmRyb2lkL3UwYTB9IikpOwogICAgfQoKICAgIEBUZXN0CiAgICBwdWJsaWMgdm9pZCBwYXJzZXNBb3NwQW5kT2VtU2VydmljZVJlY29yZEZvcm1zRXhhY3RseSgpIHsKICAgICAgICBTdHJpbmcgc2hvcnRGb3JtID0gIlNlcnZpY2VSZWNvcmR7YWJjMTIzIHUwIGNvbS5leGFtcGxlLmFwcC8uU3luY1NlcnZpY2V9IjsKICAgICAgICBTdHJpbmcgZnVsbEZvcm0gPSAiU2VydmljZVJlY29yZHtkZWY0NTYgdTEwIGNvbS5leGFtcGxlLmFwcC9jb20uZXhhbXBsZS5hcHAuVXBsb2FkU2VydmljZSRXb3JrZXJ9IjsKICAgICAgICBTdHJpbmcgbmVpZ2hib3IgPSAiU2VydmljZVJlY29yZHtlZWU3NzcgdTAgY29tLmV4YW1wbGUuYXBwMi8uT3RoZXJTZXJ2aWNlfSI7CgogICAgICAgIGFzc2VydFRydWUoUHJvY2Vzc0R1bXBQYXJzZXIuaXNTZXJ2aWNlUmVjb3JkRm9yUGFja2FnZShzaG9ydEZvcm0sICJjb20uZXhhbXBsZS5hcHAiKSk7CiAgICAgICAgYXNzZXJ0RXF1YWxzKCJTeW5jU2VydmljZSIsCiAgICAgICAgICAgICAgICBQcm9jZXNzRHVtcFBhcnNlci5leHRyYWN0U2VydmljZVNob3J0TmFtZShzaG9ydEZvcm0sICJjb20uZXhhbXBsZS5hcHAiKSk7CiAgICAgICAgYXNzZXJ0RXF1YWxzKCJVcGxvYWRTZXJ2aWNlJFdvcmtlciIsCiAgICAgICAgICAgICAgICBQcm9jZXNzRHVtcFBhcnNlci5leHRyYWN0U2VydmljZVNob3J0TmFtZShmdWxsRm9ybSwgImNvbS5leGFtcGxlLmFwcCIpKTsKICAgICAgICBhc3NlcnRGYWxzZShQcm9jZXNzRHVtcFBhcnNlci5pc1NlcnZpY2VSZWNvcmRGb3JQYWNrYWdlKG5laWdoYm9yLCAiY29tLmV4YW1wbGUuYXBwIikpOwogICAgICAgIGFzc2VydFRydWUoUHJvY2Vzc0R1bXBQYXJzZXIuaXNTZXJ2aWNlUmVjb3JkTGluZShuZWlnaGJvcikpOwogICAgfQp9Cg==
-          PROTECTED_TEST_B64: cGFja2FnZSBjb20uZ3JlZTFkLnJlYXBwenVrdS5jb3JlOwoKaW1wb3J0IG9yZy5qdW5pdC5UZXN0OwoKaW1wb3J0IHN0YXRpYyBvcmcuanVuaXQuQXNzZXJ0LmFzc2VydEZhbHNlOwppbXBvcnQgc3RhdGljIG9yZy5qdW5pdC5Bc3NlcnQuYXNzZXJ0VHJ1ZTsKCnB1YmxpYyBjbGFzcyBQcm90ZWN0ZWRBcHBzVGVzdCB7CgogICAgQFRlc3QKICAgIHB1YmxpYyB2b2lkIHByb3RlY3RzQ3JpdGljYWxBb3NwQW5kUHJpdmlsZWdlQmFja2VuZHMoKSB7CiAgICAgICAgYXNzZXJ0VHJ1ZShQcm90ZWN0ZWRBcHBzLmlzUHJvdGVjdGVkKCJjb20uZ3JlZTFkLnJlYXBwenVrdSIsIG51bGwsIG51bGwpKTsKICAgICAgICBhc3NlcnRUcnVlKFByb3RlY3RlZEFwcHMuaXNQcm90ZWN0ZWQoImNvbS5hbmRyb2lkLnN5c3RlbXVpIiwgbnVsbCwgbnVsbCkpOwogICAgICAgIGFzc2VydFRydWUoUHJvdGVjdGVkQXBwcy5pc1Byb3RlY3RlZCgiY29tLmFuZHJvaWQuc2V0dGluZ3MiLCBudWxsLCBudWxsKSk7CiAgICAgICAgYXNzZXJ0VHJ1ZShQcm90ZWN0ZWRBcHBzLmlzUHJvdGVjdGVkKCJjb20uYW5kcm9pZC5waG9uZSIsIG51bGwsIG51bGwpKTsKICAgICAgICBhc3NlcnRUcnVlKFByb3RlY3RlZEFwcHMuaXNQcm90ZWN0ZWQoImNvbS5hbmRyb2lkLnBlcm1pc3Npb25jb250cm9sbGVyIiwgbnVsbCwgbnVsbCkpOwogICAgICAgIGFzc2VydFRydWUoUHJvdGVjdGVkQXBwcy5pc1Byb3RlY3RlZCgiY29tLmFuZHJvaWQubmV0d29ya3N0YWNrIiwgbnVsbCwgbnVsbCkpOwogICAgICAgIGFzc2VydFRydWUoUHJvdGVjdGVkQXBwcy5pc1Byb3RlY3RlZCgibW9lLnNoaXp1a3UucHJpdmlsZWdlZC5hcGkiLCBudWxsLCBudWxsKSk7CiAgICB9CgogICAgQFRlc3QKICAgIHB1YmxpYyB2b2lkIHByb3RlY3RzQ3VycmVudEtleWJvYXJkQW5kTGF1bmNoZXIoKSB7CiAgICAgICAgYXNzZXJ0VHJ1ZShQcm90ZWN0ZWRBcHBzLmlzUHJvdGVjdGVkKAogICAgICAgICAgICAgICAgIm9yZy5leGFtcGxlLmtleWJvYXJkIiwgIm9yZy5leGFtcGxlLmtleWJvYXJkIiwgIm9yZy5leGFtcGxlLmxhdW5jaGVyIikpOwogICAgICAgIGFzc2VydFRydWUoUHJvdGVjdGVkQXBwcy5pc1Byb3RlY3RlZCgKICAgICAgICAgICAgICAgICJvcmcuZXhhbXBsZS5sYXVuY2hlciIsICJvcmcuZXhhbXBsZS5rZXlib2FyZCIsICJvcmcuZXhhbXBsZS5sYXVuY2hlciIpKTsKICAgIH0KCiAgICBAVGVzdAogICAgcHVibGljIHZvaWQgZG9lc05vdFByb3RlY3RQYWNrYWdlTmFtZU5laWdoYm9yc09yTnVsbCgpIHsKICAgICAgICBhc3NlcnRGYWxzZShQcm90ZWN0ZWRBcHBzLmlzUHJvdGVjdGVkKCJjb20uYW5kcm9pZC5zeXN0ZW11aS5oZWxwZXIiLCBudWxsLCBudWxsKSk7CiAgICAgICAgYXNzZXJ0RmFsc2UoUHJvdGVjdGVkQXBwcy5pc1Byb3RlY3RlZCgibW9lLnNoaXp1a3UucHJpdmlsZWdlZC5hcGkuZmFrZSIsIG51bGwsIG51bGwpKTsKICAgICAgICBhc3NlcnRGYWxzZShQcm90ZWN0ZWRBcHBzLmlzUHJvdGVjdGVkKG51bGwsICJvcmcuZXhhbXBsZS5rZXlib2FyZCIsICJvcmcuZXhhbXBsZS5sYXVuY2hlciIpKTsKICAgIH0KfQo=
-        run: |
-          set -euo pipefail
-          target=app/src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/ProcessAnalyzer.java
-          test "$(git hash-object "$target")" = "2e7bbdf94590b37d3e506ee5838b7cdf7e7044b8"
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path("app/src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/ProcessAnalyzer.java")
-          text = p.read_text()
-          replacements = [
-              ('''// ---- CONST:BINDER_PATS ----
-    private static final Pattern[] BINDER_PATS = {
-            Pattern.compile("ProcessRecord\\{[^}]+\\s([\\w.]+)/"),
-            Pattern.compile("client=ProcessRecord\\{[^}]+\\s([\\w.]+)/")
-    };
-
-
-''', ''''''),
-              ('''        boolean inBlock    = false;
-        int     adj        = Integer.MAX_VALUE;
-        String  procState  = null;
-        boolean persistent = false;
-
-        Pattern procPat  = Pattern.compile(
-                "ProcessRecord\\{[^}]+\\s" + Pattern.quote(packageName) + "/");
-        Pattern adjPat   = Pattern.compile("\\badj=([-\\d]+)");
-        Pattern statePat = Pattern.compile("\\bcurProcState=(\\w+)");
-
-        for (String line : output.split("\\n")) {
-            if (procPat.matcher(line).find()) {
-                inBlock    = true;
-                persistent = line.contains("persistent=true");
-                continue;
-            }
-            if (inBlock && line.trim().startsWith("ProcessRecord{")
-                    && !line.contains(packageName)) break;
-            if (!inBlock) continue;
-
-            Matcher mAdj = adjPat.matcher(line);
-            if (mAdj.find() && adj == Integer.MAX_VALUE)
-                adj = Integer.parseInt(mAdj.group(1));
-
-            Matcher mState = statePat.matcher(line);
-            if (mState.find() && procState == null)
-                procState = mState.group(1);
-
-            if (line.contains("persistent=true")) persistent = true;
-        }
-
-        if (procState == null && adj == Integer.MAX_VALUE) return list;
-''', '''        ProcessDumpParser.ProcessStateSnapshot state =
-                ProcessDumpParser.parseProcessState(output, packageName);
-        if (state == null) return list;
-
-        int adj = state.adj;
-        String procState = state.procState;
-        boolean persistent = state.persistent;
-'''),
-              ('''            if (t.contains("ServiceRecord") && t.contains(packageName)) {''',
-               '''            if (ProcessDumpParser.isServiceRecordForPackage(t, packageName)) {'''),
-              ('''            if (inBlock && t.contains("ServiceRecord") && !t.contains(packageName)) {''',
-               '''            if (inBlock && ProcessDumpParser.isServiceRecordLine(t)
-                    && !ProcessDumpParser.isServiceRecordForPackage(t, packageName)) {'''),
-              ('''            for (Pattern bp : BINDER_PATS) {
-                Matcher m = bp.matcher(t);
-                if (m.find()) {
-                    String pkg = m.group(1);
-                    if (!pkg.equals(packageName) && !pkg.equals("android")
-                            && !binders.contains(pkg)) binders.add(pkg);
-                }
-            }
-''', '''            String binderPackage = ProcessDumpParser.extractProcessRecordPackage(t);
-            if (binderPackage != null
-                    && !binderPackage.equals(packageName)
-                    && !binderPackage.equals("android")
-                    && !binders.contains(binderPackage)) {
-                binders.add(binderPackage);
-            }
-'''),
-              ('''        Matcher m = Pattern.compile("ServiceRecord\\{[^}]+\\s([\\w./]+)\\}").matcher(line);
-        if (!m.find()) return null;
-        String full = m.group(1);
-        if (!full.contains("/")) return full;
-        String cls = full.substring(full.indexOf('/') + 1);
-        if (cls.startsWith("."))               return cls.substring(1);
-        if (cls.startsWith(packageName + ".")) return cls.substring(packageName.length() + 1);
-        return cls;
-''', '''        return ProcessDumpParser.extractServiceShortName(line, packageName);
-''')
-          ]
-          for old, new in replacements:
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f"expected exactly one source match, got {count}")
-              text = text.replace(old, new, 1)
-          p.write_text(text)
-          PY
-
-          mkdir -p app/src/test/java/com/gree1d/reappzuku/utils/triggers/analyzers
-          printf '%s' "$PARSER_B64" | base64 -d > app/src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/ProcessDumpParser.java
-          printf '%s' "$PARSER_TEST_B64" | base64 -d > app/src/test/java/com/gree1d/reappzuku/utils/triggers/analyzers/ProcessDumpParserTest.java
-          printf '%s' "$PROTECTED_TEST_B64" | base64 -d > app/src/test/java/com/gree1d/reappzuku/core/ProtectedAppsTest.java
-
-          git diff --check
-          test "$(git status --short | wc -l)" -eq 4
-      - name: Validate parser fixtures and app build
-        run: ./gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
-      - name: Commit exact parser fixture change set
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            app/src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/ProcessAnalyzer.java \
-            app/src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/ProcessDumpParser.java \
-            app/src/test/java/com/gree1d/reappzuku/utils/triggers/analyzers/ProcessDumpParserTest.java \
-            app/src/test/java/com/gree1d/reappzuku/core/ProtectedAppsTest.java
-          test "$(git diff --cached --name-only | wc -l)" -eq 4
-          git diff --cached --check
-          git commit -m "Add dumpsys parser fixtures across Android variants"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+      - name: Lint
+        run: ./gradlew lintDebug
+      - name: Compile instrumentation tests
+        run: ./gradlew assembleDebugAndroidTest
+      - name: Verify current Room schema export
+        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+      - name: Upload debug APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: reappzuku-ondemand-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
