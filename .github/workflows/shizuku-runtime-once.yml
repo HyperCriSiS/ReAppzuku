@@ -26,8 +26,7 @@ jobs:
 
       - name: Validate and build probes
         run: |
-          chmod +x gradlew
-          ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+          bash ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
 
       - name: Prepare stable Android 16 emulator
         run: |
@@ -98,7 +97,7 @@ jobs:
           done
           test "$unlocked" = true
 
-      - name: Install official Shizuku and fresh ReAppzuku
+      - name: Install and initialize official Shizuku with fresh ReAppzuku
         run: |
           set -euo pipefail
           SHIZUKU_URL='https://github.com/RikkaApps/Shizuku/releases/download/v13.6.0/shizuku-v13.6.0.r1086.2650830c-release.apk'
@@ -119,13 +118,40 @@ jobs:
           adb shell test -x "$SHIZUKU_LIB"
           adb shell "$SHIZUKU_LIB" | tee /tmp/shizuku-first-run-start.log
 
+          server_ready=false
           for i in $(seq 1 40); do
             if [ -n "$(adb shell pidof shizuku_server 2>/dev/null | tr -d '\r' || true)" ]; then
-              exit 0
+              server_ready=true
+              break
             fi
             sleep 0.25
           done
-          exit 1
+          test "$server_ready" = true
+
+          # The manager is normally initialized by the user while starting Shizuku.
+          # Starting only the native server is sufficient for pre-authorized clients,
+          # but not a faithful environment for the interactive authorization dialog.
+          adb shell am start -W -n moe.shizuku.privileged.api/moe.shizuku.manager.MainActivity \
+            | tee /tmp/shizuku-manager-init.log
+          manager_ready=false
+          for i in $(seq 1 40); do
+            if [ -n "$(adb shell pidof moe.shizuku.privileged.api 2>/dev/null | tr -d '\r' || true)" ]; then
+              manager_ready=true
+              break
+            fi
+            sleep 0.25
+          done
+          test "$manager_ready" = true
+          sleep 2
+
+          # Initialization must not pre-authorize ReAppzuku.
+          adb shell pm revoke com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23 2>/dev/null || true
+          if adb shell dumpsys package com.gree1d.reappzuku | \
+              grep -A20 'runtime permissions:' | \
+              grep -q 'moe.shizuku.manager.permission.API_V23: granted=true'; then
+            echo 'ReAppzuku unexpectedly pre-authorized before first-run probe' >&2
+            exit 1
+          fi
 
       - name: Enable deterministic first-run debug evidence
         run: |
@@ -145,8 +171,8 @@ jobs:
 
           waiting=false
           dialog=false
-          for i in $(seq 1 100); do
-            logs="$(adb logcat -d -s ReAppzukuDebug:D '*:S' 2>/dev/null || true)"
+          for i in $(seq 1 120); do
+            logs="$(adb logcat -d 2>/dev/null || true)"
             if grep -q 'MainActivity: waiting for Shizuku permission before app scan' <<<"$logs"; then
               waiting=true
             fi
@@ -159,10 +185,11 @@ jobs:
             fi
             sleep 0.25
           done
+          echo "first-run-waiting-marker=$waiting permission-dialog=$dialog"
           test "$waiting" = true
           test "$dialog" = true
 
-          adb logcat -d -s ReAppzukuDebug:D '*:S' | tee /tmp/first-run-before-grant.log
+          adb logcat -d | tee /tmp/first-run-before-grant.log >/dev/null
           if grep -q 'MainActivity: loadBackgroundApps started' /tmp/first-run-before-grant.log; then
             echo 'App scan started before Shizuku permission was granted' >&2
             exit 1
@@ -184,8 +211,8 @@ jobs:
           adb shell input tap "$ALLOW_X" "$ALLOW_Y"
 
           recovered=false
-          for i in $(seq 1 160); do
-            logs="$(adb logcat -d -s ReAppzukuDebug:D '*:S' 2>/dev/null || true)"
+          for i in $(seq 1 180); do
+            logs="$(adb logcat -d 2>/dev/null || true)"
             if grep -q 'MainActivity: Shizuku permission result=0' <<<"$logs" && \
                grep -q 'MainActivity: shell backend state=SHIZUKU_READY' <<<"$logs" && \
                grep -q 'MainActivity: loadBackgroundApps started' <<<"$logs"; then
@@ -196,7 +223,7 @@ jobs:
           done
           test "$recovered" = true
 
-          adb logcat -d -s ReAppzukuDebug:D '*:S' | tee /tmp/first-run-after-grant.log
+          adb logcat -d | tee /tmp/first-run-after-grant.log >/dev/null
           python3 - <<'PY'
           lines = open('/tmp/first-run-after-grant.log', encoding='utf-8').read().splitlines()
           markers = [
@@ -238,11 +265,13 @@ jobs:
           adb shell getprop sys.boot_completed || true
           adb shell am get-started-user-state 0 || true
           adb shell pidof shizuku_server || true
-          adb shell dumpsys activity activities | head -220 || true
-          adb shell dumpsys package com.gree1d.reappzuku | head -260 || true
-          adb logcat -d -t 800 | grep -E 'ReAppzuku|Shizuku|shizuku_server' || true
+          adb shell pidof moe.shizuku.privileged.api || true
+          adb shell dumpsys activity activities | head -260 || true
+          adb shell dumpsys package com.gree1d.reappzuku | head -300 || true
+          adb logcat -d -t 1200 | grep -E 'ReAppzuku|Shizuku|shizuku_server|RequestPermission' || true
           cat /tmp/first-run-before-grant.log 2>/dev/null || true
           cat /tmp/first-run-after-grant.log 2>/dev/null || true
           cat /tmp/reappzuku-first-run.xml 2>/dev/null || true
           cat /tmp/shizuku-first-run-start.log 2>/dev/null || true
+          cat /tmp/shizuku-manager-init.log 2>/dev/null || true
           tail -300 /tmp/reappzuku-first-run-emulator.log || true
