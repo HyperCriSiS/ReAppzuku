@@ -29,33 +29,37 @@ jobs:
           java-version: '17'
           distribution: temurin
           cache: gradle
-      - name: Apply guarded manager refactor
+      - name: Apply guarded lifecycle-manager refactor
         run: |
           set -euo pipefail
-          test "$(git hash-object app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java)" = "04d590409a882fa8802167662d634a1f0703431b"
-          test "$(git hash-object app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java)" = "f48df10d219d5b99a950e7a3ff0c1dc8685e66f5"
+          test "$(git hash-object app/src/main/java/com/gree1d/reappzuku/manager/SleepModeManager.java)" = "dd5e256fc5189e494fcc81fd5f8bb8eaf9f409c0"
+          test "$(git hash-object app/src/main/java/com/gree1d/reappzuku/manager/SmartLifecycleManager.java)" = "28caabf3e7257c0d20c13448bac5eacb3c6dd030"
+          test "$(git hash-object app/src/main/java/com/gree1d/reappzuku/manager/RestrictionsScheduler.java)" = "4fd7fc1932c1f5e696091af143866ecf78520598"
           python3 .github/scripts/apply_privileged_shell_refactor.py
           git diff --check
-          test "$(git status --short | wc -l)" -eq 2
+          test "$(git status --short | wc -l)" -eq 3
           git status --short | awk '{print $2}' | sort > /tmp/changed
           printf '%s\n' \
-            app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java \
-            app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java | sort > /tmp/expected
+            app/src/main/java/com/gree1d/reappzuku/manager/RestrictionsScheduler.java \
+            app/src/main/java/com/gree1d/reappzuku/manager/SleepModeManager.java \
+            app/src/main/java/com/gree1d/reappzuku/manager/SmartLifecycleManager.java | sort > /tmp/expected
           diff -u /tmp/expected /tmp/changed
-          ! grep -E 'pm uninstall .*\+|FORCE_STOP_COMMAND_PREFIX|cmd appops set --user current .*\+|am set-standby-bucket .*\+|cmd deviceidle whitelist [+-].*\+|kill -9 .*\+' \
-            app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java \
-            app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java
+          ! grep -E 'pm (suspend|unsuspend|disable-user|enable) .*\+|am (force-stop|kill|set-standby-bucket|start -n|start-foreground-service -n|broadcast -n) .*\+' \
+            app/src/main/java/com/gree1d/reappzuku/manager/SleepModeManager.java \
+            app/src/main/java/com/gree1d/reappzuku/manager/SmartLifecycleManager.java \
+            app/src/main/java/com/gree1d/reappzuku/manager/RestrictionsScheduler.java
       - name: Validate typed privileged boundary and app build
         run: bash ./gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
-      - name: Commit manager integration
+      - name: Commit lifecycle-manager integration
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
-            app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java \
-            app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java
-          test "$(git diff --cached --name-only | wc -l)" -eq 2
+            app/src/main/java/com/gree1d/reappzuku/manager/RestrictionsScheduler.java \
+            app/src/main/java/com/gree1d/reappzuku/manager/SleepModeManager.java \
+            app/src/main/java/com/gree1d/reappzuku/manager/SmartLifecycleManager.java
+          test "$(git diff --cached --name-only | wc -l)" -eq 3
           git diff --cached --check
-          git commit -m "Route mutating package operations through PrivilegedShell"
+          git commit -m "Route lifecycle package operations through PrivilegedShell"
           git push origin HEAD:ondemand-shizuku

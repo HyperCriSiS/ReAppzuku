@@ -94,4 +94,34 @@ public class PrivilegedShellTest {
         assertThrows(IllegalArgumentException.class,
                 () -> PrivilegedShell.StandbyBucket.fromLegacyValue(999));
     }
+
+    @Test
+    public void packageStateActionsAreTypedAndValidated() {
+        assertEquals("pm suspend --user 0 com.example.app",
+                PrivilegedShell.buildPackageStateCommand(
+                        "com.example.app", PrivilegedShell.PackageStateAction.SUSPEND));
+        assertEquals("pm enable com.example.app",
+                PrivilegedShell.buildPackageStateCommand(
+                        "com.example.app", PrivilegedShell.PackageStateAction.ENABLE));
+        assertThrows(IllegalArgumentException.class,
+                () -> PrivilegedShell.buildPackageStateCommand(
+                        "com.example.app;id", PrivilegedShell.PackageStateAction.DISABLE_USER));
+    }
+
+    @Test
+    public void componentLaunchOnlyAcceptsFlattenedSafeComponents() {
+        assertEquals("am start -n com.example.app/.MainActivity",
+                PrivilegedShell.buildComponentCommand(
+                        "com.example.app/.MainActivity", PrivilegedShell.ComponentAction.START_ACTIVITY));
+        assertEquals("am start-foreground-service -n com.example.app/com.example.app.Sync$Service",
+                PrivilegedShell.buildComponentCommand(
+                        "com.example.app/com.example.app.Sync$Service",
+                        PrivilegedShell.ComponentAction.START_FOREGROUND_SERVICE));
+        assertThrows(IllegalArgumentException.class,
+                () -> PrivilegedShell.buildComponentCommand(
+                        "com.example.app/.MainActivity;id", PrivilegedShell.ComponentAction.START_ACTIVITY));
+        assertThrows(IllegalArgumentException.class,
+                () -> PrivilegedShell.buildComponentCommand(
+                        "badpackage/.MainActivity", PrivilegedShell.ComponentAction.START_ACTIVITY));
+    }
 }

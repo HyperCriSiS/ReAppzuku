@@ -1,87 +1,80 @@
 from pathlib import Path
 
-AUTO = Path('app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java')
-BG = Path('app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java')
-EXPECTED_AUTO = '04d590409a882fa8802167662d634a1f0703431b'
-EXPECTED_BG = 'f48df10d219d5b99a950e7a3ff0c1dc8685e66f5'
+SLEEP = Path('app/src/main/java/com/gree1d/reappzuku/manager/SleepModeManager.java')
+SMART = Path('app/src/main/java/com/gree1d/reappzuku/manager/SmartLifecycleManager.java')
+SCHED = Path('app/src/main/java/com/gree1d/reappzuku/manager/RestrictionsScheduler.java')
 
 
-def replace_once(text, old, new, label):
-    count = text.count(old)
-    if count != 1:
-        raise SystemExit(f'{label}: expected 1 match, got {count}')
+def once(text, old, new, label):
+    n = text.count(old)
+    if n != 1:
+        raise SystemExit(f'{label}: expected 1 match, got {n}')
     return text.replace(old, new, 1)
 
 
-def patch_auto(text):
+def patch_sleep(text):
     pairs = [
-        ('import com.gree1d.reappzuku.core.PackageNameValidator;\n',
-         'import com.gree1d.reappzuku.core.PackageNameValidator;\nimport com.gree1d.reappzuku.core.PrivilegedShell;\n'),
+        ('import com.gree1d.reappzuku.core.ShellManager;\n',
+         'import com.gree1d.reappzuku.core.ShellManager;\nimport com.gree1d.reappzuku.core.PrivilegedShell;\n'),
         ('    private final ShellManager shellManager;\n',
          '    private final ShellManager shellManager;\n    private final PrivilegedShell privilegedShell;\n'),
-        ('        this.shellManager = shellManager;\n        this.currentAppsList = currentAppsList;\n',
-         '        this.shellManager = shellManager;\n        this.privilegedShell = new PrivilegedShell(shellManager);\n        this.currentAppsList = currentAppsList;\n'),
-        ('''                String killCommand = toKill.stream()\n                        .map(this::buildKillCommand)\n                        .collect(Collectors.joining("; "));\n\n                shellManager.runShellCommandAndGetFullOutput(killCommand);\n''',
-         '''                privilegedShell.killPackagesAndGetFullOutput(\n                        toKill, PrivilegedShell.KillMode.fromAutoKillType(getAutoKillType()));\n'''),
-        ('''        String command = packageNames.stream()\n                .map(this::buildKillCommand)\n                .collect(Collectors.joining("; "));\n\n        final long finalTotalKb = totalKb;\n        final List<String> packagesToLog = new ArrayList<>(packageNames);\n        final Map<String, Long> recoveredToLog = new HashMap<>(recoveredKbByPackage);\n        shellManager.runShellCommand(command, () -> {\n''',
-         '''        final PrivilegedShell.KillMode killMode =\n                PrivilegedShell.KillMode.fromAutoKillType(getAutoKillType());\n\n        final long finalTotalKb = totalKb;\n        final List<String> packagesToLog = new ArrayList<>(packageNames);\n        final Map<String, Long> recoveredToLog = new HashMap<>(recoveredKbByPackage);\n        privilegedShell.killPackages(packageNames, killMode, () -> {\n'''),
-        ('        shellManager.runShellCommand(buildKillCommand(packageToKill), () -> {\n',
-         '        privilegedShell.killPackage(packageToKill,\n                PrivilegedShell.KillMode.fromAutoKillType(getAutoKillType()), () -> {\n'),
-        ('''        if (packageName == null || packageName.isEmpty()) {\n            if (onComplete != null) {\n                handler.post(onComplete);\n            }\n            return;\n        }\n\n        String command = "pm uninstall " + packageName;\n        shellManager.runShellCommand(command, () -> {\n''',
-         '''        if (!PackageNameValidator.isValid(packageName)) {\n            if (onComplete != null) {\n                handler.post(onComplete);\n            }\n            return;\n        }\n\n        privilegedShell.uninstallPackage(packageName, () -> {\n'''),
-        ('''    private String buildKillCommand(String packageName) {\n        PackageNameValidator.requireValid(packageName);\n        String cmd = (getAutoKillType() == 1 ? "am kill " : "am force-stop ") + packageName;\n        AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: buildKillCommand: " + cmd + " (type=" + getAutoKillType() + ")");\n        return cmd;\n    }\n\n''', ''),
-        ('''        String cmd = buildKillCommand(packageName);\n        AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: killPackageSync: " + cmd + " source=" + source);\n        shellManager.runShellCommandAndGetFullOutput(cmd);\n''',
-         '''        PrivilegedShell.KillMode killMode =\n                PrivilegedShell.KillMode.fromAutoKillType(getAutoKillType());\n        AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: killPackageSync: pkg="\n                + packageName + " type=" + killMode + " source=" + source);\n        privilegedShell.killPackageAndGetFullOutput(packageName, killMode);\n'''),
-        ('            shellManager.runShellCommandAndGetFullOutput("kill -9 " + String.join(" ", toKill));\n',
-         '            privilegedShell.killPidsAndGetFullOutput(toKill);\n'),
+        ('        this.shellManager = shellManager;\n        this.sharedpreferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);\n',
+         '        this.shellManager = shellManager;\n        this.privilegedShell = new PrivilegedShell(shellManager);\n        this.sharedpreferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);\n'),
+        ('''        String command = method == FreezeMethod.SUSPEND\n                ? "pm suspend --user 0 " + packageName\n                : "pm disable-user --user 0 " + packageName;\n        boolean ok = shellManager.runShellCommandBlocking(command);\n''',
+         '''        PrivilegedShell.PackageStateAction action = method == FreezeMethod.SUSPEND\n                ? PrivilegedShell.PackageStateAction.SUSPEND\n                : PrivilegedShell.PackageStateAction.DISABLE_USER;\n        boolean ok = privilegedShell.applyPackageStateBlocking(packageName, action);\n'''),
+        ('''        String command = method == FreezeMethod.SUSPEND\n                ? "pm unsuspend --user 0 " + packageName\n                : "pm enable " + packageName;\n        boolean ok = shellManager.runShellCommandBlocking(command);\n''',
+         '''        PrivilegedShell.PackageStateAction action = method == FreezeMethod.SUSPEND\n                ? PrivilegedShell.PackageStateAction.UNSUSPEND\n                : PrivilegedShell.PackageStateAction.ENABLE;\n        boolean ok = privilegedShell.applyPackageStateBlocking(packageName, action);\n'''),
     ]
     for i, (old, new) in enumerate(pairs, 1):
-        text = replace_once(text, old, new, f'AutoKill replacement {i}')
+        text = once(text, old, new, f'sleep {i}')
+    log_old = 'method=" + method + ", command=" + command);'
+    if text.count(log_old) != 2:
+        raise SystemExit(f'sleep logs: expected 2 matches, got {text.count(log_old)}')
+    text = text.replace(log_old, 'method=" + method + ", action=" + action);')
     return text
 
 
-def patch_bg(text):
-    singles = [
-        ('import com.gree1d.reappzuku.core.PackageNameValidator;\n',
-         'import com.gree1d.reappzuku.core.PackageNameValidator;\nimport com.gree1d.reappzuku.core.PrivilegedShell;\n'),
-        ('    private static final String FORCE_STOP_COMMAND_PREFIX = "am force-stop ";\n', ''),
+def patch_smart(text):
+    pairs = [
+        ('import com.gree1d.reappzuku.core.ProtectedApps;\n',
+         'import com.gree1d.reappzuku.core.ProtectedApps;\nimport com.gree1d.reappzuku.core.PrivilegedShell;\n'),
         ('    private final ShellManager shellManager;\n',
          '    private final ShellManager shellManager;\n    private final PrivilegedShell privilegedShell;\n'),
-        ('        this.shellManager = shellManager;\n        this.iconCache = ((App) context.getApplicationContext()).getIconCache();\n',
-         '        this.shellManager = shellManager;\n        this.privilegedShell = new PrivilegedShell(shellManager);\n        this.iconCache = ((App) context.getApplicationContext()).getIconCache();\n'),
-        ('''    private String buildBackgroundRestrictionCommand(String packageName, String mode) {\n        return "cmd appops set --user current " + packageName + " " + BACKGROUND_RESTRICTION_OP + " " + mode;\n    }\n\n    private String buildHardRestrictionCommand(String packageName, String mode) {\n        return "cmd appops set --user current " + packageName + " " + FOREGROUND_RESTRICTION_OP + " " + mode;\n    }\n\n''', ''),
-        ('''        boolean ok = shellManager.runShellCommandForResult(\n                "am set-standby-bucket " + packageName + " " + bucket)\n                .succeeded();\n''',
-         '''        boolean ok = privilegedShell.setStandbyBucket(\n                packageName, PrivilegedShell.StandbyBucket.fromLegacyValue(bucket)).succeeded();\n'''),
-        ('''        boolean ok = shellManager.runShellCommandForResult(\n                "am set-standby-bucket " + packageName + " active")\n                .succeeded();\n''',
-         '''        boolean ok = privilegedShell.setStandbyBucket(\n                packageName, PrivilegedShell.StandbyBucket.ACTIVE).succeeded();\n'''),
-        ('''        ShellManager.ShellResult result = shellManager.runShellCommandForResult(\n                "cmd deviceidle whitelist -" + packageName);\n''',
-         '''        ShellManager.ShellResult result = privilegedShell.updateDeviceIdleWhitelist(\n                packageName, PrivilegedShell.DeviceIdleWhitelistAction.REMOVE);\n'''),
-        ('        shellManager.runShellCommandForResult("cmd deviceidle whitelist +" + packageName);\n',
-         '        privilegedShell.updateDeviceIdleWhitelist(\n                packageName, PrivilegedShell.DeviceIdleWhitelistAction.ADD);\n'),
-        ('''ShellManager.ShellResult restrictResult = shellManager\n                            .runShellCommandForResult(buildBackgroundRestrictionCommand(packageName, "ignore"));''',
-         '''ShellManager.ShellResult restrictResult = privilegedShell.setAppOp(\n                            packageName, BACKGROUND_RESTRICTION_OP, PrivilegedShell.AppOpMode.IGNORE);'''),
-        ('''ShellManager.ShellResult result = shellManager\n                            .runShellCommandForResult(buildBackgroundRestrictionCommand(packageName, "ignore"));''',
-         '''ShellManager.ShellResult result = privilegedShell.setAppOp(\n                            packageName, BACKGROUND_RESTRICTION_OP, PrivilegedShell.AppOpMode.IGNORE);'''),
-        ('''boolean ok = shellManager.runShellCommandForResult(\n                        buildBackgroundRestrictionCommand(packageName, "default")).succeeded();''',
-         '''boolean ok = privilegedShell.setAppOp(\n                        packageName, BACKGROUND_RESTRICTION_OP, PrivilegedShell.AppOpMode.DEFAULT).succeeded();'''),
-        ('''boolean ok = shellManager.runShellCommandForResult(\n                        buildBackgroundRestrictionCommand(packageName, "ignore")).succeeded();''',
-         '''boolean ok = privilegedShell.setAppOp(\n                        packageName, BACKGROUND_RESTRICTION_OP, PrivilegedShell.AppOpMode.IGNORE).succeeded();'''),
-        ('''boolean succeeded = shellManager.runShellCommandForResult(\n                            "cmd appops set --user current " + pkg + " " + op + " ignore")\n                            .succeeded();''',
-         '''boolean succeeded = privilegedShell.setAppOp(\n                            pkg, op, PrivilegedShell.AppOpMode.IGNORE).succeeded();'''),
+        ('        this.shellManager = shellManager;\n        this.prefs = this.context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);\n',
+         '        this.shellManager = shellManager;\n        this.privilegedShell = new PrivilegedShell(shellManager);\n        this.prefs = this.context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);\n'),
+        ('        boolean ok = shellManager.runShellCommandBlocking("am set-standby-bucket " + pkg + " rare");\n',
+         '        boolean ok = privilegedShell.setStandbyBucketBlocking(\n                pkg, PrivilegedShell.StandbyBucket.RARE);\n'),
+        ('        boolean ok = shellManager.runShellCommandBlocking("am force-stop " + pkg);\n',
+         '        boolean ok = privilegedShell.forceStopPackageBlocking(pkg);\n'),
     ]
-    for i, (old, new) in enumerate(singles, 1):
-        text = replace_once(text, old, new, f'Background replacement {i}')
-
-    force = 'shellManager.runShellCommandForResult(FORCE_STOP_COMMAND_PREFIX + packageName);'
-    if text.count(force) != 4:
-        raise SystemExit(f'Background force-stop: expected 4, got {text.count(force)}')
-    text = text.replace(force, 'privilegedShell.forceStopPackage(packageName);')
-
-    allops = '''shellManager.runShellCommandForResult(\n                    "cmd appops set --user current " + packageName + " " + ALL_OPS[i] + " " + mode)'''
-    if text.count(allops) != 3:
-        raise SystemExit(f'Background appops loop: expected 3, got {text.count(allops)}')
-    text = text.replace(allops, '''privilegedShell.setAppOp(packageName, ALL_OPS[i],\n                    PrivilegedShell.AppOpMode.fromShellValue(mode))''')
+    for i, (old, new) in enumerate(pairs, 1):
+        text = once(text, old, new, f'smart {i}')
     return text
 
-AUTO.write_text(patch_auto(AUTO.read_text()))
-BG.write_text(patch_bg(BG.read_text()))
+
+def patch_sched(text):
+    pairs = [
+        ('import com.gree1d.reappzuku.core.ExactAlarmCapability;\n',
+         'import com.gree1d.reappzuku.core.ExactAlarmCapability;\nimport com.gree1d.reappzuku.core.PrivilegedShell;\n'),
+        ('    private final ShellManager         shellManager;\n',
+         '    private final ShellManager         shellManager;\n    private final PrivilegedShell       privilegedShell;\n'),
+        ('        this.shellManager         = shellManager;\n        this.backgroundAppManager = backgroundAppManager;\n',
+         '        this.shellManager         = shellManager;\n        this.privilegedShell       = new PrivilegedShell(shellManager);\n        this.backgroundAppManager = backgroundAppManager;\n'),
+        ('''                    if (method == SleepModeManager.FreezeMethod.SUSPEND) {\n                        shellManager.runShellCommandBlocking("pm unsuspend --user 0 " + pkg);\n                    } else {\n                        shellManager.runShellCommandBlocking("pm enable " + pkg);\n                    }\n''',
+         '''                    PrivilegedShell.PackageStateAction action =\n                            method == SleepModeManager.FreezeMethod.SUSPEND\n                                    ? PrivilegedShell.PackageStateAction.UNSUSPEND\n                                    : PrivilegedShell.PackageStateAction.ENABLE;\n                    privilegedShell.applyPackageStateBlocking(pkg, action);\n'''),
+        ('''            String cmd = "am set-standby-bucket " + packageName + " active";\n            shellManager.runShellCommandForResult(cmd);\n''',
+         '            privilegedShell.setStandbyBucket(packageName, PrivilegedShell.StandbyBucket.ACTIVE);\n'),
+        ('        shellManager.runShellCommandForResult("am set-standby-bucket " + packageName + " " + bucket);\n',
+         '        privilegedShell.setStandbyBucket(\n                packageName, PrivilegedShell.StandbyBucket.fromLegacyValue(bucket));\n'),
+        ('''        String cmd = (forceStop ? "am force-stop " : "am kill ") + packageName;\n        shellManager.runShellCommandForResult(cmd);\n        AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: stopApp: " + cmd);\n''',
+         '''        PrivilegedShell.KillMode mode = forceStop\n                ? PrivilegedShell.KillMode.FORCE_STOP\n                : PrivilegedShell.KillMode.KILL;\n        privilegedShell.stopPackage(packageName, mode);\n        AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER,\n                "RestrictionsScheduler: stopApp: package=" + packageName + " mode=" + mode);\n'''),
+        ('''        String cmd;\n        switch (type) {\n            case ON_ACTIVATE_ACTIVITY:\n                cmd = "am start -n " + componentName;\n                break;\n            case ON_ACTIVATE_SERVICE:\n                cmd = "am start-foreground-service -n " + componentName;\n                break;\n            case ON_ACTIVATE_RECEIVER:\n                cmd = "am broadcast -n " + componentName;\n                break;\n            default:\n                AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: launchComponent: unknown type " + type);\n                return;\n        }\n        ShellManager.ShellResult r = shellManager.runShellCommandForResult(cmd);\n        if (r.succeeded()) {\n            AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: launchComponent: ok — " + cmd);\n        } else {\n            AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: launchComponent: failed (exit=" + r.exitCode() + ") — " + cmd);\n        }\n''',
+         '''        PrivilegedShell.ComponentAction action;\n        switch (type) {\n            case ON_ACTIVATE_ACTIVITY:\n                action = PrivilegedShell.ComponentAction.START_ACTIVITY;\n                break;\n            case ON_ACTIVATE_SERVICE:\n                action = PrivilegedShell.ComponentAction.START_FOREGROUND_SERVICE;\n                break;\n            case ON_ACTIVATE_RECEIVER:\n                action = PrivilegedShell.ComponentAction.BROADCAST;\n                break;\n            default:\n                AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: launchComponent: unknown type " + type);\n                return;\n        }\n        try {\n            ShellManager.ShellResult r = privilegedShell.launchComponent(componentName, action);\n            if (r.succeeded()) {\n                AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER,\n                        "RestrictionsScheduler: launchComponent: ok component=" + componentName + " action=" + action);\n            } else {\n                AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER,\n                        "RestrictionsScheduler: launchComponent: failed (exit=" + r.exitCode()\n                                + ") component=" + componentName + " action=" + action);\n            }\n        } catch (IllegalArgumentException e) {\n            AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER,\n                    "RestrictionsScheduler: launchComponent rejected component=" + componentName, e);\n        }\n'''),
+    ]
+    for i, (old, new) in enumerate(pairs, 1):
+        text = once(text, old, new, f'scheduler {i}')
+    return text
+
+SLEEP.write_text(patch_sleep(SLEEP.read_text()))
+SMART.write_text(patch_smart(SMART.read_text()))
+SCHED.write_text(patch_sched(SCHED.read_text()))

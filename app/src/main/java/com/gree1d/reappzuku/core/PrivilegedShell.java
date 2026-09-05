@@ -79,6 +79,31 @@ public final class PrivilegedShell {
         }
     }
 
+    public enum PackageStateAction {
+        SUSPEND("pm suspend --user 0 "),
+        UNSUSPEND("pm unsuspend --user 0 "),
+        DISABLE_USER("pm disable-user --user 0 "),
+        ENABLE("pm enable ");
+
+        private final String prefix;
+
+        PackageStateAction(String prefix) {
+            this.prefix = prefix;
+        }
+    }
+
+    public enum ComponentAction {
+        START_ACTIVITY("am start -n "),
+        START_FOREGROUND_SERVICE("am start-foreground-service -n "),
+        BROADCAST("am broadcast -n ");
+
+        private final String prefix;
+
+        ComponentAction(String prefix) {
+            this.prefix = prefix;
+        }
+    }
+
     private final ShellManager shellManager;
 
     public PrivilegedShell(ShellManager shellManager) {
@@ -102,8 +127,20 @@ public final class PrivilegedShell {
         return shellManager.runShellCommandAndGetFullOutput(buildKillBatchCommand(packageNames, mode));
     }
 
+    public ShellManager.ShellResult stopPackage(String packageName, KillMode mode) {
+        return shellManager.runShellCommandForResult(buildKillCommand(packageName, mode));
+    }
+
     public ShellManager.ShellResult forceStopPackage(String packageName) {
-        return shellManager.runShellCommandForResult(buildKillCommand(packageName, KillMode.FORCE_STOP));
+        return stopPackage(packageName, KillMode.FORCE_STOP);
+    }
+
+    public boolean forceStopPackageBlocking(String packageName) {
+        return shellManager.runShellCommandBlocking(buildKillCommand(packageName, KillMode.FORCE_STOP));
+    }
+
+    public boolean applyPackageStateBlocking(String packageName, PackageStateAction action) {
+        return shellManager.runShellCommandBlocking(buildPackageStateCommand(packageName, action));
     }
 
     public void uninstallPackage(String packageName, Runnable onSuccess, Runnable onFailure) {
@@ -122,6 +159,14 @@ public final class PrivilegedShell {
             String packageName, DeviceIdleWhitelistAction action) {
         return shellManager.runShellCommandForResult(
                 buildDeviceIdleWhitelistCommand(packageName, action));
+    }
+
+    public boolean setStandbyBucketBlocking(String packageName, StandbyBucket bucket) {
+        return shellManager.runShellCommandBlocking(buildStandbyBucketCommand(packageName, bucket));
+    }
+
+    public ShellManager.ShellResult launchComponent(String componentName, ComponentAction action) {
+        return shellManager.runShellCommandForResult(buildComponentCommand(componentName, action));
     }
 
     public String killPidsAndGetFullOutput(Collection<String> pids) {
@@ -148,6 +193,11 @@ public final class PrivilegedShell {
         return "pm uninstall " + PackageNameValidator.requireValid(packageName);
     }
 
+    static String buildPackageStateCommand(String packageName, PackageStateAction action) {
+        String safePackage = PackageNameValidator.requireValid(packageName);
+        return Objects.requireNonNull(action, "action").prefix + safePackage;
+    }
+
     static String buildAppOpCommand(String packageName, String op, AppOpMode mode) {
         String safePackage = PackageNameValidator.requireValid(packageName);
         String safeOp = requireSafeAppOp(op);
@@ -167,6 +217,11 @@ public final class PrivilegedShell {
         String safePackage = PackageNameValidator.requireValid(packageName);
         DeviceIdleWhitelistAction safeAction = Objects.requireNonNull(action, "action");
         return "cmd deviceidle whitelist " + safeAction.prefix + safePackage;
+    }
+
+    static String buildComponentCommand(String componentName, ComponentAction action) {
+        String safeComponent = requireSafeComponent(componentName);
+        return Objects.requireNonNull(action, "action").prefix + safeComponent;
     }
 
     static String buildKillPidsCommand(Collection<String> pids) {
@@ -189,6 +244,24 @@ public final class PrivilegedShell {
             safePids.add(pid);
         }
         return "kill -9 " + String.join(" ", safePids);
+    }
+
+    private static String requireSafeComponent(String componentName) {
+        if (componentName == null || !componentName.equals(componentName.trim())) {
+            throw new IllegalArgumentException("Invalid component name");
+        }
+        int slash = componentName.indexOf('/');
+        if (slash <= 0 || slash != componentName.lastIndexOf('/')
+                || slash == componentName.length() - 1) {
+            throw new IllegalArgumentException("Invalid component name");
+        }
+        String packageName = componentName.substring(0, slash);
+        String className = componentName.substring(slash + 1);
+        PackageNameValidator.requireValid(packageName);
+        if (!className.matches("\\.?[A-Za-z0-9_.$]+")) {
+            throw new IllegalArgumentException("Invalid component name");
+        }
+        return componentName;
     }
 
     private static String requireSafeAppOp(String op) {
