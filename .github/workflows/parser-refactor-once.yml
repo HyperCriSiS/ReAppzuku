@@ -30,8 +30,6 @@ jobs:
           java-version: '17'
           distribution: temurin
           cache: gradle
-      - name: Grant execute permission
-        run: chmod +x gradlew
       - name: Verify and apply ProcessAnalyzer refactor
         run: |
           set -euo pipefail
@@ -42,7 +40,7 @@ jobs:
           test "$(git status --short | wc -l)" -eq 1
           test "$(git status --short | awk '{print $2}')" = "$target"
       - name: Validate parser fixtures and app build
-        run: ./gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
+        run: bash ./gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
       - name: Commit ProcessAnalyzer refactor
         run: |
           set -euo pipefail
