@@ -50,7 +50,7 @@ jobs:
             --device pixel_6
           echo "AVD home: $ANDROID_AVD_HOME"
           "$EMULATOR" -list-avds
-          find "$ANDROID_AVD_HOME" -maxdepth 2 -type f -o -type d | sort | head -100
+          find "$ANDROID_AVD_HOME" -maxdepth 2 \( -type f -o -type d \) | sort | head -100
           sudo chmod 666 /dev/kvm || true
           "$ADB" start-server
           "$EMULATOR" -avd reappzuku-api36 \
@@ -113,6 +113,13 @@ jobs:
         run: |
           set -euo pipefail
           ./gradlew connectedDebugAndroidTest --stacktrace
+      - name: Print Android test failures
+        if: failure()
+        run: |
+          echo '=== connected Android test XML ==='
+          find app/build/outputs/androidTest-results -type f -name '*.xml' -print -exec cat {} \; 2>/dev/null || true
+          echo '=== connected Android test result files ==='
+          find app/build/outputs/androidTest-results -maxdepth 6 -type f -print 2>/dev/null || true
       - name: Capture emulator diagnostics on failure
         if: failure()
         run: |
@@ -121,4 +128,4 @@ jobs:
           "$ADB" devices -l || true
           "$ADB" shell getprop sys.boot_completed || true
           "$ADB" shell dumpsys package com.gree1d.reappzuku | head -200 || true
-          tail -300 /tmp/reappzuku-emulator.log || true
+          tail -120 /tmp/reappzuku-emulator.log || true
