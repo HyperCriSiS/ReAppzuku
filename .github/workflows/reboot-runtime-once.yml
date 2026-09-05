@@ -93,7 +93,7 @@ jobs:
           "$ADB" shell input keyevent 82 || true
           unlocked=false
           for i in $(seq 1 90); do
-            state="$("$ADB" shell cmd user get-user-state 0 2>/dev/null | tr -d '\r' || true)"
+            state="$("$ADB" shell am get-started-user-state 0 2>/dev/null | tr -d '\r' || true)"
             echo "initial user-state[$i]=$state"
             if grep -q RUNNING_UNLOCKED <<<"$state"; then
               unlocked=true
@@ -153,7 +153,7 @@ jobs:
           adb shell input keyevent 82 || true
           unlocked=false
           for i in $(seq 1 90); do
-            state="$(adb shell cmd user get-user-state 0 2>/dev/null | tr -d '\r' || true)"
+            state="$(adb shell am get-started-user-state 0 2>/dev/null | tr -d '\r' || true)"
             echo "post-reboot user-state[$i]=$state"
             if grep -q RUNNING_UNLOCKED <<<"$state"; then
               unlocked=true
@@ -233,7 +233,7 @@ jobs:
         run: |
           adb devices -l || true
           adb shell getprop sys.boot_completed || true
-          adb shell cmd user get-user-state 0 || true
+          adb shell am get-started-user-state 0 || true
           adb shell dumpsys package com.gree1d.reappzuku | head -160 || true
           adb shell dumpsys alarm | grep -E 'gree1d|PRESET_|SCHEDULER_TICK' || true
           adb shell dumpsys activity broadcasts | grep -A6 -B3 'BOOT_COMPLETED' | tail -180 || true
