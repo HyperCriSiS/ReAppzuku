@@ -26,9 +26,8 @@ jobs:
       - name: Remove exactly the stale baseline issue
         run: |
           set -euo pipefail
-          chmod +x gradlew
           cp app/lint-baseline.xml /tmp/lint-baseline-before.xml
-          ./gradlew updateLintBaseline
+          bash ./gradlew updateLintBaseline
           cp app/lint-baseline.xml /tmp/lint-baseline-generated.xml
           cp /tmp/lint-baseline-before.xml app/lint-baseline.xml
 
@@ -85,13 +84,14 @@ jobs:
       - name: Validate cleaned baseline
         run: |
           set -euo pipefail
-          ./gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug | tee /tmp/lint-clean-validation.log
+          bash ./gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug | tee /tmp/lint-clean-validation.log
           if grep -q 'listed in the baseline file.*not found in the project' /tmp/lint-clean-validation.log; then
             echo 'stale lint baseline entries remain' >&2
             exit 1
           fi
           git diff --check
           changed="$(git status --porcelain | awk '{print $2}')"
+          printf 'changed-files=%s\n' "$changed"
           test "$changed" = 'app/lint-baseline.xml'
 
       - name: Commit cleaned baseline only
