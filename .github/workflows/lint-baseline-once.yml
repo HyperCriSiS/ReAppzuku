@@ -71,7 +71,8 @@ jobs:
           if len(matches) != 1:
               raise SystemExit(f'could not uniquely locate stale raw XML issue: {len(matches)} matches')
           match = matches[0]
-          final = original[:match.start()] + original[match.end():]
+          line_start = original.rfind('\n', 0, match.start()) + 1
+          final = original[:line_start] + original[match.end():]
           final_path.write_text(final, encoding='utf-8')
 
           final_root = ET.parse(final_path).getroot()
