@@ -1,0 +1,61 @@
+name: One-time privileged shell refactor gate
+
+on:
+  push:
+    branches:
+      - ondemand-shizuku
+    paths:
+      - '.github/workflows/privileged-shell-once.yml'
+      - '.github/scripts/apply_privileged_shell_refactor.py'
+      - 'app/src/main/java/com/gree1d/reappzuku/core/PrivilegedShell.java'
+      - 'app/src/test/java/com/gree1d/reappzuku/core/PrivilegedShellTest.java'
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ondemand-shizuku
+          persist-credentials: true
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - name: Apply guarded manager refactor
+        run: |
+          set -euo pipefail
+          test "$(git hash-object app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java)" = "04d590409a882fa8802167662d634a1f0703431b"
+          test "$(git hash-object app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java)" = "f48df10d219d5b99a950e7a3ff0c1dc8685e66f5"
+          python3 .github/scripts/apply_privileged_shell_refactor.py
+          git diff --check
+          test "$(git status --short | wc -l)" -eq 2
+          git status --short | awk '{print $2}' | sort > /tmp/changed
+          printf '%s\n' \
+            app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java \
+            app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/changed
+          ! grep -E 'pm uninstall .*\+|FORCE_STOP_COMMAND_PREFIX|cmd appops set --user current .*\+|am set-standby-bucket .*\+|cmd deviceidle whitelist [+-].*\+|kill -9 .*\+' \
+            app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java \
+            app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java
+      - name: Validate typed privileged boundary and app build
+        run: bash ./gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
+      - name: Commit manager integration
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java \
+            app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java
+          test "$(git diff --cached --name-only | wc -l)" -eq 2
+          git diff --cached --check
+          git commit -m "Route mutating package operations through PrivilegedShell"
+          git push origin HEAD:ondemand-shizuku
