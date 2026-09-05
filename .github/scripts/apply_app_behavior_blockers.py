@@ -50,3 +50,35 @@ for path, value in translations.items():
         1))
 
 Path("app/src/test/java/com/gree1d/reappzuku/core/BackgroundWorkPolicyTest.java").write_text('''package com.gree1d.reappzuku.core;\n\nimport org.junit.Test;\n\nimport java.util.EnumSet;\n\nimport static org.junit.Assert.assertEquals;\n\npublic class BackgroundWorkPolicyTest {\n\n    @Test\n    public void noAutomationProducesNoBlockers() {\n        assertEquals(\n                EnumSet.noneOf(BackgroundWorkPolicy.Blocker.class),\n                BackgroundWorkPolicy.resolveActiveBlockers(false, false, false, false, false));\n    }\n\n    @Test\n    public void reportsEveryActiveContinuityRequirement() {\n        assertEquals(\n                EnumSet.allOf(BackgroundWorkPolicy.Blocker.class),\n                BackgroundWorkPolicy.resolveActiveBlockers(true, true, true, true, true));\n    }\n\n    @Test\n    public void reportsOnlyEnabledBlockers() {\n        assertEquals(\n                EnumSet.of(\n                        BackgroundWorkPolicy.Blocker.SMART_LIFECYCLE,\n                        BackgroundWorkPolicy.Blocker.RESTRICTIONS_SCHEDULE),\n                BackgroundWorkPolicy.resolveActiveBlockers(false, true, false, false, true));\n    }\n}\n''')
+
+quick_tile = "app/src/main/java/com/gree1d/reappzuku/utils/ShappkyQuickTile.java"
+replace_once(
+    quick_tile,
+    "import com.gree1d.reappzuku.core.ShellManager;\n",
+    "import com.gree1d.reappzuku.core.ShellManager;\nimport com.gree1d.reappzuku.core.PrivilegedShell;\n")
+replace_once(
+    quick_tile,
+    '''        if (autoKillManager == null) {\n            BackgroundAppManager appManager = new BackgroundAppManager(this, handler, executor, shellExecutor, shellManager);\n            autoKillManager = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());\n            AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "ShappkyQuickTile: onClick AutoKillManager initialized");\n        }\n\n        shellExecutor.execute(() -> {\n''',
+    '''        if (autoKillManager == null) {\n            BackgroundAppManager appManager = new BackgroundAppManager(this, handler, executor, shellExecutor, shellManager);\n            autoKillManager = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());\n            AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "ShappkyQuickTile: onClick AutoKillManager initialized");\n        }\n        final PrivilegedShell privilegedShell = new PrivilegedShell(shellManager);\n\n        shellExecutor.execute(() -> {\n''')
+replace_once(
+    quick_tile,
+    '''                String cmd = "am force-stop " + killedPackage;\n                shellManager.runShellCommand(cmd, () -> {\n''',
+    '''                privilegedShell.killPackage(\n                        killedPackage, PrivilegedShell.KillMode.FORCE_STOP, () -> {\n''')
+
+watchdog = "app/src/main/java/com/gree1d/reappzuku/manager/RestrictionsWatchdogManager.java"
+replace_once(
+    watchdog,
+    "import com.gree1d.reappzuku.core.ShellManager;\n",
+    "import com.gree1d.reappzuku.core.ShellManager;\nimport com.gree1d.reappzuku.core.PrivilegedShell;\n")
+replace_once(
+    watchdog,
+    '''    private final BackgroundAppManager appManager;\n    private final ShellManager shellManager;\n    private final RestrictionsScheduler scheduler;\n''',
+    '''    private final BackgroundAppManager appManager;\n    private final ShellManager shellManager;\n    private final PrivilegedShell privilegedShell;\n    private final RestrictionsScheduler scheduler;\n''')
+replace_once(
+    watchdog,
+    '''        this.appManager   = appManager;\n        this.shellManager = shellManager;\n        this.scheduler    = scheduler;\n''',
+    '''        this.appManager       = appManager;\n        this.shellManager     = shellManager;\n        this.privilegedShell  = new PrivilegedShell(shellManager);\n        this.scheduler        = scheduler;\n''')
+replace_once(
+    watchdog,
+    '''            boolean ok = shellManager.runShellCommandForResult(\n                    "am set-standby-bucket " + pkg + " " + required).succeeded();\n''',
+    '''            boolean ok;\n            try {\n                ok = privilegedShell.setStandbyBucket(\n                        pkg, PrivilegedShell.StandbyBucket.fromLegacyValue(required)).succeeded();\n            } catch (IllegalArgumentException e) {\n                AppDebugManager.w(Category.UTILS, FILE_NAME\n                        + ": refusing invalid standby bucket " + required + " for " + pkg);\n                ok = false;\n            }\n''')
