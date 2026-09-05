@@ -31,11 +31,8 @@ jobs:
           from pathlib import Path
           p = Path('app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java')
           s = p.read_text()
-          old = '''    @Override
-              protected void onStart() {
-                  super.onStart();
-                  AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStart");
-                  shellManager.setShizukuPermissionListener(shizukuPermissionListener);
+
+          old = '''        shellManager.setShizukuPermissionListener(shizukuPermissionListener);
               }
 
               @Override
@@ -43,14 +40,8 @@ jobs:
                   super.onStop();
                   AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStop");
                   shellManager.removeShizukuPermissionListener(shizukuPermissionListener);
-              }
-          '''
-          old = old.replace('              ', '')
-          new = '''    @Override
-              protected void onStart() {
-                  super.onStart();
-                  AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStart");
-                  shellManager.setShizukuPermissionListener(shizukuPermissionListener);
+          '''.replace('              ', '')
+          new = '''        shellManager.setShizukuPermissionListener(shizukuPermissionListener);
                   // The Binder can arrive after the first backend probe has already observed
                   // SHIZUKU_UNAVAILABLE. Re-enter preparation when it becomes available so a
                   // first-run permission request cannot be lost in that race. The listener is
@@ -64,32 +55,22 @@ jobs:
                   AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStop");
                   shellManager.removeShizukuPermissionListener(shizukuPermissionListener);
                   shellManager.removeShizukuBinderListeners();
-              }
-          '''
-          new = new.replace('              ', '')
+          '''.replace('              ', '')
           if old not in s:
-              raise SystemExit('onStart/onStop block not found or already changed')
+              raise SystemExit('onStart/onStop anchor not found or already changed')
           s = s.replace(old, new, 1)
 
-          old = '''    private void prepareShellAndLoadApps() {
-              if (shellPreparationInFlight) {
-                  AppDebugManager.d(Category.CORE, "MainActivity: shell preparation already in flight");
-                  return;
-              }
-          '''
-          old = old.replace('              ', '')
-          new = '''    private void prepareShellAndLoadApps() {
-              if (shellPreparationInFlight) {
-                  AppDebugManager.d(Category.CORE, "MainActivity: shell preparation already in flight; retry queued");
-                  // Binder delivery/onResume can race the initial asynchronous probe. A
-                  // delayed retry preserves that state change instead of dropping it.
-                  handler.postDelayed(this::prepareShellAndLoadApps, 100L);
-                  return;
-              }
-          '''
-          new = new.replace('              ', '')
+          old = '''            AppDebugManager.d(Category.CORE, "MainActivity: shell preparation already in flight");
+                      return;
+          '''.replace('          ', '')
+          new = '''            AppDebugManager.d(Category.CORE, "MainActivity: shell preparation already in flight; retry queued");
+                      // Binder delivery/onResume can race the initial asynchronous probe. A
+                      // delayed retry preserves that state change instead of dropping it.
+                      handler.postDelayed(this::prepareShellAndLoadApps, 100L);
+                      return;
+          '''.replace('          ', '')
           if old not in s:
-              raise SystemExit('prepareShellAndLoadApps in-flight block not found or already changed')
+              raise SystemExit('in-flight anchor not found or already changed')
           p.write_text(s.replace(old, new, 1))
           PY
 
