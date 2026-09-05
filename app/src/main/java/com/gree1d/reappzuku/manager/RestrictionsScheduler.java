@@ -1,6 +1,5 @@
 package com.gree1d.reappzuku.manager;
 
-import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -11,7 +10,9 @@ import android.os.Handler;
 
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
-import com.gree1d.reappzuku.core.ExactAlarmCapability;
+import com.gree1d.reappzuku.core.AlarmScheduler;
+import com.gree1d.reappzuku.core.Clock;
+import com.gree1d.reappzuku.core.ScheduleTime;
 import com.gree1d.reappzuku.core.PrivilegedShell;
 import com.gree1d.reappzuku.db.AppDatabase;
 import com.gree1d.reappzuku.db.SchedulerLog;
@@ -22,7 +23,6 @@ import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -90,7 +90,7 @@ public class RestrictionsScheduler {
         public boolean setBucketActive;
 
         public ScheduleEntry() {
-            this.id               = System.currentTimeMillis();
+            this.id               = Clock.SYSTEM.currentTimeMillis();
             this.protectFlags     = PROTECT_ALL;
             this.onActivateAction = ON_ACTIVATE_NOTHING;
             this.enabled          = true;
@@ -110,24 +110,20 @@ public class RestrictionsScheduler {
 
 
         public long nextStartMillis() {
-            return nextEventMillis(startHour, startMinute);
+            return nextStartMillis(Clock.SYSTEM);
+        }
+
+        long nextStartMillis(Clock clock) {
+            return ScheduleTime.nextDailyOccurrence(clock, startHour, startMinute);
         }
 
 
         public long nextEndMillis() {
-            return nextEventMillis(endHour, endMinute);
+            return nextEndMillis(Clock.SYSTEM);
         }
 
-        private long nextEventMillis(int hour, int minute) {
-            Calendar cal = Calendar.getInstance();
-            cal.set(Calendar.HOUR_OF_DAY, hour);
-            cal.set(Calendar.MINUTE,      minute);
-            cal.set(Calendar.SECOND,      0);
-            cal.set(Calendar.MILLISECOND, 0);
-            if (cal.getTimeInMillis() <= System.currentTimeMillis()) {
-                cal.add(Calendar.DAY_OF_YEAR, 1);
-            }
-            return cal.getTimeInMillis();
+        long nextEndMillis(Clock clock) {
+            return ScheduleTime.nextDailyOccurrence(clock, endHour, endMinute);
         }
 
         public JSONObject toJson() throws JSONException {
@@ -233,7 +229,7 @@ public class RestrictionsScheduler {
             if (context == null) return;
 
             com.gree1d.reappzuku.db.SchedulerLog entry = new com.gree1d.reappzuku.db.SchedulerLog();
-            entry.timestamp   = System.currentTimeMillis();
+            entry.timestamp   = Clock.SYSTEM.currentTimeMillis();
             entry.action      = sanitize(action);
             entry.packageName = sanitize(packageName != null ? packageName : "-");
             entry.outcome     = sanitize(outcome     != null ? outcome     : "unknown");
@@ -309,10 +305,12 @@ public class RestrictionsScheduler {
     private final Handler              handler;
     private final ExecutorService      executor;
     private final ShellManager         shellManager;
-    private final PrivilegedShell       privilegedShell;
+    private final PrivilegedShell      privilegedShell;
     private final BackgroundAppManager backgroundAppManager;
     private final SleepModeManager     sleepModeManager;
     private final SharedPreferences    prefs;
+    private final Clock                clock;
+    private final AlarmScheduler       alarmScheduler;
 
     public RestrictionsScheduler(Context context,
                                  Handler handler,
@@ -320,14 +318,30 @@ public class RestrictionsScheduler {
                                  ShellManager shellManager,
                                  BackgroundAppManager backgroundAppManager,
                                  SleepModeManager sleepModeManager) {
+        this(context, handler, executor, shellManager, backgroundAppManager, sleepModeManager,
+                Clock.SYSTEM, new AlarmScheduler(context));
+    }
+
+    RestrictionsScheduler(Context context,
+                          Handler handler,
+                          ExecutorService executor,
+                          ShellManager shellManager,
+                          BackgroundAppManager backgroundAppManager,
+                          SleepModeManager sleepModeManager,
+                          Clock clock,
+                          AlarmScheduler alarmScheduler) {
+        if (clock == null) throw new IllegalArgumentException("clock == null");
+        if (alarmScheduler == null) throw new IllegalArgumentException("alarmScheduler == null");
         this.context              = context;
         this.handler              = handler;
         this.executor             = executor;
         this.shellManager         = shellManager;
-        this.privilegedShell       = new PrivilegedShell(shellManager);
+        this.privilegedShell      = new PrivilegedShell(shellManager);
         this.backgroundAppManager = backgroundAppManager;
         this.sleepModeManager     = sleepModeManager;
         this.prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
+        this.clock = clock;
+        this.alarmScheduler = alarmScheduler;
         AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: initialized");
     }
 
@@ -402,9 +416,9 @@ public class RestrictionsScheduler {
 
     public boolean isProtected(String packageName, int flag) {
         if (!getTempProtectedPackages().contains(packageName)) return false;
-        Calendar cal = Calendar.getInstance();
-        int h = cal.get(Calendar.HOUR_OF_DAY);
-        int m = cal.get(Calendar.MINUTE);
+        int nowMinutes = ScheduleTime.currentMinutesOfDay(clock);
+        int h = nowMinutes / 60;
+        int m = nowMinutes % 60;
         for (ScheduleEntry e : getSchedules()) {
             if (e.packageName.equals(packageName) && e.isActiveNow(h, m)) {
                 return (e.protectFlags & flag) != 0;
@@ -421,17 +435,15 @@ public class RestrictionsScheduler {
             return;
         }
 
-        long now     = System.currentTimeMillis();
+        long now = clock.currentTimeMillis();
         long nearest = Long.MAX_VALUE;
-
-        Calendar cal = Calendar.getInstance();
-        int h = cal.get(Calendar.HOUR_OF_DAY);
-        int m = cal.get(Calendar.MINUTE);
+        int nowMinutes = ScheduleTime.currentMinutesOfDay(clock);
+        int h = nowMinutes / 60;
+        int m = nowMinutes % 60;
 
         for (ScheduleEntry e : schedules) {
             if (!e.enabled) continue;
-
-            long candidate = e.isActiveNow(h, m) ? e.nextEndMillis() : e.nextStartMillis();
+            long candidate = e.isActiveNow(h, m) ? e.nextEndMillis(clock) : e.nextStartMillis(clock);
             if (candidate < nearest) nearest = candidate;
         }
 
@@ -440,21 +452,27 @@ public class RestrictionsScheduler {
             return;
         }
 
-        AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        if (am == null) return;
-
-        boolean exact = ExactAlarmCapability.scheduleExactOrBestEffort(
-                context, am, AlarmManager.RTC_WAKEUP, nearest, getAlarmIntent(), true);
-        if (!exact) {
+        AlarmScheduler.ScheduleResult result = alarmScheduler.scheduleRtcWakeup(nearest, getAlarmIntent(), true);
+        if (result == AlarmScheduler.ScheduleResult.UNAVAILABLE) {
+            AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER,
+                    "RestrictionsScheduler: AlarmManager unavailable");
+            return;
+        }
+        if (result != AlarmScheduler.ScheduleResult.EXACT) {
             AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER,
                     "RestrictionsScheduler: exact alarm permission unavailable; using best-effort timing");
         }
 
-        AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: scheduleNext: alarm in " + ((nearest - now) / 1000 / 60) + " min");
+        AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER,
+                "RestrictionsScheduler: scheduleNext: alarm in " + ((nearest - now) / 1000 / 60) + " min");
     }
 
 
     public static void scheduleNextStatic(Context context) {
+        scheduleNextStatic(context, Clock.SYSTEM, new AlarmScheduler(context));
+    }
+
+    static void scheduleNextStatic(Context context, Clock clock, AlarmScheduler alarmScheduler) {
         SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         String json = prefs.getString(KEY_SCHEDULES, null);
         if (json == null || json.isEmpty()) {
@@ -473,36 +491,37 @@ public class RestrictionsScheduler {
             return;
         }
 
-        long now     = System.currentTimeMillis();
+        long now = clock.currentTimeMillis();
         long nearest = Long.MAX_VALUE;
-        Calendar cal = Calendar.getInstance();
-        int h = cal.get(Calendar.HOUR_OF_DAY);
-        int m = cal.get(Calendar.MINUTE);
+        int nowMinutes = ScheduleTime.currentMinutesOfDay(clock);
+        int h = nowMinutes / 60;
+        int m = nowMinutes % 60;
 
         for (ScheduleEntry e : schedules) {
             if (!e.enabled) continue;
-            long candidate = e.isActiveNow(h, m) ? e.nextEndMillis() : e.nextStartMillis();
+            long candidate = e.isActiveNow(h, m) ? e.nextEndMillis(clock) : e.nextStartMillis(clock);
             if (candidate < nearest) nearest = candidate;
         }
 
         if (nearest == Long.MAX_VALUE || nearest <= now) return;
 
-        AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        if (am == null) return;
-
-        PendingIntent pi = getAlarmIntent(context);
-        boolean exact = ExactAlarmCapability.scheduleExactOrBestEffort(
-                context, am, AlarmManager.RTC_WAKEUP, nearest, pi, true);
-        if (!exact) {
+        AlarmScheduler.ScheduleResult result =
+                alarmScheduler.scheduleRtcWakeup(nearest, getAlarmIntent(context), true);
+        if (result == AlarmScheduler.ScheduleResult.UNAVAILABLE) {
+            AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER,
+                    "RestrictionsScheduler: scheduleNextStatic: AlarmManager unavailable");
+            return;
+        }
+        if (result != AlarmScheduler.ScheduleResult.EXACT) {
             AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER,
                     "RestrictionsScheduler: scheduleNextStatic using best-effort timing");
         }
-        AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: scheduleNextStatic: alarm in " + ((nearest - now) / 1000 / 60) + " min");
+        AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER,
+                "RestrictionsScheduler: scheduleNextStatic: alarm in " + ((nearest - now) / 1000 / 60) + " min");
     }
 
     private void cancelAlarm() {
-        AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        if (am != null) am.cancel(getAlarmIntent(context));
+        alarmScheduler.cancel(getAlarmIntent(context));
     }
 
     private PendingIntent getAlarmIntent() {
@@ -523,9 +542,9 @@ public class RestrictionsScheduler {
 
     public void tick() {
         executor.execute(() -> {
-            Calendar cal = Calendar.getInstance();
-            int hour   = cal.get(Calendar.HOUR_OF_DAY);
-            int minute = cal.get(Calendar.MINUTE);
+            int nowMinutes = ScheduleTime.currentMinutesOfDay(clock);
+            int hour = nowMinutes / 60;
+            int minute = nowMinutes % 60;
 
             List<ScheduleEntry> schedules    = getSchedules();
             Set<String>         wasProtected = getTempProtectedPackages();

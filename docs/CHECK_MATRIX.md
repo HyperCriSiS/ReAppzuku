@@ -132,19 +132,27 @@ historical “current” wording where implementation has moved on.
   ReAppzuku backup is the configuration contract.
 - **CM-P1-12:** a manual Android-17/API-37 runtime lane is staged before target migration; execution
   evidence is the next roadmap step.
-- **CM-P2-02:** package identifiers imported from backups/presets and high-impact shell boundaries
-  now pass a shared package-name validator; typed privileged operations remain a longer-term goal.
+- **CM-P2-02:** mutating package/component/PID operations now route through `PrivilegedShell` with
+  typed enums/validated identifiers. Strict run `33946348081` required the repository-wide raw
+  mutating-shell audit to return `NONE` outside that boundary; Android execution evidence remains open.
 - **CM-P2-03:** ActivityManager `ProcessRecord`/`ServiceRecord` parsing is isolated in a pure-Java parser with AOSP/OEM-style fixtures, and protected-package tests lock exact package boundaries. Other Smart Lifecycle/VPN heuristics still require runtime/fixture evidence.
 - **CM-P1-06 / A18:** Gradle dependency locking and SHA-256 verification are now enforced; run `33900939628` re-proved verification from an empty dependency cache and normal run `33901414025` passed afterward.
 - **CM-P2-04:** fork-specific Smart Lifecycle, App Behavior, shortcut-security and accessibility
-  strings are propagated to ES/RU/UK/ZH.
+  strings are propagated to ES/RU/UK/ZH. Disabled App Behavior controls now also list the exact
+  active continuity blockers from `BackgroundWorkPolicy`.
 
 Latest assurance evidence:
+- workflow run `33940964413`: typed `PrivilegedShell` integration for AutoKill/BackgroundAppManager passed unit, lint, AndroidTest compile and APK build;
+- workflow run `33941247796`: lifecycle/scheduler `PrivilegedShell` integration passed the same gates;
+- workflow run `33946348081`: App Behavior blocker policy/UI plus final strict raw mutating-shell audit (`NONE`) passed unit, lint, AndroidTest compile and APK build;
+- workflow run `33946501074`: normal read-only validation passed on the cleaned permanent source state;
 - workflow run `33940487030`: parser/protection JVM fixtures, lint, AndroidTest compilation and debug APK build passed before production integration commit `57d8897c70a5b4c9565379cd72317f1abb7c9e59`;
 - workflow run `33900939628`: dependency verification re-generated from fresh resolution and re-proved after dependency-cache deletion;
 - workflow run `33901414025`: normal permanent locked/verified validation passed;
 - earlier release target: `e202e38c049a0d4a7cfc561f7a9c8348c9abd8ae`;
 - earlier APK SHA-256: `d841e34685d790197266c1e9c90a11619a33a219377892f2c429c00930dbf5d4`.
+
+**Maintainability status:** `PrivilegedShell` and parser/protection/background policy boundaries are now explicit. `Clock`/`ScheduleTime` and `AlarmScheduler` isolate scheduler time/alarm decisions; `BackupCodec` remains the named facade gap. This is source/testability progress, not Android runtime proof.
 
 # High-priority findings
 

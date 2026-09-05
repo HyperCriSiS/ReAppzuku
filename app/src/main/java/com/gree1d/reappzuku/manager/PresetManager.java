@@ -1,6 +1,5 @@
 package com.gree1d.reappzuku.manager;
 
-import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -9,7 +8,9 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
-import com.gree1d.reappzuku.core.ExactAlarmCapability;
+import com.gree1d.reappzuku.core.AlarmScheduler;
+import com.gree1d.reappzuku.core.Clock;
+import com.gree1d.reappzuku.core.ScheduleTime;
 import com.gree1d.reappzuku.manager.AdditionalScenariosManager;
 import com.gree1d.reappzuku.service.AutoKillWorker;
 
@@ -20,7 +21,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Calendar;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -76,10 +76,20 @@ public class PresetManager {
 
     private final Context context;
     private final SharedPreferences mainPrefs;
+    private final Clock clock;
+    private final AlarmScheduler alarmScheduler;
 
     public PresetManager(Context context) {
+        this(context, Clock.SYSTEM, new AlarmScheduler(context));
+    }
+
+    PresetManager(Context context, Clock clock, AlarmScheduler alarmScheduler) {
+        if (clock == null) throw new IllegalArgumentException("clock == null");
+        if (alarmScheduler == null) throw new IllegalArgumentException("alarmScheduler == null");
         this.context = context.getApplicationContext();
         this.mainPrefs = this.context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
+        this.clock = clock;
+        this.alarmScheduler = alarmScheduler;
     }
 
     private SharedPreferences presetPrefs(int presetNumber) {
@@ -503,20 +513,19 @@ public class PresetManager {
 
     public void scheduleAlarms(PresetModel model) {
         cancelAlarms(model.presetNumber);
-        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        if (alarmManager == null) {
-            AppDebugManager.e(Category.AUTO_KILL_PRESETS, "PresetManager: scheduleAlarms #" + model.presetNumber + " — AlarmManager is null");
+        if (!alarmScheduler.isAvailable()) {
+            AppDebugManager.e(Category.AUTO_KILL_PRESETS,
+                    "PresetManager: scheduleAlarms #" + model.presetNumber + " — AlarmManager is unavailable");
             return;
         }
         long activateTime = nextAlarmTime(model.startHour, model.startMinute);
         long deactivateTime = nextAlarmTime(model.endHour, model.endMinute);
-        boolean activateExact = ExactAlarmCapability.scheduleExactOrBestEffort(
-                context, alarmManager, AlarmManager.RTC_WAKEUP, activateTime,
-                buildPendingIntent(model.presetNumber, ACTION_PRESET_ACTIVATE), true);
-        boolean deactivateExact = ExactAlarmCapability.scheduleExactOrBestEffort(
-                context, alarmManager, AlarmManager.RTC_WAKEUP, deactivateTime,
-                buildPendingIntent(model.presetNumber, ACTION_PRESET_DEACTIVATE), true);
-        if (!activateExact || !deactivateExact) {
+        AlarmScheduler.ScheduleResult activateResult = alarmScheduler.scheduleRtcWakeup(
+                activateTime, buildPendingIntent(model.presetNumber, ACTION_PRESET_ACTIVATE), true);
+        AlarmScheduler.ScheduleResult deactivateResult = alarmScheduler.scheduleRtcWakeup(
+                deactivateTime, buildPendingIntent(model.presetNumber, ACTION_PRESET_DEACTIVATE), true);
+        if (activateResult != AlarmScheduler.ScheduleResult.EXACT
+                || deactivateResult != AlarmScheduler.ScheduleResult.EXACT) {
             AppDebugManager.w(Category.AUTO_KILL_PRESETS,
                     "PresetManager: exact alarm permission unavailable; using best-effort timing for preset #" + model.presetNumber);
         }
@@ -529,38 +538,30 @@ public class PresetManager {
 
     public void rescheduleNextAlarm(int presetNumber, String action) {
         PresetModel model = loadPreset(presetNumber);
-        if (model == null) return;
-        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        if (alarmManager == null) return;
+        if (model == null || !alarmScheduler.isAvailable()) return;
         boolean isActivate = ACTION_PRESET_ACTIVATE.equals(action);
         int hour = isActivate ? model.startHour : model.endHour;
         int minute = isActivate ? model.startMinute : model.endMinute;
-        Calendar next = Calendar.getInstance();
-        next.set(Calendar.HOUR_OF_DAY, hour);
-        next.set(Calendar.MINUTE, minute);
-        next.set(Calendar.SECOND, 0);
-        next.set(Calendar.MILLISECOND, 0);
-        next.add(Calendar.DAY_OF_YEAR, 1);
-        boolean exact = ExactAlarmCapability.scheduleExactOrBestEffort(
-                context, alarmManager, AlarmManager.RTC_WAKEUP, next.getTimeInMillis(),
-                buildPendingIntent(presetNumber, action), true);
-        if (!exact) {
+        long next = ScheduleTime.nextDailyOccurrence(clock, hour, minute);
+        AlarmScheduler.ScheduleResult result = alarmScheduler.scheduleRtcWakeup(
+                next, buildPendingIntent(presetNumber, action), true);
+        if (result != AlarmScheduler.ScheduleResult.EXACT) {
             AppDebugManager.w(Category.AUTO_KILL_PRESETS,
                     "PresetManager: rescheduleNextAlarm using best-effort timing for preset #" + presetNumber + " action=" + action);
         }
         AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: rescheduleNextAlarm #" + presetNumber + " action=" + action
                 + " nextAt=" + hour + ":" + String.format("%02d", minute)
-                + " tomorrow ms=" + next.getTimeInMillis());
+                + " ms=" + next);
     }
 
     public void cancelAlarms(int presetNumber) {
-        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        if (alarmManager == null) {
-            AppDebugManager.e(Category.AUTO_KILL_PRESETS, "PresetManager: cancelAlarms #" + presetNumber + " — AlarmManager is null");
+        if (!alarmScheduler.isAvailable()) {
+            AppDebugManager.e(Category.AUTO_KILL_PRESETS,
+                    "PresetManager: cancelAlarms #" + presetNumber + " — AlarmManager is unavailable");
             return;
         }
-        alarmManager.cancel(buildPendingIntent(presetNumber, ACTION_PRESET_ACTIVATE));
-        alarmManager.cancel(buildPendingIntent(presetNumber, ACTION_PRESET_DEACTIVATE));
+        alarmScheduler.cancel(buildPendingIntent(presetNumber, ACTION_PRESET_ACTIVATE));
+        alarmScheduler.cancel(buildPendingIntent(presetNumber, ACTION_PRESET_DEACTIVATE));
         AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: cancelAlarms #" + presetNumber + " DONE");
     }
 
@@ -579,20 +580,11 @@ public class PresetManager {
     }
 
     private long nextAlarmTime(int hour, int minute) {
-        Calendar calendar = Calendar.getInstance();
-        calendar.set(Calendar.HOUR_OF_DAY, hour);
-        calendar.set(Calendar.MINUTE, minute);
-        calendar.set(Calendar.SECOND, 0);
-        calendar.set(Calendar.MILLISECOND, 0);
-        if (calendar.getTimeInMillis() <= System.currentTimeMillis()) {
-            calendar.add(Calendar.DAY_OF_YEAR, 1);
-        }
-        return calendar.getTimeInMillis();
+        return ScheduleTime.nextDailyOccurrence(clock, hour, minute);
     }
 
     public boolean isCurrentlyActive(PresetModel model) {
-        Calendar now = Calendar.getInstance();
-        int nowMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE);
+        int nowMinutes = ScheduleTime.currentMinutesOfDay(clock);
         int startMinutes = model.getStartTotalMinutes();
         int endMinutes = model.getEndTotalMinutes();
         boolean active;
@@ -602,7 +594,7 @@ public class PresetManager {
             active = nowMinutes >= startMinutes && nowMinutes < endMinutes;
         }
         AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: isCurrentlyActive #" + model.presetNumber
-                + " | now=" + now.get(Calendar.HOUR_OF_DAY) + ":" + String.format("%02d", now.get(Calendar.MINUTE))
+                + " | now=" + (nowMinutes / 60) + ":" + String.format("%02d", nowMinutes % 60)
                 + " range=" + model.startHour + ":" + String.format("%02d", model.startMinute)
                 + "–" + model.endHour + ":" + String.format("%02d", model.endMinute)
                 + " crossesMidnight=" + (endMinutes <= startMinutes)

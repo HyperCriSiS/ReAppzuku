@@ -78,7 +78,7 @@ Status convention:
 - [x] Other explicit external launches can at most open a confirmation dialog before foreground-app force-stop.
 - [x] Foreground shortcut action waits for a genuinely ready shell backend.
 - [x] Review every remaining `exported=true` component and document its principal boundary in `EXPORTED_COMPONENTS.md`.
-- [ ] Introduce typed/validated privileged operations instead of ad-hoc shell command strings where practical.
+- [x] Route mutating package/component/PID operations through typed, validated `PrivilegedShell` commands and reject invalid persisted/input values before shell execution.
 - [x] Fixture-test dumpsys/parser protection logic across Android/OEM variants.
 
 ### Privileged parser evidence — 2026-09-05
@@ -88,6 +88,15 @@ Status convention:
 - `ProtectedAppsTest` locks exact AOSP/Shizuku package protection plus current keyboard/launcher behavior and rejects prefix-neighbor false positives.
 - One-time gate run `33940487030` passed unit tests, lint, AndroidTest compilation and debug APK build before committing the production integration as `57d8897c70a5b4c9565379cd72317f1abb7c9e59`.
 - This is repeatable parser/source evidence, not a substitute for the still-open Android/OEM runtime probes.
+
+
+### Privileged shell evidence — 2026-09-05
+
+- `PrivilegedShell` owns validated kill/force-stop, uninstall, AppOps, standby bucket, DeviceIdle whitelist, suspend/unsuspend, enable/disable, PID kill and explicit component-launch commands.
+- Runs `33940964413` and `33941247796` passed unit tests, lint, AndroidTest compilation and debug APK build before integrating the major manager paths.
+- Final strict run `33946348081` passed the same gates and required a repository-wide mutating-shell audit to return `NONE` outside `PrivilegedShell`, including the Quick Tile and Restrictions Watchdog paths.
+- Normal read-only validation run `33946501074` then passed on the cleaned permanent source state.
+- These are source/JVM/CI invariants; live Shizuku/root execution probes remain separate Android evidence.
 
 ## Phase 6 — CI and supply chain
 
@@ -141,9 +150,17 @@ Status convention:
 ## Phase 8 — UX, i18n, maintainability
 
 - [x] Propagate fork-specific Smart Lifecycle/App Behavior/security strings to supported locales.
-- [ ] Explain blocking automation directly beside disabled App Behavior controls.
-- [ ] Split large managers behind testable facades (`PrivilegedShell`, `AlarmScheduler`, `ProtectionPolicy`, `BackupCodec`, `Clock`).
+- [x] Explain blocking automation directly beside disabled App Behavior controls, listing the active AutoKill/Smart Lifecycle/Sleep/Preset/Scheduler blockers from the central policy.
+- [~] Split large managers behind testable facades: `PrivilegedShell`, `AlarmScheduler`, `Clock`/`ScheduleTime` and central protection/background/parser policy boundaries are in place; `BackupCodec` remains to extract.
 - [~] Keep `CHECK_MATRIX.md` status/evidence current after every high-impact change (refreshed through 2026-09-05; ongoing discipline).
+
+
+### Maintainability evidence — 2026-09-05
+
+- App Behavior exposes the exact active continuity blockers from `BackgroundWorkPolicy` rather than duplicating feature-state logic in the UI.
+- `Clock` plus pure `ScheduleTime` make daily scheduling deterministic under JVM tests, while `AlarmScheduler` centralizes AlarmManager availability and exact-vs-best-effort behavior.
+- `PresetManager` and `RestrictionsScheduler` keep their existing public constructors but receive clock/alarm dependencies through internal injection points.
+- `BackupCodec` is the remaining named facade before this roadmap item can be closed.
 
 ## Stable-release gate
 
