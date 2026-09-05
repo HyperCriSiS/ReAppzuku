@@ -40,6 +40,7 @@ import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.databinding.ActivitySettingsBinding;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
+import com.gree1d.reappzuku.core.BackupFileStore;
 import com.gree1d.reappzuku.core.BackupManager;
 import com.gree1d.reappzuku.core.BaseActivity;
 import com.gree1d.reappzuku.manager.AdditionalScenariosManager;
@@ -54,11 +55,6 @@ import com.gree1d.reappzuku.service.ShappkyService;
 import com.gree1d.reappzuku.utils.AppModel;
 import com.gree1d.reappzuku.utils.PresetModel;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -1269,75 +1265,66 @@ abstract class SettingsActivityDialogs extends BaseActivity {
     protected abstract androidx.activity.result.ActivityResultLauncher<String[]> getRestoreBackupLauncher();
 
     protected void exportBackup(Uri uri) {
-        getExecutor().execute(() -> {
-            AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup started");
-            String json = getBackupManager().createBackupJson();
-            if (json == null) {
-                AppDebugManager.e(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup: createBackupJson returned null");
-                getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_backup_create_failed), Toast.LENGTH_SHORT).show());
-                return;
-            }
-            try (OutputStream os = getContentResolver().openOutputStream(uri)) {
-                if (os != null) {
-                    os.write(json.getBytes(StandardCharsets.UTF_8));
-                    AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup success");
-                    getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_backup_success), Toast.LENGTH_SHORT).show());
-                } else {
-                    AppDebugManager.e(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup: OutputStream is null");
-                    getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_backup_write_failed), Toast.LENGTH_SHORT).show());
-                }
-            } catch (Exception e) {
-                AppDebugManager.e(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup failed", e);
-                getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_backup_export_failed, e.getMessage()), Toast.LENGTH_SHORT).show());
-            }
-        });
-    }
+    getExecutor().execute(() -> {
+        AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup started");
+        String json = getBackupManager().createBackupJson();
+        if (json == null) {
+            AppDebugManager.e(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup: createBackupJson returned null");
+            getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_backup_create_failed), Toast.LENGTH_SHORT).show());
+            return;
+        }
+        try {
+            new BackupFileStore(getContentResolver()).write(uri, json);
+            AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup success");
+            getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_backup_success), Toast.LENGTH_SHORT).show());
+        } catch (Exception e) {
+            AppDebugManager.e(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup failed", e);
+            getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_backup_export_failed, e.getMessage()), Toast.LENGTH_SHORT).show());
+        }
+    });
+}
 
-    protected void importBackup(Uri uri) {
-        getExecutor().execute(() -> {
-            AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": importBackup started");
-            try (InputStream is = getContentResolver().openInputStream(uri);
-                 BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) sb.append(line);
-
-                boolean success = getBackupManager().restoreBackupJson(sb.toString());
-                getHandler().post(() -> {
-                    if (success) {
-                        AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": importBackup restore success");
-                        Set<String> restoredRestrictedApps = new java.util.HashSet<>(
-                                getSharedPreferences().getStringSet(KEY_AUTOSTART_DISABLED_APPS, new java.util.HashSet<>()));
-                        Runnable finishRestore = () -> {
-                            applyAutomationStateFromPreferences();
-                            loadSettings();
-                            updateKillModeVisibility();
-                            if (getAppManager().supportsBackgroundRestriction()
-                                    && !restoredRestrictedApps.isEmpty()
-                                    && !getAppManager().canApplyBackgroundRestrictionNow()) {
-                                Toast.makeText(this, getString(R.string.settings_restore_need_permission), Toast.LENGTH_LONG).show();
-                            } else {
-                                Toast.makeText(this, getString(R.string.settings_restore_success), Toast.LENGTH_SHORT).show();
-                            }
-                        };
-                        if (getAppManager().canApplyBackgroundRestrictionNow()) {
-                            getAppManager().applyBackgroundRestriction(restoredRestrictedApps, finishRestore);
+protected void importBackup(Uri uri) {
+    getExecutor().execute(() -> {
+        AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": importBackup started");
+        try {
+            String json = new BackupFileStore(getContentResolver()).read(uri);
+            boolean success = getBackupManager().restoreBackupJson(json);
+            getHandler().post(() -> {
+                if (success) {
+                    AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": importBackup restore success");
+                    Set<String> restoredRestrictedApps = new java.util.HashSet<>(
+                            getSharedPreferences().getStringSet(KEY_AUTOSTART_DISABLED_APPS, new java.util.HashSet<>()));
+                    Runnable finishRestore = () -> {
+                        applyAutomationStateFromPreferences();
+                        loadSettings();
+                        updateKillModeVisibility();
+                        if (getAppManager().supportsBackgroundRestriction()
+                                && !restoredRestrictedApps.isEmpty()
+                                && !getAppManager().canApplyBackgroundRestrictionNow()) {
+                            Toast.makeText(this, getString(R.string.settings_restore_need_permission), Toast.LENGTH_LONG).show();
                         } else {
-                            finishRestore.run();
+                            Toast.makeText(this, getString(R.string.settings_restore_success), Toast.LENGTH_SHORT).show();
                         }
+                    };
+                    if (getAppManager().canApplyBackgroundRestrictionNow()) {
+                        getAppManager().applyBackgroundRestriction(restoredRestrictedApps, finishRestore);
                     } else {
-                        AppDebugManager.w(Category.SETTINGS_PAGE, FILE_NAME + ": importBackup: restoreBackupJson returned false");
-                        Toast.makeText(this, getString(R.string.settings_restore_failed), Toast.LENGTH_SHORT).show();
+                        finishRestore.run();
                     }
-                });
-            } catch (Exception e) {
-                AppDebugManager.e(Category.SETTINGS_PAGE, FILE_NAME + ": importBackup failed", e);
-                getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_restore_import_failed, e.getMessage()), Toast.LENGTH_SHORT).show());
-            }
-        });
-    }
+                } else {
+                    AppDebugManager.w(Category.SETTINGS_PAGE, FILE_NAME + ": importBackup: restoreBackupJson returned false");
+                    Toast.makeText(this, getString(R.string.settings_restore_failed), Toast.LENGTH_SHORT).show();
+                }
+            });
+        } catch (Exception e) {
+            AppDebugManager.e(Category.SETTINGS_PAGE, FILE_NAME + ": importBackup failed", e);
+            getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_restore_import_failed, e.getMessage()), Toast.LENGTH_SHORT).show());
+        }
+    });
+}
 
-    protected void showSpecialThanksDialog() {
+protected void showSpecialThanksDialog() {
         String[] names = getResources().getStringArray(R.array.special_thanks_list);
         StringBuilder sb = new StringBuilder();
         sb.append(getString(R.string.special_thanks_desc)).append("\n\n");
