@@ -24,24 +24,24 @@ Only **PROVEN** is fully closed.
 
 | ID | Surface | Current status | Main reason |
 |---|---|---|---|
-| A01 | Privilege bootstrap: Root / Shizuku / permission | RISK | State machine improved, but first-run/rebind/process-death paths have no automated evidence. |
+| A01 | Privilege bootstrap: Root / Shizuku / permission | DECIDED | API-36 instrumentation covers binder-late, deny→grant, listener removal and binder-death/rebind through the bridge contract; real Shizuku first-run/restart evidence remains open. |
 | A02 | Main-process / `:shizuku` process topology | DECIDED | On-demand topology is explicit; process-start invariants are not regression-tested. |
-| A03 | Privileged shell / Shizuku UserService | RISK | Arbitrary shell transport is powerful; readiness, death/rebind and command safety need tests/facades. |
+| A03 | Privileged shell / Shizuku UserService | DECIDED | Readiness/death/rebind state is instrumented and mutating commands are isolated behind validated `PrivilegedShell`; live execution against real Shizuku/root remains open. |
 | A04 | Running-app discovery / app-state collection | DECIDED | ActivityManager process/service text parsing is isolated and JVM fixture-tested across AOSP/OEM-style forms; Android runtime/platform evidence remains open. |
-| A05 | Manual restrictions / freeze / force-stop / app ops | RISK | High-impact privileged actions lack typed command boundary and validation tests. |
-| A06 | AutoKill / `ShappkyService` / periodic worker | DECIDED | Desired-state guard prevents an intentional disable from being undone; live process-death evidence remains pending. |
+| A05 | Manual restrictions / freeze / force-stop / app ops | DECIDED | High-impact mutating operations use typed/validated `PrivilegedShell`, with injection tests and a repository-wide raw mutating-shell audit; live privileged execution remains open. |
+| A06 | AutoKill / `ShappkyService` / periodic worker | DECIDED | API-36 instrumentation proves a fresh restart receiver obeys persisted disabled state; an OS-level process-kill/force-stop probe remains. |
 | A07 | Smart Lifecycle | DECIDED | Conservative blacklist/protection design exists; state/false-positive/reboot evidence missing. |
 | A08 | Sleep / freeze lifecycle | RISK | Interacts with FGS, alarms, screen state and restoration without state-machine tests. |
-| A09 | Presets / Restrictions Scheduler / exact alarms | DECIDED | Boot recovery and central exact-alarm capability are implemented; reboot/permission-revocation runtime evidence remains pending. |
+| A09 | Presets / Restrictions Scheduler / exact alarms | DECIDED | Exact-alarm denial fallback and repeated boot WorkManager reconciliation pass on API 36; physical reboot/alarm reconstruction remains open. |
 | A10 | Accessibility / app-launch tracking | DECIDED | Service configuration and unnecessary view-tree scope were corrected; Android runtime evidence remains pending. |
-| A11 | Boot / process death / restart / recovery | **RISK-P0** | Multiple independent recovery paths can contradict user intent; reboot restoration is incomplete. |
+| A11 | Boot / process death / restart / recovery | **RISK-P0** | Desired-state restart dominance and repeated BootReceiver WorkManager idempotency now pass on API 36, but real OS process death and physical reboot recovery remain unproven. |
 | A12 | Settings / App Behavior / compatibility interlocks | DECIDED | Central policy now exists; truth table needs exhaustive tests. |
-| A13 | Backup / restore | DECIDED | Validate-first transactional restore, future-version rejection and fork settings are implemented; Android fault-injection evidence remains pending. |
-| A14 | Room DB / statistics / logs | DECIDED | Destructive fallback was removed and v2→v11 migration instrumentation compiles; API-37 execution and schema-history evidence remain open. |
+| A13 | Backup / restore | DECIDED | API-36 instrumentation passes transactional rollback fault injection, legacy/future/malformed bounds and active-preset reconciliation; physical user-facing file round-trip remains open. |
+| A14 | Room DB / statistics / logs | DECIDED | Supported v2→v11 migration executes successfully on API 36 with `app_stats` preservation and final-schema validation; unavailable upstream schema history 1/3–10 cannot be fabricated. |
 | A15 | Update channel / release / rollback | DECIDED | Update provenance is fork-owned and release artifact digest is recorded; signing/rollback evidence remains incomplete. |
 | A16 | Exported surfaces: shortcuts / tiles / receivers / widget | DECIDED | Shortcut confused-deputy path is hardened and all exported principals are documented; repeatable abuse probes remain pending. |
 | A17 | UI / error recovery / accessibility / i18n | DECIDED | Fork feature translations and lint-critical accessibility fixes are complete; broader runtime/UX evidence remains pending. |
-| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins, zero-error lint, dependency locking and SHA-256 verification are enforced; broader emulator/runtime lanes remain open. |
+| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins, zero-error lint, dependency locking/SHA-256 verification and a stable API-36 runtime lane are enforced; API-37 preview execution remains blocked. |
 
 ## Axis B — independent lenses
 
@@ -83,18 +83,18 @@ The table intentionally stays conservative: a successful APK build alone is not 
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | A01 Privilege bootstrap | D | R | R | R | R | D | - | - | R | D | R | D | **R** | R | - | R | - | R |
 | A02 Process topology | D | D | R | R | R | D | - | - | R | D | R | D | **R** | D | - | R | - | R |
-| A03 Shell/UserService | D | R | R | R | R | **R** | - | - | R | **R** | R | D | **R** | R | - | R | - | **R** |
+| A03 Shell/UserService | D | R | R | R | R | **R** | - | - | R | **R** | R | D | **P** | R | - | R | - | **R** |
 | A04 App discovery | D | R | R | R | R | D | - | - | R | R | R | R | **R** | R | - | R | - | R |
-| A05 Privileged actions | D | R | R | R | R | **R** | - | - | R | R | R | D | **R** | R | - | **R** | - | **R** |
-| A06 AutoKill/service | **R** | **R** | R | **R** | **R** | D | - | - | R | R | R | D | **R** | R | - | **R** | R | **R** |
+| A05 Privileged actions | D | R | R | R | R | **R** | - | - | R | R | R | D | **P** | R | - | **R** | - | **R** |
+| A06 AutoKill/service | **R** | **R** | R | **P** | **R** | D | - | - | R | R | R | D | **P** | R | - | **R** | R | **R** |
 | A07 Smart Lifecycle | D | D | R | R | D | D | - | - | R | D | R | D | **R** | D | - | R | R | R |
 | A08 Sleep/freeze | D | R | R | R | R | D | - | - | R | R | R | D | **R** | R | - | **R** | R | R |
-| A09 Presets/scheduler | **R** | **R** | R | R | **R** | D | - | D | **R** | R | R | D | **R** | R | - | **R** | R | R |
+| A09 Presets/scheduler | **R** | **R** | R | **P** | **R** | D | - | D | **P** | R | R | D | **P** | R | - | **R** | R | R |
 | A10 Accessibility | D | R | R | D | D | **R** | - | - | **R** | D | R | D | R | **R** | R | R | - | **R** |
-| A11 Boot/recovery | **R** | **R** | R | **R** | **R** | D | - | D | R | R | R | D | **R** | R | - | **R** | R | R |
+| A11 Boot/recovery | **R** | **R** | R | **P** | **R** | D | - | D | R | R | R | D | **P** | R | - | **R** | R | R |
 | A12 App Behavior policy | D | D | R | D | D | D | - | D | D | D | R | D | **R** | D | R | **R** | R | R |
-| A13 Backup/restore | **R** | R | R | **R** | R | R | **R** | **R** | D | R | **R** | R | **R** | R | R | **R** | **R** | **R** |
-| A14 Room DB | D | R | R | D | R | D | - | **R** | D | D | **R** | R | **R** | R | - | R | **R** | R |
+| A13 Backup/restore | **R** | R | R | **P** | R | R | **R** | **P** | D | R | **P** | R | **P** | R | R | **R** | **R** | **R** |
+| A14 Room DB | D | R | R | D | R | D | - | **P** | D | D | **P** | R | **P** | R | - | R | **R** | R |
 | A15 Update/release | **R** | R | R | R | R | R | **R** | D | D | R | **R** | R | **R** | R | R | R | **R** | R |
 | A16 Exported entrypoints | D | R | R | R | R | **R** | **R** | - | R | R | R | R | **R** | R | - | **R** | R | **R** |
 | A17 UI/i18n | D | R | R | D | D | D | - | D | D | R | R | R | R | **R** | **R** | R | R | R |
@@ -110,20 +110,24 @@ No runtime surface is currently marked fully PROVEN. That is intentional until r
 The finding narratives below are retained as audit provenance. This refresh supersedes their
 historical “current” wording where implementation has moved on.
 
-- **CM-P0-01:** implementation fixed. Desired-state guards prevent intentional Auto-Kill disable
-  from being undone; live process-death/recovery evidence is still required.
+- **CM-P0-01:** implementation fixed. API-36 instrumentation now proves a newly constructed
+  restart receiver re-reads persisted desired state and cannot undo an intentional Auto-Kill disable;
+  an OS-level process-kill/force-stop probe is still required.
 - **CM-P0-02:** implementation fixed. Update provenance points to `HyperCriSiS/ReAppzuku`; the
   2026-09-02 assurance release was published from the fork with an explicit SHA-256.
-- **CM-P0-03:** state model/readiness gating improved and JVM-tested; Android binder-late,
-  deny→grant, service-death and Shizuku-restart probes remain open.
+- **CM-P0-03:** state model/readiness gating is now API-36 instrumented for binder-late,
+  deny→grant, listener removal followed by grant, and binder-death→return/rebind. A real Shizuku
+  daemon first-run/restart probe remains open.
 - **CM-P1-01 / CM-P1-02:** boot preset recovery and one central exact-alarm capability are
-  implemented; device reboot and permission-revocation evidence remains open.
+  implemented. API-36 runtime proves denied-exact-alarm best-effort fallback plus repeated
+  BootReceiver WorkManager idempotency; physical reboot/alarm reconstruction remains open.
 - **CM-P1-03:** restore is validate-first, bounded, future-version aware and transactional with
-  rollback. `BackupCodec` now owns payload-size/version/JSON envelope validation while
-  `BackupManager` retains storage transaction and runtime reconciliation; dedicated Android fault
-  injection remains open.
-- **CM-P1-04:** destructive Room fallback is removed. v2→v11 `MigrationTestHelper` instrumentation
-  compiles and is scheduled for the API-37 runtime lane.
+  rollback. API-36 instrumentation passes injected failure after the main commit, failure after the
+  first preset commit, rollback restoration and imported active-preset reconciliation. A physical
+  user-facing backup file round-trip remains open.
+- **CM-P1-04:** destructive Room fallback is removed. v2→v11 `MigrationTestHelper` now executes
+  successfully on API 36, preserving existing `app_stats` rows and validating the final schema.
+  Historical schemas 1 and 3–10 were never preserved upstream and are intentionally not fabricated.
 - **CM-P1-05 / 06 / 07:** normal CI is source-authoritative, immutable-SHA pinned and split into
   read-only validation and writable publishing. Lint must show zero errors before its reviewed
   warning baseline is accepted.
@@ -132,8 +136,9 @@ historical “current” wording where implementation has moved on.
   exported principals are documented in `EXPORTED_COMPONENTS.md`.
 - **CM-P1-11:** Android cloud/device-transfer backup is explicitly excluded; the versioned
   ReAppzuku backup is the configuration contract.
-- **CM-P1-12:** a manual Android-17/API-37 runtime lane is staged before target migration; execution
-  evidence is the next roadmap step.
+- **CM-P1-12:** Android 16/API 36 now provides a stable repeatable runtime baseline. The separate
+  Android-17/API-37 preview lane still blocks at PackageManager transport before repeatable app probes,
+  so `targetSdk 37` remains gated.
 - **CM-P2-02:** mutating package/component/PID operations now route through `PrivilegedShell` with
   typed enums/validated identifiers. Strict run `33946348081` required the repository-wide raw
   mutating-shell audit to return `NONE` outside that boundary; Android execution evidence remains open.
@@ -144,6 +149,11 @@ historical “current” wording where implementation has moved on.
   active continuity blockers from `BackgroundWorkPolicy`.
 
 Latest assurance evidence:
+- workflow run `33974963048`: full Android 16/API-36 instrumentation passed with repeated BootReceiver execution proving no duplicate active AutoKill, Smart Lifecycle or boot-cleanup Unique Work;
+- workflow run `33974637281`: full API-36 instrumentation passed transactional restore/fault injection, active-preset reconciliation, ShellManager binder/permission/death-rebind sequences, exact-alarm denial fallback and Room v2→v11 migration;
+- workflow run `33974626448`: normal validation passed after packaging Room historical schemas into `androidTest` assets;
+- workflow run `33974877204`: normal validation passed for repeated boot WorkManager-idempotency coverage;
+- workflow run `33974469090`: normal validation passed for stale service-restart desired-state dominance;
 - workflow run `33946729221`: `Clock`/`ScheduleTime` + `AlarmScheduler` integration passed unit, lint, AndroidTest compile and APK build;
 - workflow run `33946888672`: `BackupCodec` envelope extraction passed unit, lint, AndroidTest compile and APK build before integration;
 - workflow run `33940964413`: typed `PrivilegedShell` integration for AutoKill/BackgroundAppManager passed unit, lint, AndroidTest compile and APK build;
@@ -156,7 +166,7 @@ Latest assurance evidence:
 - earlier release target: `e202e38c049a0d4a7cfc561f7a9c8348c9abd8ae`;
 - earlier APK SHA-256: `d841e34685d790197266c1e9c90a11619a33a219377892f2c429c00930dbf5d4`.
 
-**Maintainability status:** the named high-risk seams now have explicit `PrivilegedShell`, parser/protection/background policy, `Clock`/`ScheduleTime`, `AlarmScheduler` and `BackupCodec` boundaries. This is source/testability progress, not Android runtime proof.
+**Maintainability status:** the named high-risk seams have explicit `PrivilegedShell`, parser/protection/background policy, `Clock`/`ScheduleTime`, `AlarmScheduler` and `BackupCodec` boundaries. API-36 runtime evidence now covers several recovery/storage invariants; real Shizuku/root execution, OS process death, physical reboot, OEM parser behavior and installed-release probes remain open.
 
 # High-priority findings
 
@@ -178,24 +188,19 @@ service returns despite explicit user intent.
 
 **Fix direction:**
 1. restart only if the persisted desired state still requires the service;
-2. re-check desired state inside `RestartReceiver`;
-3. cancel a pending restart when the user disables the service;
-4. distinguish intentional shutdown from unexpected death where practical.
+2. cancel pending restart intents when the user disables AutoKill/background mode;
+3. test process death with enabled/disabled desired state.
 
-**Required evidence:** state-machine test for enabled→disable→destroy; process-kill recovery probe.
-
-### CM-P0-02 — Update checker points to upstream, not the fork
+### CM-P0-02 — Update checker still points at upstream fork provenance
 
 **Surface:** A15  
-**Lenses:** L01, L11, L16, L25, L26
+**Lenses:** L09, L11, L14, L17, L25, L26
 
-`UpdateChecker` currently uses:
+`UpdateChecker` queries `gree1d/ReAppzuku` and then downloads assets from the returned release.
+The installed fork is `HyperCriSiS/ReAppzuku` with behavior and possibly signing identity that may
+not match upstream.
 
-- `https://api.github.com/repos/gree1d/ReAppzuku/releases/latest`
-- `https://github.com/gree1d/ReAppzuku/releases`
-
-**Hazard:** the customized fork can recommend an upstream APK that removes the fork's behavior,
-Smart Lifecycle and On-demand Shizuku changes.
+**Hazard:** a fork can offer the wrong APK to itself.
 
 **Required invariant:** update provenance must match the installed distribution channel.
 
@@ -468,18 +473,19 @@ At minimum, each subsystem must consider:
 - explicit intent into exported shortcut activity
 - backup with unexpected package identifiers / oversized arrays
 - update metadata with wrong asset/package/signing provenance
-- shell timeout and command cancellation
-- accessibility service disabled/re-enabled while Smart Lifecycle is active
 
-# Exit criteria
+## Release gate
 
-A release candidate is not matrix-clean until:
-
-- all P0 findings are fixed and PROVEN;
-- no P1 finding is unowned;
+A release candidate is only **PROVEN** when:
+- no P0 surface remains RISK;
+- all P1 findings have explicit owner/acceptance criteria;
+- destructive DB fallback is absent;
 - required migrations are non-destructive and tested;
 - permission/process/reboot state machines have repeatable evidence;
-- CI validates without rewriting source or lint baseline;
-- update provenance points to the correct distribution channel;
-- release artifact digest and signing identity are recorded;
-- rollback path is documented and tested.
+- shell commands are bounded and validated;
+- exported privileged boundaries are abuse-tested;
+- backup format is round-trip/fault-injection tested;
+- update provenance matches the installed fork identity;
+- lint has zero errors and no CI step rewrites lint acceptance;
+- immutable external Action pins and least-privilege job permissions are in place;
+- release APK/AAB identity, signing provenance and rollback procedure are recorded.

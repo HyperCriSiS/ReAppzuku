@@ -25,10 +25,10 @@ Status convention:
 ### Live evidence still required
 
 - [ ] Fresh Shizuku permission flow: launch without grant, grant later, list loads only after backend is ready.
-- [ ] AutoKill disable survives process death/restart.
-- [ ] Reboot restores presets/restrictions without duplicate work.
-- [ ] Exact-alarm denied path falls back correctly.
-- [ ] Backup/restore round-trip on a real device, including App Behavior settings and preset state.
+- [~] AutoKill disable survives restart recovery: API-36 instrumentation proves a fresh restart receiver obeys persisted disabled state; an OS-level process kill/force-stop probe is still required.
+- [~] Reboot reconciliation is idempotent: repeated `BootReceiver` execution on API 36 leaves only one active AutoKill, Smart Lifecycle and boot-cleanup Unique Work instance; a physical reboot with alarm reconstruction is still required.
+- [x] Exact-alarm denied path falls back correctly on Android 16/API 36.
+- [ ] Backup/restore round-trip on a real device, including App Behavior settings and preset state; API-36 transactional fault-injection and active-preset reconciliation already pass.
 - [ ] Fork update provenance on a real installed test build.
 
 ## Phase 2 — Explicit shell readiness state machine
@@ -38,7 +38,7 @@ Status convention:
 - [x] Operational app scans require a genuinely ready backend, not merely permission.
 - [x] MainActivity waits/retries only for transitional states instead of mapping waiting to generic shell failure.
 - [x] JVM transition tests cover root precedence, permission/readiness separation and lost state.
-- [ ] Instrument binder-late, deny -> grant, Activity recreation and Shizuku restart/service-death recovery.
+- [~] Instrument binder-late, deny -> grant, Activity recreation and Shizuku restart/service-death recovery: API-36 test-bridge coverage now proves binder-late, deny -> grant, listener removal/rebind and binder-death -> return; a real Shizuku-daemon first-run/restart probe remains.
 - [ ] Add event-driven UI recovery when Shizuku appears after MainActivity is already open if live testing shows the current callback chain is insufficient.
 
 ## Phase 3 — Transactional backup and restore
@@ -52,21 +52,21 @@ Status convention:
 - [x] Failed writes/runtime reconciliation roll preferences back and best-effort restore old runtime state.
 - [x] Reject oversized (>2 MiB), malformed and future-version backup payloads.
 - [x] Add focused automated restore tests for corrupt/legacy/future/oversized/rollback paths.
-- [ ] Live-test transactional rollback and active-preset restore.
+- [x] Execute transactional rollback and active-preset restore on Android runtime.
 
-### Transactional restore test coverage — 2026-09-04
+### Transactional restore test coverage — 2026-09-04 to 2026-09-05
 
-- Android instrumentation coverage now exercises malformed JSON, unversioned legacy payloads, future-version rejection, the 2 MiB input bound, and restoration from captured main/preset rollback snapshots.
-- The rollback helper is exercised against real Android `SharedPreferences` and `PresetManager` storage without changing production behavior.
-- Runtime execution of these tests remains part of the Android evidence lane; source/AndroidTest compilation is the immediate CI gate.
+- Android instrumentation coverage exercises malformed JSON, unversioned legacy payloads, future-version rejection, the 2 MiB input bound, restoration from captured main/preset rollback snapshots, injected failure after the main commit, injected failure after the first preset commit, and imported active-preset reconciliation.
+- The rollback paths execute against real Android `SharedPreferences` and `PresetManager` storage without changing production behavior.
+- API-36 runtime gate `33974637281` executed the complete restore suite successfully. A user-facing file import/export round-trip on a physical device remains a separate release-validation item.
 
 ## Phase 4 — Persistence and migration evidence
 
 - [x] Explicitly exclude Android cloud backup and device-transfer restore; ReAppzuku's versioned backup remains the configuration contract.
 - [x] Room schema export configured and current schema 11 generation verified in CI.
 - [x] `MigrationTestHelper` instrumentation test for supported historical schema v2 -> v11 compiles.
-- [~] Migration test validates preservation of existing `app_stats` data and final schema when executed on Android.
-- [ ] Execute migration test on emulator/device in CI or release-validation lane.
+- [x] Migration test validates preservation of existing `app_stats` data and final schema on Android.
+- [x] Execute supported v2 -> v11 migration on the stable API-36 emulator lane.
 - [x] Commit compiler-generated schema 11 and preserve every schema from now on. Historical schemas 1 and 3–10 were never preserved upstream and must not be fabricated.
 
 ## Phase 5 — Privileged surface hardening
@@ -126,6 +126,15 @@ Status convention:
 - Artifact `9922094160` is preserved by SHA-256 `43c53cc13431cd2b2513fb0d9108836d548dd4b33b5673e9ddd49e4b1954918c`; its exact generated files are committed and normal builds now enforce them.
 - Dependency-verification refresh run `33900939628` regenerated the complete SHA-256 set from fresh resolution and then passed the build again after deleting the dependency cache, closing the warm-cache blind spot.
 - Normal read-only validation run `33901414025` subsequently passed on the permanent locked/verified dependency state.
+
+### Stable Android 16 / API 36 runtime evidence — 2026-09-05
+
+- API-36 gate `33974637281` booted to `RUNNING_UNLOCKED` and passed the complete instrumentation suite present at that commit: transactional restore/fault injection, imported active-preset reconciliation, ShellManager binder/permission/death-rebind sequences, the denied exact-alarm best-effort fallback, and Room v2 -> v11 migration with `app_stats` preservation and final-schema validation.
+- The first diagnostic API-36 execution `33974371939` reached 17/18 passing tests and identified the only failure as missing Room schema assets, not a migration failure. `app/schemas` is now packaged into `androidTest` assets.
+- Normal validation `33974626448` passed unit tests, lint, AndroidTest compilation, Room schema verification and APK build after the schema-assets fix.
+- AutoKill stale-restart desired-state coverage passed normal validation in `33974469090`.
+- Repeated boot-reconciliation coverage passed normal validation in `33974877204` and then passed the full API-36 Android runtime gate in `33974963048`, proving WorkManager Unique Work idempotency for AutoKill, Smart Lifecycle and boot cleanup.
+- This stable API-36 lane is now the repeatable Android-runtime baseline. Physical-device Shizuku, OS process-death, real reboot, installed-update and backup-file round-trip probes remain release evidence; API 37 remains separately blocked by the preview PackageManager transport failure.
 
 ## Phase 7 — Android 17 / API 37
 
