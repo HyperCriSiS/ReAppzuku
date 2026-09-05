@@ -123,6 +123,6 @@ public class RealShizukuDaemonInstrumentationTest {
 
         String marker = manager.runShellCommandAndGetFullOutput("printf ReAppzukuRealShizuku");
         assertEquals("real UserService command output was not returned intact",
-                "ReAppzukuRealShizuku", marker);
+                "ReAppzukuRealShizuku", marker.trim());
     }
 }
