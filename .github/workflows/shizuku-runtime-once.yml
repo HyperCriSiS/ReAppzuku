@@ -120,6 +120,16 @@ jobs:
           adb shell dumpsys package com.gree1d.reappzuku | \
             grep -A2 'moe.shizuku.manager.permission.API_V23' | head -6
 
+      - name: Probe exported shortcut abuse boundary
+        run: |
+          set -euo pipefail
+          output="$(adb shell am instrument -w \
+            -e shortcutAbuseProbe true \
+            -e class 'com.gree1d.reappzuku.utils.ShortcutAbuseInstrumentationTest' \
+            com.gree1d.reappzuku.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"
+          printf '%s\n' "$output"
+          grep -q 'OK (2 tests)' <<<"$output"
+
       - name: Start real Shizuku daemon
         run: |
           set -euo pipefail
