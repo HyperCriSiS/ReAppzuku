@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# One-time staging script; this comment intentionally triggers the registered push gate.
 TARGET = Path('app/src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/ProcessAnalyzer.java')
 EXPECTED_BLOB = '2e7bbdf94590b37d3e506ee5838b7cdf7e7044b8'
 
