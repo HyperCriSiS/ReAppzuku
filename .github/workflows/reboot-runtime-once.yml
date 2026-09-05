@@ -38,6 +38,8 @@ jobs:
           ADB="$SDK_ROOT/platform-tools/adb"
           EMULATOR="$SDK_ROOT/emulator/emulator"
           export ANDROID_AVD_HOME="$HOME/.android/avd"
+          export PATH="$SDK_ROOT/platform-tools:$PATH"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
           mkdir -p "$ANDROID_AVD_HOME"
 
           test -x "$SDKMANAGER"
@@ -86,16 +88,22 @@ jobs:
           done
           test "$boot_ready" = true
 
+          "$ADB" shell locksettings set-disabled true || true
+          "$ADB" shell wm dismiss-keyguard || true
           "$ADB" shell input keyevent 82 || true
-          for i in $(seq 1 30); do
-            if "$ADB" shell cmd user get-user-state 0 2>/dev/null | grep -q RUNNING_UNLOCKED; then
+          unlocked=false
+          for i in $(seq 1 90); do
+            state="$("$ADB" shell cmd user get-user-state 0 2>/dev/null | tr -d '\r' || true)"
+            echo "initial user-state[$i]=$state"
+            if grep -q RUNNING_UNLOCKED <<<"$state"; then
+              unlocked=true
               break
             fi
+            "$ADB" shell wm dismiss-keyguard || true
+            "$ADB" shell input keyevent 82 || true
             sleep 1
           done
-          "$ADB" shell cmd user get-user-state 0 | grep -q RUNNING_UNLOCKED
-
-          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          test "$unlocked" = true
 
       - name: Install probe APKs and prepare pre-reboot state
         run: |
@@ -140,13 +148,19 @@ jobs:
           done
           test "$boot_ready" = true
 
+          adb shell locksettings set-disabled true || true
+          adb shell wm dismiss-keyguard || true
           adb shell input keyevent 82 || true
           unlocked=false
-          for i in $(seq 1 60); do
-            if adb shell cmd user get-user-state 0 2>/dev/null | grep -q RUNNING_UNLOCKED; then
+          for i in $(seq 1 90); do
+            state="$(adb shell cmd user get-user-state 0 2>/dev/null | tr -d '\r' || true)"
+            echo "post-reboot user-state[$i]=$state"
+            if grep -q RUNNING_UNLOCKED <<<"$state"; then
               unlocked=true
               break
             fi
+            adb shell wm dismiss-keyguard || true
+            adb shell input keyevent 82 || true
             sleep 1
           done
           test "$unlocked" = true
