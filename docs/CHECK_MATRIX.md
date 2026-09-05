@@ -2,7 +2,7 @@
 
 > Adapted from the Voice-platform Architecture Control Matrix.
 >
-> Audit baseline: `ondemand-shizuku`, refreshed 2026-09-02.
+> Audit baseline: `ondemand-shizuku`, refreshed 2026-09-05.
 
 ## Purpose
 
@@ -27,7 +27,7 @@ Only **PROVEN** is fully closed.
 | A01 | Privilege bootstrap: Root / Shizuku / permission | RISK | State machine improved, but first-run/rebind/process-death paths have no automated evidence. |
 | A02 | Main-process / `:shizuku` process topology | DECIDED | On-demand topology is explicit; process-start invariants are not regression-tested. |
 | A03 | Privileged shell / Shizuku UserService | RISK | Arbitrary shell transport is powerful; readiness, death/rebind and command safety need tests/facades. |
-| A04 | Running-app discovery / app-state collection | RISK | Depends on shell output/platform internals; failures are mostly runtime-detected, not contract-tested. |
+| A04 | Running-app discovery / app-state collection | DECIDED | ActivityManager process/service text parsing is isolated and JVM fixture-tested across AOSP/OEM-style forms; Android runtime/platform evidence remains open. |
 | A05 | Manual restrictions / freeze / force-stop / app ops | RISK | High-impact privileged actions lack typed command boundary and validation tests. |
 | A06 | AutoKill / `ShappkyService` / periodic worker | DECIDED | Desired-state guard prevents an intentional disable from being undone; live process-death evidence remains pending. |
 | A07 | Smart Lifecycle | DECIDED | Conservative blacklist/protection design exists; state/false-positive/reboot evidence missing. |
@@ -41,7 +41,7 @@ Only **PROVEN** is fully closed.
 | A15 | Update channel / release / rollback | DECIDED | Update provenance is fork-owned and release artifact digest is recorded; signing/rollback evidence remains incomplete. |
 | A16 | Exported surfaces: shortcuts / tiles / receivers / widget | DECIDED | Shortcut confused-deputy path is hardened and all exported principals are documented; repeatable abuse probes remain pending. |
 | A17 | UI / error recovery / accessibility / i18n | DECIDED | Fork feature translations and lint-critical accessibility fixes are complete; broader runtime/UX evidence remains pending. |
-| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins and zero-error lint gate are in place; dependency verification and broader emulator lanes remain open. |
+| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins, zero-error lint, dependency locking and SHA-256 verification are enforced; broader emulator/runtime lanes remain open. |
 
 ## Axis B — independent lenses
 
@@ -105,7 +105,7 @@ No runtime surface is currently marked fully PROVEN. That is intentional until r
 ---
 
 
-## Evidence/status refresh — 2026-09-02
+## Evidence/status refresh — 2026-09-05
 
 The finding narratives below are retained as audit provenance. This refresh supersedes their
 historical “current” wording where implementation has moved on.
@@ -134,14 +134,17 @@ historical “current” wording where implementation has moved on.
   evidence is the next roadmap step.
 - **CM-P2-02:** package identifiers imported from backups/presets and high-impact shell boundaries
   now pass a shared package-name validator; typed privileged operations remain a longer-term goal.
+- **CM-P2-03:** ActivityManager `ProcessRecord`/`ServiceRecord` parsing is isolated in a pure-Java parser with AOSP/OEM-style fixtures, and protected-package tests lock exact package boundaries. Other Smart Lifecycle/VPN heuristics still require runtime/fixture evidence.
+- **CM-P1-06 / A18:** Gradle dependency locking and SHA-256 verification are now enforced; run `33900939628` re-proved verification from an empty dependency cache and normal run `33901414025` passed afterward.
 - **CM-P2-04:** fork-specific Smart Lifecycle, App Behavior, shortcut-security and accessibility
   strings are propagated to ES/RU/UK/ZH.
 
 Latest assurance evidence:
-- workflow run `33577363239`: zero lint errors, reviewed historical-warning baseline, JVM tests,
-  instrumentation-test compilation, Room schema-11 check and debug APK build all passed;
-- release target: `e202e38c049a0d4a7cfc561f7a9c8348c9abd8ae`;
-- APK SHA-256: `d841e34685d790197266c1e9c90a11619a33a219377892f2c429c00930dbf5d4`.
+- workflow run `33940487030`: parser/protection JVM fixtures, lint, AndroidTest compilation and debug APK build passed before production integration commit `57d8897c70a5b4c9565379cd72317f1abb7c9e59`;
+- workflow run `33900939628`: dependency verification re-generated from fresh resolution and re-proved after dependency-cache deletion;
+- workflow run `33901414025`: normal permanent locked/verified validation passed;
+- earlier release target: `e202e38c049a0d4a7cfc561f7a9c8348c9abd8ae`;
+- earlier APK SHA-256: `d841e34685d790197266c1e9c90a11619a33a219377892f2c429c00930dbf5d4`.
 
 # High-priority findings
 
@@ -364,12 +367,14 @@ Package names normally come from Android and are constrained, but privileged com
 constructed by string concatenation. High-privilege code should validate package identifiers and
 prefer typed shell operations.
 
-### CM-P2-03 — Smart Lifecycle protection parsing is heuristic
+### CM-P2-03 — Smart Lifecycle / process protection parsing needs bounded contracts
 
-Protection checks use dumpsys text/substrings and conservative package matching. This is safer than
-under-protection but can over-protect prefix-related packages or unrelated VPN text.
+ActivityManager `ProcessRecord`/`ServiceRecord` parsing is now isolated in `ProcessDumpParser`; JVM
+fixtures cover AOSP and OEM-style records, remote processes, CRLF and exact package-name boundaries.
+`ProtectedAppsTest` also prevents prefix-neighbor packages from being treated as protected.
 
-**Direction:** isolate parsers and add fixture tests from multiple Android versions/OEMs.
+Remaining Smart Lifecycle/VPN text heuristics still depend on platform output and therefore remain a
+runtime/fixture evidence item rather than being marked globally PROVEN.
 
 ### CM-P2-04 — Fork-specific UI strings are not propagated to existing locales
 
