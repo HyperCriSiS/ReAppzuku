@@ -202,7 +202,7 @@ jobs:
 
           new_server=false
           for i in $(seq 1 80); do
-            NEW_SERVER_PID="$(adb shell pidof shizuku_server 2>/dev/null | tr -d '\r')"
+            NEW_SERVER_PID="$(adb shell pidof shizuku_server 2>/dev/null | tr -d '\r' || true)"
             if [ -n "$NEW_SERVER_PID" ] && [ "$NEW_SERVER_PID" != "$OLD_SERVER_PID" ]; then
               new_server=true
               echo "new-shizuku-server-pid=$NEW_SERVER_PID"
