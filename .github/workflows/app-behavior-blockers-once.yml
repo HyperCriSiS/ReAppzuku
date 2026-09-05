@@ -1,0 +1,80 @@
+name: One-time App Behavior blocker gate
+
+on:
+  push:
+    branches: [ondemand-shizuku]
+    paths:
+      - '.github/scripts/apply_app_behavior_blockers.py'
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ondemand-shizuku
+          persist-credentials: true
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - name: Apply blocker UX refactor
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          git update-index --chmod=+x gradlew
+          python3 .github/scripts/apply_app_behavior_blockers.py
+          git diff --check
+      - name: Validate app and blocker policy
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
+      - name: Audit raw mutating shell strings
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          patterns = (
+              'am force-stop ', 'am kill ', 'pm uninstall ', 'cmd appops set ',
+              'am set-standby-bucket ', 'cmd deviceidle whitelist ', 'pm suspend ',
+              'pm unsuspend ', 'pm disable-user ', 'pm enable ', 'kill -9 ',
+              'am start -n ', 'am start-foreground-service -n ', 'am broadcast -n '
+          )
+          offenders = []
+          root = Path('app/src/main/java')
+          for path in root.rglob('*.java'):
+              if path.name == 'PrivilegedShell.java':
+                  continue
+              text = path.read_text(errors='replace')
+              for pattern in patterns:
+                  if pattern in text:
+                      offenders.append((str(path), pattern))
+          print('RAW_MUTATING_SHELL_AUDIT_BEGIN')
+          if offenders:
+              for path, pattern in offenders:
+                  print(f'{path}: {pattern}')
+          else:
+              print('NONE')
+          print('RAW_MUTATING_SHELL_AUDIT_END')
+          PY
+      - name: Commit blocker UX
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            app/src/main/java/com/gree1d/reappzuku/core/BackgroundWorkPolicy.java \
+            app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivity.java \
+            app/src/main/res/layout/activity_settings.xml \
+            app/src/main/res/values/strings_assurance.xml \
+            app/src/main/res/values-es/strings_assurance.xml \
+            app/src/main/res/values-ru/strings_assurance.xml \
+            app/src/main/res/values-uk/strings_assurance.xml \
+            app/src/main/res/values-zh-rCN/strings_assurance.xml \
+            app/src/test/java/com/gree1d/reappzuku/core/BackgroundWorkPolicyTest.java
+          test "$(git diff --cached --name-only | wc -l)" -eq 9
+          git commit -m 'Explain active App Behavior automation blockers'
+          git push origin HEAD:ondemand-shizuku
