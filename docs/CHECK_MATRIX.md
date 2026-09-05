@@ -119,7 +119,9 @@ historical “current” wording where implementation has moved on.
 - **CM-P1-01 / CM-P1-02:** boot preset recovery and one central exact-alarm capability are
   implemented; device reboot and permission-revocation evidence remains open.
 - **CM-P1-03:** restore is validate-first, bounded, future-version aware and transactional with
-  rollback; dedicated Android fault injection remains open.
+  rollback. `BackupCodec` now owns payload-size/version/JSON envelope validation while
+  `BackupManager` retains storage transaction and runtime reconciliation; dedicated Android fault
+  injection remains open.
 - **CM-P1-04:** destructive Room fallback is removed. v2→v11 `MigrationTestHelper` instrumentation
   compiles and is scheduled for the API-37 runtime lane.
 - **CM-P1-05 / 06 / 07:** normal CI is source-authoritative, immutable-SHA pinned and split into
@@ -142,6 +144,8 @@ historical “current” wording where implementation has moved on.
   active continuity blockers from `BackgroundWorkPolicy`.
 
 Latest assurance evidence:
+- workflow run `33946729221`: `Clock`/`ScheduleTime` + `AlarmScheduler` integration passed unit, lint, AndroidTest compile and APK build;
+- workflow run `33946888672`: `BackupCodec` envelope extraction passed unit, lint, AndroidTest compile and APK build before integration;
 - workflow run `33940964413`: typed `PrivilegedShell` integration for AutoKill/BackgroundAppManager passed unit, lint, AndroidTest compile and APK build;
 - workflow run `33941247796`: lifecycle/scheduler `PrivilegedShell` integration passed the same gates;
 - workflow run `33946348081`: App Behavior blocker policy/UI plus final strict raw mutating-shell audit (`NONE`) passed unit, lint, AndroidTest compile and APK build;
@@ -152,7 +156,7 @@ Latest assurance evidence:
 - earlier release target: `e202e38c049a0d4a7cfc561f7a9c8348c9abd8ae`;
 - earlier APK SHA-256: `d841e34685d790197266c1e9c90a11619a33a219377892f2c429c00930dbf5d4`.
 
-**Maintainability status:** `PrivilegedShell` and parser/protection/background policy boundaries are now explicit. `Clock`/`ScheduleTime` and `AlarmScheduler` isolate scheduler time/alarm decisions; `BackupCodec` remains the named facade gap. This is source/testability progress, not Android runtime proof.
+**Maintainability status:** the named high-risk seams now have explicit `PrivilegedShell`, parser/protection/background policy, `Clock`/`ScheduleTime`, `AlarmScheduler` and `BackupCodec` boundaries. This is source/testability progress, not Android runtime proof.
 
 # High-priority findings
 

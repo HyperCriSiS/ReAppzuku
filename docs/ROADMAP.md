@@ -151,16 +151,19 @@ Status convention:
 
 - [x] Propagate fork-specific Smart Lifecycle/App Behavior/security strings to supported locales.
 - [x] Explain blocking automation directly beside disabled App Behavior controls, listing the active AutoKill/Smart Lifecycle/Sleep/Preset/Scheduler blockers from the central policy.
-- [~] Split large managers behind testable facades: `PrivilegedShell`, `AlarmScheduler`, `Clock`/`ScheduleTime` and central protection/background/parser policy boundaries are in place; `BackupCodec` remains to extract.
+- [x] Split large managers behind testable facades: `PrivilegedShell`, `AlarmScheduler`, `Clock`/`ScheduleTime`, `BackupCodec` and central protection/background/parser policy boundaries now isolate the named high-risk seams.
 - [~] Keep `CHECK_MATRIX.md` status/evidence current after every high-impact change (refreshed through 2026-09-05; ongoing discipline).
 
 
 ### Maintainability evidence — 2026-09-05
 
+- Scheduling facade gate `33946729221` passed unit tests, lint, AndroidTest compilation and debug APK build before integrating `Clock`/`ScheduleTime` and `AlarmScheduler`.
+- BackupCodec gate `33946888672` compiles the focused Android codec tests and passes the same application validation before integration.
+
 - App Behavior exposes the exact active continuity blockers from `BackgroundWorkPolicy` rather than duplicating feature-state logic in the UI.
 - `Clock` plus pure `ScheduleTime` make daily scheduling deterministic under JVM tests, while `AlarmScheduler` centralizes AlarmManager availability and exact-vs-best-effort behavior.
 - `PresetManager` and `RestrictionsScheduler` keep their existing public constructors but receive clock/alarm dependencies through internal injection points.
-- `BackupCodec` is the remaining named facade before this roadmap item can be closed.
+- `BackupCodec` now owns bounded/versioned JSON envelope decode/encode while `BackupManager` retains the transactional storage/rollback side effects; the named facade extraction item is closed.
 
 ## Stable-release gate
 

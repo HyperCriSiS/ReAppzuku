@@ -18,19 +18,23 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 
 public class BackupManager {
     private static final String TAG = "BackupManager";
-    private static final String KEY_BACKUP_VERSION = "backup_version";
-    private static final int BACKUP_VERSION = 5;
     private static final String KEY_MANUAL_OPS_MASKS = "manual_ops_masks";
     private static final String KEY_PRESETS = "presets";
     private static final String KEY_PRESET_PREFIX = "preset_";
-    private static final int MAX_BACKUP_CHARS = 2 * 1024 * 1024;
 
     private final Context context;
     private final SharedPreferences prefs;
+    private final BackupCodec backupCodec;
 
     public BackupManager(Context context) {
+        this(context, new BackupCodec());
+    }
+
+    BackupManager(Context context, BackupCodec backupCodec) {
+        if (backupCodec == null) throw new IllegalArgumentException("backupCodec == null");
         this.context = context.getApplicationContext();
         this.prefs = context.getSharedPreferences(PreferenceKeys.PREFERENCES_NAME, Context.MODE_PRIVATE);
+        this.backupCodec = backupCodec;
     }
 
     private boolean getSafeBool(String key, boolean defVal) {
@@ -47,8 +51,7 @@ public class BackupManager {
     public String createBackupJson() {
         AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: start");
         try {
-            JSONObject root = new JSONObject();
-            root.put(KEY_BACKUP_VERSION, BACKUP_VERSION);
+            JSONObject root = backupCodec.newRoot();
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: version written");
 
             putStringSet(root, KEY_HIDDEN_APPS);
@@ -117,7 +120,7 @@ public class BackupManager {
             putPresets(root);
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: presets written");
 
-            String result = root.toString(4);
+            String result = backupCodec.encode(root);
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: success, json length=" + result.length());
             return result;
         } catch (Exception e) {
@@ -129,9 +132,21 @@ public class BackupManager {
     public boolean restoreBackupJson(String json) {
         AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: start, json length="
                 + (json != null ? json.length() : -1));
-        if (json == null || json.length() == 0 || json.length() > MAX_BACKUP_CHARS) {
-            AppDebugManager.w(Category.BACKUP_RESTORE,
-                    "BackupManager: refusing empty/oversized backup payload");
+        BackupCodec.DecodedBackup decoded;
+        try {
+            decoded = backupCodec.decode(json);
+        } catch (BackupCodec.DecodeException e) {
+            if (e.reason == BackupCodec.DecodeFailure.PAYLOAD_SIZE) {
+                AppDebugManager.w(Category.BACKUP_RESTORE,
+                        "BackupManager: refusing empty/oversized backup payload");
+            } else if (e.reason == BackupCodec.DecodeFailure.FUTURE_VERSION) {
+                AppDebugManager.w(Category.BACKUP_RESTORE,
+                        "BackupManager: refusing unsupported future backup version=" + e.detectedVersion
+                                + " supported=" + BackupCodec.CURRENT_VERSION);
+            } else {
+                AppDebugManager.e(Category.BACKUP_RESTORE,
+                        "BackupManager: restoreBackupJson: malformed payload", e);
+            }
             return false;
         }
 
@@ -141,15 +156,8 @@ public class BackupManager {
         PresetManager presetManager = new PresetManager(context);
         boolean durableWriteStarted = false;
         try {
-            JSONObject root = new JSONObject(json);
-            int version = root.optInt(KEY_BACKUP_VERSION, -1);
-            if (version > BACKUP_VERSION) {
-                AppDebugManager.w(Category.BACKUP_RESTORE,
-                        "BackupManager: refusing unsupported future backup version=" + version
-                                + " supported=" + BACKUP_VERSION);
-                return false;
-            }
-            if (version < 1) {
+            JSONObject root = decoded.root;
+            if (decoded.legacy) {
                 AppDebugManager.w(Category.BACKUP_RESTORE,
                         "BackupManager: legacy/unversioned backup detected; validating available fields");
             }
