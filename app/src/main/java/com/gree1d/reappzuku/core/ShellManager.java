@@ -34,6 +34,7 @@ public class ShellManager {
     private final Context context;
     private final Handler handler;
     private final ExecutorService executor;
+    private ShizukuBridge shizuku;
 
     private volatile Boolean hasRoot = null;
 
@@ -77,7 +78,7 @@ public class ShellManager {
         shizukuBinderLost = false;
         AppDebugManager.d(Category.CORE, "ShellManager: internal Shizuku binder received");
         try {
-            if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) bindUserService();
+            if (shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) bindUserService();
         } catch (Exception e) {
             AppDebugManager.w(Category.CORE, "ShellManager: binder readiness check failed", e);
         }
@@ -116,16 +117,22 @@ public class ShellManager {
     };
 
     public ShellManager(Context context, Handler handler, ExecutorService executor) {
+        this(context, handler, executor, new RealShizukuBridge());
+    }
+
+    ShellManager(Context context, Handler handler, ExecutorService executor, ShizukuBridge shizuku) {
+        if (shizuku == null) throw new IllegalArgumentException("shizuku == null");
         this.context = context.getApplicationContext();
         this.handler = handler;
         this.executor = executor;
+        this.shizuku = shizuku;
 
         // Keep an application-lifetime listener. Activity listeners can be removed
         // while the system permission dialog is in the foreground, so binding the
         // UserService must not depend on an Activity still being started.
-        Shizuku.addRequestPermissionResultListener(internalShizukuPermissionListener);
-        Shizuku.addBinderReceivedListenerSticky(internalBinderReceivedListener);
-        Shizuku.addBinderDeadListener(internalBinderDeadListener);
+        shizuku.addRequestPermissionResultListener(internalShizukuPermissionListener);
+        shizuku.addBinderReceivedListenerSticky(internalBinderReceivedListener);
+        shizuku.addBinderDeadListener(internalBinderDeadListener);
     }
 
     private Shizuku.UserServiceArgs buildUserServiceArgs() {
@@ -173,11 +180,11 @@ public class ShellManager {
             return;
         }
         try {
-            if (!Shizuku.pingBinder()) {
+            if (!shizuku.pingBinder()) {
                 AppDebugManager.d(Category.CORE, "ShellManager: bindUserService: Shizuku binder not available yet");
                 return;
             }
-            if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
+            if (shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
                 AppDebugManager.d(Category.CORE,
                         "ShellManager: bindUserService: waiting for Shizuku permission");
                 return;
@@ -191,7 +198,7 @@ public class ShellManager {
                 }
                 userServiceBinding = true;
             }
-            Shizuku.bindUserService(buildUserServiceArgs(), userServiceConnection);
+            shizuku.bindUserService(buildUserServiceArgs(), userServiceConnection);
         } catch (Exception e) {
             userServiceBinding = false;
             userServiceReadyLatch.countDown();
@@ -209,7 +216,7 @@ public class ShellManager {
             }
         }
         try {
-            Shizuku.unbindUserService(buildUserServiceArgs(), userServiceConnection, true);
+            shizuku.unbindUserService(buildUserServiceArgs(), userServiceConnection, true);
         } catch (Exception e) {
             AppDebugManager.w(Category.CORE, "ShellManager: unbindUserService failed", e);
         } finally {
@@ -221,13 +228,13 @@ public class ShellManager {
 
     @SuppressWarnings("deprecation")
     public void setShizukuPermissionListener(Shizuku.OnRequestPermissionResultListener listener) {
-        Shizuku.addRequestPermissionResultListener(listener);
+        shizuku.addRequestPermissionResultListener(listener);
     }
 
     @SuppressWarnings("deprecation")
     public void removeShizukuPermissionListener(Shizuku.OnRequestPermissionResultListener listener) {
         if (listener != null) {
-            Shizuku.removeRequestPermissionResultListener(listener);
+            shizuku.removeRequestPermissionResultListener(listener);
         }
     }
 
@@ -247,17 +254,17 @@ public class ShellManager {
             }
         };
 
-        Shizuku.addBinderReceivedListenerSticky(shizukuBinderReceivedListener);
-        Shizuku.addBinderDeadListener(shizukuBinderDeadListener);
+        shizuku.addBinderReceivedListenerSticky(shizukuBinderReceivedListener);
+        shizuku.addBinderDeadListener(shizukuBinderDeadListener);
     }
 
     public void removeShizukuBinderListeners() {
         if (shizukuBinderReceivedListener != null) {
-            Shizuku.removeBinderReceivedListener(shizukuBinderReceivedListener);
+            shizuku.removeBinderReceivedListener(shizukuBinderReceivedListener);
             shizukuBinderReceivedListener = null;
         }
         if (shizukuBinderDeadListener != null) {
-            Shizuku.removeBinderDeadListener(shizukuBinderDeadListener);
+            shizuku.removeBinderDeadListener(shizukuBinderDeadListener);
             shizukuBinderDeadListener = null;
         }
     }
@@ -280,7 +287,7 @@ public class ShellManager {
 
     public boolean hasShizukuPermission() {
         try {
-            return Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
+            return shizuku.pingBinder() && shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
         } catch (Exception e) {
             AppDebugManager.w(Category.CORE, "ShellManager: Error checking Shizuku permission", e);
             return false;
@@ -291,11 +298,11 @@ public class ShellManager {
         boolean binderAvailable = false;
         boolean permissionGranted = false;
         try {
-            binderAvailable = Shizuku.pingBinder();
+            binderAvailable = shizuku.pingBinder();
             if (binderAvailable) {
                 shizukuBinderEverSeen = true;
                 shizukuBinderLost = false;
-                permissionGranted = Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
+                permissionGranted = shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
             }
         } catch (Exception e) {
             AppDebugManager.w(Category.CORE, "ShellManager: backend probe failed", e);
@@ -335,7 +342,7 @@ public class ShellManager {
             return;
         }
         try {
-            if (!Shizuku.pingBinder()) {
+            if (!shizuku.pingBinder()) {
                 AppDebugManager.d(Category.CORE,
                         "ShellManager: Shizuku binder unavailable; permission request deferred");
                 return;
@@ -343,7 +350,7 @@ public class ShellManager {
             shizukuBinderEverSeen = true;
             shizukuBinderLost = false;
 
-            if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+            if (shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
                 // Permission may have just been granted while the Activity listener
                 // was stopped by the system dialog. Ensure service readiness here.
                 bindUserService();
@@ -359,7 +366,7 @@ public class ShellManager {
                 shizukuPermissionRequestPending = true;
             }
             try {
-                Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE);
+                shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE);
             } catch (Exception e) {
                 shizukuPermissionRequestPending = false;
                 throw e;
