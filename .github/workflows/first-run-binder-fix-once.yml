@@ -1,0 +1,117 @@
+name: One-time guarded first-run Shizuku binder fix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ondemand-shizuku
+          persist-credentials: true
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+
+      - name: Apply event-driven first-run binder recovery
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java')
+          s = p.read_text()
+          old = '''    @Override
+              protected void onStart() {
+                  super.onStart();
+                  AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStart");
+                  shellManager.setShizukuPermissionListener(shizukuPermissionListener);
+              }
+
+              @Override
+              protected void onStop() {
+                  super.onStop();
+                  AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStop");
+                  shellManager.removeShizukuPermissionListener(shizukuPermissionListener);
+              }
+          '''
+          old = old.replace('              ', '')
+          new = '''    @Override
+              protected void onStart() {
+                  super.onStart();
+                  AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStart");
+                  shellManager.setShizukuPermissionListener(shizukuPermissionListener);
+                  // The Binder can arrive after the first backend probe has already observed
+                  // SHIZUKU_UNAVAILABLE. Re-enter preparation when it becomes available so a
+                  // first-run permission request cannot be lost in that race. The listener is
+                  // sticky, which also covers a Binder that arrived just before onStart().
+                  shellManager.setShizukuBinderListeners(this::prepareShellAndLoadApps, null);
+              }
+
+              @Override
+              protected void onStop() {
+                  super.onStop();
+                  AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStop");
+                  shellManager.removeShizukuPermissionListener(shizukuPermissionListener);
+                  shellManager.removeShizukuBinderListeners();
+              }
+          '''
+          new = new.replace('              ', '')
+          if old not in s:
+              raise SystemExit('onStart/onStop block not found or already changed')
+          s = s.replace(old, new, 1)
+
+          old = '''    private void prepareShellAndLoadApps() {
+              if (shellPreparationInFlight) {
+                  AppDebugManager.d(Category.CORE, "MainActivity: shell preparation already in flight");
+                  return;
+              }
+          '''
+          old = old.replace('              ', '')
+          new = '''    private void prepareShellAndLoadApps() {
+              if (shellPreparationInFlight) {
+                  AppDebugManager.d(Category.CORE, "MainActivity: shell preparation already in flight; retry queued");
+                  // Binder delivery/onResume can race the initial asynchronous probe. A
+                  // delayed retry preserves that state change instead of dropping it.
+                  handler.postDelayed(this::prepareShellAndLoadApps, 100L);
+                  return;
+              }
+          '''
+          new = new.replace('              ', '')
+          if old not in s:
+              raise SystemExit('prepareShellAndLoadApps in-flight block not found or already changed')
+          p.write_text(s.replace(old, new, 1))
+          PY
+
+          git diff --check
+          changed="$(git diff --name-only)"
+          test "$changed" = 'app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java'
+          git diff -- app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java
+
+      - name: Validate product fix
+        run: |
+          set -euo pipefail
+          bash ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+          git diff --check
+          changed="$(git diff --name-only)"
+          test "$changed" = 'app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java'
+
+      - name: Commit product fix only
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java
+          git diff --cached --quiet && { echo 'No product diff to commit'; exit 1; }
+          git commit -m 'Fix first-run Shizuku binder permission race'
+          git push origin HEAD:ondemand-shizuku
