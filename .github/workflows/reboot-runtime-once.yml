@@ -181,6 +181,53 @@ jobs:
           echo '=== Rebuilt ReAppzuku alarms ==='
           adb shell dumpsys alarm | grep -E 'PRESET_ACTIVATE|PRESET_DEACTIVATE|SCHEDULER_TICK' || true
 
+      - name: Verify disabled desired state across external force-stop
+        run: |
+          set -euo pipefail
+          prepare="$(adb shell am instrument -w \
+            -e forceStopProbe true \
+            -e class 'com.gree1d.reappzuku.core.ForceStopDesiredStateInstrumentationTest#prepareDisabledStateBeforeForceStop' \
+            com.gree1d.reappzuku.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"
+          printf '%s\n' "$prepare"
+          grep -q 'OK (1 test)' <<<"$prepare"
+
+          old_pid="$(adb shell pidof com.gree1d.reappzuku | tr -d '\r')"
+          test -n "$old_pid"
+          echo "force-stop pid-before=$old_pid"
+
+          adb shell am force-stop com.gree1d.reappzuku
+          process_gone=false
+          for i in $(seq 1 20); do
+            if [ -z "$(adb shell pidof com.gree1d.reappzuku 2>/dev/null | tr -d '\r')" ]; then
+              process_gone=true
+              break
+            fi
+            sleep 0.5
+          done
+          test "$process_gone" = true
+
+          verify="$(adb shell am instrument -w \
+            -e forceStopProbe true \
+            -e class 'com.gree1d.reappzuku.core.ForceStopDesiredStateInstrumentationTest#verifyDisabledStateAfterExternalForceStop' \
+            com.gree1d.reappzuku.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"
+          printf '%s\n' "$verify"
+          grep -q 'OK (1 test)' <<<"$verify"
+
+          new_pid="$(adb shell pidof com.gree1d.reappzuku | tr -d '\r')"
+          echo "force-stop pid-after=$new_pid"
+          test -n "$new_pid"
+          test "$old_pid" != "$new_pid"
+
+      - name: Probe exported shortcut abuse boundary
+        run: |
+          set -euo pipefail
+          output="$(adb shell am instrument -w \
+            -e shortcutAbuseProbe true \
+            -e class 'com.gree1d.reappzuku.utils.ShortcutAbuseInstrumentationTest' \
+            com.gree1d.reappzuku.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"
+          printf '%s\n' "$output"
+          grep -q 'OK (2 tests)' <<<"$output"
+
       - name: Capture reboot diagnostics on failure
         if: failure()
         run: |
