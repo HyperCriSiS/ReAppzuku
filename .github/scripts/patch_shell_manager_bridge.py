@@ -8,7 +8,7 @@ if field_anchor not in text:
     raise SystemExit('executor field anchor not found')
 text = text.replace(
     field_anchor,
-    field_anchor + '    private final ShizukuBridge shizuku;\n',
+    field_anchor + '    private ShizukuBridge shizuku;\n',
     1)
 
 old_ctor = '''    public ShellManager(Context context, Handler handler, ExecutorService executor) {
