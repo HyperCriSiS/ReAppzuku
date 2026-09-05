@@ -23,8 +23,11 @@ jobs:
           java-version: '17'
           distribution: temurin
           cache: gradle
-      - name: Apply ShellManager bridge instrumentation
-        run: python3 .github/scripts/apply_shell_bridge_tests.py
+      - name: Assemble deterministic Shizuku seam
+        run: |
+          cp .github/staging/ShizukuBridge.java app/src/main/java/com/gree1d/reappzuku/core/ShizukuBridge.java
+          cp .github/staging/ShellManagerStateInstrumentationTest.java app/src/androidTest/java/com/gree1d/reappzuku/core/ShellManagerStateInstrumentationTest.java
+          python3 .github/scripts/patch_shell_manager_bridge.py
       - name: Validate bridge seam and instrumentation compilation
         run: |
           chmod +x gradlew
