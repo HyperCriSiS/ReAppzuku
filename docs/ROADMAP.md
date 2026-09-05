@@ -79,7 +79,15 @@ Status convention:
 - [x] Foreground shortcut action waits for a genuinely ready shell backend.
 - [x] Review every remaining `exported=true` component and document its principal boundary in `EXPORTED_COMPONENTS.md`.
 - [ ] Introduce typed/validated privileged operations instead of ad-hoc shell command strings where practical.
-- [ ] Fixture-test dumpsys/parser protection logic across Android/OEM variants.
+- [x] Fixture-test dumpsys/parser protection logic across Android/OEM variants.
+
+### Privileged parser evidence — 2026-09-05
+
+- `ProcessDumpParser` isolates the ActivityManager text formats consumed by `ProcessAnalyzer` from Android-dependent code.
+- JVM fixtures cover AOSP PID-prefixed `ProcessRecord`, remote-process/OEM-style records, `curProcState`/`setProcState`, CRLF, exact package boundaries, binder package extraction, and short/full `ServiceRecord` forms including `$` class names.
+- `ProtectedAppsTest` locks exact AOSP/Shizuku package protection plus current keyboard/launcher behavior and rejects prefix-neighbor false positives.
+- One-time gate run `33940487030` passed unit tests, lint, AndroidTest compilation and debug APK build before committing the production integration as `57d8897c70a5b4c9565379cd72317f1abb7c9e59`.
+- This is repeatable parser/source evidence, not a substitute for the still-open Android/OEM runtime probes.
 
 ## Phase 6 — CI and supply chain
 
@@ -94,7 +102,7 @@ Status convention:
 - [x] Enforce Gradle dependency verification with committed SHA-256 metadata and dependency locking.
 - [~] Expand emulator/device test lanes without wasting private Actions quota; the API 37 lane has been exercised and is currently blocked by preview PackageManager transport instability before repeatable instrumentation.
 
-### Assurance evidence — 2026-09-04
+### Assurance evidence — 2026-09-04 to 2026-09-05
 
 - Workflow run `33577363239` passed unit tests, zero-error full lint, reviewed warning baseline,
   `assembleDebugAndroidTest`, Room schema-11 existence check, and debug APK build.
@@ -107,6 +115,8 @@ Status convention:
 - One-time run `33816989187` was guarded to stage exactly one path and committed only `app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json` as commit `8707be6`.
 - Dependency-assurance run `33832156664` generated `app/gradle.lockfile` and SHA-256 `gradle/verification-metadata.xml`, then passed unit, lint, AndroidTest compile and APK build again without metadata-writing flags.
 - Artifact `9922094160` is preserved by SHA-256 `43c53cc13431cd2b2513fb0d9108836d548dd4b33b5673e9ddd49e4b1954918c`; its exact generated files are committed and normal builds now enforce them.
+- Dependency-verification refresh run `33900939628` regenerated the complete SHA-256 set from fresh resolution and then passed the build again after deleting the dependency cache, closing the warm-cache blind spot.
+- Normal read-only validation run `33901414025` subsequently passed on the permanent locked/verified dependency state.
 
 ## Phase 7 — Android 17 / API 37
 
@@ -133,7 +143,7 @@ Status convention:
 - [x] Propagate fork-specific Smart Lifecycle/App Behavior/security strings to supported locales.
 - [ ] Explain blocking automation directly beside disabled App Behavior controls.
 - [ ] Split large managers behind testable facades (`PrivilegedShell`, `AlarmScheduler`, `ProtectionPolicy`, `BackupCodec`, `Clock`).
-- [ ] Keep `CHECK_MATRIX.md` status/evidence current after every high-impact change.
+- [~] Keep `CHECK_MATRIX.md` status/evidence current after every high-impact change (refreshed through 2026-09-05; ongoing discipline).
 
 ## Stable-release gate
 
