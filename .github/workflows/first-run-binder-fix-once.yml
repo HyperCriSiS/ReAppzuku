@@ -31,49 +31,40 @@ jobs:
           from pathlib import Path
           p = Path('app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java')
           s = p.read_text()
-
-          old = '''        shellManager.setShizukuPermissionListener(shizukuPermissionListener);
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStop");
-        shellManager.removeShizukuPermissionListener(shizukuPermissionListener);
-'''
-          new = '''        shellManager.setShizukuPermissionListener(shizukuPermissionListener);
-        // The Binder can arrive after the first backend probe has already observed
-        // SHIZUKU_UNAVAILABLE. Re-enter preparation when it becomes available so a
-        // first-run permission request cannot be lost in that race. The listener is
-        // sticky, which also covers a Binder that arrived just before onStart().
-        shellManager.setShizukuBinderListeners(this::prepareShellAndLoadApps, null);
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStop");
-        shellManager.removeShizukuPermissionListener(shizukuPermissionListener);
-        shellManager.removeShizukuBinderListeners();
-'''
+          old = ("        shellManager.setShizukuPermissionListener(shizukuPermissionListener);\n"
+                 "    }\n\n"
+                 "    @Override\n"
+                 "    protected void onStop() {\n"
+                 "        super.onStop();\n"
+                 "        AppDebugManager.d(Category.MAIN_PAGE, \"MainActivity: onStop\");\n"
+                 "        shellManager.removeShizukuPermissionListener(shizukuPermissionListener);\n")
+          new = ("        shellManager.setShizukuPermissionListener(shizukuPermissionListener);\n"
+                 "        // The Binder can arrive after the first backend probe has already observed\n"
+                 "        // SHIZUKU_UNAVAILABLE. Re-enter preparation when it becomes available so a\n"
+                 "        // first-run permission request cannot be lost in that race. The listener is\n"
+                 "        // sticky, which also covers a Binder that arrived just before onStart().\n"
+                 "        shellManager.setShizukuBinderListeners(this::prepareShellAndLoadApps, null);\n"
+                 "    }\n\n"
+                 "    @Override\n"
+                 "    protected void onStop() {\n"
+                 "        super.onStop();\n"
+                 "        AppDebugManager.d(Category.MAIN_PAGE, \"MainActivity: onStop\");\n"
+                 "        shellManager.removeShizukuPermissionListener(shizukuPermissionListener);\n"
+                 "        shellManager.removeShizukuBinderListeners();\n")
           if old not in s:
               raise SystemExit('onStart/onStop anchor not found or already changed')
           s = s.replace(old, new, 1)
-
-          old = '''            AppDebugManager.d(Category.CORE, "MainActivity: shell preparation already in flight");
-            return;
-'''
-          new = '''            AppDebugManager.d(Category.CORE, "MainActivity: shell preparation already in flight; retry queued");
-            // Binder delivery/onResume can race the initial asynchronous probe. A
-            // delayed retry preserves that state change instead of dropping it.
-            handler.postDelayed(this::prepareShellAndLoadApps, 100L);
-            return;
-'''
+          old = ("            AppDebugManager.d(Category.CORE, \"MainActivity: shell preparation already in flight\");\n"
+                 "            return;\n")
+          new = ("            AppDebugManager.d(Category.CORE, \"MainActivity: shell preparation already in flight; retry queued\");\n"
+                 "            // Binder delivery/onResume can race the initial asynchronous probe. A\n"
+                 "            // delayed retry preserves that state change instead of dropping it.\n"
+                 "            handler.postDelayed(this::prepareShellAndLoadApps, 100L);\n"
+                 "            return;\n")
           if old not in s:
               raise SystemExit('in-flight anchor not found or already changed')
           p.write_text(s.replace(old, new, 1))
           PY
-
           git diff --check
           changed="$(git diff --name-only)"
           test "$changed" = 'app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java'
