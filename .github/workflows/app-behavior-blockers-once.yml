@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   validate-and-commit:
+    if: contains(github.event.head_commit.message, '[blocker-gate]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,16 +23,15 @@ jobs:
           java-version: '17'
           distribution: temurin
           cache: gradle
-      - name: Apply blocker UX refactor
+      - name: Apply blocker UX and final shell-boundary refactor
         run: |
           set -euo pipefail
           chmod +x gradlew
-          git update-index --chmod=+x gradlew
           python3 .github/scripts/apply_app_behavior_blockers.py
           git diff --check
       - name: Validate app and blocker policy
         run: ./gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
-      - name: Audit raw mutating shell strings
+      - name: Require no raw mutating shell strings
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -42,8 +42,7 @@ jobs:
               'am start -n ', 'am start-foreground-service -n ', 'am broadcast -n '
           )
           offenders = []
-          root = Path('app/src/main/java')
-          for path in root.rglob('*.java'):
+          for path in Path('app/src/main/java').rglob('*.java'):
               if path.name == 'PrivilegedShell.java':
                   continue
               text = path.read_text(errors='replace')
@@ -54,11 +53,11 @@ jobs:
           if offenders:
               for path, pattern in offenders:
                   print(f'{path}: {pattern}')
-          else:
-              print('NONE')
+              raise SystemExit('raw mutating shell strings remain')
+          print('NONE')
           print('RAW_MUTATING_SHELL_AUDIT_END')
           PY
-      - name: Commit blocker UX
+      - name: Commit validated source changes
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
@@ -66,6 +65,8 @@ jobs:
           git add \
             app/src/main/java/com/gree1d/reappzuku/core/BackgroundWorkPolicy.java \
             app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivity.java \
+            app/src/main/java/com/gree1d/reappzuku/utils/ShappkyQuickTile.java \
+            app/src/main/java/com/gree1d/reappzuku/manager/RestrictionsWatchdogManager.java \
             app/src/main/res/layout/activity_settings.xml \
             app/src/main/res/values/strings_assurance.xml \
             app/src/main/res/values-es/strings_assurance.xml \
@@ -73,6 +74,6 @@ jobs:
             app/src/main/res/values-uk/strings_assurance.xml \
             app/src/main/res/values-zh-rCN/strings_assurance.xml \
             app/src/test/java/com/gree1d/reappzuku/core/BackgroundWorkPolicyTest.java
-          test "$(git diff --cached --name-only | wc -l)" -eq 9
-          git commit -m 'Explain active App Behavior automation blockers'
+          test "$(git diff --cached --name-only | wc -l)" -eq 11
+          git commit -m 'Finish App Behavior blockers and privileged shell routing'
           git push origin HEAD:ondemand-shizuku
