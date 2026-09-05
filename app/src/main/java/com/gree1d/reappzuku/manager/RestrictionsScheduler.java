@@ -12,6 +12,7 @@ import android.os.Handler;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.ExactAlarmCapability;
+import com.gree1d.reappzuku.core.PrivilegedShell;
 import com.gree1d.reappzuku.db.AppDatabase;
 import com.gree1d.reappzuku.db.SchedulerLog;
 
@@ -308,6 +309,7 @@ public class RestrictionsScheduler {
     private final Handler              handler;
     private final ExecutorService      executor;
     private final ShellManager         shellManager;
+    private final PrivilegedShell       privilegedShell;
     private final BackgroundAppManager backgroundAppManager;
     private final SleepModeManager     sleepModeManager;
     private final SharedPreferences    prefs;
@@ -322,6 +324,7 @@ public class RestrictionsScheduler {
         this.handler              = handler;
         this.executor             = executor;
         this.shellManager         = shellManager;
+        this.privilegedShell       = new PrivilegedShell(shellManager);
         this.backgroundAppManager = backgroundAppManager;
         this.sleepModeManager     = sleepModeManager;
         this.prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
@@ -556,11 +559,11 @@ public class RestrictionsScheduler {
                 if ((entry.protectFlags & PROTECT_SLEEP_MODE) != 0
                         && sleepModeManager.getFreezeType(pkg) == SleepModeManager.FreezeType.TIMER) {
                     SleepModeManager.FreezeMethod method = sleepModeManager.getFreezeMethod(pkg);
-                    if (method == SleepModeManager.FreezeMethod.SUSPEND) {
-                        shellManager.runShellCommandBlocking("pm unsuspend --user 0 " + pkg);
-                    } else {
-                        shellManager.runShellCommandBlocking("pm enable " + pkg);
-                    }
+                    PrivilegedShell.PackageStateAction action =
+                            method == SleepModeManager.FreezeMethod.SUSPEND
+                                    ? PrivilegedShell.PackageStateAction.UNSUSPEND
+                                    : PrivilegedShell.PackageStateAction.ENABLE;
+                    privilegedShell.applyPackageStateBlocking(pkg, action);
                 }
 
                 if (entry.onActivateAction != ON_ACTIVATE_NOTHING && entry.componentName != null) {
@@ -603,8 +606,7 @@ public class RestrictionsScheduler {
 
     private void setAppBucketActive(String packageName) {
         try {
-            String cmd = "am set-standby-bucket " + packageName + " active";
-            shellManager.runShellCommandForResult(cmd);
+            privilegedShell.setStandbyBucket(packageName, PrivilegedShell.StandbyBucket.ACTIVE);
             AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: setAppBucketActive: " + packageName);
         } catch (Exception e) {
             AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: setAppBucketActive failed for " + packageName, e);
@@ -632,14 +634,18 @@ public class RestrictionsScheduler {
             AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: restoreRestrictionBucket: bucket=0, skip " + packageName);
             return;
         }
-        shellManager.runShellCommandForResult("am set-standby-bucket " + packageName + " " + bucket);
+        privilegedShell.setStandbyBucket(
+                packageName, PrivilegedShell.StandbyBucket.fromLegacyValue(bucket));
         AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: restoreRestrictionBucket: " + packageName + " bucket=" + bucket);
     }
 
     private void stopApp(String packageName, boolean forceStop) {
-        String cmd = (forceStop ? "am force-stop " : "am kill ") + packageName;
-        shellManager.runShellCommandForResult(cmd);
-        AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: stopApp: " + cmd);
+        PrivilegedShell.KillMode mode = forceStop
+                ? PrivilegedShell.KillMode.FORCE_STOP
+                : PrivilegedShell.KillMode.KILL;
+        privilegedShell.stopPackage(packageName, mode);
+        AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER,
+                "RestrictionsScheduler: stopApp: package=" + packageName + " mode=" + mode);
     }
 
 
@@ -649,26 +655,34 @@ public class RestrictionsScheduler {
 
 
     private void launchComponent(String componentName, int type) {
-        String cmd;
+        PrivilegedShell.ComponentAction action;
         switch (type) {
             case ON_ACTIVATE_ACTIVITY:
-                cmd = "am start -n " + componentName;
+                action = PrivilegedShell.ComponentAction.START_ACTIVITY;
                 break;
             case ON_ACTIVATE_SERVICE:
-                cmd = "am start-foreground-service -n " + componentName;
+                action = PrivilegedShell.ComponentAction.START_FOREGROUND_SERVICE;
                 break;
             case ON_ACTIVATE_RECEIVER:
-                cmd = "am broadcast -n " + componentName;
+                action = PrivilegedShell.ComponentAction.BROADCAST;
                 break;
             default:
                 AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: launchComponent: unknown type " + type);
                 return;
         }
-        ShellManager.ShellResult r = shellManager.runShellCommandForResult(cmd);
-        if (r.succeeded()) {
-            AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: launchComponent: ok — " + cmd);
-        } else {
-            AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: launchComponent: failed (exit=" + r.exitCode() + ") — " + cmd);
+        try {
+            ShellManager.ShellResult r = privilegedShell.launchComponent(componentName, action);
+            if (r.succeeded()) {
+                AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER,
+                        "RestrictionsScheduler: launchComponent: ok component=" + componentName + " action=" + action);
+            } else {
+                AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER,
+                        "RestrictionsScheduler: launchComponent: failed (exit=" + r.exitCode()
+                                + ") component=" + componentName + " action=" + action);
+            }
+        } catch (IllegalArgumentException e) {
+            AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER,
+                    "RestrictionsScheduler: launchComponent rejected component=" + componentName, e);
         }
     }
 

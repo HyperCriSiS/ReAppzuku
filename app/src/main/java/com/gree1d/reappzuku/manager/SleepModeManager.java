@@ -16,6 +16,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.PrivilegedShell;
 import com.gree1d.reappzuku.utils.AppModel;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
@@ -41,6 +42,7 @@ public class SleepModeManager {
     private final Handler handler;
     private final ExecutorService executor;
     private final ShellManager shellManager;
+    private final PrivilegedShell privilegedShell;
     private final SharedPreferences sharedpreferences;
     private RestrictionsScheduler scheduler;
     private final Set<String> systemPackages = new HashSet<>();
@@ -51,6 +53,7 @@ public class SleepModeManager {
         this.handler = handler;
         this.executor = executor;
         this.shellManager = shellManager;
+        this.privilegedShell = new PrivilegedShell(shellManager);
         this.sharedpreferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
     }
 
@@ -141,27 +144,27 @@ public class SleepModeManager {
     }
 
     private boolean freezeAppWithMethod(String packageName, FreezeMethod method) {
-        String command = method == FreezeMethod.SUSPEND
-                ? "pm suspend --user 0 " + packageName
-                : "pm disable-user --user 0 " + packageName;
-        boolean ok = shellManager.runShellCommandBlocking(command);
+        PrivilegedShell.PackageStateAction action = method == FreezeMethod.SUSPEND
+                ? PrivilegedShell.PackageStateAction.SUSPEND
+                : PrivilegedShell.PackageStateAction.DISABLE_USER;
+        boolean ok = privilegedShell.applyPackageStateBlocking(packageName, action);
         if (ok) {
             AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": freeze ok, package=" + packageName + ", method=" + method);
         } else {
-            AppDebugManager.e(Category.SLEEP_MODE, FILE_NAME + ": freeze FAILED, package=" + packageName + ", method=" + method + ", command=" + command);
+            AppDebugManager.e(Category.SLEEP_MODE, FILE_NAME + ": freeze FAILED, package=" + packageName + ", method=" + method + ", action=" + action);
         }
         return ok;
     }
 
     private boolean unfreezeAppWithMethod(String packageName, FreezeMethod method) {
-        String command = method == FreezeMethod.SUSPEND
-                ? "pm unsuspend --user 0 " + packageName
-                : "pm enable " + packageName;
-        boolean ok = shellManager.runShellCommandBlocking(command);
+        PrivilegedShell.PackageStateAction action = method == FreezeMethod.SUSPEND
+                ? PrivilegedShell.PackageStateAction.UNSUSPEND
+                : PrivilegedShell.PackageStateAction.ENABLE;
+        boolean ok = privilegedShell.applyPackageStateBlocking(packageName, action);
         if (ok) {
             AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": unfreeze ok, package=" + packageName + ", method=" + method);
         } else {
-            AppDebugManager.e(Category.SLEEP_MODE, FILE_NAME + ": unfreeze FAILED, package=" + packageName + ", method=" + method + ", command=" + command);
+            AppDebugManager.e(Category.SLEEP_MODE, FILE_NAME + ": unfreeze FAILED, package=" + packageName + ", method=" + method + ", action=" + action);
         }
         return ok;
     }

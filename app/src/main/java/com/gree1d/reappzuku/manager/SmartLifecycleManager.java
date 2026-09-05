@@ -10,6 +10,7 @@ import android.provider.Settings;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.ProtectedApps;
+import com.gree1d.reappzuku.core.PrivilegedShell;
 import com.gree1d.reappzuku.core.ShellManager;
 
 import java.io.BufferedReader;
@@ -44,12 +45,14 @@ public final class SmartLifecycleManager {
 
     private final Context context;
     private final ShellManager shellManager;
+    private final PrivilegedShell privilegedShell;
     private final SharedPreferences prefs;
     private final PackageManager packageManager;
 
     public SmartLifecycleManager(Context context, ShellManager shellManager) {
         this.context = context.getApplicationContext();
         this.shellManager = shellManager;
+        this.privilegedShell = new PrivilegedShell(shellManager);
         this.prefs = this.context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         this.packageManager = this.context.getPackageManager();
     }
@@ -250,14 +253,15 @@ public final class SmartLifecycleManager {
     }
 
     private boolean setStandby(String pkg) {
-        boolean ok = shellManager.runShellCommandBlocking("am set-standby-bucket " + pkg + " rare");
+        boolean ok = privilegedShell.setStandbyBucketBlocking(
+                pkg, PrivilegedShell.StandbyBucket.RARE);
         AppDebugManager.d(Category.AUTO_KILL_BASE,
                 TAG + ": " + (ok ? "STANDBY " : "STANDBY FAILED ") + pkg);
         return ok;
     }
 
     private void forceStop(String pkg, String reason) {
-        boolean ok = shellManager.runShellCommandBlocking("am force-stop " + pkg);
+        boolean ok = privilegedShell.forceStopPackageBlocking(pkg);
         AppDebugManager.d(Category.AUTO_KILL_BASE,
                 TAG + ": " + (ok ? "FORCE-STOP " : "FORCE-STOP FAILED ") + pkg + " (" + reason + ")");
     }
