@@ -126,7 +126,7 @@ public class MainActivity extends BaseActivity {
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onCreate started");
 
         App app = (App) getApplication();
-        handler = app.getSharedHandler();
+        handler = new Handler(Looper.getMainLooper());
         executor = app.getSharedExecutor();
         shellExecutor = app.getShellExecutor();
         shellManager = app.getShellManager();
