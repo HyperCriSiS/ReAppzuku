@@ -1,0 +1,190 @@
+             for (String packageName : packages) {
++                if (permanentApps.contains(packageName)) {
++                    // Ownership can move from timer -> permanent without a physical thaw. A stale
++                    // timer marker must never thaw a package whose current desired state is permanent.
++                    markUnfrozen(packageName);
++                    AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
++                            + ": unfreezeBackgroundRestrictedApps: cleared stale timer marker for permanent package="
++                            + packageName);
++                    continue;
++                }
+                 FreezeMethod method = getFreezeMethod(packageName);
+-                boolean ok = unfreezeApp(packageName);
++                boolean ok = unfreezeOwnedTimerAppWithMethod(packageName, method);
+                 if (ok) {
+-                    markUnfrozen(packageName);
+                     unfrozenNow++;
+                 } else {
+                     failed++;
+--- a/app/src/main/java/com/gree1d/reappzuku/service/ShappkyService.java
++++ b/app/src/main/java/com/gree1d/reappzuku/service/ShappkyService.java
+@@ -19,6 +19,7 @@
+ import androidx.core.app.NotificationCompat;
+ 
+ import java.io.IOException;
++import java.util.ArrayDeque;
+ import java.util.concurrent.ExecutorService;
+ import java.util.concurrent.Executors;
+ 
+@@ -43,6 +44,7 @@
+ import com.gree1d.reappzuku.core.AppDebugManager;
+ import com.gree1d.reappzuku.core.AppDebugManager.Category;
+ import com.gree1d.reappzuku.core.BackgroundWorkPolicy;
++import com.gree1d.reappzuku.core.SleepModeLifecyclePolicy;
+ 
+ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
+ import static com.gree1d.reappzuku.core.AppConstants.*;
+@@ -52,15 +54,18 @@
+     private static final String FILE_NAME = "ShappkyService";
+     static final String ACTION_IDLE_FREEZE = "com.gree1d.reappzuku.IDLE_FREEZE";
+     static final String ACTION_HEARTBEAT_CHECK = "com.gree1d.reappzuku.HEARTBEAT_CHECK";
++    public static final String ACTION_SLEEP_MODE_DISABLED = "com.gree1d.reappzuku.SLEEP_MODE_DISABLED";
+     private static final int FREEZE_ALARM_REQUEST_CODE = 1001;
+     private static final int RESTART_ALARM_REQUEST_CODE = 1002;
+     private static final int HEARTBEAT_ALARM_REQUEST_CODE = 1003;
+     private static final int SNAPSHOT_ALARM_REQUEST_CODE = 1004;
+     private static final long HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000L;
+     private static final long RAM_NOTIFICATION_UPDATE_INTERVAL_MS = 15 * 1000L;
++    private static final int MAX_PENDING_START_INTENTS = 32;
+ 
+     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+     private final Handler handler = new Handler(Looper.getMainLooper());
++    private final ArrayDeque<Intent> pendingStartIntents = new ArrayDeque<>();
+     private static boolean isRunning = false;
+ 
+     private ShellManager shellManager;
+@@ -75,7 +80,7 @@
+     private AdditionalScenariosManager additionalScenariosManager;
+     private RamKillShortcutManager ramKillShortcutManager;
+ 
+-    private boolean isFrozen = false;
++    private boolean managersInitialized = false;
+     private boolean shizukuLostNotificationShown = false;
+     private Runnable ramNotificationRunnable;
+ 
+@@ -309,9 +314,12 @@
+         watchdog.startIfNeeded();
+ 
+         UpdateChecker.schedulePeriodicCheck(getApplicationContext());
+-        AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onCreate completed");
+-
+         startRamMonitorNotification();
++
++        reconcileSleepModeLifecycle("service-init", true);
++        managersInitialized = true;
++        drainPendingStartIntents();
++        AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onCreate completed; managersInitialized=true");
+     }
+ 
+     @Override
+@@ -324,10 +332,44 @@
+ 
+         String action = intent.getAction();
+         if (action == null) {
+-            AppDebugManager.w(Category.FOREGROUND_SERVICE, FILE_NAME + ": onStartCommand: action is null, returning START_STICKY");
++            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onStartCommand: action is null; service startup only");
++            return START_STICKY;
++        }
++
++        if (!managersInitialized) {
++            enqueuePendingStartIntent(intent);
+             return START_STICKY;
+         }
+ 
++        handleServiceAction(intent);
++        return START_STICKY;
++    }
++
++    private void enqueuePendingStartIntent(Intent intent) {
++        if (pendingStartIntents.size() >= MAX_PENDING_START_INTENTS) {
++            Intent dropped = pendingStartIntents.removeFirst();
++            AppDebugManager.w(Category.FOREGROUND_SERVICE, FILE_NAME
++                    + ": pending start-action queue full; dropping oldest action=" + dropped.getAction());
++        }
++        pendingStartIntents.addLast(new Intent(intent));
++        AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME
++                + ": queued start action until managers are ready: " + intent.getAction()
++                + ", queued=" + pendingStartIntents.size());
++    }
++
++    private void drainPendingStartIntents() {
++        while (managersInitialized && !pendingStartIntents.isEmpty()) {
++            Intent pending = pendingStartIntents.removeFirst();
++            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME
++                    + ": replaying queued start action=" + pending.getAction());
++            handleServiceAction(pending);
++        }
++    }
++
++    private void handleServiceAction(Intent intent) {
++        String action = intent.getAction();
++        if (action == null) return;
++
+         switch (action) {
+             case "TRIGGER_KILL":
+                 executor.execute(() -> {
+@@ -351,48 +393,84 @@
+                 });
+                 break;
+ 
+-            case "SCREEN_OFF":
+-                if (sleepModeManager.isSleepModeEnabled()) {
++            case "SCREEN_OFF": {
++                boolean enabled = sleepModeManager.isSleepModeEnabled();
++                boolean interactive = isScreenInteractive();
++                if (SleepModeLifecyclePolicy.shouldExecuteIdleFreeze(enabled, interactive)) {
+                     scheduleIdleFreezeAlarm();
+                     long delayMs = getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+                             .getLong(KEY_SLEEP_MODE_DELAY, DEFAULT_SLEEP_MODE_DELAY_MS);
+                     AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Idle freeze alarm scheduled (" + (delayMs / 60000) + " min)");
+                 } else {
+-                    AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": SCREEN_OFF received but sleep mode disabled, no alarm scheduled");
++                    AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
++                            + ": SCREEN_OFF ignored as stale/ineligible; enabled=" + enabled + ", interactive=" + interactive);
+                 }
+                 break;
++            }
+ 
+             case "SCREEN_ON":
+                 handler.postDelayed(() -> {
++                    if (!managersInitialized || sleepModeManager == null) return;
++                    if (!isScreenInteractive()) {
++                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
++                                + ": delayed SCREEN_ON became stale because screen is off again");
++                        return;
++                    }
+                     cancelIdleFreezeAlarm();
+-                    if (isFrozen) {
+-                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Screen on after idle freeze, unfreezing apps");
+-                        isFrozen = false;
+-                        cancelHeartbeatAlarm();
++                    cancelHeartbeatAlarm();
++                    if (sleepModeManager.hasFrozenTimerApps()) {
++                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
++                                + ": Screen on with owned frozen apps; unfreezing");
+                         sleepModeManager.unfreezeBackgroundRestrictedApps(null);
+                     } else {
+-                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Screen on before idle threshold, alarm cancelled");
++                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
++                                + ": Screen on before/without owned freeze; alarms cancelled");
+                     }
+                 }, 1500);
+                 break;
+ 
+-            case "IDLE_FREEZE":
+-                if (!sleepModeManager.isSleepModeEnabled()) {
+-                    AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Sleep mode disabled, skipping freeze");
++            case "IDLE_FREEZE": {
++                boolean enabled = sleepModeManager.isSleepModeEnabled();
++                boolean interactive = isScreenInteractive();
++                if (!SleepModeLifecyclePolicy.shouldExecuteIdleFreeze(enabled, interactive)) {
++                    AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
++                            + ": stale/ineligible idle freeze ignored; enabled=" + enabled + ", interactive=" + interactive);
++                    cancelHeartbeatAlarm();
++                    if (SleepModeLifecyclePolicy.recoveryAction(
++                            enabled, interactive, sleepModeManager.hasFrozenTimerApps())
++                            == SleepModeLifecyclePolicy.RecoveryAction.UNFREEZE) {
++                        sleepModeManager.unfreezeBackgroundRestrictedApps(null);
++                    }
+                     break;
+                 }
