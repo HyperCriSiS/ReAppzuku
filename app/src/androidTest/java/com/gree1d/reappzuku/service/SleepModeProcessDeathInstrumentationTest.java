@@ -1,5 +1,7 @@
 package com.gree1d.reappzuku.service;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
@@ -11,7 +13,10 @@ import android.os.Bundle;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.PreferenceKeys;
+import com.gree1d.reappzuku.core.ShellBackendState;
+import com.gree1d.reappzuku.core.ShellManager;
 
 import org.junit.Assume;
 import org.junit.Before;
@@ -41,6 +46,25 @@ public class SleepModeProcessDeathInstrumentationTest {
         targetContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
         prefs = targetContext.getSharedPreferences(
                 PreferenceKeys.PREFERENCES_NAME, Context.MODE_PRIVATE);
+    }
+
+    @Test
+    public void warmApplicationShellBackend() throws Exception {
+        App app = (App) targetContext.getApplicationContext();
+        ShellManager manager = app.getShellManager();
+        assertNotNull("Application ShellManager was not initialized", manager);
+
+        ShellBackendState state = manager.getBackendState();
+        long deadline = System.currentTimeMillis() + 20_000L;
+        while (state != ShellBackendState.SHIZUKU_READY && System.currentTimeMillis() < deadline) {
+            state = manager.awaitAnyShellReadyBlocking();
+            if (state == ShellBackendState.SHIZUKU_READY) {
+                break;
+            }
+            Thread.sleep(150L);
+        }
+        assertEquals("Application Shizuku UserService did not become ready before screen-off",
+                ShellBackendState.SHIZUKU_READY, state);
     }
 
     @Test
