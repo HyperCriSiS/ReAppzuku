@@ -89,10 +89,20 @@ public final class BackgroundWorkPolicy {
         return !requiresBackgroundContinuity(context);
     }
 
+    static boolean resolveExitOnBack(boolean backgroundContinuityRequired, boolean requested) {
+        return !backgroundContinuityRequired && requested;
+    }
+
+    static boolean resolvePreventShizukuAutoStart(
+            boolean backgroundContinuityRequired, boolean requested) {
+        return !backgroundContinuityRequired && requested;
+    }
+
     public static boolean shouldPreventShizukuAutoStart(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
-        return isOnDemandBehaviorAllowed(context)
-                && prefs.getBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, true);
+        return resolvePreventShizukuAutoStart(
+                requiresBackgroundContinuity(context),
+                prefs.getBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, true));
     }
 
     /**
@@ -122,16 +132,21 @@ public final class BackgroundWorkPolicy {
     public static boolean enforceCompatibleBehavior(Context context) {
         boolean blocked = requiresBackgroundContinuity(context);
         SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
-        if (blocked) {
-            boolean needsWrite = prefs.getBoolean(KEY_EXIT_ON_BACK, false)
-                    || prefs.getBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, true);
-            if (needsWrite) {
-                prefs.edit()
-                        .putBoolean(KEY_EXIT_ON_BACK, false)
-                        .putBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, false)
-                        .apply();
-            }
+
+        boolean currentExitOnBack = prefs.getBoolean(KEY_EXIT_ON_BACK, false);
+        boolean currentPreventAutoStart = prefs.getBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, true);
+        boolean effectiveExitOnBack = resolveExitOnBack(blocked, currentExitOnBack);
+        boolean effectivePreventAutoStart = resolvePreventShizukuAutoStart(
+                blocked, currentPreventAutoStart);
+
+        if (effectiveExitOnBack != currentExitOnBack
+                || effectivePreventAutoStart != currentPreventAutoStart) {
+            prefs.edit()
+                    .putBoolean(KEY_EXIT_ON_BACK, effectiveExitOnBack)
+                    .putBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, effectivePreventAutoStart)
+                    .apply();
         }
+
         syncShizukuWakeComponent(context);
         return blocked;
     }
