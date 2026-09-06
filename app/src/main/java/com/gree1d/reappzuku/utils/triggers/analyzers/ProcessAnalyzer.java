@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.core.AppDebugManager;
+import com.gree1d.reappzuku.core.PackageNameValidator;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
@@ -164,11 +165,16 @@ public class ProcessAnalyzer {
         return "Cached";
     }
 
+// ---- buildServicesDumpCommand ----
+    static String buildServicesDumpCommand(String packageName) {
+        return "dumpsys activity -p " + PackageNameValidator.requireValid(packageName) + " services";
+    }
+
 // ---- analyzeServicesAndBindings ----
     public List<TriggerInfo> analyzeServicesAndBindings(String packageName) {
         List<TriggerInfo> list = new ArrayList<>();
         String output = analyzer.getShellManager().runShellCommandAndGetFullOutput(
-                "dumpsys activity services " + packageName);
+                buildServicesDumpCommand(packageName));
         if (output == null || output.trim().isEmpty()) return list;
 
         boolean inBlock       = false;

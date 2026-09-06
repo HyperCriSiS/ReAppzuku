@@ -85,7 +85,7 @@ public class ProcessDumpParserRuntimeInstrumentationTest {
 
             while (System.currentTimeMillis() < serviceDeadline) {
                 serviceDump = shellManager.runShellCommandAndGetFullOutput(
-                        "dumpsys activity services");
+                        ProcessAnalyzer.buildServicesDumpCommand(packageName));
                 if (serviceDump != null && !serviceDump.trim().isEmpty()) {
                     boolean[] found = findServiceRecords(serviceDump, packageName);
                     foundPackageService = found[0];
@@ -97,14 +97,14 @@ public class ProcessDumpParserRuntimeInstrumentationTest {
                 Thread.sleep(100L);
             }
 
-            assertNotNull("unfiltered dumpsys activity services returned null", serviceDump);
-            assertTrue("unfiltered dumpsys activity services returned empty output",
+            assertNotNull("package-filtered dumpsys activity services returned null", serviceDump);
+            assertTrue("package-filtered dumpsys activity services returned empty output",
                     !serviceDump.trim().isEmpty());
             assertTrue("No API 36 ServiceRecord was parsed for " + packageName,
                     foundPackageService);
             assertTrue("ShappkyService API 36 ServiceRecord was not parsed",
                     foundShappkyService);
-            Log.i(TAG, "API36_UNFILTERED_SERVICE_RECORD_PARSED");
+            Log.i(TAG, "API36_PACKAGE_FILTERED_SERVICE_RECORD_PARSED");
 
             String filteredDump = shellManager.runShellCommandAndGetFullOutput(
                     "dumpsys activity services " + packageName);
