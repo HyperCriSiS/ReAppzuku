@@ -41,11 +41,9 @@ jobs:
 
           manifest = Path('app/src/main/AndroidManifest.xml')
           text = manifest.read_text()
-          old = '''<receiver
-            android:name="com.gree1d.reappzuku.core.ShizukuWakeReceiver"
+          old = '''android:name="com.gree1d.reappzuku.core.ShizukuWakeReceiver"
             android:exported="false" />'''
-          new = '''<receiver
-            android:name="com.gree1d.reappzuku.core.ShizukuWakeReceiver"
+          new = '''android:name="com.gree1d.reappzuku.core.ShizukuWakeReceiver"
             android:enabled="false"
             android:exported="false" />'''
           assert text.count(old) == 1
@@ -189,6 +187,8 @@ jobs:
         if: failure()
         shell: bash
         run: |
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          export PATH="$SDK_ROOT/platform-tools:$PATH"
           adb shell ps -A | grep -E 'reappzuku|shizuku' || true
           adb shell dumpsys power | head -180 || true
           adb shell dumpsys package com.gree1d.reappzuku.probetarget | head -260 || true
