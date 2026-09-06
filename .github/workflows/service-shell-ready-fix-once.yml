@@ -1,0 +1,114 @@
+name: One-time ShappkyService shell readiness fix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout product branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ondemand-shizuku
+          persist-credentials: true
+
+      - name: Apply service readiness fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/gree1d/reappzuku/service/ShappkyService.java')
+          text = p.read_text()
+          old_import = 'import com.gree1d.reappzuku.core.ShellManager;\n'
+          new_import = old_import + 'import com.gree1d.reappzuku.core.ShellBackendState;\n'
+          assert text.count(old_import) == 1
+          assert 'import com.gree1d.reappzuku.core.ShellBackendState;' not in text
+          text = text.replace(old_import, new_import, 1)
+          old = '''        executor.execute(() -> {
+            boolean hasShell = shellManager.resolveAnyShellPermissionBlocking();
+            handler.post(() -> {
+                if (!hasShell) {
+                    AppDebugManager.w(Category.CORE, FILE_NAME + ": No shell/root access available, stopping service");
+                    stopSelf();
+                    return;
+                }
+                AppDebugManager.d(Category.CORE, FILE_NAME + ": Shell/root access confirmed, proceeding with service init");
+                if (!shellManager.hasRootAccess()) {
+                    // Bind the Shizuku UserService up front so that BackgroundAppManager's
+                    // appops query-op calls (issued later in initializeManagersAndReceivers)
+                    // don't race the async sticky binder-received listener and time out
+                    // against an unbound service.
+                    shellManager.bindUserService();
+                }
+                initializeManagersAndReceivers();
+            });
+        });
+'''
+          new = '''        executor.execute(() -> {
+            // A granted Shizuku permission is not enough for queued service actions:
+            // privileged work can begin as soon as managers are initialized. Wait for
+            // the UserService itself so a fresh process cannot race an async bind.
+            ShellBackendState backendState = shellManager.awaitAnyShellReadyBlocking();
+            if (!backendState.isReady() && shellManager.hasShizukuPermission()) {
+                // A just-destroyed predecessor can leave Shizuku's non-daemon
+                // UserService record briefly in flight. One bounded retry lets that
+                // teardown settle without processing privileged work prematurely.
+                try {
+                    Thread.sleep(250L);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                backendState = shellManager.awaitAnyShellReadyBlocking();
+            }
+            ShellBackendState readyState = backendState;
+            handler.post(() -> {
+                if (!readyState.isReady()) {
+                    AppDebugManager.w(Category.CORE, FILE_NAME
+                            + ": Shell backend not ready (" + readyState + "), stopping service");
+                    stopSelf();
+                    return;
+                }
+                AppDebugManager.d(Category.CORE, FILE_NAME
+                        + ": Shell backend ready (" + readyState + "), proceeding with service init");
+                initializeManagersAndReceivers();
+            });
+        });
+'''
+          assert text.count(old) == 1
+          p.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+
+      - name: Validate product branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+
+      - name: Commit validated product fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -- gradlew
+          expected='app/src/main/java/com/gree1d/reappzuku/service/ShappkyService.java'
+          mapfile -t changed < <(git status --short | sed -E 's/^...//')
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$expected"
+          git config user.name 'HyperCriSiS'
+          git config user.email 'dev.github@w3b.world'
+          git add -- "$expected"
+          git commit -m 'Wait for shell backend before queued service actions'
+          git push origin HEAD:ondemand-shizuku
