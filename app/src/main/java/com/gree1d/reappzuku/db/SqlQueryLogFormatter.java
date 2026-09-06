@@ -9,7 +9,7 @@ final class SqlQueryLogFormatter {
     private SqlQueryLogFormatter() {
     }
 
-    static String format(String sqlQuery, List<Object> bindArgs) {
+    static String format(String sqlQuery, List<?> bindArgs) {
         int bindArgCount = bindArgs == null ? 0 : bindArgs.size();
         return "AppDatabase query: " + String.valueOf(sqlQuery)
                 + " bindArgCount=" + bindArgCount
