@@ -113,16 +113,6 @@ jobs:
           test -n "$server"
           printf '%s\n' "$server" >/tmp/shizuku-pid
 
-      - name: Warm real Shizuku UserService before screen-off
-        shell: bash
-        run: |
-          set -euo pipefail
-          TARGET=com.gree1d.reappzuku.probetarget
-          output="$(adb shell am instrument -w -e sleepModeProcessDeathProbe true -e targetPackage "$TARGET" -e class 'com.gree1d.reappzuku.service.SleepModeProcessDeathInstrumentationTest#warmApplicationShellBackend' com.gree1d.reappzuku.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"
-          clean="$(printf '%s\n' "$output" | tr -d '\r')"
-          printf '%s\n' "$clean"
-          [[ "$clean" == *'OK (1 test)'* ]]
-
       - name: Real freeze and durable ownership
         shell: bash
         run: |
@@ -139,10 +129,23 @@ jobs:
           test "$frozen" = true
           adb exec-out run-as com.gree1d.reappzuku cat shared_prefs/AppPreferences.xml >/tmp/prefs-before.xml
           grep -Fq "$TARGET" /tmp/prefs-before.xml
-          pid="$(adb shell pidof com.gree1d.reappzuku | tr -d '\r')"
-          test -n "$pid"
+
+          # am instrument is allowed to tear down its target process when the test exits.
+          # Start a normal exported Activity after freeze ownership is durable so the
+          # following force-stop demonstrably kills a real production app process.
+          adb shell am start -W -n com.gree1d.reappzuku/com.gree1d.reappzuku.ui.MainActivity >/tmp/start-main.txt
+          process_ready=false
+          for i in $(seq 1 40); do
+            pid="$(adb shell pidof com.gree1d.reappzuku 2>/dev/null | tr -d '\r' || true)"
+            [ -n "$pid" ] && { process_ready=true; break; }
+            sleep 0.25
+          done
+          test "$process_ready" = true
+          adb shell pm list packages -d "$TARGET" | tr -d '\r' | grep -Fq "package:$TARGET"
+          adb exec-out run-as com.gree1d.reappzuku cat shared_prefs/AppPreferences.xml >/tmp/prefs-before-process-death.xml
+          grep -Fq "$TARGET" /tmp/prefs-before-process-death.xml
           printf '%s\n' "$pid" >/tmp/app-pid-before
-          echo "real freeze established; app pid=$pid"
+          echo "real freeze established; production app pid=$pid"
 
       - name: External process death preserves freeze ownership
         shell: bash
