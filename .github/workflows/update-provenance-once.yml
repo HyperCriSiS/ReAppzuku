@@ -21,26 +21,30 @@ jobs:
           ref: ondemand-shizuku
           persist-credentials: false
 
-      - name: Verify source updater ownership
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+
+      - name: Verify source updater ownership and build test APK
         shell: bash
         run: |
           set -euo pipefail
           updater='app/src/main/java/com/gree1d/reappzuku/manager/UpdateChecker.java'
-          grep -Fq 'https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases/latest' "$updater"
+          grep -Fq 'https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases?per_page=20' "$updater"
           grep -Fq 'https://github.com/HyperCriSiS/ReAppzuku/releases' "$updater"
-          if grep -Fq 'https://api.github.com/repos/gree1d/ReAppzuku/releases/latest' "$updater"; then
+          if grep -Fq 'https://api.github.com/repos/gree1d/ReAppzuku/' "$updater"; then
             echo 'Upstream update API endpoint remains in UpdateChecker.' >&2
             exit 1
           fi
-
-      - name: Download exact published fork test APK
-        shell: bash
-        run: |
-          set -euo pipefail
-          url='https://github.com/HyperCriSiS/ReAppzuku/releases/download/ondemand-test/ReAppzuku-1.8.7-ondemand-debug.apk'
-          apk='/tmp/ReAppzuku-1.8.7-ondemand-debug.apk'
-          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 "$url" -o "$apk"
-          echo 'd841e34685d790197266c1e9c90a11619a33a219377892f2c429c00930dbf5d4  /tmp/ReAppzuku-1.8.7-ondemand-debug.apk' | sha256sum -c -
+          if grep -Fq 'https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases/latest' "$updater"; then
+            echo 'Rolling release masking endpoint remains in UpdateChecker.' >&2
+            exit 1
+          fi
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest lintDebug assembleDebug
 
       - name: Boot stable Android 16 emulator
         shell: bash
@@ -92,12 +96,13 @@ jobs:
           "$ADB" shell wm dismiss-keyguard || true
           "$ADB" shell input keyevent 82 || true
 
-      - name: Install published APK and prove embedded fork provenance
+      - name: Install current test APK and prove embedded fork provenance
         shell: bash
         run: |
           set -euo pipefail
-          published='/tmp/ReAppzuku-1.8.7-ondemand-debug.apk'
-          adb install -r -t "$published"
+          built='app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$built"
+          adb install -r -t "$built"
 
           package_dump="$(adb shell dumpsys package com.gree1d.reappzuku | tr -d '\r')"
           grep -Fq 'versionName=1.8.7' <<<"$package_dump"
@@ -108,21 +113,25 @@ jobs:
           test -n "$installed_path"
           adb pull "$installed_path" /tmp/reappzuku-installed.apk
 
-          published_sha="$(sha256sum "$published" | awk '{print $1}')"
+          built_sha="$(sha256sum "$built" | awk '{print $1}')"
           installed_sha="$(sha256sum /tmp/reappzuku-installed.apk | awk '{print $1}')"
-          echo "published-sha256=$published_sha"
+          echo "built-sha256=$built_sha"
           echo "installed-sha256=$installed_sha"
-          test "$installed_sha" = "$published_sha"
+          test "$installed_sha" = "$built_sha"
 
           unzip -p /tmp/reappzuku-installed.apk classes.dex | strings -a > /tmp/reappzuku-installed-dex-strings.txt
-          grep -Fq 'https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases/latest' /tmp/reappzuku-installed-dex-strings.txt
+          grep -Fq 'https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases?per_page=20' /tmp/reappzuku-installed-dex-strings.txt
           grep -Fq 'https://github.com/HyperCriSiS/ReAppzuku/releases' /tmp/reappzuku-installed-dex-strings.txt
-          if grep -Fq 'https://api.github.com/repos/gree1d/ReAppzuku/releases/latest' /tmp/reappzuku-installed-dex-strings.txt; then
-            echo 'Installed test build contains the upstream update API endpoint.' >&2
+          if grep -Fq 'https://api.github.com/repos/gree1d/ReAppzuku/' /tmp/reappzuku-installed-dex-strings.txt; then
+            echo 'Installed test build contains an upstream update API endpoint.' >&2
+            exit 1
+          fi
+          if grep -Fq 'https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases/latest' /tmp/reappzuku-installed-dex-strings.txt; then
+            echo 'Installed test build still contains the rolling-tag-masking endpoint.' >&2
             exit 1
           fi
 
-          echo 'installed published fork test APK contains only the expected fork update endpoint'
+          echo 'installed current test APK contains the stable fork-owned update resolver only'
 
       - name: Capture diagnostics on failure
         if: failure()
