@@ -1,0 +1,137 @@
+name: One-time installed update provenance probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reappzuku-update-provenance-once
+  cancel-in-progress: true
+
+jobs:
+  provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout product branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ondemand-shizuku
+          persist-credentials: false
+
+      - name: Verify source updater ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          updater='app/src/main/java/com/gree1d/reappzuku/manager/UpdateChecker.java'
+          grep -Fq 'https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases/latest' "$updater"
+          grep -Fq 'https://github.com/HyperCriSiS/ReAppzuku/releases' "$updater"
+          if grep -Fq 'https://api.github.com/repos/gree1d/ReAppzuku/releases/latest' "$updater"; then
+            echo 'Upstream update API endpoint remains in UpdateChecker.' >&2
+            exit 1
+          fi
+
+      - name: Download exact published fork test APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://github.com/HyperCriSiS/ReAppzuku/releases/download/ondemand-test/ReAppzuku-1.8.7-ondemand-debug.apk'
+          apk='/tmp/ReAppzuku-1.8.7-ondemand-debug.apk'
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 "$url" -o "$apk"
+          echo 'd841e34685d790197266c1e9c90a11619a33a219377892f2c429c00930dbf5d4  /tmp/ReAppzuku-1.8.7-ondemand-debug.apk' | sha256sum -c -
+
+      - name: Boot stable Android 16 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort | tail -1)"
+          AVDMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name avdmanager | sort | tail -1)"
+          ADB="$SDK_ROOT/platform-tools/adb"
+          EMULATOR="$SDK_ROOT/emulator/emulator"
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          export PATH="$SDK_ROOT/platform-tools:$PATH"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          mkdir -p "$ANDROID_AVD_HOME"
+
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "emulator" "system-images;android-36;google_apis;x86_64"
+          echo no | "$AVDMANAGER" create avd --force \
+            --name reappzuku-api36-update-provenance \
+            --package "system-images;android-36;google_apis;x86_64" \
+            --device pixel_6
+          sudo chmod 666 /dev/kvm || true
+          "$ADB" start-server
+          "$EMULATOR" -avd reappzuku-api36-update-provenance \
+            -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data \
+            -gpu swiftshader_indirect -partition-size 4096 \
+            >/tmp/reappzuku-update-provenance-emulator.log 2>&1 &
+          EMULATOR_PID=$!
+
+          adb_ready=false
+          for i in $(seq 1 60); do
+            if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+              tail -300 /tmp/reappzuku-update-provenance-emulator.log || true
+              exit 1
+            fi
+            if "$ADB" get-state >/dev/null 2>&1; then adb_ready=true; break; fi
+            sleep 2
+          done
+          test "$adb_ready" = true
+
+          boot_ready=false
+          for i in $(seq 1 90); do
+            if [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then boot_ready=true; break; fi
+            sleep 2
+          done
+          test "$boot_ready" = true
+          test "$("$ADB" shell getprop ro.build.version.sdk | tr -d '\r')" = '36'
+          "$ADB" shell locksettings set-disabled true || true
+          "$ADB" shell wm dismiss-keyguard || true
+          "$ADB" shell input keyevent 82 || true
+
+      - name: Install published APK and prove embedded fork provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          published='/tmp/ReAppzuku-1.8.7-ondemand-debug.apk'
+          adb install -r -t "$published"
+
+          package_dump="$(adb shell dumpsys package com.gree1d.reappzuku | tr -d '\r')"
+          grep -Fq 'versionName=1.8.7' <<<"$package_dump"
+          grep -Fq 'versionCode=28' <<<"$package_dump"
+          grep -Fq 'installed=true' <<<"$package_dump"
+
+          installed_path="$(adb shell pm path com.gree1d.reappzuku | head -1 | sed 's/^package://' | tr -d '\r')"
+          test -n "$installed_path"
+          adb pull "$installed_path" /tmp/reappzuku-installed.apk
+
+          published_sha="$(sha256sum "$published" | awk '{print $1}')"
+          installed_sha="$(sha256sum /tmp/reappzuku-installed.apk | awk '{print $1}')"
+          echo "published-sha256=$published_sha"
+          echo "installed-sha256=$installed_sha"
+          test "$installed_sha" = "$published_sha"
+
+          unzip -p /tmp/reappzuku-installed.apk classes.dex | strings -a > /tmp/reappzuku-installed-dex-strings.txt
+          grep -Fq 'https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases/latest' /tmp/reappzuku-installed-dex-strings.txt
+          grep -Fq 'https://github.com/HyperCriSiS/ReAppzuku/releases' /tmp/reappzuku-installed-dex-strings.txt
+          if grep -Fq 'https://api.github.com/repos/gree1d/ReAppzuku/releases/latest' /tmp/reappzuku-installed-dex-strings.txt; then
+            echo 'Installed test build contains the upstream update API endpoint.' >&2
+            exit 1
+          fi
+
+          echo 'installed published fork test APK contains only the expected fork update endpoint'
+
+      - name: Capture diagnostics on failure
+        if: failure()
+        shell: bash
+        run: |
+          adb devices -l || true
+          adb shell dumpsys package com.gree1d.reappzuku | head -220 || true
+          tail -300 /tmp/reappzuku-update-provenance-emulator.log || true
+
+      - name: Stop emulator
+        if: always()
+        run: adb emu kill || true
