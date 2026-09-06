@@ -103,6 +103,37 @@ jobs:
           EOF
           adb shell run-as com.gree1d.reappzuku mkdir -p shared_prefs
           adb shell run-as com.gree1d.reappzuku sh -c 'cat > shared_prefs/AppDebugPrefs.xml' </tmp/AppDebugPrefs.xml
+      - name: Verify installed fork update provenance
+        run: |
+          set -euo pipefail
+          package_dump="$(adb shell dumpsys package com.gree1d.reappzuku | tr -d '\r')"
+          grep -Fq 'versionCode=28' <<<"$package_dump"
+          grep -Fq 'versionName=1.8.7' <<<"$package_dump"
+
+          UPDATE_CHECKER='app/src/main/java/com/gree1d/reappzuku/manager/UpdateChecker.java'
+          grep -Fq 'https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases/latest' "$UPDATE_CHECKER"
+          grep -Fq 'https://github.com/HyperCriSiS/ReAppzuku/releases' "$UPDATE_CHECKER"
+
+          curl --fail --silent --show-error --location \
+            -H 'Accept: application/vnd.github+json' \
+            'https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases/latest' \
+            >/tmp/reappzuku-latest-release.json
+          python3 - <<'PY'
+          import json
+          data = json.load(open('/tmp/reappzuku-latest-release.json', encoding='utf-8'))
+          html = data.get('html_url', '')
+          if not html.startswith('https://github.com/HyperCriSiS/ReAppzuku/releases/'):
+              raise SystemExit(f'unexpected release html_url: {html!r}')
+          apk_assets = [a for a in data.get('assets', []) if a.get('name', '').lower().endswith('.apk')]
+          if not apk_assets:
+              raise SystemExit('latest fork release has no APK asset')
+          for asset in apk_assets:
+              url = asset.get('browser_download_url', '')
+              if not url.startswith('https://github.com/HyperCriSiS/ReAppzuku/releases/download/'):
+                  raise SystemExit(f'unexpected APK URL: {url!r}')
+          print('installed-version=1.8.7 fork-release=' + html)
+          print('fork-apk-assets=' + ','.join(a['name'] for a in apk_assets))
+          PY
       - name: Recreate MainActivity while permission dialog is open
         run: |
           set -euo pipefail
@@ -186,4 +217,5 @@ jobs:
           adb shell dumpsys package com.gree1d.reappzuku | head -260 || true
           adb logcat -d -t 1600 | grep -E 'ReAppzuku|Shizuku|RequestPermission' || true
           cat /tmp/reappzuku-recreate.xml 2>/dev/null || true
+          cat /tmp/reappzuku-latest-release.json 2>/dev/null || true
           tail -300 /tmp/reappzuku-shizuku-recreate-emulator.log || true
