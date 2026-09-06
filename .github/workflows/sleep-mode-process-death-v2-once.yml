@@ -33,6 +33,7 @@ jobs:
           cp app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml.original
           python3 - <<'PY'
           from pathlib import Path
+          import re
           gradle = Path('app/build.gradle')
           text = gradle.read_text()
           old = 'applicationId = "com.gree1d.reappzuku"'
@@ -41,13 +42,14 @@ jobs:
 
           manifest = Path('app/src/main/AndroidManifest.xml')
           text = manifest.read_text()
-          old = '''android:name="com.gree1d.reappzuku.core.ShizukuWakeReceiver"
-            android:exported="false" />'''
-          new = '''android:name="com.gree1d.reappzuku.core.ShizukuWakeReceiver"
-            android:enabled="false"
-            android:exported="false" />'''
-          assert text.count(old) == 1
-          manifest.write_text(text.replace(old, new))
+          pattern = r'(android:name="com\.gree1d\.reappzuku\.core\.ShizukuWakeReceiver"\s*)(android:exported="false"\s*/>)'
+          text, count = re.subn(
+              pattern,
+              r'\1android:enabled="false"\n            \2',
+              text,
+              count=1)
+          assert count == 1
+          manifest.write_text(text)
           PY
           ./gradlew assembleDebug
           cp app/build/outputs/apk/debug/app-debug.apk /tmp/reappzuku-probetarget.apk
