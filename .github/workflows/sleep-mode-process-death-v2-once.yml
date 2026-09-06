@@ -132,7 +132,7 @@ jobs:
 
           # am instrument is allowed to tear down its target process when the test exits.
           # Start a normal exported Activity after freeze ownership is durable so the
-          # following force-stop demonstrably kills a real production app process.
+          # following external crash demonstrably kills a real production app process.
           adb shell am start -W -n com.gree1d.reappzuku/com.gree1d.reappzuku.ui.MainActivity >/tmp/start-main.txt
           process_ready=false
           for i in $(seq 1 40); do
@@ -152,13 +152,33 @@ jobs:
         run: |
           set -euo pipefail
           TARGET=com.gree1d.reappzuku.probetarget
-          adb shell am force-stop com.gree1d.reappzuku
-          for i in $(seq 1 40); do [ -z "$(adb shell pidof com.gree1d.reappzuku 2>/dev/null | tr -d '\r' || true)" ] && break; sleep 0.25; done
-          test -z "$(adb shell pidof com.gree1d.reappzuku 2>/dev/null | tr -d '\r' || true)"
+          before="$(cat /tmp/app-pid-before)"
+
+          # A force-stop is intentionally stronger than process death: Android marks
+          # the package stopped and suppresses background recovery until an explicit
+          # user start. Induce a real external VM crash instead so the process dies
+          # without changing the package's desired/background-start semantics.
+          adb shell settings put global show_first_crash_dialog 0 || true
+          adb shell am crash "$before" >/tmp/am-crash.txt 2>&1 || true
+
+          old_gone=false
+          current=""
+          for i in $(seq 1 80); do
+            current="$(adb shell pidof com.gree1d.reappzuku 2>/dev/null | tr -d '\r' || true)"
+            if [ -z "$current" ] || [ "$current" != "$before" ]; then
+              old_gone=true
+              break
+            fi
+            sleep 0.25
+          done
+          test "$old_gone" = true
+
+          user_state="$(adb shell dumpsys package com.gree1d.reappzuku | tr -d '\r' | grep -m1 'User 0:' || true)"
+          grep -Fq 'stopped=false' <<<"$user_state"
           adb shell pm list packages -d "$TARGET" | tr -d '\r' | grep -Fq "package:$TARGET"
           adb exec-out run-as com.gree1d.reappzuku cat shared_prefs/AppPreferences.xml >/tmp/prefs-dead.xml
           grep -Fq "$TARGET" /tmp/prefs-dead.xml
-          echo 'freeze and ownership survived external force-stop'
+          echo "freeze and ownership survived external process crash; pid $before -> ${current:-none}; package remained stopped=false"
 
       - name: Wake, restart and prove owned thaw recovery
         shell: bash
@@ -197,6 +217,7 @@ jobs:
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
           export PATH="$SDK_ROOT/platform-tools:$PATH"
+          cat /tmp/am-crash.txt 2>/dev/null || true
           adb shell ps -A | grep -E 'reappzuku|shizuku' || true
           adb shell dumpsys power | head -180 || true
           adb shell dumpsys package com.gree1d.reappzuku.probetarget | head -260 || true
