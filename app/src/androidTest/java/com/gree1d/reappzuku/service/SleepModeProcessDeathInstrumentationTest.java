@@ -68,7 +68,24 @@ public class SleepModeProcessDeathInstrumentationTest {
     }
 
     @Test
-    public void configureTimerFreezeAndStartIdleFreeze() {
+    public void configureTimerFreezeAndStartIdleFreeze() throws Exception {
+        App app = (App) targetContext.getApplicationContext();
+        ShellManager manager = app.getShellManager();
+        assertNotNull("Application ShellManager was not initialized", manager);
+
+        ShellBackendState state = manager.getBackendState();
+        long shellDeadline = System.currentTimeMillis() + 20_000L;
+        while (state != ShellBackendState.SHIZUKU_READY
+                && System.currentTimeMillis() < shellDeadline) {
+            state = manager.awaitAnyShellReadyBlocking();
+            if (state == ShellBackendState.SHIZUKU_READY) {
+                break;
+            }
+            Thread.sleep(150L);
+        }
+        assertEquals("Application Shizuku UserService did not become ready before idle freeze",
+                ShellBackendState.SHIZUKU_READY, state);
+
         Set<String> timerApps = new HashSet<>();
         timerApps.add(targetPackage);
 
@@ -82,6 +99,21 @@ public class SleepModeProcessDeathInstrumentationTest {
                 .commit());
 
         startServiceAction("IDLE_FREEZE");
+
+        long freezeDeadline = System.currentTimeMillis() + 20_000L;
+        while (System.currentTimeMillis() < freezeDeadline) {
+            Set<String> owned = prefs.getStringSet(
+                    PreferenceKeys.KEY_SLEEP_MODE_APPS_FROZEN, Collections.emptySet());
+            if (owned != null && owned.contains(targetPackage)) {
+                return;
+            }
+            Thread.sleep(100L);
+        }
+
+        Set<String> owned = prefs.getStringSet(
+                PreferenceKeys.KEY_SLEEP_MODE_APPS_FROZEN, Collections.emptySet());
+        assertTrue("Timer freeze ownership was not persisted before instrumentation returned",
+                owned != null && owned.contains(targetPackage));
     }
 
     @Test
