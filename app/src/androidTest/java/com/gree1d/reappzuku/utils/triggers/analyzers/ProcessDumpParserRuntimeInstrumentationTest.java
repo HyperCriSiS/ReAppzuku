@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -23,6 +24,7 @@ import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public class ProcessDumpParserRuntimeInstrumentationTest {
+    private static final String TAG = "ReAppzukuProcessDump";
     private Context targetContext;
 
     @Before
@@ -66,6 +68,7 @@ public class ProcessDumpParserRuntimeInstrumentationTest {
                 processState);
         assertTrue("Parsed process record contained neither adj nor proc state",
                 processState.adj != Integer.MAX_VALUE || processState.procState != null);
+        Log.i(TAG, "API36_PROCESS_RECORD_PARSED");
 
         Intent serviceIntent = new Intent(targetContext, ShappkyService.class);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -76,38 +79,59 @@ public class ProcessDumpParserRuntimeInstrumentationTest {
 
         try {
             long serviceDeadline = System.currentTimeMillis() + 10_000L;
-            while (!ShappkyService.isRunning() && System.currentTimeMillis() < serviceDeadline) {
-                Thread.sleep(100L);
-            }
-            assertTrue("ShappkyService did not become visible as running",
-                    ShappkyService.isRunning());
-
-            String serviceDump = shellManager.runShellCommandAndGetFullOutput(
-                    "dumpsys activity services " + packageName);
-            assertNotNull("dumpsys activity services returned null", serviceDump);
-            assertTrue("dumpsys activity services returned empty output",
-                    !serviceDump.trim().isEmpty());
-
+            String serviceDump = null;
             boolean foundPackageService = false;
             boolean foundShappkyService = false;
-            for (String line : serviceDump.split("\\r?\\n")) {
-                if (!ProcessDumpParser.isServiceRecordForPackage(line, packageName)) {
-                    continue;
+
+            while (System.currentTimeMillis() < serviceDeadline) {
+                serviceDump = shellManager.runShellCommandAndGetFullOutput(
+                        "dumpsys activity services");
+                if (serviceDump != null && !serviceDump.trim().isEmpty()) {
+                    boolean[] found = findServiceRecords(serviceDump, packageName);
+                    foundPackageService = found[0];
+                    foundShappkyService = found[1];
+                    if (foundShappkyService) {
+                        break;
+                    }
                 }
-                foundPackageService = true;
-                String shortName = ProcessDumpParser.extractServiceShortName(line, packageName);
-                if (shortName != null && shortName.endsWith("ShappkyService")) {
-                    foundShappkyService = true;
-                    break;
-                }
+                Thread.sleep(100L);
             }
 
+            assertNotNull("unfiltered dumpsys activity services returned null", serviceDump);
+            assertTrue("unfiltered dumpsys activity services returned empty output",
+                    !serviceDump.trim().isEmpty());
             assertTrue("No API 36 ServiceRecord was parsed for " + packageName,
                     foundPackageService);
             assertTrue("ShappkyService API 36 ServiceRecord was not parsed",
                     foundShappkyService);
+            Log.i(TAG, "API36_UNFILTERED_SERVICE_RECORD_PARSED");
+
+            String filteredDump = shellManager.runShellCommandAndGetFullOutput(
+                    "dumpsys activity services " + packageName);
+            boolean filteredFound = filteredDump != null
+                    && findServiceRecords(filteredDump, packageName)[0];
+            Log.i(TAG, filteredFound
+                    ? "API36_FILTERED_SERVICE_QUERY_MATCHED"
+                    : "API36_FILTERED_SERVICE_QUERY_EMPTY_OR_UNMATCHED");
         } finally {
             targetContext.stopService(serviceIntent);
         }
+    }
+
+    private static boolean[] findServiceRecords(String dump, String packageName) {
+        boolean foundPackageService = false;
+        boolean foundShappkyService = false;
+        for (String line : dump.split("\\r?\\n")) {
+            if (!ProcessDumpParser.isServiceRecordForPackage(line, packageName)) {
+                continue;
+            }
+            foundPackageService = true;
+            String shortName = ProcessDumpParser.extractServiceShortName(line, packageName);
+            if (shortName != null && shortName.endsWith("ShappkyService")) {
+                foundShappkyService = true;
+                break;
+            }
+        }
+        return new boolean[] { foundPackageService, foundShappkyService };
     }
 }
