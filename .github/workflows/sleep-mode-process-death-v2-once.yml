@@ -1,0 +1,197 @@
+name: One-time Sleep Mode API 36 process-death recovery probe v2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sleep-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout product branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ondemand-shizuku
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+
+      - name: Build app, instrumentation and isolated disposable target
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          cp app/build.gradle /tmp/build.gradle.original
+          cp app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml.original
+          python3 - <<'PY'
+          from pathlib import Path
+          gradle = Path('app/build.gradle')
+          text = gradle.read_text()
+          old = 'applicationId = "com.gree1d.reappzuku"'
+          assert text.count(old) == 1
+          gradle.write_text(text.replace(old, 'applicationId = "com.gree1d.reappzuku.probetarget"'))
+
+          manifest = Path('app/src/main/AndroidManifest.xml')
+          text = manifest.read_text()
+          old = '''<receiver
+            android:name="com.gree1d.reappzuku.core.ShizukuWakeReceiver"
+            android:exported="false" />'''
+          new = '''<receiver
+            android:name="com.gree1d.reappzuku.core.ShizukuWakeReceiver"
+            android:enabled="false"
+            android:exported="false" />'''
+          assert text.count(old) == 1
+          manifest.write_text(text.replace(old, new))
+          PY
+          ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk /tmp/reappzuku-probetarget.apk
+          cp /tmp/build.gradle.original app/build.gradle
+          cp /tmp/AndroidManifest.xml.original app/src/main/AndroidManifest.xml
+          ./gradlew clean testDebugUnitTest assembleDebug assembleDebugAndroidTest
+          test -s /tmp/reappzuku-probetarget.apk
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+
+      - name: Boot API 36 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort | tail -1)"
+          AVDMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name avdmanager | sort | tail -1)"
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          export PATH="$SDK_ROOT/platform-tools:$PATH"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" platform-tools emulator 'system-images;android-36;google_apis;x86_64'
+          echo no | "$AVDMANAGER" create avd --force --name reappzuku-sleep-v2 --package 'system-images;android-36;google_apis;x86_64' --device pixel_6
+          sudo chmod 666 /dev/kvm || true
+          "$SDK_ROOT/platform-tools/adb" start-server
+          "$SDK_ROOT/emulator/emulator" -avd reappzuku-sleep-v2 -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -gpu swiftshader_indirect -partition-size 4096 >/tmp/emulator.log 2>&1 &
+          ready=false
+          for i in $(seq 1 45); do adb get-state >/dev/null 2>&1 && { ready=true; break; }; sleep 2; done
+          test "$ready" = true
+          boot=false
+          for i in $(seq 1 90); do [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ] && { boot=true; break; }; sleep 2; done
+          test "$boot" = true
+          adb shell locksettings set-disabled true || true
+          adb shell wm dismiss-keyguard || true
+          adb shell input keyevent 82 || true
+
+      - name: Install packages and start real Shizuku
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 'https://github.com/RikkaApps/Shizuku/releases/download/v13.6.0/shizuku-v13.6.0.r1086.2650830c-release.apk' -o /tmp/shizuku.apk
+          echo '6e273ab0e991c4e79bc8b1bbb9b9dd739ccac1a8712a541a214078886b7b790f  /tmp/shizuku.apk' | sha256sum -c -
+          adb install -r /tmp/shizuku.apk
+          adb install -r -t app/build/outputs/apk/debug/app-debug.apk
+          adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          adb install -r /tmp/reappzuku-probetarget.apk
+          adb shell pm clear com.gree1d.reappzuku
+          adb shell pm grant com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23
+          adb shell pm grant com.gree1d.reappzuku android.permission.POST_NOTIFICATIONS 2>/dev/null || true
+          dump="$(adb shell dumpsys package com.gree1d.reappzuku.probetarget | tr -d '\r')"
+          grep -A3 -F 'ShizukuWakeReceiver' <<<"$dump" >/tmp/target-receiver.txt || true
+          SHIZUKU_APK_PATH="$(adb shell pm path moe.shizuku.privileged.api | head -1 | sed 's/^package://' | tr -d '\r')"
+          SHIZUKU_LIB="${SHIZUKU_APK_PATH%/*}/lib/x86_64/libshizuku.so"
+          adb shell test -x "$SHIZUKU_LIB"
+          adb shell "$SHIZUKU_LIB" | tee /tmp/shizuku-start.log
+          for i in $(seq 1 40); do [ -n "$(adb shell pidof shizuku_server 2>/dev/null | tr -d '\r' || true)" ] && break; sleep 0.25; done
+          server="$(adb shell pidof shizuku_server | tr -d '\r')"
+          test -n "$server"
+          printf '%s\n' "$server" >/tmp/shizuku-pid
+
+      - name: Warm real Shizuku UserService before screen-off
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET=com.gree1d.reappzuku.probetarget
+          output="$(adb shell am instrument -w -e sleepModeProcessDeathProbe true -e targetPackage "$TARGET" -e class 'com.gree1d.reappzuku.service.SleepModeProcessDeathInstrumentationTest#warmApplicationShellBackend' com.gree1d.reappzuku.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"
+          clean="$(printf '%s\n' "$output" | tr -d '\r')"
+          printf '%s\n' "$clean"
+          [[ "$clean" == *'OK (1 test)'* ]]
+
+      - name: Real freeze and durable ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET=com.gree1d.reappzuku.probetarget
+          adb shell input keyevent 223 || true
+          for i in $(seq 1 40); do power="$(adb shell dumpsys power | tr -d '\r')"; grep -Eq 'mWakefulness=Asleep|mInteractive=false' <<<"$power" && break; sleep 0.25; done
+          output="$(adb shell am instrument -w -e sleepModeProcessDeathProbe true -e targetPackage "$TARGET" -e class 'com.gree1d.reappzuku.service.SleepModeProcessDeathInstrumentationTest#configureTimerFreezeAndStartIdleFreeze' com.gree1d.reappzuku.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"
+          clean="$(printf '%s\n' "$output" | tr -d '\r')"
+          printf '%s\n' "$clean"
+          [[ "$clean" == *'OK (1 test)'* ]]
+          frozen=false
+          for i in $(seq 1 100); do adb shell pm list packages -d "$TARGET" | tr -d '\r' | grep -Fq "package:$TARGET" && { frozen=true; break; }; sleep 0.25; done
+          test "$frozen" = true
+          adb exec-out run-as com.gree1d.reappzuku cat shared_prefs/AppPreferences.xml >/tmp/prefs-before.xml
+          grep -Fq "$TARGET" /tmp/prefs-before.xml
+          pid="$(adb shell pidof com.gree1d.reappzuku | tr -d '\r')"
+          test -n "$pid"
+          printf '%s\n' "$pid" >/tmp/app-pid-before
+          echo "real freeze established; app pid=$pid"
+
+      - name: External process death preserves freeze ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET=com.gree1d.reappzuku.probetarget
+          adb shell am force-stop com.gree1d.reappzuku
+          for i in $(seq 1 40); do [ -z "$(adb shell pidof com.gree1d.reappzuku 2>/dev/null | tr -d '\r' || true)" ] && break; sleep 0.25; done
+          test -z "$(adb shell pidof com.gree1d.reappzuku 2>/dev/null | tr -d '\r' || true)"
+          adb shell pm list packages -d "$TARGET" | tr -d '\r' | grep -Fq "package:$TARGET"
+          adb exec-out run-as com.gree1d.reappzuku cat shared_prefs/AppPreferences.xml >/tmp/prefs-dead.xml
+          grep -Fq "$TARGET" /tmp/prefs-dead.xml
+          echo 'freeze and ownership survived external force-stop'
+
+      - name: Wake, restart and prove owned thaw recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET=com.gree1d.reappzuku.probetarget
+          adb shell input keyevent 224 || true
+          adb shell wm dismiss-keyguard || true
+          adb shell input keyevent 82 || true
+          output="$(adb shell am instrument -w -e sleepModeProcessDeathProbe true -e targetPackage "$TARGET" -e class 'com.gree1d.reappzuku.service.SleepModeProcessDeathInstrumentationTest#startRecoveryWithPersistedOwnedFreeze' com.gree1d.reappzuku.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"
+          clean="$(printf '%s\n' "$output" | tr -d '\r')"
+          printf '%s\n' "$clean"
+          [[ "$clean" == *'OK (1 test)'* ]]
+          thawed=false
+          for i in $(seq 1 140); do ! adb shell pm list packages -d "$TARGET" | tr -d '\r' | grep -Fq "package:$TARGET" && { thawed=true; break; }; sleep 0.25; done
+          test "$thawed" = true
+          cleared=false
+          for i in $(seq 1 80); do
+            adb exec-out run-as com.gree1d.reappzuku cat shared_prefs/AppPreferences.xml >/tmp/prefs-after.xml || true
+            ! grep -Fq "$TARGET" /tmp/prefs-after.xml && { cleared=true; break; }
+            sleep 0.25
+          done
+          test "$cleared" = true
+          before="$(cat /tmp/app-pid-before)"
+          after="$(adb shell pidof com.gree1d.reappzuku | tr -d '\r')"
+          test -n "$after"
+          test "$after" != "$before"
+          server_before="$(cat /tmp/shizuku-pid)"
+          server_after="$(adb shell pidof shizuku_server | tr -d '\r')"
+          test "$server_after" = "$server_before"
+          echo "A08 passed: app $before->$after; Shizuku $server_after unchanged; target thawed; ownership cleared"
+
+      - name: Diagnostics on failure
+        if: failure()
+        shell: bash
+        run: |
+          adb shell ps -A | grep -E 'reappzuku|shizuku' || true
+          adb shell dumpsys power | head -180 || true
+          adb shell dumpsys package com.gree1d.reappzuku.probetarget | head -260 || true
+          adb exec-out run-as com.gree1d.reappzuku cat shared_prefs/AppPreferences.xml || true
+          adb logcat -d | grep -E 'ReAppzuku|Shizuku|AndroidRuntime|FATAL EXCEPTION' | tail -900 || true
+          tail -250 /tmp/emulator.log || true
