@@ -27,8 +27,7 @@ on:
         default: false
         type: boolean
 
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   group: signed-release
@@ -36,20 +35,29 @@ concurrency:
 
 jobs:
   build-sign-verify:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      source_sha: ${{ steps.source.outputs.sha }}
     steps:
       - name: Validate release authorization and source ref
         shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          PUBLISH: ${{ inputs.publish }}
+          CONFIRMATION: ${{ inputs.confirmation }}
         run: |
           set -euo pipefail
-          case "${{ inputs.source_ref }}" in
+          case "$SOURCE_REF" in
             main|ondemand-shizuku) ;;
             *) echo 'source_ref must be main or ondemand-shizuku.' >&2; exit 1 ;;
           esac
-          if [ "${{ inputs.publish }}" = "true" ]; then
-            test -n "${{ inputs.tag }}" || { echo 'A release tag is required when publish=true.' >&2; exit 1; }
-            test "${{ inputs.confirmation }}" = "RELEASE" || { echo 'Publication requires confirmation=RELEASE.' >&2; exit 1; }
+          if [ "$PUBLISH" = "true" ]; then
+            test -n "$RELEASE_TAG" || { echo 'A release tag is required when publish=true.' >&2; exit 1; }
+            test "$CONFIRMATION" = "RELEASE" || { echo 'Publication requires confirmation=RELEASE.' >&2; exit 1; }
           fi
 
       - name: Checkout selected ref
@@ -58,6 +66,16 @@ jobs:
           ref: ${{ inputs.source_ref }}
           fetch-depth: 1
           persist-credentials: false
+
+      - name: Record exact source commit
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Building exact source commit: $sha"
 
       - name: Set up JDK 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
@@ -114,6 +132,8 @@ jobs:
         shell: bash
         env:
           EXPECTED_CERT_SHA256: ${{ secrets.ANDROID_SIGNING_CERT_SHA256 }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
         run: |
           set -euo pipefail
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
@@ -133,31 +153,72 @@ jobs:
             echo "Signing certificate mismatch: expected=$expected actual=$actual" >&2
             exit 1
           fi
-          safe_tag="$(printf '%s' "${{ inputs.tag }}" | tr -cs 'A-Za-z0-9._-' '-')"
+          safe_tag="$(printf '%s' "$RELEASE_TAG" | tr -cs 'A-Za-z0-9._-' '-')"
           [ -n "$safe_tag" ] || safe_tag='signed-build'
-          signed="$GITHUB_WORKSPACE/ReAppzuku-${safe_tag}.apk"
-          cp "$input_apk" "$signed"
-          sha256sum "$signed" | tee "$signed.sha256"
-          printf '%s\n' "$signed" > /tmp/signed-apk-path
+          mkdir -p release-dist
+          name="ReAppzuku-${safe_tag}.apk"
+          cp "$input_apk" "release-dist/$name"
+          (
+            cd release-dist
+            sha256sum "$name" > "$name.sha256"
+            printf '%s\n' "$SOURCE_SHA" > source-sha.txt
+            printf '%s\n' "$actual" > signing-cert-sha256.txt
+          )
           echo "Verified signing certificate SHA-256: $actual"
 
-      - name: Publish explicitly authorized GitHub release
+      - name: Stage verified release payload for publish job
         if: ${{ inputs.publish }}
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          test "${{ inputs.confirmation }}" = "RELEASE"
-          signed="$(cat /tmp/signed-apk-path)"
-          args=(release create "${{ inputs.tag }}" "$signed" "$signed.sha256" --target "${{ inputs.source_ref }}" --generate-notes --title "ReAppzuku ${{ inputs.tag }}")
-          if [ "${{ inputs.prerelease }}" = "true" ]; then
-            args+=(--prerelease)
-          fi
-          gh "${args[@]}"
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: signed-release-${{ github.run_id }}
+          path: release-dist/
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Remove signing material
         if: always()
         shell: bash
         run: |
           rm -f app/release.keystore
+
+  publish:
+    if: ${{ inputs.publish }}
+    needs: build-sign-verify
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download verified release payload
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: signed-release-${{ github.run_id }}
+          path: release-dist
+
+      - name: Re-verify payload and publish exact built commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          SOURCE_SHA: ${{ needs.build-sign-verify.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRMATION" = "RELEASE"
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(cat release-dist/source-sha.txt)" = "$SOURCE_SHA"
+          mapfile -t apks < <(find release-dist -maxdepth 1 -type f -name '*.apk' | sort)
+          test "${#apks[@]}" -eq 1 || { echo "Expected exactly one staged APK, found ${#apks[@]}." >&2; exit 1; }
+          apk="${apks[0]}"
+          checksum="$apk.sha256"
+          test -f "$checksum"
+          (
+            cd release-dist
+            sha256sum -c "$(basename "$checksum")"
+          )
+          args=(release create "$RELEASE_TAG" "$apk" "$checksum" --target "$SOURCE_SHA" --generate-notes --title "ReAppzuku $RELEASE_TAG")
+          if [ "$PRERELEASE" = "true" ]; then
+            args+=(--prerelease)
+          fi
+          gh "${args[@]}"
