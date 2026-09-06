@@ -93,40 +93,30 @@ jobs:
           sleep 2
           adb shell pm revoke com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23 2>/dev/null || true
 
-          python3 - <<'PY' >/tmp/debug-pref-meta
+          PREF_NAME="$(python3 - <<'PY'
           import re
           src = open('app/src/main/java/com/gree1d/reappzuku/core/AppDebugManager.java', encoding='utf-8').read()
-          name = None
-          for pattern in (
-              r'(?:PREFS?|PREFERENCES)_NAME\s*=\s*"([^"]+)"',
-              r'getSharedPreferences\(\s*"([^"]+)"',
-          ):
+          for pattern in (r'(?:PREFS?|PREFERENCES)_NAME\s*=\s*"([^"]+)"', r'getSharedPreferences\(\s*"([^"]+)"'):
               m = re.search(pattern, src)
               if m:
-                  name = m.group(1)
+                  print(m.group(1))
                   break
-          if not name:
+          else:
               raise SystemExit('Could not derive AppDebugManager SharedPreferences name')
-          keys = sorted(set(re.findall(r'"(debug_[A-Za-z0-9_]+)"', src)))
-          if not keys:
-              raise SystemExit('Could not derive AppDebugManager debug keys')
-          print(name)
-          print('\n'.join(keys))
           PY
-          PREF_NAME="$(head -1 /tmp/debug-pref-meta)"
-          python3 - <<'PY' >/tmp/AppDebugPrefs.xml
-          import html
-          lines = open('/tmp/debug-pref-meta', encoding='utf-8').read().splitlines()
-          keys = lines[1:]
-          print("<?xml version='1.0' encoding='utf-8' standalone='yes' ?>")
-          print('<map>')
-          for key in keys:
-              print(f'    <boolean name="{html.escape(key, quote=True)}" value="true" />')
-          print('</map>')
-          PY
-          echo "derived-debug-pref=$PREF_NAME keys=$(tail -n +2 /tmp/debug-pref-meta | tr '\n' ',')"
+          )"
+          cat >/tmp/AppDebugPrefs.xml <<'EOF'
+          <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+          <map>
+              <boolean name="debug_enabled" value="true" />
+              <boolean name="debug_cat_CORE" value="true" />
+              <boolean name="debug_cat_MAIN_PAGE" value="true" />
+          </map>
+          EOF
+          echo "derived-debug-pref=$PREF_NAME"
           adb shell run-as com.gree1d.reappzuku mkdir -p shared_prefs
-          adb shell run-as com.gree1d.reappzuku sh -c "cat > shared_prefs/${PREF_NAME}.xml" </tmp/AppDebugPrefs.xml
+          cat /tmp/AppDebugPrefs.xml | adb shell "run-as com.gree1d.reappzuku sh -c 'cat > shared_prefs/${PREF_NAME}.xml'"
+          adb shell "run-as com.gree1d.reappzuku cat shared_prefs/${PREF_NAME}.xml" | grep -Fq 'debug_cat_MAIN_PAGE'
       - name: Verify installed fork update provenance
         run: |
           set -euo pipefail
@@ -247,7 +237,6 @@ jobs:
           adb shell dumpsys activity activities | head -300 || true
           adb shell dumpsys package com.gree1d.reappzuku | head -260 || true
           adb logcat -d -t 1600 | grep -E 'ReAppzuku|Shizuku|RequestPermission' || true
-          cat /tmp/debug-pref-meta 2>/dev/null || true
           cat /tmp/reappzuku-recreate.xml 2>/dev/null || true
           cat /tmp/reappzuku-latest-release.json 2>/dev/null || true
           tail -300 /tmp/reappzuku-shizuku-recreate-emulator.log || true
