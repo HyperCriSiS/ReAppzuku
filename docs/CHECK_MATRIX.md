@@ -29,16 +29,16 @@ Only **PROVEN** is fully closed.
 | A03 | Privileged shell / Shizuku UserService | DECIDED | Readiness/death/rebind state is instrumented, mutating commands are isolated behind validated `PrivilegedShell`, and run `33997372602` proves real official-Shizuku UserService execution plus daemon-death/rebind recovery; root-specific execution remains open. |
 | A04 | Running-app discovery / app-state collection | DECIDED | ActivityManager process/service text parsing is isolated and JVM fixture-tested across AOSP/OEM-style forms; Android runtime/platform evidence remains open. |
 | A05 | Manual restrictions / freeze / force-stop / app ops | DECIDED | High-impact mutating operations use typed/validated `PrivilegedShell`, with injection tests and a repository-wide raw mutating-shell audit; real Shizuku privileged execution is proven, while representative live coverage of every command family remains open. |
-| A06 | AutoKill / `ShappkyService` / periodic worker | DECIDED | API-36 instrumentation proves a fresh restart receiver obeys persisted disabled state and real reboot recovery succeeds; the external OS force-stop desired-state subprobe in `33985971887` failed and remains open. |
+| A06 | AutoKill / `ShappkyService` / periodic worker | DECIDED | API-36 instrumentation proves a fresh restart receiver obeys persisted disabled state and real reboot recovery succeeds; focused run `34004843634` additionally proves persisted disabled desired state across a real external app force-stop/process restart with PID change. |
 | A07 | Smart Lifecycle | DECIDED | Conservative blacklist/protection design exists; state/false-positive/reboot evidence missing. |
 | A08 | Sleep / freeze lifecycle | RISK | Interacts with FGS, alarms, screen state and restoration without state-machine tests. |
 | A09 | Presets / Restrictions Scheduler / exact alarms | DECIDED | Exact-alarm denial fallback, repeated boot WorkManager reconciliation and real API-36 OS reboot with scheduler/preset alarm reconstruction pass; physical/OEM variation remains release-diversity evidence. |
 | A10 | Accessibility / app-launch tracking | DECIDED | Service configuration and unnecessary view-tree scope were corrected; Android runtime evidence remains pending. |
-| A11 | Boot / process death / restart / recovery | **RISK-P0** | Real API-36 OS reboot recovery and real Shizuku daemon death/rebind now pass, but the external app force-stop/process-death desired-state subprobe remains unproven and keeps this surface P0. |
+| A11 | Boot / process death / restart / recovery | DECIDED | Real API-36 OS reboot recovery, real Shizuku daemon death/rebind, and focused external app force-stop/process-restart desired-state recovery all pass; physical/OEM diversity remains release evidence rather than an implementation P0. |
 | A12 | Settings / App Behavior / compatibility interlocks | DECIDED | Central policy now exists; truth table needs exhaustive tests. |
 | A13 | Backup / restore | DECIDED | API-36 instrumentation passes transactional rollback fault injection, legacy/future/malformed bounds and active-preset reconciliation, and `34000092714` passes a real MediaStore `content://` export/import/restore round-trip; physical/OEM provider UI remains release-diversity evidence. |
 | A14 | Room DB / statistics / logs | DECIDED | Supported v2→v11 migration executes successfully on API 36 with `app_stats` preservation and final-schema validation; unavailable upstream schema history 1/3–10 cannot be fabricated. |
-| A15 | Update channel / release / rollback | DECIDED | Update provenance is fork-owned and release artifact digest is recorded; signing/rollback evidence remains incomplete. |
+| A15 | Update channel / release / rollback | DECIDED | Fork-owned update resolution now enumerates stable numeric releases without rolling-tag masking, and run `34037508198` proves the current installed test APK is byte-identical to the built APK and embeds only the expected fork update endpoints. Stable signing/rollback evidence remains incomplete. |
 | A16 | Exported surfaces: shortcuts / tiles / receivers / widget | DECIDED | Shortcut confused-deputy path is hardened, all exported principals are documented, and the explicit-intent shortcut abuse step passed in `33986395874`; broader entrypoint abuse coverage remains separate. |
 | A17 | UI / error recovery / accessibility / i18n | DECIDED | Fork feature translations and lint-critical accessibility fixes are complete; broader runtime/UX evidence remains pending. |
 | A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins, zero-error lint, dependency locking/SHA-256 verification and a stable API-36 runtime lane are enforced; API-37 preview execution remains blocked. |
@@ -105,19 +105,18 @@ No runtime surface is currently marked fully PROVEN. That is intentional until r
 ---
 
 
-## Evidence/status refresh — 2026-09-05
+## Evidence/status refresh — 2026-09-06
 
 The finding narratives below are retained as audit provenance. This refresh supersedes their
 historical “current” wording where implementation has moved on.
 
 - **CM-P0-01:** implementation fixed at source/instrumentation level. API-36 instrumentation proves a newly constructed
   restart receiver re-reads persisted desired state and cannot undo an intentional Auto-Kill disable;
-  real reboot recovery passes, but the external OS force-stop desired-state subprobe in `33985971887` failed and remains the P0 runtime gap.
-- **CM-P0-02:** implementation fixed. Update provenance points to `HyperCriSiS/ReAppzuku`; the
-  2026-09-02 assurance release was published from the fork with an explicit SHA-256.
+  real reboot recovery passes, and focused run `34004843634` closes the external OS force-stop/process-restart desired-state gap with a verified PID change.
+- **CM-P0-02:** implementation fixed and installed-binary provenance proven. Update resolution points to `HyperCriSiS/ReAppzuku`, enumerates releases instead of trusting `/releases/latest`, skips draft/prerelease/non-numeric rolling tags, and treats “no stable release” as no update. Run `34037508198` installed the current test APK on API 36, pulled it back with exact SHA-256 identity (`b57c694dc75705f23f5de0b7ef7988811fb350276aa11063b4077af224089dd8`) and verified the expected fork endpoints across all DEX files with no upstream or obsolete `/releases/latest` endpoint.
 - **CM-P0-03:** state model/readiness gating is API-36 instrumented for binder-late, deny→grant,
   listener removal followed by grant, and binder-death→return/rebind. Run `34000092714` proves the real
-  official-Shizuku first-run permission flow, while `33997372602` proves daemon death/restart and same-process rebind. Real permission-dialog Activity recreation and root remain open permutations.
+  official-Shizuku first-run permission flow, `33997372602` proves daemon death/restart and same-process rebind, and `34036827312` proves Activity recreation behind the still-open real permission dialog followed by grant/READY/scan recovery. Root remains a separate diversity path.
 - **CM-P1-01 / CM-P1-02:** boot preset recovery and one central exact-alarm capability are
   implemented. API-36 runtime proves denied-exact-alarm best-effort fallback plus repeated
   BootReceiver WorkManager idempotency, and run `33985971887` proves real OS reboot recovery with scheduler/preset alarm reconstruction; physical/OEM variation remains release-diversity evidence.
@@ -154,10 +153,14 @@ Latest assurance evidence:
 - workflow run `33974877204`: normal validation passed for repeated boot WorkManager-idempotency coverage;
 - workflow run `34000313640`: strict monotone lint cleanup removed exactly one stale baseline issue, kept the four current warnings visible, and passed unit/lint/AndroidTest/APK validation before commit `9fc85bd`;
 - workflow run `34000092714`: fresh official-Shizuku ungranted→dialog→grant→READY→scan ordering and real MediaStore `content://` backup round-trip passed on API 36;
+- workflow run `34036827312`: exact real permission-dialog Activity recreation passed, preserving the dialog across Activity destruction/recreation and recovering grant→READY→scan ordering;
+- workflow run `34037508198`: current test APK install/pull SHA-256 identity and multidex embedded fork-update provenance passed on API 36;
 - commit `ba73b39e4e47e75a19ac2a01a120a69854e19f30`: event-driven late-Binder recovery, source-gated by run `33999924081`;
 - workflow run `33997372602`: official Shizuku UserService shell execution, daemon death detection, restart, same-process rebind and post-recovery command passed;
 - workflow run `33986395874`: explicit-intent exported-shortcut abuse step passed before a later unrelated Shizuku-recovery failure;
-- workflow run `33985971887`: real API-36 OS reboot/unlock/post-boot recovery and alarm reconstruction passed, while its later external force-stop desired-state subprobe failed and remains open;
+- workflow run `33985971887`: real API-36 OS reboot/unlock/post-boot recovery and alarm reconstruction passed; its bundled force-stop tail was later superseded by the focused passing force-stop gate;
+- workflow run `34004843634`: persisted disabled desired state survived a real external `am force-stop`, with the production process changing PID from `2963` to `3250`;
+- workflow run `34036827312`: real Shizuku permission dialog remained active across Activity recreation, then grant restored `SHIZUKU_READY` and only afterward allowed app scanning;
 - workflow run `33974469090`: normal validation passed for stale service-restart desired-state dominance;
 - workflow run `33946729221`: `Clock`/`ScheduleTime` + `AlarmScheduler` integration passed unit, lint, AndroidTest compile and APK build;
 - workflow run `33946888672`: `BackupCodec` envelope extraction passed unit, lint, AndroidTest compile and APK build before integration;
@@ -171,7 +174,7 @@ Latest assurance evidence:
 - earlier release target: `e202e38c049a0d4a7cfc561f7a9c8348c9abd8ae`;
 - earlier APK SHA-256: `d841e34685d790197266c1e9c90a11619a33a219377892f2c429c00930dbf5d4`.
 
-**Maintainability status:** the named high-risk seams have explicit `PrivilegedShell`, parser/protection/background policy, `Clock`/`ScheduleTime`, `AlarmScheduler` and `BackupCodec` boundaries. API-36 runtime now covers real Shizuku first-run/UserService/daemon recovery, real OS reboot/alarm reconstruction, shortcut abuse and MediaStore backup I/O. External app force-stop/process death, root, physical/OEM diversity, OEM parser behavior and installed-release/signing probes remain open.
+**Maintainability status:** the named high-risk seams have explicit `PrivilegedShell`, parser/protection/background policy, `Clock`/`ScheduleTime`, `AlarmScheduler` and `BackupCodec` boundaries. API-36 runtime now covers real Shizuku first-run/UserService/daemon recovery plus permission-dialog Activity recreation, real OS reboot/alarm reconstruction, external app force-stop/process restart, shortcut abuse and MediaStore backup I/O. Root, physical/OEM diversity, OEM parser behavior and final stable-release signing/rollback evidence remain open.
 
 # High-priority findings
 
