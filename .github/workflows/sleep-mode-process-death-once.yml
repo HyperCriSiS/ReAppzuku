@@ -110,6 +110,7 @@ jobs:
           adb shell pm grant com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23
           adb shell pm grant com.gree1d.reappzuku android.permission.POST_NOTIFICATIONS 2>/dev/null || true
           adb shell pm path com.gree1d.reappzuku.probetarget | grep -q '^package:'
+          adb shell pm disable --user 0 com.gree1d.reappzuku.probetarget/com.gree1d.reappzuku.core.ShizukuWakeReceiver >/dev/null
 
       - name: Start real Shizuku daemon
         shell: bash
@@ -127,6 +128,22 @@ jobs:
           done
           test "$ready" = true
           adb shell pidof shizuku_server | tr -d '\r' > /tmp/shizuku-server-pid-before
+
+      - name: Warm application Shizuku backend while screen is interactive
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET='com.gree1d.reappzuku.probetarget'
+          output="$(adb shell am instrument -w \
+            -e sleepModeProcessDeathProbe true \
+            -e targetPackage "$TARGET" \
+            -e class 'com.gree1d.reappzuku.service.SleepModeProcessDeathInstrumentationTest#warmApplicationShellBackend' \
+            com.gree1d.reappzuku.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"
+          clean="$(printf '%s\n' "$output" | tr -d '\r')"
+          printf '%s\n' "$clean"
+          [[ "$clean" == *"OK (1 test)"* ]]
+          test -n "$(adb shell pidof com.gree1d.reappzuku 2>/dev/null | tr -d '\r' || true)"
+          echo 'application Shizuku backend warmed before screen-off'
 
       - name: Freeze disposable target and prove durable ownership
         shell: bash
