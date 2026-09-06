@@ -27,6 +27,7 @@ import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
 
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.ShellBackendState;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
@@ -235,21 +236,31 @@ public class ShappkyService extends Service {
         shellManager = ((App) getApplication()).getShellManager();
 
         executor.execute(() -> {
-            boolean hasShell = shellManager.resolveAnyShellPermissionBlocking();
+            // A granted Shizuku permission is not enough for queued service actions:
+            // privileged work can begin as soon as managers are initialized. Wait for
+            // the UserService itself so a fresh process cannot race an async bind.
+            ShellBackendState backendState = shellManager.awaitAnyShellReadyBlocking();
+            if (!backendState.isReady() && shellManager.hasShizukuPermission()) {
+                // A just-destroyed predecessor can leave Shizuku's non-daemon
+                // UserService record briefly in flight. One bounded retry lets that
+                // teardown settle without processing privileged work prematurely.
+                try {
+                    Thread.sleep(250L);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                backendState = shellManager.awaitAnyShellReadyBlocking();
+            }
+            ShellBackendState readyState = backendState;
             handler.post(() -> {
-                if (!hasShell) {
-                    AppDebugManager.w(Category.CORE, FILE_NAME + ": No shell/root access available, stopping service");
+                if (!readyState.isReady()) {
+                    AppDebugManager.w(Category.CORE, FILE_NAME
+                            + ": Shell backend not ready (" + readyState + "), stopping service");
                     stopSelf();
                     return;
                 }
-                AppDebugManager.d(Category.CORE, FILE_NAME + ": Shell/root access confirmed, proceeding with service init");
-                if (!shellManager.hasRootAccess()) {
-                    // Bind the Shizuku UserService up front so that BackgroundAppManager's
-                    // appops query-op calls (issued later in initializeManagersAndReceivers)
-                    // don't race the async sticky binder-received listener and time out
-                    // against an unbound service.
-                    shellManager.bindUserService();
-                }
+                AppDebugManager.d(Category.CORE, FILE_NAME
+                        + ": Shell backend ready (" + readyState + "), proceeding with service init");
                 initializeManagersAndReceivers();
             });
         });
