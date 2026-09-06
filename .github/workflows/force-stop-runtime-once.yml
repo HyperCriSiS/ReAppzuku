@@ -94,7 +94,7 @@ jobs:
             -e class 'com.gree1d.reappzuku.core.ForceStopDesiredStateInstrumentationTest#prepareDisabledStateBeforeForceStop' \
             com.gree1d.reappzuku.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"
           printf '%s\n' "$prepare"
-          grep -q 'OK (1 test)' <<<"$prepare"
+          [[ "$prepare" == *"OK (1 test)"* ]]
 
           old_pid="$(adb shell pidof com.gree1d.reappzuku | tr -d '\r')"
           test -n "$old_pid"
@@ -113,7 +113,8 @@ jobs:
             -e class 'com.gree1d.reappzuku.core.ForceStopDesiredStateInstrumentationTest#verifyDisabledStateAfterExternalForceStop' \
             com.gree1d.reappzuku.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"
           printf '%s\n' "$verify"
-          grep -q 'OK (1 test)' <<<"$verify"
+          [[ "$verify" == *"OK (1 test)"* ]]
+          echo 'external force-stop desired-state probe passed'
 
           # The instrumentation process exits after the assertion, so a host-side pidof here
           # is intentionally not used as evidence. The test itself compares the pre-force-stop
