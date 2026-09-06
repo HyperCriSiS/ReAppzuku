@@ -117,7 +117,7 @@ public class SleepModeProcessDeathInstrumentationTest {
     }
 
     @Test
-    public void startRecoveryWithPersistedOwnedFreeze() {
+    public void startRecoveryWithPersistedOwnedFreeze() throws Exception {
         Set<String> owned = prefs.getStringSet(
                 PreferenceKeys.KEY_SLEEP_MODE_APPS_FROZEN, Collections.emptySet());
         assertTrue("Owned timer-freeze marker must survive process death",
@@ -125,7 +125,39 @@ public class SleepModeProcessDeathInstrumentationTest {
         assertTrue("Sleep Mode must remain enabled across process death",
                 prefs.getBoolean(PreferenceKeys.KEY_SLEEP_MODE_ENABLED, false));
 
+        App app = (App) targetContext.getApplicationContext();
+        ShellManager manager = app.getShellManager();
+        assertNotNull("Application ShellManager was not initialized after process death", manager);
+
+        ShellBackendState state = manager.getBackendState();
+        long shellDeadline = System.currentTimeMillis() + 20_000L;
+        while (state != ShellBackendState.SHIZUKU_READY
+                && System.currentTimeMillis() < shellDeadline) {
+            state = manager.awaitAnyShellReadyBlocking();
+            if (state == ShellBackendState.SHIZUKU_READY) {
+                break;
+            }
+            Thread.sleep(150L);
+        }
+        assertEquals("Application Shizuku UserService did not recover before thaw",
+                ShellBackendState.SHIZUKU_READY, state);
+
         startServiceAction("SCREEN_ON");
+
+        long thawDeadline = System.currentTimeMillis() + 20_000L;
+        while (System.currentTimeMillis() < thawDeadline) {
+            Set<String> remaining = prefs.getStringSet(
+                    PreferenceKeys.KEY_SLEEP_MODE_APPS_FROZEN, Collections.emptySet());
+            if (remaining == null || !remaining.contains(targetPackage)) {
+                return;
+            }
+            Thread.sleep(100L);
+        }
+
+        Set<String> remaining = prefs.getStringSet(
+                PreferenceKeys.KEY_SLEEP_MODE_APPS_FROZEN, Collections.emptySet());
+        assertTrue("Owned timer-freeze marker was not cleared before instrumentation returned",
+                remaining == null || !remaining.contains(targetPackage));
     }
 
     private void startServiceAction(String action) {
