@@ -24,11 +24,11 @@ Status convention:
 
 ### Live evidence still required
 
-- [ ] Fresh Shizuku permission flow: launch without grant, grant later, list loads only after backend is ready.
-- [~] AutoKill disable survives restart recovery: API-36 instrumentation proves a fresh restart receiver obeys persisted disabled state; an OS-level process kill/force-stop probe is still required.
-- [~] Reboot reconciliation is idempotent: repeated `BootReceiver` execution on API 36 leaves only one active AutoKill, Smart Lifecycle and boot-cleanup Unique Work instance; a physical reboot with alarm reconstruction is still required.
+- [x] Fresh Shizuku permission flow: API-36 run `34000092714` cold-started a cleared, explicitly ungranted ReAppzuku against the official Shizuku server/manager, observed the real authorization dialog, proved no app scan started before grant, then observed permission result -> `SHIZUKU_READY` -> app scan in order.
+- [~] AutoKill disable survives restart recovery: API-36 instrumentation proves a fresh restart receiver obeys persisted disabled state and real reboot recovery passes; the separate external OS force-stop desired-state subprobe in run `33985971887` did not pass and remains the open P0 process-death case.
+- [x] Reboot reconciliation is idempotent on the stable API-36 emulator: repeated `BootReceiver` execution is Unique-Work safe, and real OS reboot run `33985971887` passed reboot/unlock/post-boot recovery with Restrictions Scheduler plus preset activate/deactivate alarms reconstructed. Physical/OEM devices remain release-diversity evidence, not an implementation blocker.
 - [x] Exact-alarm denied path falls back correctly on Android 16/API 36.
-- [ ] Backup/restore round-trip on a real device, including App Behavior settings and preset state; API-36 transactional fault-injection and active-preset reconciliation already pass.
+- [~] Backup/restore round-trip now passes through a real Android MediaStore `content://` URI on API 36 in run `34000092714`, including export/import/restore on the production backup path; physical/OEM document-provider UI remains release-diversity evidence.
 - [ ] Fork update provenance on a real installed test build.
 
 ## Phase 2 — Explicit shell readiness state machine
@@ -38,8 +38,8 @@ Status convention:
 - [x] Operational app scans require a genuinely ready backend, not merely permission.
 - [x] MainActivity waits/retries only for transitional states instead of mapping waiting to generic shell failure.
 - [x] JVM transition tests cover root precedence, permission/readiness separation and lost state.
-- [~] Instrument binder-late, deny -> grant, Activity recreation and Shizuku restart/service-death recovery: API-36 test-bridge coverage now proves binder-late, deny -> grant, listener removal/rebind and binder-death -> return; a real Shizuku-daemon first-run/restart probe remains.
-- [ ] Add event-driven UI recovery when Shizuku appears after MainActivity is already open if live testing shows the current callback chain is insufficient.
+- [~] Instrument binder-late, deny -> grant, Activity recreation and Shizuku restart/service-death recovery: deterministic API-36 bridge coverage proves the state permutations; real official-Shizuku first-run grant is proven by `34000092714`, and same-process daemon death/rebind plus privileged command recovery is proven by `33997372602`. Activity recreation while the real permission dialog is open remains the narrow untested permutation.
+- [x] Add event-driven UI recovery when Shizuku appears after MainActivity is already open. Real first-run testing exposed a lost late-Binder race; commit `ba73b39e4e47e75a19ac2a01a120a69854e19f30`, guarded by run `33999924081`, adds sticky Binder-triggered preparation plus a coalesced retry, and run `34000092714` proves the repaired flow end-to-end.
 
 ## Phase 3 — Transactional backup and restore
 
@@ -58,7 +58,7 @@ Status convention:
 
 - Android instrumentation coverage exercises malformed JSON, unversioned legacy payloads, future-version rejection, the 2 MiB input bound, restoration from captured main/preset rollback snapshots, injected failure after the main commit, injected failure after the first preset commit, and imported active-preset reconciliation.
 - The rollback paths execute against real Android `SharedPreferences` and `PresetManager` storage without changing production behavior.
-- API-36 runtime gate `33974637281` executed the complete restore suite successfully. A user-facing file import/export round-trip on a physical device remains a separate release-validation item.
+- API-36 runtime gate `33974637281` executed the complete transactional restore suite successfully. Run `34000092714` additionally passed a real Android MediaStore `content://` export/import/restore round-trip; physical/OEM document-provider UI remains separate release-diversity validation.
 
 ## Phase 4 — Persistence and migration evidence
 
@@ -96,7 +96,7 @@ Status convention:
 - Runs `33940964413` and `33941247796` passed unit tests, lint, AndroidTest compilation and debug APK build before integrating the major manager paths.
 - Final strict run `33946348081` passed the same gates and required a repository-wide mutating-shell audit to return `NONE` outside `PrivilegedShell`, including the Quick Tile and Restrictions Watchdog paths.
 - Normal read-only validation run `33946501074` then passed on the cleaned permanent source state.
-- These are source/JVM/CI invariants; live Shizuku/root execution probes remain separate Android evidence.
+- These source/JVM/CI invariants are now supplemented by real official-Shizuku UserService execution and daemon death/rebind recovery in API-36 run `33997372602`; root-specific execution and broader representative command-family probes remain separate evidence.
 
 ## Phase 6 — CI and supply chain
 
@@ -127,14 +127,18 @@ Status convention:
 - Dependency-verification refresh run `33900939628` regenerated the complete SHA-256 set from fresh resolution and then passed the build again after deleting the dependency cache, closing the warm-cache blind spot.
 - Normal read-only validation run `33901414025` subsequently passed on the permanent locked/verified dependency state.
 
-### Stable Android 16 / API 36 runtime evidence — 2026-09-05
+### Stable Android 16 / API 36 runtime evidence — 2026-09-05 to 2026-09-06
 
 - API-36 gate `33974637281` booted to `RUNNING_UNLOCKED` and passed the complete instrumentation suite present at that commit: transactional restore/fault injection, imported active-preset reconciliation, ShellManager binder/permission/death-rebind sequences, the denied exact-alarm best-effort fallback, and Room v2 -> v11 migration with `app_stats` preservation and final-schema validation.
 - The first diagnostic API-36 execution `33974371939` reached 17/18 passing tests and identified the only failure as missing Room schema assets, not a migration failure. `app/schemas` is now packaged into `androidTest` assets.
 - Normal validation `33974626448` passed unit tests, lint, AndroidTest compilation, Room schema verification and APK build after the schema-assets fix.
 - AutoKill stale-restart desired-state coverage passed normal validation in `33974469090`.
 - Repeated boot-reconciliation coverage passed normal validation in `33974877204` and then passed the full API-36 Android runtime gate in `33974963048`, proving WorkManager Unique Work idempotency for AutoKill, Smart Lifecycle and boot cleanup.
-- This stable API-36 lane is now the repeatable Android-runtime baseline. Physical-device Shizuku, OS process-death, real reboot, installed-update and backup-file round-trip probes remain release evidence; API 37 remains separately blocked by the preview PackageManager transport failure.
+- Real OS reboot run `33985971887` passed reboot/unlock/post-boot recovery and reconstructed scheduler/preset alarms; its later external force-stop desired-state subprobe failed, so that process-death case remains open.
+- Run `33986395874` passed the explicit-intent exported-shortcut abuse step before an unrelated later Shizuku-recovery failure.
+- Run `33997372602` then proved the official Shizuku UserService, shell UID execution, daemon death detection, same-process rebind after server restart and post-recovery privileged command execution.
+- Run `34000092714` proved the fresh official-Shizuku permission dialog path with no pre-grant app scan and then passed the real MediaStore `content://` backup round-trip.
+- This stable API-36 lane is now the repeatable Android-runtime baseline. Remaining release-diversity gaps are the external app force-stop/process-death case, physical/OEM variation, installed-update/signing identity and root-specific execution; API 37 remains separately blocked by the preview PackageManager transport failure.
 
 ## Phase 7 — Android 17 / API 37
 
