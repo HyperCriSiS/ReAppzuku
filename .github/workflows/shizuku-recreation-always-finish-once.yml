@@ -9,7 +9,7 @@ permissions:
 jobs:
   recreation:
     runs-on: ubuntu-latest
-    timeout-minutes: 14
+    timeout-minutes: 12
     steps:
       - name: Checkout branch
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -117,35 +117,36 @@ jobs:
         run: |
           set -euo pipefail
           adb logcat -c
-          # Android's "Don't keep activities" path is deterministic here: when the
-          # external Shizuku permission Activity covers ReAppzuku, the paused
-          # MainActivity must be destroyed rather than merely rotated underneath it.
           adb shell settings put global always_finish_activities 1
           test "$(adb shell settings get global always_finish_activities | tr -d '\r')" = "1"
           adb shell am start -W -n com.gree1d.reappzuku/.ui.MainActivity >/tmp/destroy-am-start.log
 
-          waiting=false
           dialog=false
-          destroyed=false
-          for i in $(seq 1 160); do
-            logs="$(adb logcat -d 2>/dev/null || true)"
-            grep -q 'MainActivity: waiting for Shizuku permission before app scan' <<<"$logs" && waiting=true
-            grep -q 'MainActivity: onDestroy' <<<"$logs" && destroyed=true
+          for i in $(seq 1 60); do
             activities="$(adb shell dumpsys activity activities 2>/dev/null || true)"
-            grep -q 'moe.shizuku.manager.authorization.RequestPermissionActivity' <<<"$activities" && dialog=true
-            [ "$waiting" = true ] && [ "$dialog" = true ] && [ "$destroyed" = true ] && break
+            if grep -q 'moe.shizuku.manager.authorization.RequestPermissionActivity' <<<"$activities"; then
+              dialog=true
+              break
+            fi
             sleep 0.25
           done
-          echo "permission-wait=$waiting dialog=$dialog main-destroyed=$destroyed"
-          test "$waiting" = true
+          echo "permission-dialog=$dialog"
           test "$dialog" = true
-          test "$destroyed" = true
-          if adb logcat -d | grep -q 'MainActivity: loadBackgroundApps started'; then
-            echo 'App scan started before Shizuku grant' >&2
+
+          # Give ActivityManager a short bounded window to apply the globally enabled
+          # always-finish policy, then inspect the app log once instead of repeatedly
+          # dumping an ever-growing logcat buffer.
+          sleep 2
+          adb logcat -d > /tmp/reappzuku-lifecycle.log
+          grep -q 'MainActivity: waiting for Shizuku permission before app scan' /tmp/reappzuku-lifecycle.log
+          grep -q 'MainActivity: onDestroy' /tmp/reappzuku-lifecycle.log
+          if grep -q 'MainActivity: loadBackgroundApps started' /tmp/reappzuku-lifecycle.log; then
+            echo 'App scan started before Shizuku grant.' >&2
             exit 1
           fi
+          echo 'main-activity-destroyed=true'
 
-          adb shell uiautomator dump /sdcard/reappzuku-destroy.xml >/dev/null
+          timeout 15s adb shell uiautomator dump /sdcard/reappzuku-destroy.xml >/dev/null
           adb shell cat /sdcard/reappzuku-destroy.xml >/tmp/reappzuku-destroy.xml
           python3 - <<'PY' >/tmp/allow-button-coordinates
           import re
@@ -159,21 +160,23 @@ jobs:
           read -r ALLOW_X ALLOW_Y </tmp/allow-button-coordinates
           adb shell input tap "$ALLOW_X" "$ALLOW_Y"
 
-          recovered=false
-          for i in $(seq 1 200); do
-            logs="$(adb logcat -d 2>/dev/null || true)"
-            if grep -q 'MainActivity: shell backend state=SHIZUKU_READY' <<<"$logs" && \
-               grep -q 'MainActivity: loadBackgroundApps started' <<<"$logs"; then
-              recovered=true
+          granted=false
+          for i in $(seq 1 80); do
+            if adb shell dumpsys package com.gree1d.reappzuku 2>/dev/null | \
+              grep -q 'moe.shizuku.manager.permission.API_V23: granted=true'; then
+              granted=true
               break
             fi
             sleep 0.25
           done
-          echo "post-destruction-recovered=$recovered"
-          test "$recovered" = true
-          adb shell dumpsys package com.gree1d.reappzuku | \
-            grep -A20 'runtime permissions:' >/tmp/destroy-permissions.txt
-          grep -q 'moe.shizuku.manager.permission.API_V23: granted=true' /tmp/destroy-permissions.txt
+          echo "permission-granted=$granted"
+          test "$granted" = true
+
+          sleep 2
+          adb logcat -d > /tmp/reappzuku-lifecycle-after-grant.log
+          grep -q 'MainActivity: shell backend state=SHIZUKU_READY' /tmp/reappzuku-lifecycle-after-grant.log
+          grep -q 'MainActivity: loadBackgroundApps started' /tmp/reappzuku-lifecycle-after-grant.log
+          echo 'post-destruction-recovered=true'
           adb shell settings put global always_finish_activities 0
       - name: Diagnostics on failure
         if: failure()
