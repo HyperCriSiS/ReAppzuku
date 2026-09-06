@@ -48,7 +48,12 @@ jobs:
             *) echo 'source_ref must be main or ondemand-shizuku.' >&2; exit 1 ;;
           esac
           if [ "${{ inputs.publish }}" = "true" ]; then
-            test -n "${{ inputs.tag }}" || { echo 'A release tag is required when publish=true.' >&2; exit 1; }
+            tag='${{ inputs.tag }}'
+            test -n "$tag" || { echo 'A release tag is required when publish=true.' >&2; exit 1; }
+            [[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || {
+              echo 'Release tag must be 1-64 characters and use only letters, digits, dot, underscore, or hyphen.' >&2
+              exit 1
+            }
             test "${{ inputs.confirmation }}" = "RELEASE" || { echo 'Publication requires confirmation=RELEASE.' >&2; exit 1; }
           fi
 
@@ -125,6 +130,30 @@ jobs:
           badging="$($AAPT dump badging "$input_apk" | head -1)"
           printf '%s\n' "$badging"
           grep -Fq "package: name='com.gree1d.reappzuku'" <<<"$badging" || { echo 'Refusing release APK with unexpected application id.' >&2; exit 1; }
+
+          version_name="$(sed -n -E "s/.*versionName='([^']+)'.*/\1/p" <<<"$badging")"
+          version_code="$(sed -n -E "s/.*versionCode='([^']+)'.*/\1/p" <<<"$badging")"
+          test -n "$version_name" || { echo 'Could not resolve APK versionName.' >&2; exit 1; }
+          [[ "$version_code" =~ ^[0-9]+$ ]] || { echo 'APK versionCode must be numeric.' >&2; exit 1; }
+
+          if [ "${{ inputs.publish }}" = "true" ] && [ "${{ inputs.prerelease }}" != "true" ]; then
+            normalized_tag='${{ inputs.tag }}'
+            normalized_tag="${normalized_tag#v}"
+            normalized_tag="${normalized_tag#V}"
+            [[ "$normalized_tag" =~ ^[0-9]+(\.[0-9]+)*$ ]] || {
+              echo 'Stable release tags must be numeric versions (optional leading v), e.g. 1.8.8 or v1.8.8.' >&2
+              exit 1
+            }
+            [[ "$version_name" =~ ^[0-9]+(\.[0-9]+)*$ ]] || {
+              echo "Stable APK versionName must be numeric, got: $version_name" >&2
+              exit 1
+            }
+            if [ "$normalized_tag" != "$version_name" ]; then
+              echo "Stable release tag/APK version mismatch: tag=${{ inputs.tag }} APK versionName=$version_name" >&2
+              exit 1
+            fi
+          fi
+
           "$APKSIGNER" verify --verbose --print-certs "$input_apk" | tee /tmp/signed-certs.txt
           actual="$(sed -n -E 's/^.*certificate SHA-256 digest: *//p' /tmp/signed-certs.txt | head -1 | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
           expected="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
@@ -138,7 +167,19 @@ jobs:
           signed="$GITHUB_WORKSPACE/ReAppzuku-${safe_tag}.apk"
           cp "$input_apk" "$signed"
           sha256sum "$signed" | tee "$signed.sha256"
+          metadata="$signed.provenance.txt"
+          {
+            printf 'packageName=%s\n' 'com.gree1d.reappzuku'
+            printf 'versionName=%s\n' "$version_name"
+            printf 'versionCode=%s\n' "$version_code"
+            printf 'sourceRef=%s\n' '${{ inputs.source_ref }}'
+            printf 'sourceCommit=%s\n' "$(git rev-parse HEAD)"
+            printf 'certificateSha256=%s\n' "$actual"
+            printf 'apkSha256=%s\n' "$(sha256sum "$signed" | awk '{print $1}')"
+          } > "$metadata"
+          cat "$metadata"
           printf '%s\n' "$signed" > /tmp/signed-apk-path
+          printf '%s\n' "$metadata" > /tmp/signed-provenance-path
           echo "Verified signing certificate SHA-256: $actual"
 
       - name: Publish explicitly authorized GitHub release
@@ -150,7 +191,22 @@ jobs:
           set -euo pipefail
           test "${{ inputs.confirmation }}" = "RELEASE"
           signed="$(cat /tmp/signed-apk-path)"
-          args=(release create "${{ inputs.tag }}" "$signed" "$signed.sha256" --target "${{ inputs.source_ref }}" --generate-notes --title "ReAppzuku ${{ inputs.tag }}")
+          provenance="$(cat /tmp/signed-provenance-path)"
+          test -s "$signed"
+          test -s "$signed.sha256"
+          test -s "$provenance"
+          grep -Fxq "sourceCommit=$(git rev-parse HEAD)" "$provenance"
+          if [ "${{ inputs.prerelease }}" != "true" ]; then
+            normalized_tag='${{ inputs.tag }}'
+            normalized_tag="${normalized_tag#v}"
+            normalized_tag="${normalized_tag#V}"
+            version_name="$(sed -n 's/^versionName=//p' "$provenance")"
+            test "$normalized_tag" = "$version_name" || {
+              echo "Stable release metadata changed before publication: tag=${{ inputs.tag }} APK versionName=$version_name" >&2
+              exit 1
+            }
+          fi
+          args=(release create "${{ inputs.tag }}" "$signed" "$signed.sha256" "$provenance" --target "${{ inputs.source_ref }}" --generate-notes --title "ReAppzuku ${{ inputs.tag }}")
           if [ "${{ inputs.prerelease }}" = "true" ]; then
             args+=(--prerelease)
           fi
