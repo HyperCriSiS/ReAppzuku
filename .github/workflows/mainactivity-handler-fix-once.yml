@@ -40,8 +40,6 @@ jobs:
             echo 'Shared application Handler assignment still present in MainActivity.' >&2
             exit 1
           fi
-          # onDestroy may continue cancelling all callbacks because the Handler is now
-          # lifecycle-local and no longer owns ShellManager/application callbacks.
           grep -Fq 'handler.removeCallbacksAndMessages(null);' "$file"
           git diff --check
           git diff -- "$file"
@@ -57,12 +55,15 @@ jobs:
           set -euo pipefail
           chmod +x gradlew
           ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+          # chmod is execution scaffolding, not part of the product change.
+          git checkout -- gradlew
       - name: Commit only the validated product fix
         shell: bash
         run: |
           set -euo pipefail
           expected='app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java'
           mapfile -t changed < <(git status --short | sed -E 's/^...//')
+          printf 'changed=%s\n' "${changed[*]:-<none>}"
           test "${#changed[@]}" -eq 1
           test "${changed[0]}" = "$expected"
           git config user.name 'HyperCriSiS'
