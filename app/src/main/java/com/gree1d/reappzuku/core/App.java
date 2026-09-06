@@ -5,6 +5,7 @@ import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Process;
 import android.os.Looper;
@@ -33,7 +34,8 @@ public class App extends Application {
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
 
-        shizukuProviderProcess = (getPackageName() + ":shizuku").equals(getCurrentProcessName(base));
+        shizukuProviderProcess = ProcessTopology.isShizukuProviderProcess(
+                getPackageName(), getCurrentProcessName(base));
 
         // The Shizuku provider lives in its own minimal process. Enable the
         // provider library's built-in binder bridge before providers are created.
@@ -41,13 +43,29 @@ public class App extends Application {
     }
 
     private static String getCurrentProcessName(Context context) {
+        // Prefer the platform's direct process identity API. During the very early
+        // attachBaseContext() phase, some OEM process lists can transiently omit
+        // the just-created process and would otherwise misclassify :shizuku.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            String processName = Application.getProcessName();
+            if (processName != null && !processName.isEmpty()) {
+                return processName;
+            }
+        }
+
+        // API 24-27 fallback.
         int pid = Process.myPid();
         ActivityManager activityManager =
                 (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
         if (activityManager == null) {
             return null;
         }
-        for (ActivityManager.RunningAppProcessInfo process : activityManager.getRunningAppProcesses()) {
+        java.util.List<ActivityManager.RunningAppProcessInfo> processes =
+                activityManager.getRunningAppProcesses();
+        if (processes == null) {
+            return null;
+        }
+        for (ActivityManager.RunningAppProcessInfo process : processes) {
             if (process.pid == pid) {
                 return process.processName;
             }
