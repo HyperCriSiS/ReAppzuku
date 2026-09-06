@@ -22,18 +22,33 @@ jobs:
           java-version: '17'
           distribution: temurin
           cache: gradle
-      - name: Validate unsigned release build
+      - name: Validate minified release build with ephemeral CI key
         shell: bash
+        env:
+          KEYSTORE_PASSWORD: reappzuku-ci-only
+          KEY_ALIAS: ci-release-probe
+          KEY_PASSWORD: reappzuku-ci-only
         run: |
           set -euo pipefail
+          keytool -genkeypair -noprompt \
+            -keystore app/release.keystore \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            -alias "$KEY_ALIAS" \
+            -keyalg RSA -keysize 2048 -validity 1 \
+            -dname 'CN=ReAppzuku CI Release Probe,O=ReAppzuku,C=DE'
           chmod +x gradlew
           ./gradlew testDebugUnitTest lintDebug assembleRelease
           mapfile -t apks < <(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | sort)
           test "${#apks[@]}" -eq 1
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
           AAPT="$(find "$SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -1)"
           test -x "$AAPT"
+          test -x "$APKSIGNER"
           badging="$($AAPT dump badging "${apks[0]}" | head -1)"
           printf '%s\n' "$badging"
           grep -Fq "package: name='com.gree1d.reappzuku'" <<<"$badging"
+          "$APKSIGNER" verify --verbose "${apks[0]}"
           echo "release-apk=${apks[0]}"
+          rm -f app/release.keystore
