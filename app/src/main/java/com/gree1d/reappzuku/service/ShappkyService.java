@@ -19,6 +19,7 @@ import android.os.PowerManager;
 import androidx.core.app.NotificationCompat;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -43,6 +44,7 @@ import com.gree1d.reappzuku.utils.AppzukuWidget;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.BackgroundWorkPolicy;
+import com.gree1d.reappzuku.core.SleepModeLifecyclePolicy;
 
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
@@ -52,15 +54,18 @@ public class ShappkyService extends Service {
     private static final String FILE_NAME = "ShappkyService";
     static final String ACTION_IDLE_FREEZE = "com.gree1d.reappzuku.IDLE_FREEZE";
     static final String ACTION_HEARTBEAT_CHECK = "com.gree1d.reappzuku.HEARTBEAT_CHECK";
+    public static final String ACTION_SLEEP_MODE_DISABLED = "com.gree1d.reappzuku.SLEEP_MODE_DISABLED";
     private static final int FREEZE_ALARM_REQUEST_CODE = 1001;
     private static final int RESTART_ALARM_REQUEST_CODE = 1002;
     private static final int HEARTBEAT_ALARM_REQUEST_CODE = 1003;
     private static final int SNAPSHOT_ALARM_REQUEST_CODE = 1004;
     private static final long HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000L;
     private static final long RAM_NOTIFICATION_UPDATE_INTERVAL_MS = 15 * 1000L;
+    private static final int MAX_PENDING_START_INTENTS = 32;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final ArrayDeque<Intent> pendingStartIntents = new ArrayDeque<>();
     private static boolean isRunning = false;
 
     private ShellManager shellManager;
@@ -75,7 +80,7 @@ public class ShappkyService extends Service {
     private AdditionalScenariosManager additionalScenariosManager;
     private RamKillShortcutManager ramKillShortcutManager;
 
-    private boolean isFrozen = false;
+    private boolean managersInitialized = false;
     private boolean shizukuLostNotificationShown = false;
     private Runnable ramNotificationRunnable;
 
@@ -309,9 +314,12 @@ public class ShappkyService extends Service {
         watchdog.startIfNeeded();
 
         UpdateChecker.schedulePeriodicCheck(getApplicationContext());
-        AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onCreate completed");
-
         startRamMonitorNotification();
+
+        reconcileSleepModeLifecycle("service-init", true);
+        managersInitialized = true;
+        drainPendingStartIntents();
+        AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onCreate completed; managersInitialized=true");
     }
 
     @Override
@@ -324,9 +332,43 @@ public class ShappkyService extends Service {
 
         String action = intent.getAction();
         if (action == null) {
-            AppDebugManager.w(Category.FOREGROUND_SERVICE, FILE_NAME + ": onStartCommand: action is null, returning START_STICKY");
+            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onStartCommand: action is null; service startup only");
             return START_STICKY;
         }
+
+        if (!managersInitialized) {
+            enqueuePendingStartIntent(intent);
+            return START_STICKY;
+        }
+
+        handleServiceAction(intent);
+        return START_STICKY;
+    }
+
+    private void enqueuePendingStartIntent(Intent intent) {
+        if (pendingStartIntents.size() >= MAX_PENDING_START_INTENTS) {
+            Intent dropped = pendingStartIntents.removeFirst();
+            AppDebugManager.w(Category.FOREGROUND_SERVICE, FILE_NAME
+                    + ": pending start-action queue full; dropping oldest action=" + dropped.getAction());
+        }
+        pendingStartIntents.addLast(new Intent(intent));
+        AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME
+                + ": queued start action until managers are ready: " + intent.getAction()
+                + ", queued=" + pendingStartIntents.size());
+    }
+
+    private void drainPendingStartIntents() {
+        while (managersInitialized && !pendingStartIntents.isEmpty()) {
+            Intent pending = pendingStartIntents.removeFirst();
+            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME
+                    + ": replaying queued start action=" + pending.getAction());
+            handleServiceAction(pending);
+        }
+    }
+
+    private void handleServiceAction(Intent intent) {
+        String action = intent.getAction();
+        if (action == null) return;
 
         switch (action) {
             case "TRIGGER_KILL":
@@ -351,46 +393,82 @@ public class ShappkyService extends Service {
                 });
                 break;
 
-            case "SCREEN_OFF":
-                if (sleepModeManager.isSleepModeEnabled()) {
+            case "SCREEN_OFF": {
+                boolean enabled = sleepModeManager.isSleepModeEnabled();
+                boolean interactive = isScreenInteractive();
+                if (SleepModeLifecyclePolicy.shouldExecuteIdleFreeze(enabled, interactive)) {
                     scheduleIdleFreezeAlarm();
                     long delayMs = getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
                             .getLong(KEY_SLEEP_MODE_DELAY, DEFAULT_SLEEP_MODE_DELAY_MS);
                     AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Idle freeze alarm scheduled (" + (delayMs / 60000) + " min)");
                 } else {
-                    AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": SCREEN_OFF received but sleep mode disabled, no alarm scheduled");
+                    AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
+                            + ": SCREEN_OFF ignored as stale/ineligible; enabled=" + enabled + ", interactive=" + interactive);
                 }
                 break;
+            }
 
             case "SCREEN_ON":
                 handler.postDelayed(() -> {
+                    if (!managersInitialized || sleepModeManager == null) return;
+                    if (!isScreenInteractive()) {
+                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
+                                + ": delayed SCREEN_ON became stale because screen is off again");
+                        return;
+                    }
                     cancelIdleFreezeAlarm();
-                    if (isFrozen) {
-                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Screen on after idle freeze, unfreezing apps");
-                        isFrozen = false;
-                        cancelHeartbeatAlarm();
+                    cancelHeartbeatAlarm();
+                    if (sleepModeManager.hasFrozenTimerApps()) {
+                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
+                                + ": Screen on with owned frozen apps; unfreezing");
                         sleepModeManager.unfreezeBackgroundRestrictedApps(null);
                     } else {
-                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Screen on before idle threshold, alarm cancelled");
+                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
+                                + ": Screen on before/without owned freeze; alarms cancelled");
                     }
                 }, 1500);
                 break;
 
-            case "IDLE_FREEZE":
-                if (!sleepModeManager.isSleepModeEnabled()) {
-                    AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Sleep mode disabled, skipping freeze");
+            case "IDLE_FREEZE": {
+                boolean enabled = sleepModeManager.isSleepModeEnabled();
+                boolean interactive = isScreenInteractive();
+                if (!SleepModeLifecyclePolicy.shouldExecuteIdleFreeze(enabled, interactive)) {
+                    AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
+                            + ": stale/ineligible idle freeze ignored; enabled=" + enabled + ", interactive=" + interactive);
+                    cancelHeartbeatAlarm();
+                    if (SleepModeLifecyclePolicy.recoveryAction(
+                            enabled, interactive, sleepModeManager.hasFrozenTimerApps())
+                            == SleepModeLifecyclePolicy.RecoveryAction.UNFREEZE) {
+                        sleepModeManager.unfreezeBackgroundRestrictedApps(null);
+                    }
                     break;
                 }
                 AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Idle threshold reached, freezing background restricted apps");
                 sleepModeManager.freezeBackgroundRestrictedApps(() -> {
-                    isFrozen = true;
-                    AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Apps frozen successfully");
-                    scheduleHeartbeatAlarm();
+                    if (sleepModeManager.hasFrozenTimerApps()) {
+                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
+                                + ": owned timer freeze active; scheduling recovery heartbeat");
+                        scheduleHeartbeatAlarm();
+                    } else {
+                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
+                                + ": idle freeze produced no owned frozen apps; heartbeat not needed");
+                        cancelHeartbeatAlarm();
+                    }
                 });
                 break;
+            }
 
             case "HEARTBEAT_CHECK":
                 handleHeartbeatCheck();
+                break;
+
+            case ACTION_SLEEP_MODE_DISABLED:
+                AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Sleep Mode disabled; cancelling alarms and thawing owned apps");
+                cancelIdleFreezeAlarm();
+                cancelHeartbeatAlarm();
+                if (sleepModeManager.hasFrozenTimerApps()) {
+                    sleepModeManager.unfreezeBackgroundRestrictedApps(null);
+                }
                 break;
 
             case "SCHEDULER_TICK":
@@ -432,9 +510,60 @@ public class ShappkyService extends Service {
                     scheduleSnapshotAlarm();
                 });
                 break;
-        }
 
-        return START_STICKY;
+            default:
+                AppDebugManager.w(Category.FOREGROUND_SERVICE, FILE_NAME + ": Unknown service action ignored: " + action);
+                break;
+        }
+    }
+
+    private boolean isScreenInteractive() {
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        return pm != null && pm.isInteractive();
+    }
+
+    private void reconcileSleepModeLifecycle(String reason, boolean stopWhenNotRequiredAfterThaw) {
+        if (sleepModeManager == null) return;
+
+        boolean enabled = sleepModeManager.isSleepModeEnabled();
+        boolean interactive = isScreenInteractive();
+        boolean hasFrozen = sleepModeManager.hasFrozenTimerApps();
+        SleepModeLifecyclePolicy.RecoveryAction recovery = SleepModeLifecyclePolicy.recoveryAction(
+                enabled, interactive, hasFrozen);
+
+        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
+                + ": reconcileSleepModeLifecycle(" + reason + "): enabled=" + enabled
+                + ", interactive=" + interactive + ", ownedFrozen=" + hasFrozen
+                + ", recovery=" + recovery);
+
+        switch (recovery) {
+            case UNFREEZE:
+                cancelIdleFreezeAlarm();
+                cancelHeartbeatAlarm();
+                sleepModeManager.unfreezeBackgroundRestrictedApps(() -> {
+                    if (stopWhenNotRequiredAfterThaw && !BackgroundWorkPolicy.shouldRunForegroundService(this)) {
+                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
+                                + ": recovery thaw complete and no automation requires service; stopping self");
+                        stopSelf();
+                    }
+                });
+                break;
+            case KEEP_FROZEN_AND_HEARTBEAT:
+                cancelIdleFreezeAlarm();
+                scheduleHeartbeatAlarm();
+                break;
+            case NONE:
+            default:
+                cancelHeartbeatAlarm();
+                if (enabled && !interactive) {
+                    // The process may have restarted after SCREEN_OFF but before the idle timer fired.
+                    // Re-arm conservatively from now rather than freezing immediately.
+                    scheduleIdleFreezeAlarm();
+                } else {
+                    cancelIdleFreezeAlarm();
+                }
+                break;
+        }
     }
 
     private void registerShizukuBinderListeners() {
@@ -623,21 +752,37 @@ public class ShappkyService extends Service {
     }
 
     private void handleHeartbeatCheck() {
-        if (!isFrozen) {
-            AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Heartbeat check: already unfrozen, stopping heartbeat");
-            return;
-        }
+        boolean enabled = sleepModeManager.isSleepModeEnabled();
+        boolean interactive = isScreenInteractive();
+        boolean hasFrozen = sleepModeManager.hasFrozenTimerApps();
+        SleepModeLifecyclePolicy.RecoveryAction recovery = SleepModeLifecyclePolicy.recoveryAction(
+                enabled, interactive, hasFrozen);
 
-        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        boolean screenOn = pm != null && pm.isInteractive();
-
-        if (screenOn) {
-            AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Heartbeat check: screen is on but SCREEN_ON was missed, unfreezing now");
-            isFrozen = false;
-            sleepModeManager.unfreezeBackgroundRestrictedApps(null);
-        } else {
-            AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Heartbeat check: screen still off, rescheduling");
-            scheduleHeartbeatAlarm();
+        switch (recovery) {
+            case UNFREEZE:
+                AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
+                        + ": Heartbeat recovery requires thaw; enabled=" + enabled + ", interactive=" + interactive);
+                cancelHeartbeatAlarm();
+                sleepModeManager.unfreezeBackgroundRestrictedApps(() -> {
+                    if (!BackgroundWorkPolicy.shouldRunForegroundService(this)) {
+                        stopSelf();
+                    }
+                });
+                break;
+            case KEEP_FROZEN_AND_HEARTBEAT:
+                AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
+                        + ": Heartbeat check: owned freeze remains valid while screen is off; rescheduling");
+                scheduleHeartbeatAlarm();
+                break;
+            case NONE:
+            default:
+                AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
+                        + ": Heartbeat check: no owned frozen apps; stopping heartbeat");
+                cancelHeartbeatAlarm();
+                if (!BackgroundWorkPolicy.shouldRunForegroundService(this)) {
+                    stopSelf();
+                }
+                break;
         }
     }
 
@@ -809,7 +954,16 @@ public class ShappkyService extends Service {
             AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": Service restart suppressed because Auto-Kill is disabled");
         }
         cancelIdleFreezeAlarm();
-        cancelHeartbeatAlarm();
+        if (sleepModeManager != null && sleepModeManager.hasFrozenTimerApps()) {
+            // If a controlled service stop races a thaw failure, preserve a recovery path.
+            // The heartbeat receiver can restart the service, whose init reconciliation then
+            // thaws the durable owned set when appropriate.
+            scheduleHeartbeatAlarm();
+            AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME
+                    + ": onDestroy: owned frozen timer apps remain; recovery heartbeat preserved");
+        } else {
+            cancelHeartbeatAlarm();
+        }
         cancelSnapshotAlarm();
         cancelShizukuLostNotification();
         AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku-lost notification cancelled on service destroy");
@@ -829,6 +983,8 @@ public class ShappkyService extends Service {
         if (watchdog != null) {
             watchdog.stop();
         }
+        managersInitialized = false;
+        pendingStartIntents.clear();
         handler.removeCallbacksAndMessages(null);
         executor.shutdownNow();
         AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onDestroy completed, executor shut down");
