@@ -4,6 +4,10 @@ package com.gree1d.reappzuku.core;
 public final class ReleaseVersion {
     private ReleaseVersion() {}
 
+    public static boolean isReleaseVersion(String value) {
+        return parse(value) != null;
+    }
+
     public static boolean isNewer(String remote, String local) {
         int[] r = parse(remote);
         int[] l = parse(local);
