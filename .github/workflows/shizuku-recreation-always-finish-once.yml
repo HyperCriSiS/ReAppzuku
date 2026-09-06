@@ -1,0 +1,185 @@
+name: One-time real Shizuku Activity destruction probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recreation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ondemand-shizuku
+          persist-credentials: false
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - name: Build debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+      - name: Boot stable Android 16 emulator
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort | tail -1)"
+          AVDMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name avdmanager | sort | tail -1)"
+          ADB="$SDK_ROOT/platform-tools/adb"
+          EMULATOR="$SDK_ROOT/emulator/emulator"
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          export PATH="$SDK_ROOT/platform-tools:$PATH"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          mkdir -p "$ANDROID_AVD_HOME"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "emulator" "system-images;android-36;google_apis;x86_64"
+          echo no | "$AVDMANAGER" create avd --force \
+            --name reappzuku-api36-shizuku-destroy \
+            --package "system-images;android-36;google_apis;x86_64" \
+            --device pixel_6
+          sudo chmod 666 /dev/kvm || true
+          "$ADB" start-server
+          "$EMULATOR" -avd reappzuku-api36-shizuku-destroy \
+            -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data \
+            -gpu swiftshader_indirect -partition-size 4096 \
+            >/tmp/reappzuku-shizuku-destroy-emulator.log 2>&1 &
+          adb_ready=false
+          for i in $(seq 1 45); do
+            if "$ADB" get-state >/dev/null 2>&1; then adb_ready=true; break; fi
+            sleep 2
+          done
+          test "$adb_ready" = true
+          boot_ready=false
+          for i in $(seq 1 90); do
+            if [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then boot_ready=true; break; fi
+            sleep 2
+          done
+          test "$boot_ready" = true
+          "$ADB" shell locksettings set-disabled true || true
+          "$ADB" shell wm dismiss-keyguard || true
+          "$ADB" shell input keyevent 82 || true
+      - name: Install and initialize official Shizuku
+        run: |
+          set -euo pipefail
+          SHIZUKU_URL='https://github.com/RikkaApps/Shizuku/releases/download/v13.6.0/shizuku-v13.6.0.r1086.2650830c-release.apk'
+          SHIZUKU_APK='/tmp/shizuku-v13.6.0.r1086.2650830c-release.apk'
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 "$SHIZUKU_URL" -o "$SHIZUKU_APK"
+          echo '6e273ab0e991c4e79bc8b1bbb9b9dd739ccac1a8712a541a214078886b7b790f  /tmp/shizuku-v13.6.0.r1086.2650830c-release.apk' | sha256sum -c -
+          adb install -r "$SHIZUKU_APK"
+          adb install -r -t app/build/outputs/apk/debug/app-debug.apk
+          adb shell pm clear com.gree1d.reappzuku
+          adb shell pm revoke com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23 2>/dev/null || true
+          adb shell pm grant com.gree1d.reappzuku android.permission.POST_NOTIFICATIONS 2>/dev/null || true
+          SHIZUKU_APK_PATH="$(adb shell pm path moe.shizuku.privileged.api | head -1 | sed 's/^package://' | tr -d '\r')"
+          SHIZUKU_CODE_DIR="${SHIZUKU_APK_PATH%/*}"
+          SHIZUKU_LIB="$SHIZUKU_CODE_DIR/lib/x86_64/libshizuku.so"
+          adb shell test -x "$SHIZUKU_LIB"
+          adb shell "$SHIZUKU_LIB" | tee /tmp/shizuku-destroy-start.log
+          for i in $(seq 1 40); do
+            [ -n "$(adb shell pidof shizuku_server 2>/dev/null | tr -d '\r' || true)" ] && break
+            sleep 0.25
+          done
+          test -n "$(adb shell pidof shizuku_server | tr -d '\r')"
+          adb shell am start -W -n moe.shizuku.privileged.api/moe.shizuku.manager.MainActivity >/tmp/shizuku-manager-init.log
+          sleep 2
+          adb shell pm revoke com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23 2>/dev/null || true
+
+          PREF_NAME="$(python3 - <<'PY'
+          import re
+          src = open('app/src/main/java/com/gree1d/reappzuku/core/AppDebugManager.java', encoding='utf-8').read()
+          for pattern in (r'(?:PREFS?|PREFERENCES)_NAME\s*=\s*"([^"]+)"', r'getSharedPreferences\(\s*"([^"]+)"'):
+              m = re.search(pattern, src)
+              if m:
+                  print(m.group(1))
+                  break
+          else:
+              raise SystemExit('Could not derive AppDebugManager SharedPreferences name')
+          PY
+          )"
+          cat >/tmp/AppDebugPrefs.xml <<'EOF'
+          <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+          <map>
+              <boolean name="debug_enabled" value="true" />
+              <boolean name="debug_cat_CORE" value="true" />
+              <boolean name="debug_cat_MAIN_PAGE" value="true" />
+          </map>
+          EOF
+          adb shell run-as com.gree1d.reappzuku mkdir -p shared_prefs
+          cat /tmp/AppDebugPrefs.xml | adb shell "run-as com.gree1d.reappzuku sh -c 'cat > shared_prefs/${PREF_NAME}.xml'"
+      - name: Destroy MainActivity while real permission dialog is open and recover
+        run: |
+          set -euo pipefail
+          adb logcat -c
+          # Android's "Don't keep activities" path is deterministic here: when the
+          # external Shizuku permission Activity covers ReAppzuku, the paused
+          # MainActivity must be destroyed rather than merely rotated underneath it.
+          adb shell settings put global always_finish_activities 1
+          test "$(adb shell settings get global always_finish_activities | tr -d '\r')" = "1"
+          adb shell am start -W -n com.gree1d.reappzuku/.ui.MainActivity >/tmp/destroy-am-start.log
+
+          waiting=false
+          dialog=false
+          destroyed=false
+          for i in $(seq 1 160); do
+            logs="$(adb logcat -d 2>/dev/null || true)"
+            grep -q 'MainActivity: waiting for Shizuku permission before app scan' <<<"$logs" && waiting=true
+            grep -q 'MainActivity: onDestroy' <<<"$logs" && destroyed=true
+            activities="$(adb shell dumpsys activity activities 2>/dev/null || true)"
+            grep -q 'moe.shizuku.manager.authorization.RequestPermissionActivity' <<<"$activities" && dialog=true
+            [ "$waiting" = true ] && [ "$dialog" = true ] && [ "$destroyed" = true ] && break
+            sleep 0.25
+          done
+          echo "permission-wait=$waiting dialog=$dialog main-destroyed=$destroyed"
+          test "$waiting" = true
+          test "$dialog" = true
+          test "$destroyed" = true
+          if adb logcat -d | grep -q 'MainActivity: loadBackgroundApps started'; then
+            echo 'App scan started before Shizuku grant' >&2
+            exit 1
+          fi
+
+          adb shell uiautomator dump /sdcard/reappzuku-destroy.xml >/dev/null
+          adb shell cat /sdcard/reappzuku-destroy.xml >/tmp/reappzuku-destroy.xml
+          python3 - <<'PY' >/tmp/allow-button-coordinates
+          import re
+          xml = open('/tmp/reappzuku-destroy.xml', encoding='utf-8').read()
+          m = re.search(r'resource-id="android:id/button1"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', xml)
+          if not m:
+              raise SystemExit('Shizuku allow button not found after MainActivity destruction')
+          x1, y1, x2, y2 = map(int, m.groups())
+          print((x1 + x2)//2, (y1 + y2)//2)
+          PY
+          read -r ALLOW_X ALLOW_Y </tmp/allow-button-coordinates
+          adb shell input tap "$ALLOW_X" "$ALLOW_Y"
+
+          recovered=false
+          for i in $(seq 1 200); do
+            logs="$(adb logcat -d 2>/dev/null || true)"
+            if grep -q 'MainActivity: shell backend state=SHIZUKU_READY' <<<"$logs" && \
+               grep -q 'MainActivity: loadBackgroundApps started' <<<"$logs"; then
+              recovered=true
+              break
+            fi
+            sleep 0.25
+          done
+          echo "post-destruction-recovered=$recovered"
+          test "$recovered" = true
+          adb shell dumpsys package com.gree1d.reappzuku | \
+            grep -A20 'runtime permissions:' >/tmp/destroy-permissions.txt
+          grep -q 'moe.shizuku.manager.permission.API_V23: granted=true' /tmp/destroy-permissions.txt
+          adb shell settings put global always_finish_activities 0
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          adb shell settings put global always_finish_activities 0 || true
+          adb shell dumpsys activity activities | head -220 || true
+          adb shell dumpsys package com.gree1d.reappzuku | head -180 || true
+          adb logcat -d | grep -E 'ReAppzuku|MainActivity|Shizuku|AndroidRuntime|FATAL EXCEPTION' | tail -500 || true
+          tail -250 /tmp/reappzuku-shizuku-destroy-emulator.log || true
