@@ -19,9 +19,13 @@ jobs:
 
       - name: Apply service readiness fix
         shell: bash
+        env:
+          OLD_BLOCK_B64: 'ICAgICAgICBleGVjdXRvci5leGVjdXRlKCgpIC0+IHsKICAgICAgICAgICAgYm9vbGVhbiBoYXNTaGVsbCA9IHNoZWxsTWFuYWdlci5yZXNvbHZlQW55U2hlbGxQZXJtaXNzaW9uQmxvY2tpbmcoKTsKICAgICAgICAgICAgaGFuZGxlci5wb3N0KCgpIC0+IHsKICAgICAgICAgICAgICAgIGlmICghaGFzU2hlbGwpIHsKICAgICAgICAgICAgICAgICAgICBBcHBEZWJ1Z01hbmFnZXIudyhDYXRlZ29yeS5DT1JFLCBGSUxFX05BTUUgKyAiOiBObyBzaGVsbC9yb290IGFjY2VzcyBhdmFpbGFibGUsIHN0b3BwaW5nIHNlcnZpY2UiKTsKICAgICAgICAgICAgICAgICAgICBzdG9wU2VsZigpOwogICAgICAgICAgICAgICAgICAgIHJldHVybjsKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIEFwcERlYnVnTWFuYWdlci5kKENhdGVnb3J5LkNPUkUsIEZJTEVfTkFNRSArICI6IFNoZWxsL3Jvb3QgYWNjZXNzIGNvbmZpcm1lZCwgcHJvY2VlZGluZyB3aXRoIHNlcnZpY2UgaW5pdCIpOwogICAgICAgICAgICAgICAgaWYgKCFzaGVsbE1hbmFnZXIuaGFzUm9vdEFjY2VzcygpKSB7CiAgICAgICAgICAgICAgICAgICAgLy8gQmluZCB0aGUgU2hpenVrdSBVc2VyU2VydmljZSB1cCBmcm9udCBzbyB0aGF0IEJhY2tncm91bmRBcHBNYW5hZ2VyJ3MKICAgICAgICAgICAgICAgICAgICAvLyBhcHBvcHMgcXVlcnktb3AgY2FsbHMgKGlzc3VlZCBsYXRlciBpbiBpbml0aWFsaXplTWFuYWdlcnNBbmRSZWNlaXZlcnMpCiAgICAgICAgICAgICAgICAgICAgLy8gZG9uJ3QgcmFjZSB0aGUgYXN5bmMgc3RpY2t5IGJpbmRlci1yZWNlaXZlZCBsaXN0ZW5lciBhbmQgdGltZSBvdXQKICAgICAgICAgICAgICAgICAgICAvLyBhZ2FpbnN0IGFuIHVuYm91bmQgc2VydmljZS4KICAgICAgICAgICAgICAgICAgICBzaGVsbE1hbmFnZXIuYmluZFVzZXJTZXJ2aWNlKCk7CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICBpbml0aWFsaXplTWFuYWdlcnNBbmRSZWNlaXZlcnMoKTsKICAgICAgICAgICAgfSk7CiAgICAgICAgfSk7Cg=='
+          NEW_BLOCK_B64: 'ICAgICAgICBleGVjdXRvci5leGVjdXRlKCgpIC0+IHsKICAgICAgICAgICAgLy8gQSBncmFudGVkIFNoaXp1a3UgcGVybWlzc2lvbiBpcyBub3QgZW5vdWdoIGZvciBxdWV1ZWQgc2VydmljZSBhY3Rpb25zOgogICAgICAgICAgICAvLyBwcml2aWxlZ2VkIHdvcmsgY2FuIGJlZ2luIGFzIHNvb24gYXMgbWFuYWdlcnMgYXJlIGluaXRpYWxpemVkLiBXYWl0IGZvcgogICAgICAgICAgICAvLyB0aGUgVXNlclNlcnZpY2UgaXRzZWxmIHNvIGEgZnJlc2ggcHJvY2VzcyBjYW5ub3QgcmFjZSBhbiBhc3luYyBiaW5kLgogICAgICAgICAgICBTaGVsbEJhY2tlbmRTdGF0ZSBiYWNrZW5kU3RhdGUgPSBzaGVsbE1hbmFnZXIuYXdhaXRBbnlTaGVsbFJlYWR5QmxvY2tpbmcoKTsKICAgICAgICAgICAgaWYgKCFiYWNrZW5kU3RhdGUuaXNSZWFkeSgpICYmIHNoZWxsTWFuYWdlci5oYXNTaGl6dWt1UGVybWlzc2lvbigpKSB7CiAgICAgICAgICAgICAgICAvLyBBIGp1c3QtZGVzdHJveWVkIHByZWRlY2Vzc29yIGNhbiBsZWF2ZSBTaGl6dWt1J3Mgbm9uLWRhZW1vbgogICAgICAgICAgICAgICAgLy8gVXNlclNlcnZpY2UgcmVjb3JkIGJyaWVmbHkgaW4gZmxpZ2h0LiBPbmUgYm91bmRlZCByZXRyeSBsZXRzIHRoYXQKICAgICAgICAgICAgICAgIC8vIHRlYXJkb3duIHNldHRsZSB3aXRob3V0IHByb2Nlc3NpbmcgcHJpdmlsZWdlZCB3b3JrIHByZW1hdHVyZWx5LgogICAgICAgICAgICAgICAgdHJ5IHsKICAgICAgICAgICAgICAgICAgICBUaHJlYWQuc2xlZXAoMjUwTCk7CiAgICAgICAgICAgICAgICB9IGNhdGNoIChJbnRlcnJ1cHRlZEV4Y2VwdGlvbiBlKSB7CiAgICAgICAgICAgICAgICAgICAgVGhyZWFkLmN1cnJlbnRUaHJlYWQoKS5pbnRlcnJ1cHQoKTsKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIGJhY2tlbmRTdGF0ZSA9IHNoZWxsTWFuYWdlci5hd2FpdEFueVNoZWxsUmVhZHlCbG9ja2luZygpOwogICAgICAgICAgICB9CiAgICAgICAgICAgIFNoZWxsQmFja2VuZFN0YXRlIHJlYWR5U3RhdGUgPSBiYWNrZW5kU3RhdGU7CiAgICAgICAgICAgIGhhbmRsZXIucG9zdCgoKSAtPiB7CiAgICAgICAgICAgICAgICBpZiAoIXJlYWR5U3RhdGUuaXNSZWFkeSgpKSB7CiAgICAgICAgICAgICAgICAgICAgQXBwRGVidWdNYW5hZ2VyLncoQ2F0ZWdvcnkuQ09SRSwgRklMRV9OQU1FCiAgICAgICAgICAgICAgICAgICAgICAgICAgICArICI6IFNoZWxsIGJhY2tlbmQgbm90IHJlYWR5ICgiICsgcmVhZHlTdGF0ZSArICIpLCBzdG9wcGluZyBzZXJ2aWNlIik7CiAgICAgICAgICAgICAgICAgICAgc3RvcFNlbGYoKTsKICAgICAgICAgICAgICAgICAgICByZXR1cm47CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICBBcHBEZWJ1Z01hbmFnZXIuZChDYXRlZ29yeS5DT1JFLCBGSUxFX05BTUUKICAgICAgICAgICAgICAgICAgICAgICAgKyAiOiBTaGVsbCBiYWNrZW5kIHJlYWR5ICgiICsgcmVhZHlTdGF0ZSArICIpLCBwcm9jZWVkaW5nIHdpdGggc2VydmljZSBpbml0Iik7CiAgICAgICAgICAgICAgICBpbml0aWFsaXplTWFuYWdlcnNBbmRSZWNlaXZlcnMoKTsKICAgICAgICAgICAgfSk7CiAgICAgICAgfSk7Cg=='
         run: |
           set -euo pipefail
           python3 - <<'PY'
+          import base64, os
           from pathlib import Path
           p = Path('app/src/main/java/com/gree1d/reappzuku/service/ShappkyService.java')
           text = p.read_text()
@@ -29,59 +33,11 @@ jobs:
           new_import = old_import + 'import com.gree1d.reappzuku.core.ShellBackendState;\n'
           assert text.count(old_import) == 1
           assert 'import com.gree1d.reappzuku.core.ShellBackendState;' not in text
-          text = text.replace(old_import, new_import, 1)
-          old = '''        executor.execute(() -> {
-            boolean hasShell = shellManager.resolveAnyShellPermissionBlocking();
-            handler.post(() -> {
-                if (!hasShell) {
-                    AppDebugManager.w(Category.CORE, FILE_NAME + ": No shell/root access available, stopping service");
-                    stopSelf();
-                    return;
-                }
-                AppDebugManager.d(Category.CORE, FILE_NAME + ": Shell/root access confirmed, proceeding with service init");
-                if (!shellManager.hasRootAccess()) {
-                    // Bind the Shizuku UserService up front so that BackgroundAppManager's
-                    // appops query-op calls (issued later in initializeManagersAndReceivers)
-                    // don't race the async sticky binder-received listener and time out
-                    // against an unbound service.
-                    shellManager.bindUserService();
-                }
-                initializeManagersAndReceivers();
-            });
-        });
-'''
-          new = '''        executor.execute(() -> {
-            // A granted Shizuku permission is not enough for queued service actions:
-            // privileged work can begin as soon as managers are initialized. Wait for
-            // the UserService itself so a fresh process cannot race an async bind.
-            ShellBackendState backendState = shellManager.awaitAnyShellReadyBlocking();
-            if (!backendState.isReady() && shellManager.hasShizukuPermission()) {
-                // A just-destroyed predecessor can leave Shizuku's non-daemon
-                // UserService record briefly in flight. One bounded retry lets that
-                // teardown settle without processing privileged work prematurely.
-                try {
-                    Thread.sleep(250L);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                backendState = shellManager.awaitAnyShellReadyBlocking();
-            }
-            ShellBackendState readyState = backendState;
-            handler.post(() -> {
-                if (!readyState.isReady()) {
-                    AppDebugManager.w(Category.CORE, FILE_NAME
-                            + ": Shell backend not ready (" + readyState + "), stopping service");
-                    stopSelf();
-                    return;
-                }
-                AppDebugManager.d(Category.CORE, FILE_NAME
-                        + ": Shell backend ready (" + readyState + "), proceeding with service init");
-                initializeManagersAndReceivers();
-            });
-        });
-'''
+          old = base64.b64decode(os.environ['OLD_BLOCK_B64']).decode()
+          new = base64.b64decode(os.environ['NEW_BLOCK_B64']).decode()
           assert text.count(old) == 1
-          p.write_text(text.replace(old, new, 1))
+          text = text.replace(old_import, new_import, 1).replace(old, new, 1)
+          p.write_text(text)
           PY
 
       - name: Set up JDK 17
