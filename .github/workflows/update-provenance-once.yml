@@ -119,7 +119,10 @@ jobs:
           echo "installed-sha256=$installed_sha"
           test "$installed_sha" = "$built_sha"
 
-          unzip -p /tmp/reappzuku-installed.apk classes.dex | strings -a > /tmp/reappzuku-installed-dex-strings.txt
+          : > /tmp/reappzuku-installed-dex-strings.txt
+          while IFS= read -r dex; do
+            unzip -p /tmp/reappzuku-installed.apk "$dex" | strings -a >> /tmp/reappzuku-installed-dex-strings.txt
+          done < <(unzip -Z1 /tmp/reappzuku-installed.apk | grep -E '^classes([0-9]+)?\.dex$')
           grep -Fq 'https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases?per_page=20' /tmp/reappzuku-installed-dex-strings.txt
           grep -Fq 'https://github.com/HyperCriSiS/ReAppzuku/releases' /tmp/reappzuku-installed-dex-strings.txt
           if grep -Fq 'https://api.github.com/repos/gree1d/ReAppzuku/' /tmp/reappzuku-installed-dex-strings.txt; then
