@@ -1,0 +1,154 @@
+name: Signed ReAppzuku release
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Git ref to build
+        required: true
+        default: ondemand-shizuku
+        type: string
+      tag:
+        description: Release tag (required only when publishing)
+        required: false
+        type: string
+      publish:
+        description: Publish a GitHub release after signing verification
+        required: true
+        default: false
+        type: boolean
+      confirmation:
+        description: Type RELEASE to authorize publication
+        required: false
+        type: string
+      prerelease:
+        description: Mark the GitHub release as a prerelease
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: signed-release
+  cancel-in-progress: false
+
+jobs:
+  build-sign-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SIGNING_KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
+      SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+      SIGNING_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEYSTORE_PASSWORD }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+      EXPECTED_CERT_SHA256: ${{ secrets.ANDROID_SIGNING_CERT_SHA256 }}
+    steps:
+      - name: Validate release authorization
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.publish }}" = "true" ]; then
+            test -n "${{ inputs.tag }}" || { echo 'A release tag is required when publish=true.' >&2; exit 1; }
+            test "${{ inputs.confirmation }}" = "RELEASE" || { echo 'Publication requires confirmation=RELEASE.' >&2; exit 1; }
+          fi
+
+      - name: Checkout selected ref
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+
+      - name: Require stable signing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in SIGNING_KEYSTORE_BASE64 SIGNING_KEY_ALIAS SIGNING_KEYSTORE_PASSWORD SIGNING_KEY_PASSWORD EXPECTED_CERT_SHA256; do
+            value="${!name:-}"
+            if [ -z "$value" ]; then
+              echo "Missing required signing secret: $name" >&2
+              exit 1
+            fi
+          done
+          normalized="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          [[ "$normalized" =~ ^[0-9a-f]{64}$ ]] || { echo 'ANDROID_SIGNING_CERT_SHA256 must be a SHA-256 certificate digest.' >&2; exit 1; }
+
+      - name: Build release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest lintDebug assembleRelease
+          mapfile -t apks < <(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | sort)
+          test "${#apks[@]}" -eq 1 || { printf 'Expected exactly one release APK, found %s\n' "${#apks[@]}" >&2; printf '%s\n' "${apks[@]}" >&2; exit 1; }
+          printf '%s\n' "${apks[0]}" > /tmp/release-apk-path
+
+      - name: Decode keystore in runner temp
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/reappzuku-release.keystore"
+          test -s "$RUNNER_TEMP/reappzuku-release.keystore"
+
+      - name: Align, sign and verify certificate identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          ZIPALIGN="$(find "$SDK_ROOT/build-tools" -type f -name zipalign | sort -V | tail -1)"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$ZIPALIGN"
+          test -x "$APKSIGNER"
+          input_apk="$(cat /tmp/release-apk-path)"
+          aligned="$RUNNER_TEMP/reappzuku-release-aligned.apk"
+          signed="$GITHUB_WORKSPACE/ReAppzuku-${{ inputs.tag || 'signed-build' }}.apk"
+          "$ZIPALIGN" -f -p 4 "$input_apk" "$aligned"
+          "$APKSIGNER" sign \
+            --ks "$RUNNER_TEMP/reappzuku-release.keystore" \
+            --ks-key-alias "$SIGNING_KEY_ALIAS" \
+            --ks-pass "env:SIGNING_KEYSTORE_PASSWORD" \
+            --key-pass "env:SIGNING_KEY_PASSWORD" \
+            --out "$signed" \
+            "$aligned"
+          "$APKSIGNER" verify --verbose --print-certs "$signed" | tee /tmp/signed-certs.txt
+          actual="$(sed -n -E 's/^.*certificate SHA-256 digest: *//p' /tmp/signed-certs.txt | head -1 | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          expected="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test -n "$actual"
+          if [ "$actual" != "$expected" ]; then
+            echo "Signing certificate mismatch: expected=$expected actual=$actual" >&2
+            exit 1
+          fi
+          sha256sum "$signed" | tee "$signed.sha256"
+          printf '%s\n' "$signed" > /tmp/signed-apk-path
+          echo "Verified signing certificate SHA-256: $actual"
+
+      - name: Publish explicitly authorized GitHub release
+        if: ${{ inputs.publish }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "${{ inputs.confirmation }}" = "RELEASE"
+          signed="$(cat /tmp/signed-apk-path)"
+          args=(release create "${{ inputs.tag }}" "$signed" "$signed.sha256" --target "${{ inputs.source_ref }}" --generate-notes --title "ReAppzuku ${{ inputs.tag }}")
+          if [ "${{ inputs.prerelease }}" = "true" ]; then
+            args+=(--prerelease)
+          fi
+          gh "${args[@]}"
+
+      - name: Remove signing material
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/reappzuku-release.keystore" "$RUNNER_TEMP/reappzuku-release-aligned.apk"
