@@ -55,7 +55,7 @@ public class UpdateChecker {
     private static final String FILE_NAME = "UpdateChecker";
 
     static final String GITHUB_API_URL =
-            "https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases/latest";
+            "https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases?per_page=20";
     private static final String RELEASES_URL =
             "https://github.com/HyperCriSiS/ReAppzuku/releases";
 
@@ -136,25 +136,41 @@ public class UpdateChecker {
             while ((line = reader.readLine()) != null) sb.append(line);
             reader.close();
 
-            JSONObject json = new JSONObject(sb.toString());
-            String tagName  = json.optString("tag_name", "").replaceFirst("^v", "");
-            String body     = json.optString("body", "");
-            String htmlUrl  = json.optString("html_url", RELEASES_URL);
+            JSONArray releases = new JSONArray(sb.toString());
+            for (int releaseIndex = 0; releaseIndex < releases.length(); releaseIndex++) {
+                JSONObject json = releases.optJSONObject(releaseIndex);
+                if (json == null || json.optBoolean("draft", false)
+                        || json.optBoolean("prerelease", false)) {
+                    continue;
+                }
 
-            String downloadUrl = htmlUrl;
-            JSONArray assets = json.optJSONArray("assets");
-            if (assets != null) {
-                for (int i = 0; i < assets.length(); i++) {
-                    JSONObject asset = assets.getJSONObject(i);
-                    String name = asset.optString("name", "");
-                    if (name.endsWith(".apk")) {
-                        downloadUrl = asset.optString("browser_download_url", htmlUrl);
-                        break;
+                String rawTag = json.optString("tag_name", "");
+                if (!ReleaseVersion.isReleaseVersion(rawTag)) {
+                    continue;
+                }
+
+                String tagName = rawTag.replaceFirst("^[vV]", "");
+                String body = json.optString("body", "");
+                String htmlUrl = json.optString("html_url", RELEASES_URL);
+                String downloadUrl = htmlUrl;
+                JSONArray assets = json.optJSONArray("assets");
+                if (assets != null) {
+                    for (int i = 0; i < assets.length(); i++) {
+                        JSONObject asset = assets.optJSONObject(i);
+                        if (asset == null) continue;
+                        String name = asset.optString("name", "");
+                        if (name.endsWith(".apk")) {
+                            downloadUrl = asset.optString("browser_download_url", htmlUrl);
+                            break;
+                        }
                     }
                 }
+
+                return new ReleaseInfo(tagName, body.trim(), downloadUrl, htmlUrl);
             }
 
-            return new ReleaseInfo(tagName, body.trim(), downloadUrl, htmlUrl);
+            AppDebugManager.d(Category.UTILS, FILE_NAME + ": No stable numeric GitHub release found");
+            return null;
 
         } catch (UnknownHostException e) {
             AppDebugManager.w(Category.UTILS, FILE_NAME + ": No route to GitHub (DNS failed): " + e.getMessage());
