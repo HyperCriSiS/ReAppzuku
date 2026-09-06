@@ -51,4 +51,31 @@ public class BackgroundWorkPolicyTest {
                             restrictionSchedule));
         }
     }
+
+    @Test
+    public void exhaustiveAppBehaviorCompatibilityTruthTable() {
+        // 5 continuity inputs x requested Exit-on-Back x requested Shizuku on-demand mode.
+        // Any active continuity blocker must force both behavior options off; without
+        // blockers the user's requested values must survive unchanged.
+        for (int mask = 0; mask < 32; mask++) {
+            boolean continuityRequired = mask != 0;
+            for (int requestedBits = 0; requestedBits < 4; requestedBits++) {
+                boolean requestedExitOnBack = (requestedBits & 1) != 0;
+                boolean requestedPreventAutoStart = (requestedBits & 2) != 0;
+
+                assertEquals(
+                        "Exit-on-Back mismatch for blockers=" + mask
+                                + " requestedBits=" + requestedBits,
+                        !continuityRequired && requestedExitOnBack,
+                        BackgroundWorkPolicy.resolveExitOnBack(
+                                continuityRequired, requestedExitOnBack));
+                assertEquals(
+                        "Shizuku on-demand mismatch for blockers=" + mask
+                                + " requestedBits=" + requestedBits,
+                        !continuityRequired && requestedPreventAutoStart,
+                        BackgroundWorkPolicy.resolvePreventShizukuAutoStart(
+                                continuityRequired, requestedPreventAutoStart));
+            }
+        }
+    }
 }
