@@ -11,7 +11,7 @@ Status convention:
 
 - [x] Model desired AutoKill service state separately from observed process state.
 - [x] Prevent intentional service disable from being undone by restart paths.
-- [x] Update checker points at the fork-owned repository and ignores the rolling `ondemand-test` tag.
+- [x] Update checker points at the fork-owned repository, enumerates releases, skips drafts/prereleases/non-numeric rolling tags such as `ondemand-test`, and treats a repository with no stable numeric release as “no update” rather than a retry-worthy transport failure.
 - [x] Strict numeric release-version comparison.
 - [x] Restore preset scheduling after reboot.
 - [x] Centralize exact-alarm capability and fall back when exact alarms are unavailable.
@@ -25,11 +25,11 @@ Status convention:
 ### Live evidence still required
 
 - [x] Fresh Shizuku permission flow: API-36 run `34000092714` cold-started a cleared, explicitly ungranted ReAppzuku against the official Shizuku server/manager, observed the real authorization dialog, proved no app scan started before grant, then observed permission result -> `SHIZUKU_READY` -> app scan in order.
-- [~] AutoKill disable survives restart recovery: API-36 instrumentation proves a fresh restart receiver obeys persisted disabled state and real reboot recovery passes; the separate external OS force-stop desired-state subprobe in run `33985971887` did not pass and remains the open P0 process-death case.
+- [x] AutoKill disable survives restart recovery and external process death: API-36 instrumentation proves a fresh restart receiver obeys persisted disabled state, real reboot recovery passes, and focused run `34004843634` proves persisted disabled desired state across a real external `am force-stop` with PID change (`2963` -> `3250`).
 - [x] Reboot reconciliation is idempotent on the stable API-36 emulator: repeated `BootReceiver` execution is Unique-Work safe, and real OS reboot run `33985971887` passed reboot/unlock/post-boot recovery with Restrictions Scheduler plus preset activate/deactivate alarms reconstructed. Physical/OEM devices remain release-diversity evidence, not an implementation blocker.
 - [x] Exact-alarm denied path falls back correctly on Android 16/API 36.
 - [~] Backup/restore round-trip now passes through a real Android MediaStore `content://` URI on API 36 in run `34000092714`, including export/import/restore on the production backup path; physical/OEM document-provider UI remains release-diversity evidence.
-- [ ] Fork update provenance on a real installed test build.
+- [x] Fork update provenance on a real installed test build: API-36 run `34037508198` built and installed the current test APK, pulled the installed `base.apk` back from `/data/app`, proved exact SHA-256 identity (`b57c694dc75705f23f5de0b7ef7988811fb350276aa11063b4077af224089dd8`), then scanned every `classes*.dex` and verified the fork-owned stable-release API/page endpoints are embedded while both the upstream API endpoint and obsolete fork `/releases/latest` endpoint are absent.
 
 ## Phase 2 — Explicit shell readiness state machine
 
@@ -38,7 +38,7 @@ Status convention:
 - [x] Operational app scans require a genuinely ready backend, not merely permission.
 - [x] MainActivity waits/retries only for transitional states instead of mapping waiting to generic shell failure.
 - [x] JVM transition tests cover root precedence, permission/readiness separation and lost state.
-- [~] Instrument binder-late, deny -> grant, Activity recreation and Shizuku restart/service-death recovery: deterministic API-36 bridge coverage proves the state permutations; real official-Shizuku first-run grant is proven by `34000092714`, and same-process daemon death/rebind plus privileged command recovery is proven by `33997372602`. Activity recreation while the real permission dialog is open remains the narrow untested permutation.
+- [x] Instrument binder-late, deny -> grant, Activity recreation and Shizuku restart/service-death recovery: deterministic API-36 bridge coverage proves the state permutations; real official-Shizuku first-run grant is proven by `34000092714`, same-process daemon death/rebind plus privileged command recovery by `33997372602`, and exact Activity recreation behind the still-open real Shizuku permission dialog followed by grant/READY/scan ordering by `34036827312`.
 - [x] Add event-driven UI recovery when Shizuku appears after MainActivity is already open. Real first-run testing exposed a lost late-Binder race; commit `ba73b39e4e47e75a19ac2a01a120a69854e19f30`, guarded by run `33999924081`, adds sticky Binder-triggered preparation plus a coalesced retry, and run `34000092714` proves the repaired flow end-to-end.
 
 ## Phase 3 — Transactional backup and restore
@@ -134,11 +134,13 @@ Status convention:
 - Normal validation `33974626448` passed unit tests, lint, AndroidTest compilation, Room schema verification and APK build after the schema-assets fix.
 - AutoKill stale-restart desired-state coverage passed normal validation in `33974469090`.
 - Repeated boot-reconciliation coverage passed normal validation in `33974877204` and then passed the full API-36 Android runtime gate in `33974963048`, proving WorkManager Unique Work idempotency for AutoKill, Smart Lifecycle and boot cleanup.
-- Real OS reboot run `33985971887` passed reboot/unlock/post-boot recovery and reconstructed scheduler/preset alarms; its later external force-stop desired-state subprobe failed, so that process-death case remains open.
+- Real OS reboot run `33985971887` passed reboot/unlock/post-boot recovery and reconstructed scheduler/preset alarms. Its bundled force-stop tail was a harness failure; the focused API-36 gate `34004843634` subsequently passed the real external force-stop/process-restart desired-state case with a verified PID change.
 - Run `33986395874` passed the explicit-intent exported-shortcut abuse step before an unrelated later Shizuku-recovery failure.
 - Run `33997372602` then proved the official Shizuku UserService, shell UID execution, daemon death detection, same-process rebind after server restart and post-recovery privileged command execution.
 - Run `34000092714` proved the fresh official-Shizuku permission dialog path with no pre-grant app scan and then passed the real MediaStore `content://` backup round-trip.
-- This stable API-36 lane is now the repeatable Android-runtime baseline. Remaining release-diversity gaps are the external app force-stop/process-death case, physical/OEM variation, installed-update/signing identity and root-specific execution; API 37 remains separately blocked by the preview PackageManager transport failure.
+- Run `34036827312` proved exact Activity destruction/recreation while the real Shizuku permission dialog remained open, followed by grant -> `SHIZUKU_READY` -> app scan ordering.
+- Update-provenance run `34037508198` installed the current test APK on API 36, pulled the installed package back byte-identically and verified the embedded fork-owned stable-release resolver across all DEX files. Updater changes are additionally green in normal validation runs `34037213036` and `34037439640`.
+- This stable API-36 lane is now the repeatable Android-runtime baseline. External app force-stop/process death and real Shizuku permission-dialog Activity recreation are proven. Remaining release-diversity gaps are physical/OEM variation, final installed-release/signing identity + rollback evidence and root-specific execution; API 37 remains separately blocked by the preview PackageManager transport failure.
 
 ## Phase 7 — Android 17 / API 37
 
@@ -165,7 +167,7 @@ Status convention:
 - [x] Propagate fork-specific Smart Lifecycle/App Behavior/security strings to supported locales.
 - [x] Explain blocking automation directly beside disabled App Behavior controls, listing the active AutoKill/Smart Lifecycle/Sleep/Preset/Scheduler blockers from the central policy.
 - [x] Split large managers behind testable facades: `PrivilegedShell`, `AlarmScheduler`, `Clock`/`ScheduleTime`, `BackupCodec` and central protection/background/parser policy boundaries now isolate the named high-risk seams.
-- [~] Keep `CHECK_MATRIX.md` status/evidence current after every high-impact change (refreshed through 2026-09-05; ongoing discipline).
+- [~] Keep `CHECK_MATRIX.md` status/evidence current after every high-impact change (refreshed through 2026-09-06; ongoing discipline).
 
 
 ### Maintainability evidence — 2026-09-05
