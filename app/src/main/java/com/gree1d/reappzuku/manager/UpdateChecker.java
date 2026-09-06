@@ -169,8 +169,11 @@ public class UpdateChecker {
                 return new ReleaseInfo(tagName, body.trim(), downloadUrl, htmlUrl);
             }
 
+            // A repository may intentionally have only rolling/dev releases before the first
+            // production tag exists. That is a successful fetch with "no update", not a
+            // transport failure that should trigger WorkManager backoff/retries.
             AppDebugManager.d(Category.UTILS, FILE_NAME + ": No stable numeric GitHub release found");
-            return null;
+            return new ReleaseInfo("0.0.0", "", RELEASES_URL, RELEASES_URL);
 
         } catch (UnknownHostException e) {
             AppDebugManager.w(Category.UTILS, FILE_NAME + ": No route to GitHub (DNS failed): " + e.getMessage());
