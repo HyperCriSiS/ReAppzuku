@@ -1,0 +1,72 @@
+name: One-time MainActivity handler ownership fix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ondemand-shizuku-patch
+  cancel-in-progress: false
+
+jobs:
+  patch-test-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout product branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ondemand-shizuku
+          fetch-depth: 1
+      - name: Apply exact handler ownership fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          file='app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java'
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java')
+          text = path.read_text(encoding='utf-8')
+          old = '        handler = app.getSharedHandler();'
+          new = '        handler = new Handler(Looper.getMainLooper());'
+          if text.count(old) != 1:
+              raise SystemExit(f'Expected exactly one shared-handler assignment, found {text.count(old)}')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+          grep -Fq 'handler = new Handler(Looper.getMainLooper());' "$file"
+          if grep -Fq 'handler = app.getSharedHandler();' "$file"; then
+            echo 'Shared application Handler assignment still present in MainActivity.' >&2
+            exit 1
+          fi
+          # onDestroy may continue cancelling all callbacks because the Handler is now
+          # lifecycle-local and no longer owns ShellManager/application callbacks.
+          grep -Fq 'handler.removeCallbacksAndMessages(null);' "$file"
+          git diff --check
+          git diff -- "$file"
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - name: Validate product branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+      - name: Commit only the validated product fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java'
+          mapfile -t changed < <(git status --short | sed -E 's/^...//')
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$expected"
+          git config user.name 'HyperCriSiS'
+          git config user.email 'dev.github@w3b.world'
+          git add -- "$expected"
+          git commit -m 'Keep MainActivity callbacks lifecycle-local'
+          git push origin HEAD:ondemand-shizuku
