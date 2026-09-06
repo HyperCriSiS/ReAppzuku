@@ -171,7 +171,7 @@ public abstract class AppDatabase extends RoomDatabase {
     };
 
     private static final RoomDatabase.QueryCallback LOG_QUERY_CALLBACK = (sqlQuery, bindArgs) ->
-            AppDebugManager.d(Category.CORE, "AppDatabase query: " + sqlQuery + " args=" + bindArgs);
+            AppDebugManager.d(Category.CORE, SqlQueryLogFormatter.format(sqlQuery, bindArgs));
 
     public abstract AppStatsDao appStatsDao();
     public abstract ResourceSnapshotDao resourceSnapshotDao();
