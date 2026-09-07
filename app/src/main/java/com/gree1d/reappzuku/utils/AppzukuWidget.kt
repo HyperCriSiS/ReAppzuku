@@ -1,4 +1,4 @@
-package com.gree1d.reappzuku.utils
+package com.gree1d.reappzuku.utils;
 
 import android.content.Context
 import androidx.annotation.Keep
@@ -10,6 +10,9 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.GlanceAppWidgetReceiver
+import androidx.glance.appwidget.LinearProgressIndicator
+import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
@@ -26,7 +29,6 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import com.gree1d.reappzuku.R
 import com.gree1d.reappzuku.core.AppConstants.STATS_HISTORY_DURATION_MS
 import com.gree1d.reappzuku.core.AppDebugManager
 import com.gree1d.reappzuku.core.AppDebugManager.Category
@@ -40,6 +42,7 @@ import java.io.RandomAccessFile
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
+import com.gree1d.reappzuku.R
 
 private val BgSurface     = Color(0xFF1A1C24)
 private val BgCard        = Color(0xFF22242E)
@@ -72,72 +75,72 @@ class AppzukuWidget : GlanceAppWidget() {
             modifier = GlanceModifier
                 .fillMaxSize()
                 .background(BgSurface)
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .cornerRadius(20.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.Top
         ) {
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = data.labelRam,
+                    style = TextStyle(
+                        color = ColorProvider(TextSecondary),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+                Spacer(modifier = GlanceModifier.width(8.dp))
+                Box(
+                    modifier = GlanceModifier
+                        .defaultWeight()
+                        .height(5.dp)
+                        .cornerRadius(3.dp)
+                ) {
+                    LinearProgressIndicator(
+                        progress = data.ramProgress,
+                        modifier = GlanceModifier.fillMaxWidth().height(5.dp),
+                        color = ColorProvider(ramColor),
+                        backgroundColor = ColorProvider(Color(0x1AFFFFFF))
+                    )
+                }
+                Spacer(modifier = GlanceModifier.width(8.dp))
+                Text(
+                    text = data.ramLabel,
+                    style = TextStyle(
+                        color = ColorProvider(ramColor),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+
+            Spacer(modifier = GlanceModifier.height(5.dp))
+
             Row(
                 modifier = GlanceModifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "RAM",
-                    style = TextStyle(
-                        color = ColorProvider(TextPrimary),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-                Spacer(modifier = GlanceModifier.width(12.dp))
-                Box(
-                    modifier = GlanceModifier
-                        .defaultWeight()
-                        .height(8.dp)
-                        .background(BgCard)
-                        .cornerRadius(4.dp)
-                ) {
-                    Box(
-                        modifier = GlanceModifier
-                            .fillMaxWidth(data.ramProgress.coerceIn(0f, 1f))
-                            .height(8.dp)
-                            .background(ramColor)
-                            .cornerRadius(4.dp)
-                    ) {}
-                }
-                Spacer(modifier = GlanceModifier.width(12.dp))
-                Text(
-                    text = data.ramLabel,
-                    style = TextStyle(
-                        color = ColorProvider(TextSecondary),
-                        fontSize = 12.sp
-                    )
-                )
-            }
-
-            Spacer(modifier = GlanceModifier.height(14.dp))
-
-            Row(
-                modifier = GlanceModifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
                 StatCard(
                     value = data.kills,
                     label = data.labelKills,
-                    accentColor = AccentRed,
+                    accentColor = AccentBlue,
                     modifier = GlanceModifier.defaultWeight()
                 )
-                Spacer(modifier = GlanceModifier.width(8.dp))
+                Spacer(modifier = GlanceModifier.width(6.dp))
                 StatCard(
                     value = data.freed,
                     label = data.labelFreed,
                     accentColor = AccentGreen,
                     modifier = GlanceModifier.defaultWeight()
                 )
-                Spacer(modifier = GlanceModifier.width(8.dp))
+                Spacer(modifier = GlanceModifier.width(6.dp))
                 StatCard(
                     value = data.lastKill,
                     label = data.labelLastKill,
-                    accentColor = AccentBlue,
+                    accentColor = AccentAmber,
                     modifier = GlanceModifier.defaultWeight()
                 )
             }
@@ -179,8 +182,8 @@ class AppzukuWidget : GlanceAppWidget() {
     }
 
     companion object {
-        // Java callers have no component-owned coroutine scope. Keep refresh work bounded to the
-        // application process and isolate failures between independent widget refresh requests.
+        // Java callers have no component-owned scope. This explicit scope intentionally lives
+        // for the application process and isolates independent widget refresh failures.
         private val widgetUpdateScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
         suspend fun updateAllWidgets(context: Context) {
@@ -273,4 +276,9 @@ class AppzukuWidget : GlanceAppWidget() {
         val labelFreed: String,
         val labelLastKill: String
     )
+}
+
+@Keep
+class AppzukuWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = AppzukuWidget()
 }
