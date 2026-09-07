@@ -44,6 +44,7 @@ import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.ProtectedApps;
 import com.gree1d.reappzuku.utils.BackgroundRestrictionLog;
 import com.gree1d.reappzuku.core.AppDebugManager;
+import com.gree1d.reappzuku.core.ManualOpsMaskPolicy;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
@@ -1209,9 +1210,10 @@ public class BackgroundAppManager {
 
 
     int[] applyManualOps(String packageName, int opsMask, String mode) {
-        int selectedCount = Integer.bitCount(opsMask);
+        int boundedOpsMask = ManualOpsMaskPolicy.sanitize(opsMask, ALL_OPS.length);
+        int selectedCount = Integer.bitCount(boundedOpsMask);
         AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": applyManualOps → " + packageName + " mode=" + mode
-                + " mask=0x" + Integer.toHexString(opsMask)
+                + " mask=0x" + Integer.toHexString(boundedOpsMask)
                 + " selectedOps=" + selectedCount + "/" + ALL_OPS.length);
 
         int ok = 0, fail = 0;
@@ -1219,7 +1221,7 @@ public class BackgroundAppManager {
         int failedMask = 0;
         int skippedMask = 0;
         for (int i = 0; i < ALL_OPS.length; i++) {
-            if ((opsMask & (1 << i)) == 0) {
+            if ((boundedOpsMask & (1 << i)) == 0) {
                 AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ":   [SKIP] " + ALL_OPS[i] + " (not selected)");
                 continue;
             }
@@ -1248,7 +1250,7 @@ public class BackgroundAppManager {
         } else {
             clearAppliedOpsMask(packageName);
         }
-        return new int[]{ok, fail, failedMask, opsMask, skippedMask};
+        return new int[]{ok, fail, failedMask, boundedOpsMask, skippedMask};
     }
 
 
@@ -1800,13 +1802,15 @@ public class BackgroundAppManager {
 
 
     public int getManualOpsMask(String packageName) {
-        return sharedpreferences.getInt(KEY_MANUAL_OPS_PREFIX + packageName, 0x01);
+        int storedMask = sharedpreferences.getInt(KEY_MANUAL_OPS_PREFIX + packageName, 0x01);
+        return ManualOpsMaskPolicy.sanitize(storedMask, ALL_OPS.length);
     }
 
     public void saveManualOpsMask(String packageName, int mask) {
-        sharedpreferences.edit().putInt(KEY_MANUAL_OPS_PREFIX + packageName, mask).apply();
-        AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": saveManualOpsMask " + packageName + " mask=0x" + Integer.toHexString(mask)
-                + " ops=" + describeOpsMask(mask));
+        int boundedMask = ManualOpsMaskPolicy.sanitize(mask, ALL_OPS.length);
+        sharedpreferences.edit().putInt(KEY_MANUAL_OPS_PREFIX + packageName, boundedMask).apply();
+        AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": saveManualOpsMask " + packageName + " mask=0x" + Integer.toHexString(boundedMask)
+                + " ops=" + describeOpsMask(boundedMask));
     }
 
     public int getManualBucket(String packageName) {

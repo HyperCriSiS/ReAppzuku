@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.Set;
 
+import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.PresetManager;
 import com.gree1d.reappzuku.utils.PresetModel;
 import com.gree1d.reappzuku.core.AppDebugManager;
@@ -311,7 +312,8 @@ public class BackupManager {
         BackupCollectionPolicy.requirePackageEntryCount(KEY_MANUAL_OPS_MASKS, manualPackages.size());
         JSONObject masks = new JSONObject();
         for (String pkg : manualPackages) {
-            int mask = prefs.getInt(KEY_MANUAL_OPS_PREFIX + pkg, 0x01);
+            int storedMask = prefs.getInt(KEY_MANUAL_OPS_PREFIX + pkg, 0x01);
+            int mask = ManualOpsMaskPolicy.sanitize(storedMask, BackgroundAppManager.ALL_OPS.length);
             masks.put(pkg, mask);
         }
         root.put(KEY_MANUAL_OPS_MASKS, masks);
@@ -329,7 +331,9 @@ public class BackupManager {
             if (!PackageNameValidator.isValid(pkg)) {
                 throw new IllegalArgumentException("Invalid package name in manual ops backup");
             }
-            editor.putInt(KEY_MANUAL_OPS_PREFIX + pkg, masks.getInt(pkg));
+            int mask = masks.getInt(pkg);
+            ManualOpsMaskPolicy.requireKnownBits(mask, BackgroundAppManager.ALL_OPS.length);
+            editor.putInt(KEY_MANUAL_OPS_PREFIX + pkg, mask);
             count++;
         }
         AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreManualOpsMasks: " + count + " packages");
