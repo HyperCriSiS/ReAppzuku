@@ -1,0 +1,92 @@
+name: One-time platform API bounds
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout topic branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: roadmap/remove-obsolete-sdk-branches
+          fetch-depth: 1
+      - name: Correct platform API guards and retire baseline entries
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "cf155d9640b4464dc687999e137e1f394ed58727"
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              s = p.read_text()
+              count = s.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly one replacement target, found {count}')
+              p.write_text(s.replace(old, new, 1))
+
+          exact = 'app/src/main/java/com/gree1d/reappzuku/core/ExactAlarmCapability.java'
+          replace_once(exact,
+              '            if (allowWhileIdle && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {',
+              '            if (allowWhileIdle) {')
+          replace_once(exact,
+              '        if (allowWhileIdle && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {',
+              '        if (allowWhileIdle) {')
+
+          service = 'app/src/main/java/com/gree1d/reappzuku/service/ShappkyService.java'
+          replace_once(service,
+              '''        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {\n            startForeground(NOTIFICATION_ID_SERVICE, notification,\n                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);\n            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": startForeground called (FOREGROUND_SERVICE_TYPE_SPECIAL_USE, API " + Build.VERSION.SDK_INT + ")");\n        } else {\n            startForeground(NOTIFICATION_ID_SERVICE, notification);\n            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": startForeground called (legacy, API " + Build.VERSION.SDK_INT + ")");\n        }''',
+              '''        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {\n            startForeground(NOTIFICATION_ID_SERVICE, notification,\n                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);\n            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": startForeground called (FOREGROUND_SERVICE_TYPE_SPECIAL_USE, API " + Build.VERSION.SDK_INT + ")");\n        } else {\n            startForeground(NOTIFICATION_ID_SERVICE, notification);\n            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": startForeground called (default type, API " + Build.VERSION.SDK_INT + ")");\n        }''')
+
+          blocks = [
+          '''        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {\n            if (canScheduleExactAlarms()) {\n                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);\n            } else {\n                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);\n                AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME + ": scheduleIdleFreezeAlarm: exact alarm not permitted, using inexact");\n            }\n        } else {\n            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);\n        }''',
+          '''        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {\n            if (canScheduleExactAlarms()) {\n                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);\n            } else {\n                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);\n                AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME + ": scheduleHeartbeatAlarm: exact alarm not permitted, using inexact");\n            }\n        } else {\n            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);\n        }''',
+          '''        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {\n            if (canScheduleExactAlarms()) {\n                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);\n            } else {\n                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);\n                AppDebugManager.w(Category.UTILS, FILE_NAME + ": scheduleSnapshotAlarm: exact alarm not permitted, using inexact");\n            }\n        } else {\n            am.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pi);\n        }'''
+          ]
+          replacements = [
+          '''        if (canScheduleExactAlarms()) {\n            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);\n        } else {\n            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);\n            AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME + ": scheduleIdleFreezeAlarm: exact alarm not permitted, using inexact");\n        }''',
+          '''        if (canScheduleExactAlarms()) {\n            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);\n        } else {\n            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);\n            AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME + ": scheduleHeartbeatAlarm: exact alarm not permitted, using inexact");\n        }''',
+          '''        if (canScheduleExactAlarms()) {\n            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);\n        } else {\n            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);\n            AppDebugManager.w(Category.UTILS, FILE_NAME + ": scheduleSnapshotAlarm: exact alarm not permitted, using inexact");\n        }'''
+          ]
+          for old, new in zip(blocks, replacements):
+              replace_once(service, old, new)
+
+          log_detail = 'app/src/main/java/com/gree1d/reappzuku/ui/LogDetailActivity.java'
+          replace_once(log_detail,
+              '''    private boolean isFinishingOrDestroyed() {\n        return isFinishing() ||\n                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed());\n    }''',
+              '''    private boolean isFinishingOrDestroyed() {\n        return isFinishing() || isDestroyed();\n    }''')
+          replace_once(log_detail, 'import android.os.Build;\n', '')
+
+          baseline = Path('app/lint-baseline.xml')
+          tree = ET.parse(baseline)
+          root = tree.getroot()
+          removed = {"ObsoleteSdkInt": 0, "InlinedApi": 0}
+          for issue in list(root.findall('issue')):
+              issue_id = issue.attrib.get('id')
+              if issue_id in removed:
+                  root.remove(issue)
+                  removed[issue_id] += 1
+          if removed != {"ObsoleteSdkInt": 6, "InlinedApi": 1}:
+              raise SystemExit(f'unexpected baseline removal counts: {removed}')
+          ET.indent(tree, space='    ')
+          tree.write(baseline, encoding='unicode', xml_declaration=True)
+          baseline.write_text(baseline.read_text() + '\n')
+          PY
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 4
+          ! grep -q 'id="ObsoleteSdkInt"' app/lint-baseline.xml
+          ! grep -q 'id="InlinedApi"' app/lint-baseline.xml
+          grep -q 'VERSION_CODES.UPSIDE_DOWN_CAKE' app/src/main/java/com/gree1d/reappzuku/service/ShappkyService.java
+          ! grep -q 'VERSION_CODES.JELLY_BEAN_MR1' app/src/main/java/com/gree1d/reappzuku/ui/LogDetailActivity.java
+          git config user.name HyperCriSiS
+          git config user.email dev.github@w3b.world
+          git add app/lint-baseline.xml app/src/main/java/com/gree1d/reappzuku/core/ExactAlarmCapability.java app/src/main/java/com/gree1d/reappzuku/service/ShappkyService.java app/src/main/java/com/gree1d/reappzuku/ui/LogDetailActivity.java
+          git commit -m 'Correct foreground-service API bounds and remove dead SDK branches'
+          git push origin HEAD:roadmap/remove-obsolete-sdk-branches
