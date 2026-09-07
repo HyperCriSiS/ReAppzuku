@@ -1,0 +1,31 @@
+name: One-time BackgroundAppManager repair
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout product branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ondemand-shizuku
+          fetch-depth: 0
+
+      - name: Restore manager from last good product commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout d1eadeac7a154b5bad630873f663a0969805aeb9 -- app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java
+          test "$(wc -c < app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java)" -gt 1000
+          ! grep -qx 'PLACEHOLDER' app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java
+          git diff --check
+          git config user.name 'HyperCriSiS'
+          git config user.email 'dev.github@w3b.world'
+          git add app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java
+          git commit -m 'Restore BackgroundAppManager after failed refactor staging'
+          git push origin HEAD:ondemand-shizuku
