@@ -1,0 +1,67 @@
+name: One-time lint hygiene patch
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout topic branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: roadmap/lint-regression-hygiene
+          fetch-depth: 1
+      - name: Apply bounded lint hygiene patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "1ca1fbf547428904bfaf788c363e5a7eb93178c0"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          baseline = Path('app/lint-baseline.xml')
+          text = baseline.read_text()
+          pattern = re.compile(r'\n    <issue\n        id="LeanbackUsesWifi".*?\n    </issue>\n', re.S)
+          updated, count = pattern.subn('\n', text)
+          if count != 1:
+              raise SystemExit(f'expected exactly one LeanbackUsesWifi baseline entry, found {count}')
+          baseline.write_text(updated)
+
+          files = [
+              Path('app/src/main/res/values/strings.xml'),
+              Path('app/src/main/res/values-es/strings.xml'),
+              Path('app/src/main/res/values-ru/strings.xml'),
+              Path('app/src/main/res/values-uk/strings.xml'),
+              Path('app/src/main/res/values-zh-rCN/strings.xml'),
+          ]
+          removed = 0
+          for path in files:
+              lines = path.read_text().splitlines(keepends=True)
+              kept = []
+              local = 0
+              for line in lines:
+                  if 'name="settings_backup_write_failed"' in line:
+                      local += 1
+                      removed += 1
+                      continue
+                  kept.append(line)
+              if local != 1:
+                  raise SystemExit(f'{path}: expected exactly one obsolete string, found {local}')
+              path.write_text(''.join(kept))
+          if removed != 5:
+              raise SystemExit(f'expected five obsolete strings total, removed {removed}')
+          PY
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 6
+          ! grep -R 'settings_backup_write_failed' app/src/main/res/values app/src/main/res/values-es app/src/main/res/values-ru app/src/main/res/values-uk app/src/main/res/values-zh-rCN
+          ! grep -q 'LeanbackUsesWifi' app/lint-baseline.xml
+          git config user.name HyperCriSiS
+          git config user.email dev.github@w3b.world
+          git add app/lint-baseline.xml app/src/main/res/values/strings.xml app/src/main/res/values-es/strings.xml app/src/main/res/values-ru/strings.xml app/src/main/res/values-uk/strings.xml app/src/main/res/values-zh-rCN/strings.xml
+          git commit -m 'Clean obsolete lint baseline and backup string'
+          git push origin HEAD:roadmap/lint-regression-hygiene
