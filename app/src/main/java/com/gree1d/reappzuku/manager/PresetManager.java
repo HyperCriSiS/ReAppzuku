@@ -10,6 +10,7 @@ import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.AlarmScheduler;
 import com.gree1d.reappzuku.core.Clock;
+import com.gree1d.reappzuku.core.BackupFileStore;
 import com.gree1d.reappzuku.core.ScheduleTime;
 import com.gree1d.reappzuku.manager.AdditionalScenariosManager;
 import com.gree1d.reappzuku.service.AutoKillWorker;
@@ -17,9 +18,7 @@ import com.gree1d.reappzuku.service.AutoKillWorker;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashSet;
 import java.util.Set;
@@ -487,15 +486,9 @@ public class PresetManager {
 
     public PresetModel importPresetFromJson(int presetNumber, Uri uri) {
         AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: importPresetFromJson #" + presetNumber + " uri=" + uri);
-        try (InputStream is = context.getContentResolver().openInputStream(uri)) {
-            if (is == null) throw new IOException("InputStream is null for uri: " + uri);
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            byte[] chunk = new byte[4096];
-            int read;
-            while ((read = is.read(chunk)) != -1) {
-                buffer.write(chunk, 0, read);
-            }
-            JSONObject json = new JSONObject(buffer.toString("UTF-8"));
+        try {
+            String payload = new BackupFileStore(context.getContentResolver()).read(uri);
+            JSONObject json = new JSONObject(payload);
             PresetModel model = PresetModel.fromJson(presetNumber, json);
             AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: importPresetFromJson #" + presetNumber + " OK | name=" + model.name
                     + " enabled=" + model.enabled
