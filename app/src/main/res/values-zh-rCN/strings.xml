@@ -390,7 +390,6 @@
     <string name="settings_backup_option_restore">恢复设置</string>
     <string name="settings_backup_create_failed">创建备份数据失败</string>
     <string name="settings_backup_success">设置保存成功</string>
-    <string name="settings_backup_write_failed">写入文件失败</string>
     <string name="settings_backup_export_failed">导出失败：%1$s</string>
     <string name="settings_restore_success">恢复成功</string>
     <string name="settings_restore_need_permission">已保存的设置已恢复。请授予 Shizuku/Root 权限以重新应用后台限制。</string>
