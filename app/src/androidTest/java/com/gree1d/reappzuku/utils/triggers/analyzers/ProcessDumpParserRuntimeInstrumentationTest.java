@@ -3,7 +3,9 @@ package com.gree1d.reappzuku.utils.triggers.analyzers;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -24,6 +26,7 @@ import org.junit.runner.RunWith;
 public class ProcessDumpParserRuntimeInstrumentationTest {
     private static final String TAG = "ReAppzukuProcessDump";
     private Context targetContext;
+    private Context instrumentationContext;
 
     @Before
     public void setUp() {
@@ -32,6 +35,7 @@ public class ProcessDumpParserRuntimeInstrumentationTest {
                 "true".equals(arguments.getString("processDumpRuntimeProbe")));
         Assume.assumeTrue("API 36 runtime evidence only", Build.VERSION.SDK_INT == 36);
         targetContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        instrumentationContext = InstrumentationRegistry.getInstrumentation().getContext();
     }
 
     @Test
@@ -68,41 +72,46 @@ public class ProcessDumpParserRuntimeInstrumentationTest {
                 processState.adj != Integer.MAX_VALUE || processState.procState != null);
         Log.i(TAG, "API36_PROCESS_RECORD_PARSED");
 
-        String unfilteredServices = shellManager.runShellCommandAndGetFullOutput(
-                "dumpsys activity services");
-        assertNotNull("unfiltered dumpsys activity services returned null", unfilteredServices);
-        assertTrue("unfiltered dumpsys activity services returned empty output",
-                !unfilteredServices.trim().isEmpty());
+        Intent serviceIntent = new Intent(instrumentationContext, ProcessDumpProbeService.class);
+        ComponentName startedService = instrumentationContext.startService(serviceIntent);
+        assertNotNull("Test-only service could not be started", startedService);
 
-        String observedServicePackage = firstServiceRecordPackage(unfilteredServices);
-        assertNotNull("API 36 exposed no parseable active ServiceRecord", observedServicePackage);
-
-        String filteredServiceDump = shellManager.runShellCommandAndGetFullOutput(
-                ProcessAnalyzer.buildServicesDumpCommand(observedServicePackage));
-        assertNotNull("package-filtered dumpsys activity services returned null", filteredServiceDump);
-        assertTrue("package-filtered dumpsys activity services returned empty output for "
-                        + observedServicePackage,
-                !filteredServiceDump.trim().isEmpty());
-        assertTrue("No exact API 36 ServiceRecord survived package filtering for "
-                        + observedServicePackage,
-                containsServiceRecordForPackage(filteredServiceDump, observedServicePackage));
-        Log.i(TAG, "API36_PACKAGE_FILTERED_SERVICE_RECORD_PARSED package="
-                + observedServicePackage);
-    }
-
-    private static String firstServiceRecordPackage(String dump) {
-        for (String line : dump.split("\\r?\\n")) {
-            String packageName = ProcessDumpParser.extractServiceRecordPackage(line);
-            if (packageName != null) {
-                return packageName;
+        String servicePackage = instrumentationContext.getPackageName();
+        try {
+            String filteredServiceDump = null;
+            boolean foundProbeService = false;
+            long serviceDeadline = System.currentTimeMillis() + 10_000L;
+            while (System.currentTimeMillis() < serviceDeadline) {
+                filteredServiceDump = shellManager.runShellCommandAndGetFullOutput(
+                        ProcessAnalyzer.buildServicesDumpCommand(servicePackage));
+                if (filteredServiceDump != null
+                        && containsProbeServiceRecord(filteredServiceDump, servicePackage)) {
+                    foundProbeService = true;
+                    break;
+                }
+                Thread.sleep(100L);
             }
+
+            assertNotNull("package-filtered dumpsys activity services returned null",
+                    filteredServiceDump);
+            assertTrue("package-filtered dumpsys activity services returned empty output for "
+                            + servicePackage,
+                    !filteredServiceDump.trim().isEmpty());
+            assertTrue("No exact API 36 ServiceRecord survived package filtering for test service",
+                    foundProbeService);
+            Log.i(TAG, "API36_PACKAGE_FILTERED_SERVICE_RECORD_PARSED package=" + servicePackage);
+        } finally {
+            instrumentationContext.stopService(serviceIntent);
         }
-        return null;
     }
 
-    private static boolean containsServiceRecordForPackage(String dump, String packageName) {
+    private static boolean containsProbeServiceRecord(String dump, String packageName) {
         for (String line : dump.split("\\r?\\n")) {
-            if (ProcessDumpParser.isServiceRecordForPackage(line, packageName)) {
+            if (!ProcessDumpParser.isServiceRecordForPackage(line, packageName)) {
+                continue;
+            }
+            String shortName = ProcessDumpParser.extractServiceShortName(line, packageName);
+            if (shortName != null && shortName.endsWith("ProcessDumpProbeService")) {
                 return true;
             }
         }
