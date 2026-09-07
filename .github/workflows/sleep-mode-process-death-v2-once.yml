@@ -197,13 +197,10 @@ jobs:
             sleep 0.25
           done
           test "$thawed" = true
-          cleared=false
-          for i in $(seq 1 80); do
-            adb exec-out run-as com.gree1d.reappzuku cat shared_prefs/AppPreferences.xml >/tmp/prefs-after.xml || true
-            ! grep -Fq "$TARGET" /tmp/prefs-after.xml && { cleared=true; break; }
-            sleep 0.25
-          done
-          test "$cleared" = true
+          # The recovery instrumentation itself waits until the durable
+          # sleep_mode_apps_frozen ownership set no longer contains TARGET.
+          # TARGET intentionally remains in sleepModeApps configuration, so
+          # grepping the entire preferences XML for the package is invalid.
           before="$(cat /tmp/app-pid-before)"
           after="$(adb shell pidof com.gree1d.reappzuku 2>/dev/null | tr -d '\r' || true)"
           if [ -n "$after" ]; then
