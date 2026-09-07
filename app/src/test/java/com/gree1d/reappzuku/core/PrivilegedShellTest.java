@@ -82,6 +82,21 @@ public class PrivilegedShellTest {
     }
 
     @Test
+    public void trimMemoryUsesValidatedPidAndTypedLevel() {
+        assertEquals("am send-trim-memory 123 RUNNING_CRITICAL",
+                PrivilegedShell.buildTrimMemoryCommand(
+                        "123", PrivilegedShell.TrimMemoryLevel.RUNNING_CRITICAL));
+        assertThrows(IllegalArgumentException.class,
+                () -> PrivilegedShell.buildTrimMemoryCommand(
+                        "123;id", PrivilegedShell.TrimMemoryLevel.RUNNING_CRITICAL));
+        assertThrows(IllegalArgumentException.class,
+                () -> PrivilegedShell.buildTrimMemoryCommand(
+                        "1", PrivilegedShell.TrimMemoryLevel.RUNNING_CRITICAL));
+        assertThrows(NullPointerException.class,
+                () -> PrivilegedShell.buildTrimMemoryCommand("123", null));
+    }
+
+    @Test
     public void legacyMappingsAreClosedSets() {
         assertEquals(PrivilegedShell.KillMode.KILL,
                 PrivilegedShell.KillMode.fromAutoKillType(1));

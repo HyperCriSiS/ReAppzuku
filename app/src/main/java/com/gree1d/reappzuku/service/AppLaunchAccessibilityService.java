@@ -24,6 +24,7 @@ import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.PresetManager;
 import com.gree1d.reappzuku.manager.SmartLifecycleManager;
 import com.gree1d.reappzuku.core.ProtectedApps;
+import com.gree1d.reappzuku.core.PrivilegedShell;
 
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
@@ -33,6 +34,7 @@ public class AppLaunchAccessibilityService extends AccessibilityService {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private ExecutorService executor;
     private ShellManager shellManager;
+    private PrivilegedShell privilegedShell;
     private AutoKillManager autoKillManager;
 
     private String lastTriggeredPackage = null;
@@ -45,6 +47,7 @@ public class AppLaunchAccessibilityService extends AccessibilityService {
         App app = (App) getApplicationContext();
         executor = app.getSharedExecutor();
         shellManager = app.getShellManager();
+        privilegedShell = new PrivilegedShell(shellManager);
         BackgroundAppManager appManager = new BackgroundAppManager(
                 getApplicationContext(), handler, executor, app.getShellExecutor(), shellManager);
         autoKillManager = new AutoKillManager(
@@ -59,7 +62,9 @@ public class AppLaunchAccessibilityService extends AccessibilityService {
         AccessibilityServiceInfo info = new AccessibilityServiceInfo();
         info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED;
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC;
-        info.flags = AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS;
+        // Window-state package names are sufficient for this trigger. Do not request
+        // access to otherwise-unimportant view-tree nodes that the service never reads.
+        info.flags = 0;
         info.notificationTimeout = 100;
         setServiceInfo(info);
         AppDebugManager.d(Category.ADVANCED_CONDITIONS, "AppLaunchAccessibilityService: AccessibilityService connected");
@@ -135,8 +140,8 @@ public class AppLaunchAccessibilityService extends AccessibilityService {
                 for (String pidStr : pidOutput.trim().split("\\s+")) {
                     pidStr = pidStr.trim();
                     if (pidStr.isEmpty()) continue;
-                    shellManager.runShellCommandAndGetFullOutput(
-                            "am send-trim-memory " + pidStr + " RUNNING_CRITICAL");
+                    privilegedShell.sendTrimMemoryAndGetFullOutput(
+                            pidStr, PrivilegedShell.TrimMemoryLevel.RUNNING_CRITICAL);
                     AppDebugManager.d(Category.ADVANCED_CONDITIONS, "AppLaunchAccessibilityService: Trim memory sent to " + pkg + " (pid " + pidStr + ")");
                 }
             } catch (Exception e) {

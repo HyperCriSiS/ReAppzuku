@@ -104,6 +104,16 @@ public final class PrivilegedShell {
         }
     }
 
+    public enum TrimMemoryLevel {
+        RUNNING_CRITICAL("RUNNING_CRITICAL");
+
+        private final String shellValue;
+
+        TrimMemoryLevel(String shellValue) {
+            this.shellValue = shellValue;
+        }
+    }
+
     private final ShellManager shellManager;
 
     public PrivilegedShell(ShellManager shellManager) {
@@ -173,6 +183,10 @@ public final class PrivilegedShell {
         return shellManager.runShellCommandAndGetFullOutput(buildKillPidsCommand(pids));
     }
 
+    public String sendTrimMemoryAndGetFullOutput(String pid, TrimMemoryLevel level) {
+        return shellManager.runShellCommandAndGetFullOutput(buildTrimMemoryCommand(pid, level));
+    }
+
     static String buildKillCommand(String packageName, KillMode mode) {
         String safePackage = PackageNameValidator.requireValid(packageName);
         return Objects.requireNonNull(mode, "mode").prefix + safePackage;
@@ -230,20 +244,29 @@ public final class PrivilegedShell {
         }
         List<String> safePids = new ArrayList<>();
         for (String pid : pids) {
-            if (pid == null || !SAFE_PID.matcher(pid).matches()) {
-                throw new IllegalArgumentException("Invalid PID");
-            }
-            try {
-                long parsed = Long.parseLong(pid);
-                if (parsed <= 1 || parsed > Integer.MAX_VALUE) {
-                    throw new IllegalArgumentException("Invalid PID");
-                }
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Invalid PID", e);
-            }
-            safePids.add(pid);
+            safePids.add(requireSafePid(pid));
         }
         return "kill -9 " + String.join(" ", safePids);
+    }
+
+    static String buildTrimMemoryCommand(String pid, TrimMemoryLevel level) {
+        return "am send-trim-memory " + requireSafePid(pid) + " "
+                + Objects.requireNonNull(level, "level").shellValue;
+    }
+
+    private static String requireSafePid(String pid) {
+        if (pid == null || !SAFE_PID.matcher(pid).matches()) {
+            throw new IllegalArgumentException("Invalid PID");
+        }
+        try {
+            long parsed = Long.parseLong(pid);
+            if (parsed <= 1 || parsed > Integer.MAX_VALUE) {
+                throw new IllegalArgumentException("Invalid PID");
+            }
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid PID", e);
+        }
+        return pid;
     }
 
     private static String requireSafeComponent(String componentName) {
