@@ -152,7 +152,7 @@ public class UpdateChecker {
 
                 String tagName = rawTag.replaceFirst("^[vV]", "");
                 String body = json.optString("body", "");
-                String htmlUrl = json.optString("html_url", RELEASES_URL);
+                String htmlUrl = ReleaseAssetPolicy.trustedReleasePageUrl(rawTag);
                 String downloadUrl = htmlUrl;
                 JSONArray assets = json.optJSONArray("assets");
                 if (assets != null) {

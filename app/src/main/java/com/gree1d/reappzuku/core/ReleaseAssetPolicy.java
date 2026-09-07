@@ -6,10 +6,18 @@ package com.gree1d.reappzuku.core;
  * executable download link.
  */
 public final class ReleaseAssetPolicy {
-    private static final String RELEASE_DOWNLOAD_PREFIX =
-            "https://github.com/HyperCriSiS/ReAppzuku/releases/download/";
+    private static final String RELEASES_PAGE =
+            "https://github.com/HyperCriSiS/ReAppzuku/releases";
+    private static final String RELEASE_DOWNLOAD_PREFIX = RELEASES_PAGE + "/download/";
 
     private ReleaseAssetPolicy() {}
+
+    public static String trustedReleasePageUrl(String rawTag) {
+        if (rawTag == null) return RELEASES_PAGE;
+        String tag = rawTag.trim();
+        if (!tag.equals(rawTag) || !ReleaseVersion.isReleaseVersion(tag)) return RELEASES_PAGE;
+        return RELEASES_PAGE + "/tag/" + tag;
+    }
 
     public static boolean isTrustedApkAsset(
             String rawTag,

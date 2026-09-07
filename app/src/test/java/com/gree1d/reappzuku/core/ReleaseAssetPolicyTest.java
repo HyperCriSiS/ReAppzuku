@@ -19,6 +19,19 @@ public class ReleaseAssetPolicyTest {
     }
 
     @Test
+    public void constructsReleasePageOnlyFromTrustedForkAndTag() {
+        org.junit.Assert.assertEquals(
+                "https://github.com/HyperCriSiS/ReAppzuku/releases/tag/v1.2.3",
+                ReleaseAssetPolicy.trustedReleasePageUrl("v1.2.3"));
+        org.junit.Assert.assertEquals(
+                "https://github.com/HyperCriSiS/ReAppzuku/releases",
+                ReleaseAssetPolicy.trustedReleasePageUrl("ondemand-test"));
+        org.junit.Assert.assertEquals(
+                "https://github.com/HyperCriSiS/ReAppzuku/releases",
+                ReleaseAssetPolicy.trustedReleasePageUrl(null));
+    }
+
+    @Test
     public void rejectsArbitraryApkFromSameRelease() {
         assertFalse(ReleaseAssetPolicy.isTrustedApkAsset(
                 "v1.2.3",
