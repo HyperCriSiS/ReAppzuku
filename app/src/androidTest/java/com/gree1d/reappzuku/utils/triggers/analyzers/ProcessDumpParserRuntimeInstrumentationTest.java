@@ -5,7 +5,6 @@ import static org.junit.Assert.assertTrue;
 
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -78,9 +77,14 @@ public class ProcessDumpParserRuntimeInstrumentationTest {
                 processState.adj != Integer.MAX_VALUE || processState.procState != null);
         Log.i(TAG, "API36_PROCESS_RECORD_PARSED");
 
-        Intent serviceIntent = new Intent(instrumentationContext, ProcessDumpProbeService.class);
-        ComponentName startedService = instrumentationContext.startService(serviceIntent);
-        assertNotNull("Test-only service could not be started", startedService);
+        ComponentName probeComponent =
+                new ComponentName(instrumentationContext, ProcessDumpProbeService.class);
+        String probeComponentName = probeComponent.flattenToShortString();
+        String startOutput = shellManager.runShellCommandAndGetFullOutput(
+                "am startservice -n " + probeComponentName);
+        assertNotNull("Test-only service shell start returned null", startOutput);
+        assertTrue("Test-only service shell start failed: " + startOutput,
+                !startOutput.contains("Error:") && !startOutput.contains("Exception"));
 
         String servicePackage = instrumentationContext.getPackageName();
         try {
@@ -107,7 +111,8 @@ public class ProcessDumpParserRuntimeInstrumentationTest {
                     foundProbeService);
             Log.i(TAG, "API36_PACKAGE_FILTERED_SERVICE_RECORD_PARSED package=" + servicePackage);
         } finally {
-            instrumentationContext.stopService(serviceIntent);
+            shellManager.runShellCommandAndGetFullOutput(
+                    "am stopservice -n " + probeComponentName);
         }
     }
 
