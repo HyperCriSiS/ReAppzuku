@@ -25,32 +25,31 @@ jobs:
           from pathlib import Path
           p = Path('app/src/main/java/com/gree1d/reappzuku/utils/AppzukuWidget.kt')
           s = p.read_text()
-          old = '''import kotlinx.coroutines.Dispatchers
-          import kotlinx.coroutines.GlobalScope
-          import kotlinx.coroutines.launch'''
-          new = '''import kotlinx.coroutines.CoroutineScope
-          import kotlinx.coroutines.Dispatchers
-          import kotlinx.coroutines.SupervisorJob
-          import kotlinx.coroutines.launch'''
-          if s.count(old) != 1:
-              raise SystemExit('unexpected coroutine imports')
-          s = s.replace(old, new, 1)
-          old = '''    companion object {
-              suspend fun updateAllWidgets(context: Context) {'''
-          new = '''    companion object {
-              // Java callers have no component-owned scope. This explicit scope intentionally lives
-              // for the application process and isolates independent widget refresh failures.
-              private val widgetUpdateScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-              suspend fun updateAllWidgets(context: Context) {'''
+          old = "import kotlinx.coroutines.Dispatchers\nimport kotlinx.coroutines.GlobalScope\nimport kotlinx.coroutines.launch"
+          new = "import kotlinx.coroutines.CoroutineScope\nimport kotlinx.coroutines.Dispatchers\nimport kotlinx.coroutines.SupervisorJob\nimport kotlinx.coroutines.launch"
           if s.count(old) != 1:
-              raise SystemExit('unexpected companion layout')
+              raise SystemExit(f'unexpected coroutine imports: {s.count(old)}')
           s = s.replace(old, new, 1)
-          old = '''            GlobalScope.launch { updateAllWidgets(context) }'''
-          new = '''            val appContext = context.applicationContext
-              widgetUpdateScope.launch { updateAllWidgets(appContext) }'''
+
+          marker = "    companion object {\n"
+          insert = (
+              "    companion object {\n"
+              "        // Java callers have no component-owned scope. This explicit scope intentionally lives\n"
+              "        // for the application process and isolates independent widget refresh failures.\n"
+              "        private val widgetUpdateScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)\n\n"
+          )
+          if s.count(marker) != 1:
+              raise SystemExit(f'unexpected companion marker: {s.count(marker)}')
+          s = s.replace(marker, insert, 1)
+
+          old = "            GlobalScope.launch { updateAllWidgets(context) }"
+          new = (
+              "            val appContext = context.applicationContext\n"
+              "            widgetUpdateScope.launch { updateAllWidgets(appContext) }"
+          )
           if s.count(old) != 1:
-              raise SystemExit('unexpected GlobalScope bridge')
+              raise SystemExit(f'unexpected GlobalScope bridge: {s.count(old)}')
           s = s.replace(old, new, 1)
           p.write_text(s)
           PY
@@ -59,7 +58,9 @@ jobs:
           ! grep -q 'GlobalScope' "$path"
           grep -q 'class AppzukuWidgetReceiver' "$path"
           grep -q 'LinearProgressIndicator' "$path"
+          test "$(git diff --numstat -- "$path" | awk '{print $1 ":" $2}')" = "8:2"
           git diff --stat
+          git diff -- "$path"
           git config user.name HyperCriSiS
           git config user.email dev.github@w3b.world
           git add "$path"
