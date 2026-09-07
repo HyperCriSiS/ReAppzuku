@@ -13,14 +13,9 @@ import com.gree1d.reappzuku.core.ProtectedApps;
 import com.gree1d.reappzuku.core.PrivilegedShell;
 import com.gree1d.reappzuku.core.ShellManager;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.StringReader;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 
@@ -40,9 +35,6 @@ public final class SmartLifecycleManager {
     public static final int PROFILE_AGGRESSIVE = 2;
 
     private static final long MINUTE = 60_000L;
-    private static final Pattern RESUMED_PACKAGE = Pattern.compile(
-            "(?:mResumedActivity|topResumedActivity|mCurrentFocus).*?\\s([A-Za-z0-9_.$]+)/(?:[A-Za-z0-9_.$]+)");
-
     private final Context context;
     private final ShellManager shellManager;
     private final PrivilegedShell privilegedShell;
@@ -233,29 +225,15 @@ public final class SmartLifecycleManager {
 
     private String getCurrentForegroundPackage() {
         String activities = safeShell("dumpsys activity activities");
-        Matcher matcher = RESUMED_PACKAGE.matcher(activities);
-        if (matcher.find()) return matcher.group(1);
+        String foreground = SmartLifecycleTextParser.parseForegroundPackage(activities);
+        if (foreground != null) return foreground;
 
         String window = safeShell("dumpsys window windows");
-        matcher = RESUMED_PACKAGE.matcher(window);
-        return matcher.find() ? matcher.group(1) : null;
+        return SmartLifecycleTextParser.parseForegroundPackage(window);
     }
 
     private Set<String> getRunningPackages() {
-        Set<String> result = new HashSet<>();
-        String output = safeShell("ps -A -o NAME");
-        try (BufferedReader reader = new BufferedReader(new StringReader(output))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String name = line.trim();
-                if (name.isEmpty() || "NAME".equalsIgnoreCase(name)) continue;
-                int colon = name.indexOf(':');
-                if (colon > 0) name = name.substring(0, colon);
-                if (name.contains(".")) result.add(name);
-            }
-        } catch (IOException ignored) {
-        }
-        return result;
+        return SmartLifecycleTextParser.parseRunningPackages(safeShell("ps -A -o NAME"));
     }
 
     private boolean setStandby(String pkg) {
