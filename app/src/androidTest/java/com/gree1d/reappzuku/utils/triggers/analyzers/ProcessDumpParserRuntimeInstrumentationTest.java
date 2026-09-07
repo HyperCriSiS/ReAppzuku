@@ -8,55 +8,61 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
-import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.ShellBackendState;
 import com.gree1d.reappzuku.core.ShellManager;
 
+import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @RunWith(AndroidJUnit4.class)
 public class ProcessDumpParserRuntimeInstrumentationTest {
     private static final String TAG = "ReAppzukuProcessDump";
     private Context targetContext;
     private Context instrumentationContext;
+    private ExecutorService executor;
+    private ShellManager shellManager;
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         Bundle arguments = InstrumentationRegistry.getArguments();
         Assume.assumeTrue("Guarded runtime probe only",
                 "true".equals(arguments.getString("processDumpRuntimeProbe")));
         Assume.assumeTrue("API 36 runtime evidence only", Build.VERSION.SDK_INT == 36);
         targetContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
         instrumentationContext = InstrumentationRegistry.getInstrumentation().getContext();
+        executor = Executors.newSingleThreadExecutor();
+        shellManager = new ShellManager(targetContext, new Handler(Looper.getMainLooper()), executor);
+
+        ShellBackendState state = awaitReady(20_000L);
+        assertTrue("No real privileged shell backend became ready: " + state,
+                state == ShellBackendState.SHIZUKU_READY || state == ShellBackendState.ROOT_READY);
+    }
+
+    @After
+    public void tearDown() {
+        if (shellManager != null) {
+            shellManager.unbindUserService();
+        }
+        if (executor != null) {
+            executor.shutdownNow();
+        }
     }
 
     @Test
     public void realApi36ProcessAndServiceDumpsMatchParser() throws Exception {
-        App app = (App) targetContext.getApplicationContext();
-        ShellManager shellManager = app.getShellManager();
-        assertNotNull("Application ShellManager was not initialized", shellManager);
-
-        ShellBackendState state = shellManager.getBackendState();
-        long shellDeadline = System.currentTimeMillis() + 20_000L;
-        while (state != ShellBackendState.SHIZUKU_READY
-                && state != ShellBackendState.ROOT_READY
-                && System.currentTimeMillis() < shellDeadline) {
-            state = shellManager.awaitAnyShellReadyBlocking();
-            if (state.isReady()) {
-                break;
-            }
-            Thread.sleep(150L);
-        }
-        assertTrue("No real privileged shell backend became ready: " + state, state.isReady());
-
         String packageName = targetContext.getPackageName();
         String processDump = shellManager.runShellCommandAndGetFullOutput(
                 "dumpsys activity processes");
@@ -103,6 +109,19 @@ public class ProcessDumpParserRuntimeInstrumentationTest {
         } finally {
             instrumentationContext.stopService(serviceIntent);
         }
+    }
+
+    private ShellBackendState awaitReady(long timeoutMs) throws Exception {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        ShellBackendState last = shellManager.getBackendState();
+        while (System.currentTimeMillis() < deadline) {
+            last = shellManager.awaitAnyShellReadyBlocking();
+            if (last == ShellBackendState.SHIZUKU_READY || last == ShellBackendState.ROOT_READY) {
+                return last;
+            }
+            Thread.sleep(150L);
+        }
+        return last;
     }
 
     private static boolean containsProbeServiceRecord(String dump, String packageName) {
