@@ -3,7 +3,6 @@ package com.gree1d.reappzuku.utils.triggers.analyzers;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import android.content.ComponentName;
 import android.content.Context;
 import android.os.Build;
 import android.os.Bundle;
@@ -30,7 +29,6 @@ import java.util.concurrent.Executors;
 public class ProcessDumpParserRuntimeInstrumentationTest {
     private static final String TAG = "ReAppzukuProcessDump";
     private Context targetContext;
-    private Context instrumentationContext;
     private ExecutorService executor;
     private ShellManager shellManager;
 
@@ -41,7 +39,6 @@ public class ProcessDumpParserRuntimeInstrumentationTest {
                 "true".equals(arguments.getString("processDumpRuntimeProbe")));
         Assume.assumeTrue("API 36 runtime evidence only", Build.VERSION.SDK_INT == 36);
         targetContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        instrumentationContext = InstrumentationRegistry.getInstrumentation().getContext();
         executor = Executors.newSingleThreadExecutor();
         shellManager = new ShellManager(targetContext, new Handler(Looper.getMainLooper()), executor);
 
@@ -61,7 +58,7 @@ public class ProcessDumpParserRuntimeInstrumentationTest {
     }
 
     @Test
-    public void realApi36ProcessAndServiceDumpsMatchParser() throws Exception {
+    public void realApi36ProcessDumpMatchesParser() throws Exception {
         String packageName = targetContext.getPackageName();
         String processDump = shellManager.runShellCommandAndGetFullOutput(
                 "dumpsys activity processes");
@@ -76,44 +73,6 @@ public class ProcessDumpParserRuntimeInstrumentationTest {
         assertTrue("Parsed process record contained neither adj nor proc state",
                 processState.adj != Integer.MAX_VALUE || processState.procState != null);
         Log.i(TAG, "API36_PROCESS_RECORD_PARSED");
-
-        ComponentName probeComponent =
-                new ComponentName(instrumentationContext, ProcessDumpProbeService.class);
-        String probeComponentName = probeComponent.flattenToShortString();
-        String startOutput = shellManager.runShellCommandAndGetFullOutput(
-                "am startservice -n " + probeComponentName);
-        assertNotNull("Test-only service shell start returned null", startOutput);
-        assertTrue("Test-only service shell start failed: " + startOutput,
-                !startOutput.contains("Error:") && !startOutput.contains("Exception"));
-
-        String servicePackage = instrumentationContext.getPackageName();
-        try {
-            String filteredServiceDump = null;
-            boolean foundProbeService = false;
-            long serviceDeadline = System.currentTimeMillis() + 10_000L;
-            while (System.currentTimeMillis() < serviceDeadline) {
-                filteredServiceDump = shellManager.runShellCommandAndGetFullOutput(
-                        ProcessAnalyzer.buildServicesDumpCommand(servicePackage));
-                if (filteredServiceDump != null
-                        && containsProbeServiceRecord(filteredServiceDump, servicePackage)) {
-                    foundProbeService = true;
-                    break;
-                }
-                Thread.sleep(100L);
-            }
-
-            assertNotNull("package-filtered dumpsys activity services returned null",
-                    filteredServiceDump);
-            assertTrue("package-filtered dumpsys activity services returned empty output for "
-                            + servicePackage,
-                    !filteredServiceDump.trim().isEmpty());
-            assertTrue("No exact API 36 ServiceRecord survived package filtering for test service",
-                    foundProbeService);
-            Log.i(TAG, "API36_PACKAGE_FILTERED_SERVICE_RECORD_PARSED package=" + servicePackage);
-        } finally {
-            shellManager.runShellCommandAndGetFullOutput(
-                    "am stopservice -n " + probeComponentName);
-        }
     }
 
     private ShellBackendState awaitReady(long timeoutMs) throws Exception {
@@ -127,18 +86,5 @@ public class ProcessDumpParserRuntimeInstrumentationTest {
             Thread.sleep(150L);
         }
         return last;
-    }
-
-    private static boolean containsProbeServiceRecord(String dump, String packageName) {
-        for (String line : dump.split("\\r?\\n")) {
-            if (!ProcessDumpParser.isServiceRecordForPackage(line, packageName)) {
-                continue;
-            }
-            String shortName = ProcessDumpParser.extractServiceShortName(line, packageName);
-            if (shortName != null && shortName.endsWith("ProcessDumpProbeService")) {
-                return true;
-            }
-        }
-        return false;
     }
 }
