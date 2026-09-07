@@ -54,7 +54,7 @@ jobs:
           sdkmanager "platform-tools" "emulator" "platforms;android-37" "system-images;android-37;google_apis;x86_64"
           echo no | avdmanager create avd -n reappzuku-target37 -k "system-images;android-37;google_apis;x86_64" --force
           nohup emulator -avd reappzuku-target37 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 3072 >/tmp/emulator-target37.log 2>&1 &
-          adb wait-for-device
+          timeout 90s adb wait-for-device
           booted=false
           for i in $(seq 1 210); do
             if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
@@ -127,11 +127,11 @@ jobs:
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
           export PATH="$SDK_ROOT/platform-tools:$PATH"
-          adb devices -l || true
-          adb shell getprop ro.build.version.release || true
-          adb shell getprop ro.build.version.sdk || true
-          adb shell cmd user get-user-state 0 || true
-          adb shell cmd package list packages android || true
-          adb shell dumpsys package com.gree1d.reappzuku | head -260 || true
-          adb logcat -d | grep -E 'AndroidRuntime|FATAL EXCEPTION|PackageManager|ReAppzuku' | tail -800 || true
+          timeout 5s adb devices -l || true
+          timeout 5s adb shell getprop ro.build.version.release || true
+          timeout 5s adb shell getprop ro.build.version.sdk || true
+          timeout 5s adb shell cmd user get-user-state 0 || true
+          timeout 5s adb shell cmd package list packages android || true
+          timeout 5s adb shell dumpsys package com.gree1d.reappzuku | head -260 || true
+          timeout 10s adb logcat -d | grep -E 'AndroidRuntime|FATAL EXCEPTION|PackageManager|ReAppzuku' | tail -800 || true
           tail -300 /tmp/emulator-target37.log || true
