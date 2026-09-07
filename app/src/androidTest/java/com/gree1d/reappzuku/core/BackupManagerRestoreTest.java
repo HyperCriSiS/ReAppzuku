@@ -17,6 +17,7 @@ import com.gree1d.reappzuku.utils.PresetModel;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.json.JSONObject;
 import org.junit.Before;
@@ -63,7 +64,7 @@ public class BackupManagerRestoreTest {
     public void futureBackupVersionIsRejectedWithoutChangingState() throws Exception {
         assertTrue(prefs.edit().putBoolean(KEY_EXIT_ON_BACK, false).commit());
         JSONObject backup = new JSONObject()
-                .put(BACKUP_VERSION, 6)
+                .put(BACKUP_VERSION, BackupCodec.CURRENT_VERSION + 1)
                 .put(KEY_EXIT_ON_BACK, true);
 
         BackupManager manager = new BackupManager(context);
@@ -176,6 +177,91 @@ public class BackupManagerRestoreTest {
                 PresetManager.KEY_BACKUP_PREFIX + PreferenceKeys.KEY_AUTO_KILL_ENABLED,
                 true));
         assertEquals("imported-active", presetManager.loadPreset(PresetModel.PRESET_1).name);
+    }
+
+    @Test
+    public void manualRestrictionDetailsRoundTripAndReplaceStaleValues() throws Exception {
+        String packageName = "com.example.manual";
+        String stalePackage = "com.example.stale";
+        assertTrue(prefs.edit()
+                .putStringSet(PreferenceKeys.KEY_MANUAL_RESTRICTION_APPS, Set.of(packageName))
+                .putInt(PreferenceKeys.KEY_MANUAL_OPS_PREFIX + packageName, 0x401)
+                .putInt(PreferenceKeys.KEY_MANUAL_BUCKET_PREFIX + packageName, 45)
+                .putBoolean(PreferenceKeys.KEY_MANUAL_WHITELIST_REMOVAL_PREFIX + packageName, true)
+                .commit());
+
+        BackupManager manager = new BackupManager(context);
+        String encoded = manager.createBackupJson();
+        assertTrue(encoded != null);
+        JSONObject root = new JSONObject(encoded);
+        assertEquals(BackupCodec.CURRENT_VERSION, root.getInt(BACKUP_VERSION));
+        assertEquals(0x401, root.getJSONObject("manual_ops_masks").getInt(packageName));
+        assertEquals(45, root.getJSONObject("manual_buckets").getInt(packageName));
+        assertTrue(root.getJSONObject("manual_whitelist_removals").getBoolean(packageName));
+
+        assertTrue(prefs.edit()
+                .putStringSet(PreferenceKeys.KEY_MANUAL_RESTRICTION_APPS, Set.of(stalePackage))
+                .putInt(PreferenceKeys.KEY_MANUAL_OPS_PREFIX + packageName, 0x01)
+                .putInt(PreferenceKeys.KEY_MANUAL_BUCKET_PREFIX + packageName, 40)
+                .putBoolean(PreferenceKeys.KEY_MANUAL_WHITELIST_REMOVAL_PREFIX + packageName, false)
+                .putInt(PreferenceKeys.KEY_MANUAL_OPS_PREFIX + stalePackage, 0x02)
+                .putInt(PreferenceKeys.KEY_MANUAL_BUCKET_PREFIX + stalePackage, 45)
+                .putBoolean(PreferenceKeys.KEY_MANUAL_WHITELIST_REMOVAL_PREFIX + stalePackage, true)
+                .commit());
+
+        assertTrue(manager.restoreBackupJson(encoded));
+        assertEquals(Set.of(packageName),
+                prefs.getStringSet(PreferenceKeys.KEY_MANUAL_RESTRICTION_APPS, Set.of()));
+        assertEquals(0x401, prefs.getInt(PreferenceKeys.KEY_MANUAL_OPS_PREFIX + packageName, -1));
+        assertEquals(45, prefs.getInt(PreferenceKeys.KEY_MANUAL_BUCKET_PREFIX + packageName, -1));
+        assertTrue(prefs.getBoolean(PreferenceKeys.KEY_MANUAL_WHITELIST_REMOVAL_PREFIX + packageName, false));
+        assertFalse(prefs.contains(PreferenceKeys.KEY_MANUAL_OPS_PREFIX + stalePackage));
+        assertFalse(prefs.contains(PreferenceKeys.KEY_MANUAL_BUCKET_PREFIX + stalePackage));
+        assertFalse(prefs.contains(PreferenceKeys.KEY_MANUAL_WHITELIST_REMOVAL_PREFIX + stalePackage));
+    }
+
+    @Test
+    public void invalidManualBucketIsRejectedBeforeDurableRestoreWrite() throws Exception {
+        String packageName = "com.example.manual";
+        String bucketKey = PreferenceKeys.KEY_MANUAL_BUCKET_PREFIX + packageName;
+        assertTrue(prefs.edit()
+                .putBoolean(KEY_EXIT_ON_BACK, false)
+                .putInt(bucketKey, 40)
+                .commit());
+
+        JSONObject backup = new JSONObject()
+                .put(BACKUP_VERSION, BackupCodec.CURRENT_VERSION)
+                .put(KEY_EXIT_ON_BACK, true)
+                .put(PreferenceKeys.KEY_MANUAL_RESTRICTION_APPS, new org.json.JSONArray().put(packageName))
+                .put("manual_ops_masks", new JSONObject().put(packageName, 0x01))
+                .put("manual_buckets", new JSONObject().put(packageName, 10))
+                .put("manual_whitelist_removals", new JSONObject().put(packageName, false));
+
+        BackupManager manager = new BackupManager(context);
+        assertFalse(manager.restoreBackupJson(backup.toString()));
+        assertFalse(prefs.getBoolean(KEY_EXIT_ON_BACK, true));
+        assertEquals(40, prefs.getInt(bucketKey, -1));
+    }
+
+    @Test
+    public void versionFiveManualRestoreClearsDetailsThatWereNotPortableYet() throws Exception {
+        String packageName = "com.example.manual";
+        assertTrue(prefs.edit()
+                .putInt(PreferenceKeys.KEY_MANUAL_BUCKET_PREFIX + packageName, 45)
+                .putBoolean(PreferenceKeys.KEY_MANUAL_WHITELIST_REMOVAL_PREFIX + packageName, true)
+                .commit());
+
+        JSONObject backup = new JSONObject()
+                .put(BACKUP_VERSION, 5)
+                .put(PreferenceKeys.KEY_MANUAL_RESTRICTION_APPS, new org.json.JSONArray().put(packageName))
+                .put("manual_ops_masks", new JSONObject().put(packageName, 0x01));
+
+        BackupManager manager = new BackupManager(context);
+        assertTrue(manager.restoreBackupJson(backup.toString()));
+        assertEquals(0, prefs.getInt(PreferenceKeys.KEY_MANUAL_BUCKET_PREFIX + packageName, 0));
+        assertFalse(prefs.getBoolean(PreferenceKeys.KEY_MANUAL_WHITELIST_REMOVAL_PREFIX + packageName, false));
+        assertFalse(prefs.contains(PreferenceKeys.KEY_MANUAL_BUCKET_PREFIX + packageName));
+        assertFalse(prefs.contains(PreferenceKeys.KEY_MANUAL_WHITELIST_REMOVAL_PREFIX + packageName));
     }
 
     @Test

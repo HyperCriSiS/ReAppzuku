@@ -20,6 +20,8 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 public class BackupManager {
     private static final String TAG = "BackupManager";
     private static final String KEY_MANUAL_OPS_MASKS = "manual_ops_masks";
+    private static final String KEY_MANUAL_BUCKETS = "manual_buckets";
+    private static final String KEY_MANUAL_WHITELIST_REMOVALS = "manual_whitelist_removals";
     private static final String KEY_PRESETS = "presets";
     private static final String KEY_PRESET_PREFIX = "preset_";
 
@@ -82,8 +84,8 @@ public class BackupManager {
             putStringSet(root, KEY_MANUAL_RESTRICTION_APPS);
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: app lists written");
 
-            putManualOpsMasks(root);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: manual ops masks written");
+            putManualRestrictionDetails(root);
+            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: manual restriction details written");
 
             putStringSet(root, KEY_SLEEP_MODE_APPS);
             putStringSet(root, KEY_SLEEP_MODE_APPS_PERMANENT);
@@ -198,7 +200,7 @@ public class BackupManager {
             restoreSet(editor, root, KEY_AUTOSTART_DISABLED_APPS);
             restoreSet(editor, root, KEY_HARD_RESTRICTION_APPS);
             restoreSet(editor, root, KEY_MANUAL_RESTRICTION_APPS);
-            restoreManualOpsMasks(editor, root);
+            restoreManualRestrictionDetails(editor, root, decoded.version);
             restoreSet(editor, root, KEY_SLEEP_MODE_APPS);
             restoreSet(editor, root, KEY_SLEEP_MODE_APPS_PERMANENT);
             restoreSet(editor, root, KEY_MEDIUM_RESTRICTION_APPS);
@@ -306,37 +308,160 @@ public class BackupManager {
         AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: putStringSet: " + key + " -> " + set.size() + " items");
     }
 
-    private void putManualOpsMasks(JSONObject root) throws Exception {
-        Set<String> manualPackages = prefs.getStringSet(KEY_MANUAL_RESTRICTION_APPS, new java.util.HashSet<>());
-        if (manualPackages == null) manualPackages = new java.util.HashSet<>();
+    private void putManualRestrictionDetails(JSONObject root) throws Exception {
+        Set<String> stored = prefs.getStringSet(KEY_MANUAL_RESTRICTION_APPS, new HashSet<>());
+        Set<String> manualPackages = stored == null ? new HashSet<>() : new HashSet<>(stored);
         BackupCollectionPolicy.requirePackageEntryCount(KEY_MANUAL_OPS_MASKS, manualPackages.size());
+
         JSONObject masks = new JSONObject();
+        JSONObject buckets = new JSONObject();
+        JSONObject whitelistRemovals = new JSONObject();
         for (String pkg : manualPackages) {
+            if (!PackageNameValidator.isValid(pkg)) {
+                throw new IllegalArgumentException("Invalid package name in manual restriction preferences");
+            }
             int storedMask = prefs.getInt(KEY_MANUAL_OPS_PREFIX + pkg, 0x01);
             int mask = ManualOpsMaskPolicy.sanitize(storedMask, BackgroundAppManager.ALL_OPS.length);
+            int bucket = ManualRestrictionBackupPolicy.requireBucket(
+                    prefs.getInt(KEY_MANUAL_BUCKET_PREFIX + pkg, ManualRestrictionBackupPolicy.BUCKET_NONE));
+            boolean whitelistRemoval = prefs.getBoolean(KEY_MANUAL_WHITELIST_REMOVAL_PREFIX + pkg, false);
             masks.put(pkg, mask);
+            buckets.put(pkg, bucket);
+            whitelistRemovals.put(pkg, whitelistRemoval);
         }
         root.put(KEY_MANUAL_OPS_MASKS, masks);
-        AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: putManualOpsMasks: " + manualPackages.size() + " packages");
+        root.put(KEY_MANUAL_BUCKETS, buckets);
+        root.put(KEY_MANUAL_WHITELIST_REMOVALS, whitelistRemovals);
+        AppDebugManager.d(Category.BACKUP_RESTORE,
+                "BackupManager: putManualRestrictionDetails: " + manualPackages.size() + " packages");
     }
 
-    private void restoreManualOpsMasks(SharedPreferences.Editor editor, JSONObject root) throws Exception {
-        if (!root.has(KEY_MANUAL_OPS_MASKS)) return;
-        JSONObject masks = root.getJSONObject(KEY_MANUAL_OPS_MASKS);
-        BackupCollectionPolicy.requirePackageEntryCount(KEY_MANUAL_OPS_MASKS, masks.length());
-        java.util.Iterator<String> keys = masks.keys();
-        int count = 0;
-        while (keys.hasNext()) {
-            String pkg = keys.next();
-            if (!PackageNameValidator.isValid(pkg)) {
-                throw new IllegalArgumentException("Invalid package name in manual ops backup");
-            }
-            int mask = masks.getInt(pkg);
-            ManualOpsMaskPolicy.requireKnownBits(mask, BackgroundAppManager.ALL_OPS.length);
-            editor.putInt(KEY_MANUAL_OPS_PREFIX + pkg, mask);
-            count++;
+    private void restoreManualRestrictionDetails(SharedPreferences.Editor editor,
+                                                 JSONObject root,
+                                                 int backupVersion) throws Exception {
+        boolean hasManualApps = root.has(KEY_MANUAL_RESTRICTION_APPS);
+        boolean hasOps = root.has(KEY_MANUAL_OPS_MASKS);
+        boolean hasBuckets = root.has(KEY_MANUAL_BUCKETS);
+        boolean hasWhitelist = root.has(KEY_MANUAL_WHITELIST_REMOVALS);
+        if (!hasManualApps && !hasOps && !hasBuckets && !hasWhitelist) return;
+        if (!hasManualApps) {
+            throw new IllegalArgumentException("Manual restriction detail maps require manual_restriction_apps");
         }
-        AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreManualOpsMasks: " + count + " packages");
+
+        Set<String> manualPackages = readPackageArray(root, KEY_MANUAL_RESTRICTION_APPS);
+        if (backupVersion >= 6 && (!hasOps || !hasBuckets || !hasWhitelist)) {
+            throw new IllegalArgumentException("Backup v6 requires all manual restriction detail maps");
+        }
+
+        JSONObject masks = hasOps
+                ? requireExactManualDetailMap(root, KEY_MANUAL_OPS_MASKS, manualPackages)
+                : null;
+        JSONObject buckets = hasBuckets
+                ? requireExactManualDetailMap(root, KEY_MANUAL_BUCKETS, manualPackages)
+                : null;
+        JSONObject whitelistRemovals = hasWhitelist
+                ? requireExactManualDetailMap(root, KEY_MANUAL_WHITELIST_REMOVALS, manualPackages)
+                : null;
+
+        // Validate every imported value before mutating the pending editor transaction.
+        if (masks != null) {
+            for (String pkg : manualPackages) {
+                ManualOpsMaskPolicy.requireKnownBits(
+                        requireJsonInt(masks, pkg), BackgroundAppManager.ALL_OPS.length);
+            }
+        }
+        if (buckets != null) {
+            for (String pkg : manualPackages) {
+                ManualRestrictionBackupPolicy.requireBucket(requireJsonInt(buckets, pkg));
+            }
+        }
+        if (whitelistRemovals != null) {
+            for (String pkg : manualPackages) {
+                requireJsonBoolean(whitelistRemovals, pkg);
+            }
+        }
+
+        // Snapshot semantics: once a manual-app section is present, all old per-package details
+        // are replaced. V5/legacy backups lacked bucket/whitelist maps, so their defaults are
+        // restored instead of leaking device-local stale values into the imported state.
+        clearPreferencePrefix(editor, KEY_MANUAL_OPS_PREFIX);
+        clearPreferencePrefix(editor, KEY_MANUAL_BUCKET_PREFIX);
+        clearPreferencePrefix(editor, KEY_MANUAL_WHITELIST_REMOVAL_PREFIX);
+
+        for (String pkg : manualPackages) {
+            if (masks != null) {
+                editor.putInt(KEY_MANUAL_OPS_PREFIX + pkg, requireJsonInt(masks, pkg));
+            }
+            if (buckets != null) {
+                editor.putInt(KEY_MANUAL_BUCKET_PREFIX + pkg, requireJsonInt(buckets, pkg));
+            }
+            if (whitelistRemovals != null) {
+                editor.putBoolean(KEY_MANUAL_WHITELIST_REMOVAL_PREFIX + pkg,
+                        requireJsonBoolean(whitelistRemovals, pkg));
+            }
+        }
+        AppDebugManager.d(Category.BACKUP_RESTORE,
+                "BackupManager: restoreManualRestrictionDetails: " + manualPackages.size() + " packages");
+    }
+
+    private Set<String> readPackageArray(JSONObject root, String key) throws Exception {
+        JSONArray array = root.getJSONArray(key);
+        BackupCollectionPolicy.requirePackageEntryCount(key, array.length());
+        Set<String> result = new HashSet<>();
+        for (int i = 0; i < array.length(); i++) {
+            String packageName = array.getString(i);
+            if (!PackageNameValidator.isValid(packageName) || !result.add(packageName)) {
+                throw new IllegalArgumentException("Invalid or duplicate package name in backup: " + key);
+            }
+        }
+        return result;
+    }
+
+    private JSONObject requireExactManualDetailMap(JSONObject root,
+                                                   String key,
+                                                   Set<String> manualPackages) throws Exception {
+        JSONObject map = root.getJSONObject(key);
+        BackupCollectionPolicy.requirePackageEntryCount(key, map.length());
+        Set<String> keys = new HashSet<>();
+        java.util.Iterator<String> iterator = map.keys();
+        while (iterator.hasNext()) {
+            String pkg = iterator.next();
+            if (!PackageNameValidator.isValid(pkg) || !keys.add(pkg)) {
+                throw new IllegalArgumentException("Invalid package name in manual restriction map: " + key);
+            }
+        }
+        if (!keys.equals(manualPackages)) {
+            throw new IllegalArgumentException("Manual restriction map does not match manual app set: " + key);
+        }
+        return map;
+    }
+
+    private int requireJsonInt(JSONObject object, String key) throws Exception {
+        Object raw = object.get(key);
+        if (!(raw instanceof Number)) {
+            throw new IllegalArgumentException("Expected integer for " + key);
+        }
+        Number number = (Number) raw;
+        long value = number.longValue();
+        if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE
+                || number.doubleValue() != (double) value) {
+            throw new IllegalArgumentException("Integer out of range for " + key);
+        }
+        return (int) value;
+    }
+
+    private boolean requireJsonBoolean(JSONObject object, String key) throws Exception {
+        Object raw = object.get(key);
+        if (!(raw instanceof Boolean)) {
+            throw new IllegalArgumentException("Expected boolean for " + key);
+        }
+        return (Boolean) raw;
+    }
+
+    private void clearPreferencePrefix(SharedPreferences.Editor editor, String prefix) {
+        for (String key : prefs.getAll().keySet()) {
+            if (key.startsWith(prefix)) editor.remove(key);
+        }
     }
 
     private void putPresets(JSONObject root) throws Exception {
