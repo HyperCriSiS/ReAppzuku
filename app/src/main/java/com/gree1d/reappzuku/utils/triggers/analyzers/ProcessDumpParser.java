@@ -89,13 +89,18 @@ final class ProcessDumpParser {
         return matcher.find() ? matcher.group(1) : null;
     }
 
-    static boolean isServiceRecordForPackage(String line, String packageName) {
+    static String extractServiceRecordPackage(String line) {
         String component = extractServiceComponent(line);
-        if (component == null || packageName == null) {
-            return false;
+        if (component == null) {
+            return null;
         }
         int slash = component.indexOf('/');
-        return slash > 0 && packageName.equals(component.substring(0, slash));
+        return slash > 0 ? component.substring(0, slash) : null;
+    }
+
+    static boolean isServiceRecordForPackage(String line, String packageName) {
+        String parsedPackage = extractServiceRecordPackage(line);
+        return parsedPackage != null && packageName != null && packageName.equals(parsedPackage);
     }
 
     static boolean isServiceRecordLine(String line) {

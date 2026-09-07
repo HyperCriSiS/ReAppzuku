@@ -84,4 +84,13 @@ public class ProcessDumpParserTest {
         assertFalse(ProcessDumpParser.isServiceRecordForPackage(neighbor, "com.example.app"));
         assertTrue(ProcessDumpParser.isServiceRecordLine(neighbor));
     }
+
+    @Test
+    public void extractsExactServiceRecordPackage() {
+        String line = "* ServiceRecord{abc u0 com.example.app/.SyncService}";
+        assertEquals("com.example.app", ProcessDumpParser.extractServiceRecordPackage(line));
+        assertTrue(ProcessDumpParser.isServiceRecordForPackage(line, "com.example.app"));
+        assertFalse(ProcessDumpParser.isServiceRecordForPackage(line, "com.example"));
+        assertNull(ProcessDumpParser.extractServiceRecordPackage("not a service record"));
+    }
 }

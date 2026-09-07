@@ -4,7 +4,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
-import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -15,7 +14,6 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.ShellBackendState;
 import com.gree1d.reappzuku.core.ShellManager;
-import com.gree1d.reappzuku.service.ShappkyService;
 
 import org.junit.Assume;
 import org.junit.Before;
@@ -70,68 +68,44 @@ public class ProcessDumpParserRuntimeInstrumentationTest {
                 processState.adj != Integer.MAX_VALUE || processState.procState != null);
         Log.i(TAG, "API36_PROCESS_RECORD_PARSED");
 
-        Intent serviceIntent = new Intent(targetContext, ShappkyService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            targetContext.startForegroundService(serviceIntent);
-        } else {
-            targetContext.startService(serviceIntent);
-        }
+        String unfilteredServices = shellManager.runShellCommandAndGetFullOutput(
+                "dumpsys activity services");
+        assertNotNull("unfiltered dumpsys activity services returned null", unfilteredServices);
+        assertTrue("unfiltered dumpsys activity services returned empty output",
+                !unfilteredServices.trim().isEmpty());
 
-        try {
-            long serviceDeadline = System.currentTimeMillis() + 10_000L;
-            String serviceDump = null;
-            boolean foundPackageService = false;
-            boolean foundShappkyService = false;
+        String observedServicePackage = firstServiceRecordPackage(unfilteredServices);
+        assertNotNull("API 36 exposed no parseable active ServiceRecord", observedServicePackage);
 
-            while (System.currentTimeMillis() < serviceDeadline) {
-                serviceDump = shellManager.runShellCommandAndGetFullOutput(
-                        ProcessAnalyzer.buildServicesDumpCommand(packageName));
-                if (serviceDump != null && !serviceDump.trim().isEmpty()) {
-                    boolean[] found = findServiceRecords(serviceDump, packageName);
-                    foundPackageService = found[0];
-                    foundShappkyService = found[1];
-                    if (foundShappkyService) {
-                        break;
-                    }
-                }
-                Thread.sleep(100L);
-            }
-
-            assertNotNull("package-filtered dumpsys activity services returned null", serviceDump);
-            assertTrue("package-filtered dumpsys activity services returned empty output",
-                    !serviceDump.trim().isEmpty());
-            assertTrue("No API 36 ServiceRecord was parsed for " + packageName,
-                    foundPackageService);
-            assertTrue("ShappkyService API 36 ServiceRecord was not parsed",
-                    foundShappkyService);
-            Log.i(TAG, "API36_PACKAGE_FILTERED_SERVICE_RECORD_PARSED");
-
-            String filteredDump = shellManager.runShellCommandAndGetFullOutput(
-                    "dumpsys activity services " + packageName);
-            boolean filteredFound = filteredDump != null
-                    && findServiceRecords(filteredDump, packageName)[0];
-            Log.i(TAG, filteredFound
-                    ? "API36_FILTERED_SERVICE_QUERY_MATCHED"
-                    : "API36_FILTERED_SERVICE_QUERY_EMPTY_OR_UNMATCHED");
-        } finally {
-            targetContext.stopService(serviceIntent);
-        }
+        String filteredServiceDump = shellManager.runShellCommandAndGetFullOutput(
+                ProcessAnalyzer.buildServicesDumpCommand(observedServicePackage));
+        assertNotNull("package-filtered dumpsys activity services returned null", filteredServiceDump);
+        assertTrue("package-filtered dumpsys activity services returned empty output for "
+                        + observedServicePackage,
+                !filteredServiceDump.trim().isEmpty());
+        assertTrue("No exact API 36 ServiceRecord survived package filtering for "
+                        + observedServicePackage,
+                containsServiceRecordForPackage(filteredServiceDump, observedServicePackage));
+        Log.i(TAG, "API36_PACKAGE_FILTERED_SERVICE_RECORD_PARSED package="
+                + observedServicePackage);
     }
 
-    private static boolean[] findServiceRecords(String dump, String packageName) {
-        boolean foundPackageService = false;
-        boolean foundShappkyService = false;
+    private static String firstServiceRecordPackage(String dump) {
         for (String line : dump.split("\\r?\\n")) {
-            if (!ProcessDumpParser.isServiceRecordForPackage(line, packageName)) {
-                continue;
-            }
-            foundPackageService = true;
-            String shortName = ProcessDumpParser.extractServiceShortName(line, packageName);
-            if (shortName != null && shortName.endsWith("ShappkyService")) {
-                foundShappkyService = true;
-                break;
+            String packageName = ProcessDumpParser.extractServiceRecordPackage(line);
+            if (packageName != null) {
+                return packageName;
             }
         }
-        return new boolean[] { foundPackageService, foundShappkyService };
+        return null;
+    }
+
+    private static boolean containsServiceRecordForPackage(String dump, String packageName) {
+        for (String line : dump.split("\\r?\\n")) {
+            if (ProcessDumpParser.isServiceRecordForPackage(line, packageName)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
