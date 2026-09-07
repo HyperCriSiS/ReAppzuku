@@ -222,13 +222,13 @@ public class ShappkyService extends Service {
                 .setContentIntent(getOpenAppPendingIntent())
                 .build();
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(NOTIFICATION_ID_SERVICE, notification,
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
             AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": startForeground called (FOREGROUND_SERVICE_TYPE_SPECIAL_USE, API " + Build.VERSION.SDK_INT + ")");
         } else {
             startForeground(NOTIFICATION_ID_SERVICE, notification);
-            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": startForeground called (legacy, API " + Build.VERSION.SDK_INT + ")");
+            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": startForeground called (default type, API " + Build.VERSION.SDK_INT + ")");
         }
         isRunning = true;
         AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": Service is now running (isRunning=true)");
@@ -692,15 +692,11 @@ public class ShappkyService extends Service {
         long delayMs = prefs.getLong(KEY_SLEEP_MODE_DELAY, DEFAULT_SLEEP_MODE_DELAY_MS);
         PendingIntent pendingIntent = getFreezeAlarmIntent();
         long triggerAt = System.currentTimeMillis() + delayMs;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (canScheduleExactAlarms()) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
-            } else {
-                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
-                AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME + ": scheduleIdleFreezeAlarm: exact alarm not permitted, using inexact");
-            }
+        if (canScheduleExactAlarms()) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
         } else {
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
+            AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME + ": scheduleIdleFreezeAlarm: exact alarm not permitted, using inexact");
         }
         AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": scheduleIdleFreezeAlarm: armed, triggerAt=" + triggerAt);
     }
@@ -731,15 +727,11 @@ public class ShappkyService extends Service {
         }
         PendingIntent pendingIntent = getHeartbeatAlarmIntent();
         long triggerAt = System.currentTimeMillis() + HEARTBEAT_INTERVAL_MS;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (canScheduleExactAlarms()) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
-            } else {
-                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
-                AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME + ": scheduleHeartbeatAlarm: exact alarm not permitted, using inexact");
-            }
+        if (canScheduleExactAlarms()) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
         } else {
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
+            AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME + ": scheduleHeartbeatAlarm: exact alarm not permitted, using inexact");
         }
         AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": scheduleHeartbeatAlarm: armed, triggerAt=" + triggerAt);
     }
@@ -840,15 +832,11 @@ public class ShappkyService extends Service {
         long now = System.currentTimeMillis();
         long triggerAt = now + SNAPSHOT_INTERVAL_MS;
         PendingIntent pi = getSnapshotAlarmIntent();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (canScheduleExactAlarms()) {
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
-            } else {
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
-                AppDebugManager.w(Category.UTILS, FILE_NAME + ": scheduleSnapshotAlarm: exact alarm not permitted, using inexact");
-            }
+        if (canScheduleExactAlarms()) {
+            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
         } else {
-            am.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pi);
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
+            AppDebugManager.w(Category.UTILS, FILE_NAME + ": scheduleSnapshotAlarm: exact alarm not permitted, using inexact");
         }
         AppDebugManager.d(Category.UTILS, FILE_NAME
                 + ": scheduleSnapshotAlarm: armed, triggerAt=" + triggerAt
