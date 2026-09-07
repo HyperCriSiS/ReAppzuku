@@ -6,7 +6,7 @@ import org.json.JSONObject;
 /** Bounded/versioned JSON envelope for ReAppzuku configuration backups. */
 public final class BackupCodec {
     static final String KEY_BACKUP_VERSION = "backup_version";
-    public static final int CURRENT_VERSION = 5;
+    public static final int CURRENT_VERSION = 6;
     public static final int MAX_BACKUP_CHARS = 2 * 1024 * 1024;
 
     public enum DecodeFailure {
