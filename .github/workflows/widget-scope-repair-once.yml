@@ -15,12 +15,12 @@ jobs:
         with:
           ref: ondemand-shizuku
           fetch-depth: 2
-      - name: Restore current widget and apply only scope hardening
+      - name: Restore parent widget and apply only scope hardening
         shell: bash
         run: |
           test "$(git rev-parse HEAD)" = "52633babc1b85e28e46061099b4e3c503c18d7ea"
           path='app/src/main/java/com/gree1d/reappzuku/utils/AppzukuWidget.kt'
-          git checkout 677cd2acfe2d96a16ed74a1b42840a9138aff608 -- "$path"
+          git checkout HEAD^ -- "$path"
           python3 - <<'PY'
           from pathlib import Path
           p = Path('app/src/main/java/com/gree1d/reappzuku/utils/AppzukuWidget.kt')
