@@ -29,6 +29,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
+import com.gree1d.reappzuku.core.ReleaseAssetPolicy;
 import com.gree1d.reappzuku.core.ReleaseVersion;
 import com.gree1d.reappzuku.service.UpdateCheckWorker;
 import static com.gree1d.reappzuku.core.AppConstants.*;
@@ -159,8 +160,10 @@ public class UpdateChecker {
                         JSONObject asset = assets.optJSONObject(i);
                         if (asset == null) continue;
                         String name = asset.optString("name", "");
-                        if (name.endsWith(".apk")) {
-                            downloadUrl = asset.optString("browser_download_url", htmlUrl);
+                        String browserDownloadUrl = asset.optString("browser_download_url", "");
+                        if (ReleaseAssetPolicy.isTrustedApkAsset(
+                                rawTag, name, browserDownloadUrl)) {
+                            downloadUrl = browserDownloadUrl;
                             break;
                         }
                     }
