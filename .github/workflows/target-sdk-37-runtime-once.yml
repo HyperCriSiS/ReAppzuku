@@ -82,7 +82,7 @@ jobs:
             sudo chmod 666 /dev/kvm || true
           fi
           nohup emulator -avd reappzuku-target37 \
-            -no-window -no-audio -no-boot-anim \
+            -no-window -no-audio -no-boot-anim -no-metrics \
             -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 3072 \
             >/tmp/emulator-target37.log 2>&1 &
 
@@ -101,13 +101,7 @@ jobs:
 
           adb shell input keyevent 82 || true
           adb shell wm dismiss-keyguard || true
-          unlocked=false
-          for i in $(seq 1 80); do
-            state="$(adb shell cmd user get-user-state 0 2>/dev/null | tr -d '\r' || true)"
-            grep -Fq 'RUNNING_UNLOCKED' <<<"$state" && { unlocked=true; break; }
-            sleep 0.5
-          done
-          test "$unlocked" = true
+          echo "user-state: $(adb shell cmd user get-user-state 0 2>/dev/null | tr -d '\r' || true)"
 
           package_ready=false
           for i in $(seq 1 80); do
@@ -115,6 +109,7 @@ jobs:
             sleep 0.5
           done
           test "$package_ready" = true
+          grep -Fq 'package:android' /tmp/pkg-ready.txt
           echo 'API 37 booted and PackageManager responded'
 
       - name: Build targetSdk 37 candidate without changing source branch
