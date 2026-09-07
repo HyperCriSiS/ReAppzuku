@@ -23,53 +23,37 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Build targetSdk 37 candidate without changing source branch
-        shell: bash
-        run: |
-          set -euo pipefail
-          chmod +x gradlew
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('app/build.gradle')
-          text = path.read_text()
-          old = 'targetSdk = 36'
-          assert text.count(old) == 1
-          path.write_text(text.replace(old, 'targetSdk = 37'))
-          PY
-          grep -F 'compileSdk = 37' app/build.gradle
-          grep -F 'targetSdk = 37' app/build.gradle
-          ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
-          test -s app/build/outputs/apk/debug/app-debug.apk
-          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-          git diff --check
-          git diff -- app/build.gradle
-
       - name: Install modern Android command-line tools
         shell: bash
         run: |
           set -euo pipefail
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
           CLT_ZIP=/tmp/commandlinetools-linux-15859902_latest.zip
+          CLT_HOME="$SDK_ROOT/cmdline-tools/reappzuku-15859902"
           curl --fail --location --proto '=https' --tlsv1.2 --retry 3 \
             'https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip' \
             -o "$CLT_ZIP"
           echo '4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  /tmp/commandlinetools-linux-15859902_latest.zip' | sha256sum -c -
-          rm -rf /tmp/android-clt
-          mkdir -p /tmp/android-clt
+          rm -rf /tmp/android-clt "$CLT_HOME"
+          mkdir -p /tmp/android-clt "$CLT_HOME"
           unzip -q "$CLT_ZIP" -d /tmp/android-clt
-          /tmp/android-clt/cmdline-tools/bin/sdkmanager --sdk_root="$SDK_ROOT" --version
-          echo '/tmp/android-clt/cmdline-tools/bin' >> "$GITHUB_PATH"
+          cp -a /tmp/android-clt/cmdline-tools/. "$CLT_HOME/"
+          test -x "$CLT_HOME/bin/sdkmanager"
+          test -x "$CLT_HOME/bin/avdmanager"
+          "$CLT_HOME/bin/sdkmanager" --sdk_root="$SDK_ROOT" --version
+          echo "$CLT_HOME/bin" >> "$GITHUB_PATH"
 
       - name: Boot current API 37 emulator
         shell: bash
         run: |
           set -euo pipefail
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          CLT_HOME="$SDK_ROOT/cmdline-tools/reappzuku-15859902"
           export ANDROID_SDK_ROOT="$SDK_ROOT"
           export ANDROID_HOME="$SDK_ROOT"
-          export PATH="/tmp/android-clt/cmdline-tools/bin:$SDK_ROOT/platform-tools:$SDK_ROOT/emulator:$PATH"
-          SDKMANAGER=/tmp/android-clt/cmdline-tools/bin/sdkmanager
-          AVDMANAGER=/tmp/android-clt/cmdline-tools/bin/avdmanager
+          export PATH="$CLT_HOME/bin:$SDK_ROOT/platform-tools:$SDK_ROOT/emulator:$PATH"
+          SDKMANAGER="$CLT_HOME/bin/sdkmanager"
+          AVDMANAGER="$CLT_HOME/bin/avdmanager"
           IMAGE='system-images;android-37.0;google_apis_ps16k;x86_64'
 
           yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null || true
@@ -78,6 +62,7 @@ jobs:
             'emulator' \
             'platforms;android-37.0' \
             "$IMAGE"
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --list_installed | grep -F "$IMAGE"
 
           echo no | "$AVDMANAGER" create avd \
             --name reappzuku-target37 \
@@ -85,9 +70,13 @@ jobs:
             --device pixel_6 \
             --force
 
-          AVD_INI="${ANDROID_AVD_HOME:-$HOME/.android/avd}/reappzuku-target37.ini"
+          AVD_DIR="${ANDROID_AVD_HOME:-$HOME/.android/avd}"
+          AVD_INI="$AVD_DIR/reappzuku-target37.ini"
+          AVD_CONFIG="$AVD_DIR/reappzuku-target37.avd/config.ini"
           test -s "$AVD_INI"
+          test -s "$AVD_CONFIG"
           grep -F 'target=android-37.0' "$AVD_INI"
+          grep -F 'image.sysdir.1=system-images/android-37.0/google_apis_ps16k/x86_64/' "$AVD_CONFIG"
 
           if [ -e /dev/kvm ]; then
             sudo chmod 666 /dev/kvm || true
@@ -127,6 +116,27 @@ jobs:
           done
           test "$package_ready" = true
           echo 'API 37 booted and PackageManager responded'
+
+      - name: Build targetSdk 37 candidate without changing source branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/build.gradle')
+          text = path.read_text()
+          old = 'targetSdk = 36'
+          assert text.count(old) == 1
+          path.write_text(text.replace(old, 'targetSdk = 37'))
+          PY
+          grep -F 'compileSdk = 37' app/build.gradle
+          grep -F 'targetSdk = 37' app/build.gradle
+          ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          git diff --check
+          git diff -- app/build.gradle
 
       - name: Install targetSdk 37 app and instrumentation
         shell: bash
