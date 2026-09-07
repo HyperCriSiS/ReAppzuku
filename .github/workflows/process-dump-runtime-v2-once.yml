@@ -1,0 +1,111 @@
+name: One-time API 36 process dump runtime probe v2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  process-dump-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout product branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ondemand-shizuku
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Build app and guarded instrumentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew assembleDebug assembleDebugAndroidTest
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+
+      - name: Boot stable API 36 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort | tail -1)"
+          AVDMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name avdmanager | sort | tail -1)"
+          ADB="$SDK_ROOT/platform-tools/adb"
+          EMULATOR="$SDK_ROOT/emulator/emulator"
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          export PATH="$SDK_ROOT/platform-tools:$PATH"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          mkdir -p "$ANDROID_AVD_HOME"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "emulator" "system-images;android-36;google_apis;x86_64"
+          echo no | "$AVDMANAGER" create avd --force --name reappzuku-process-dump-v2 --package "system-images;android-36;google_apis;x86_64" --device pixel_6
+          sudo chmod 666 /dev/kvm || true
+          "$ADB" start-server
+          "$EMULATOR" -avd reappzuku-process-dump-v2 -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -gpu swiftshader_indirect -partition-size 4096 >/tmp/emulator.log 2>&1 &
+          adb_ready=false
+          for i in $(seq 1 45); do "$ADB" get-state >/dev/null 2>&1 && { adb_ready=true; break; }; sleep 2; done
+          test "$adb_ready" = true
+          boot_ready=false
+          for i in $(seq 1 90); do [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ] && { boot_ready=true; break; }; sleep 2; done
+          test "$boot_ready" = true
+          test "$("$ADB" shell getprop ro.build.version.sdk | tr -d '\r')" = 36
+          "$ADB" shell locksettings set-disabled true || true
+          "$ADB" shell wm dismiss-keyguard || true
+          "$ADB" shell input keyevent 82 || true
+
+      - name: Install official Shizuku and probe packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 'https://github.com/RikkaApps/Shizuku/releases/download/v13.6.0/shizuku-v13.6.0.r1086.2650830c-release.apk' -o /tmp/shizuku.apk
+          echo '6e273ab0e991c4e79bc8b1bbb9b9dd739ccac1a8712a541a214078886b7b790f  /tmp/shizuku.apk' | sha256sum -c -
+          adb install -r /tmp/shizuku.apk
+          adb install -r -t app/build/outputs/apk/debug/app-debug.apk
+          adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          adb shell pm clear com.gree1d.reappzuku
+          adb shell pm grant com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23
+          adb shell pm grant com.gree1d.reappzuku android.permission.POST_NOTIFICATIONS 2>/dev/null || true
+          SHIZUKU_APK_PATH="$(adb shell pm path moe.shizuku.privileged.api | head -1 | sed 's/^package://' | tr -d '\r')"
+          SHIZUKU_LIB="${SHIZUKU_APK_PATH%/*}/lib/x86_64/libshizuku.so"
+          adb shell test -x "$SHIZUKU_LIB"
+          adb shell "$SHIZUKU_LIB" | tee /tmp/shizuku-start.log
+          for i in $(seq 1 40); do [ -n "$(adb shell pidof shizuku_server 2>/dev/null | tr -d '\r' || true)" ] && break; sleep 0.25; done
+          test -n "$(adb shell pidof shizuku_server | tr -d '\r')"
+
+      - name: Parse real API 36 process and package-filtered service dumps
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$(adb shell am instrument -w \
+            -e processDumpRuntimeProbe true \
+            -e class 'com.gree1d.reappzuku.utils.triggers.analyzers.ProcessDumpParserRuntimeInstrumentationTest#realApi36ProcessAndServiceDumpsMatchParser' \
+            com.gree1d.reappzuku.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"
+          clean="$(printf '%s\n' "$output" | tr -d '\r')"
+          printf '%s\n' "$clean"
+          [[ "$clean" == *'OK (1 test)'* ]]
+          echo 'A04 passed: real API 36 ProcessRecord and package-filtered ServiceRecord parsed through official Shizuku shell'
+
+      - name: Diagnostics on failure
+        if: failure()
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          export PATH="$SDK_ROOT/platform-tools:$PATH"
+          adb shell getprop ro.build.version.sdk || true
+          adb shell ps -A | grep -E 'reappzuku|shizuku' || true
+          adb shell dumpsys activity processes | grep -A12 -B4 'com.gree1d.reappzuku' | head -220 || true
+          adb shell dumpsys activity -p com.gree1d.reappzuku services | head -260 || true
+          adb logcat -d | grep -E 'ReAppzukuProcessDump|ReAppzuku|Shizuku|AndroidRuntime|FATAL EXCEPTION' | tail -700 || true
+          tail -220 /tmp/emulator.log || true
