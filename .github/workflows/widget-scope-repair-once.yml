@@ -1,0 +1,67 @@
+name: One-time widget scope repair
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout product branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ondemand-shizuku
+          fetch-depth: 2
+      - name: Restore current widget and apply only scope hardening
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "52633babc1b85e28e46061099b4e3c503c18d7ea"
+          path='app/src/main/java/com/gree1d/reappzuku/utils/AppzukuWidget.kt'
+          git checkout 677cd2acfe2d96a16ed74a1b42840a9138aff608 -- "$path"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/gree1d/reappzuku/utils/AppzukuWidget.kt')
+          s = p.read_text()
+          old = '''import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.GlobalScope
+          import kotlinx.coroutines.launch'''
+          new = '''import kotlinx.coroutines.CoroutineScope
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.SupervisorJob
+          import kotlinx.coroutines.launch'''
+          if s.count(old) != 1:
+              raise SystemExit('unexpected coroutine imports')
+          s = s.replace(old, new, 1)
+          old = '''    companion object {
+              suspend fun updateAllWidgets(context: Context) {'''
+          new = '''    companion object {
+              // Java callers have no component-owned scope. This explicit scope intentionally lives
+              // for the application process and isolates independent widget refresh failures.
+              private val widgetUpdateScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+              suspend fun updateAllWidgets(context: Context) {'''
+          if s.count(old) != 1:
+              raise SystemExit('unexpected companion layout')
+          s = s.replace(old, new, 1)
+          old = '''            GlobalScope.launch { updateAllWidgets(context) }'''
+          new = '''            val appContext = context.applicationContext
+              widgetUpdateScope.launch { updateAllWidgets(appContext) }'''
+          if s.count(old) != 1:
+              raise SystemExit('unexpected GlobalScope bridge')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = "$path"
+          ! grep -q 'GlobalScope' "$path"
+          grep -q 'class AppzukuWidgetReceiver' "$path"
+          grep -q 'LinearProgressIndicator' "$path"
+          git diff --stat
+          git config user.name HyperCriSiS
+          git config user.email dev.github@w3b.world
+          git add "$path"
+          git commit -m 'Repair widget scope hardening without UI drift'
+          git push origin HEAD:ondemand-shizuku
