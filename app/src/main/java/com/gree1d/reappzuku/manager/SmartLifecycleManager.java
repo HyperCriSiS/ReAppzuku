@@ -204,14 +204,9 @@ public final class SmartLifecycleManager {
             String servicesDump, String wallpaperDump, String devicePolicyDump, String connectivityDump) {
         if (isEnabledAccessibilityService(pkg)) return "accessibility service";
         if (isEnabledNotificationListener(pkg)) return "notification listener";
-        if (PackageTextMatcher.containsExactPackage(widgetDump, pkg)) return "active widget";
-        if (PackageTextMatcher.containsExactPackage(mediaDump, pkg)) return "media session";
-        if (PackageTextMatcher.containsMarkerNearPackage(servicesDump, pkg, "isForeground=true", 1800)
-                || PackageTextMatcher.containsMarkerNearPackage(servicesDump, pkg, "foregroundId=", 1800)) return "foreground service";
-        if (PackageTextMatcher.containsExactPackage(wallpaperDump, pkg)) return "wallpaper";
-        if (PackageTextMatcher.containsExactPackage(devicePolicyDump, pkg)) return "device policy";
-        if (PackageTextMatcher.containsMarkerNearPackage(connectivityDump, pkg, "VPN", 1800)) return "VPN/network service";
-        return null;
+        return SmartLifecycleProtectionPolicy.getDumpProtectionReason(
+                pkg, mediaDump, widgetDump, servicesDump,
+                wallpaperDump, devicePolicyDump, connectivityDump);
     }
 
     private boolean isEnabledAccessibilityService(String pkg) {
