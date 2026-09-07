@@ -40,30 +40,40 @@ public class KillShortcutActivity extends Activity {
 
         Intent launchIntent = getIntent();
         String action = launchIntent != null ? launchIntent.getAction() : null;
+        boolean secureAuthorized = ShortcutAuth.ACTION_RAM_KILL_SECURE.equals(action)
+                && ShortcutAuth.isAuthorized(this, launchIntent);
 
-        if (ShortcutAuth.ACTION_RAM_KILL_SECURE.equals(action)) {
-            if (!ShortcutAuth.isAuthorized(this, launchIntent)) {
-                AppDebugManager.w(Category.SHORTCUTS_WIDGETS, TAG + ": rejected unauthenticated secure shortcut");
+        switch (ShortcutEntryPolicy.decide(action, secureAuthorized)) {
+            case DIRECT_RAM_KILL:
+                proxyRamKill();
+                return;
+            case REJECT:
+                AppDebugManager.w(Category.SHORTCUTS_WIDGETS,
+                        TAG + ": rejected unauthenticated secure shortcut");
                 finish();
                 return;
-            }
-            proxyRamKill();
-            return;
+            case CONFIRM_RAM_KILL:
+                showRamKillConfirmation();
+                return;
+            case CONFIRM_FOREGROUND_KILL:
+            default:
+                showForegroundKillConfirmation();
         }
+    }
 
-        if ("WIDGET_KILL".equals(action)) {
-            // Legacy/static shortcuts cannot carry an install-specific secret. Keep them
-            // functional, but require an explicit user confirmation before privileged work.
-            new AlertDialog.Builder(this)
-                    .setMessage(com.gree1d.reappzuku.R.string.shortcut_ram_kill_confirm_message)
-                    .setNegativeButton(android.R.string.cancel, (dialog, which) -> finish())
-                    .setPositiveButton(com.gree1d.reappzuku.R.string.shortcut_kill_short_label,
-                            (dialog, which) -> proxyRamKill())
-                    .setOnCancelListener(dialog -> finish())
-                    .show();
-            return;
-        }
+    private void showRamKillConfirmation() {
+        // Legacy/static shortcuts cannot carry an install-specific secret. Keep them
+        // functional, but require an explicit user confirmation before privileged work.
+        new AlertDialog.Builder(this)
+                .setMessage(com.gree1d.reappzuku.R.string.shortcut_ram_kill_confirm_message)
+                .setNegativeButton(android.R.string.cancel, (dialog, which) -> finish())
+                .setPositiveButton(com.gree1d.reappzuku.R.string.shortcut_kill_short_label,
+                        (dialog, which) -> proxyRamKill())
+                .setOnCancelListener(dialog -> finish())
+                .show();
+    }
 
+    private void showForegroundKillConfirmation() {
         // Any other explicit launch can only reach a user-confirmed foreground-app action.
         // This prevents the exported Activity from acting as a silent privileged deputy.
         new AlertDialog.Builder(this)
@@ -218,5 +228,6 @@ public class KillShortcutActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        // Shared executors are owned by App and intentionally stay alive.
     }
 }
