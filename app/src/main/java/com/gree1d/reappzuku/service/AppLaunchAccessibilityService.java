@@ -87,14 +87,18 @@ public class AppLaunchAccessibilityService extends AccessibilityService {
 
         SharedPreferences prefs = getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
 
-        if (!prefs.getBoolean(KEY_APP_LAUNCH_TRIGGER_ENABLED, false)) return;
-        if (!prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false)) return;
-
-        Set<String> targetPackages = prefs.getStringSet(KEY_APP_LAUNCH_TRIGGER_PACKAGES, new HashSet<>());
-        if (!targetPackages.contains(packageName)) return;
+        boolean triggerEnabled = prefs.getBoolean(KEY_APP_LAUNCH_TRIGGER_ENABLED, false);
+        boolean autoKillEnabled = prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false);
+        Set<String> targetPackages = prefs.getStringSet(
+                KEY_APP_LAUNCH_TRIGGER_PACKAGES, new HashSet<>());
+        if (!AppLaunchTriggerPolicy.isEligible(
+                triggerEnabled, autoKillEnabled, targetPackages, packageName)) {
+            return;
+        }
 
         long now = System.currentTimeMillis();
-        if (packageName.equals(lastTriggeredPackage) && (now - lastTriggerTime) < MIN_TRIGGER_INTERVAL_MS) {
+        if (AppLaunchTriggerPolicy.isDuplicateWithinInterval(
+                packageName, lastTriggeredPackage, lastTriggerTime, now, MIN_TRIGGER_INTERVAL_MS)) {
             AppDebugManager.d(Category.ADVANCED_CONDITIONS, "AppLaunchAccessibilityService: Skipping repeated trigger for: " + packageName);
             return;
         }
