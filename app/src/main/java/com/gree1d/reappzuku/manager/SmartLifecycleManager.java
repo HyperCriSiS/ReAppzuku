@@ -91,17 +91,17 @@ public final class SmartLifecycleManager {
         }
     }
 
-    public void runPass(boolean bootPass) {
-        if (!prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false)) return;
+    public boolean runPass(boolean bootPass) {
+        if (!prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false)) return true;
         if (!shellManager.resolveAnyShellPermission()) {
             AppDebugManager.w(Category.AUTO_KILL_BASE, TAG + ": no shell permission, skipping pass");
-            return;
+            return false;
         }
 
         Set<String> managed = new HashSet<>(prefs.getStringSet(KEY_BLACKLISTED_APPS, Collections.emptySet()));
         if (managed.isEmpty()) {
             AppDebugManager.d(Category.AUTO_KILL_BASE, TAG + ": blacklist empty, nothing to manage");
-            return;
+            return true;
         }
 
         String currentForeground = getCurrentForegroundPackage();
@@ -119,6 +119,7 @@ public final class SmartLifecycleManager {
         long bootEpoch = prefs.getLong(KEY_SMART_BOOT_EPOCH_MS, 0L);
         long standbyDelay = getStandbyDelayMinutes(prefs) * MINUTE;
         long forceStopDelay = getForceStopDelayMinutes(prefs) * MINUTE;
+        boolean retryRequired = false;
 
         for (String pkg : managed) {
             if (!isEligiblePackage(pkg)) continue;
@@ -150,8 +151,13 @@ public final class SmartLifecycleManager {
                             TAG + ": boot cleanup SKIP " + pkg + " (used since boot)");
                     continue;
                 }
-                forceStop(pkg, "boot cleanup");
-                clearBackgroundState(pkg);
+                SmartLifecycleRecoveryPolicy.ForceStopOutcome outcome =
+                        SmartLifecycleRecoveryPolicy.onForceStopResult(true, forceStop(pkg, "boot cleanup"));
+                if (outcome == SmartLifecycleRecoveryPolicy.ForceStopOutcome.CLEAR_STATE) {
+                    clearBackgroundState(pkg);
+                } else if (outcome == SmartLifecycleRecoveryPolicy.ForceStopOutcome.KEEP_STATE_AND_RETRY) {
+                    retryRequired = true;
+                }
                 continue;
             }
 
@@ -172,10 +178,15 @@ public final class SmartLifecycleManager {
             }
 
             if (idle >= forceStopDelay) {
-                forceStop(pkg, "inactive " + (idle / MINUTE) + " min");
-                clearBackgroundState(pkg);
+                SmartLifecycleRecoveryPolicy.ForceStopOutcome outcome =
+                        SmartLifecycleRecoveryPolicy.onForceStopResult(false,
+                                forceStop(pkg, "inactive " + (idle / MINUTE) + " min"));
+                if (outcome == SmartLifecycleRecoveryPolicy.ForceStopOutcome.CLEAR_STATE) {
+                    clearBackgroundState(pkg);
+                }
             }
         }
+        return !retryRequired;
     }
 
     private boolean isEligiblePackage(String pkg) {
@@ -260,10 +271,11 @@ public final class SmartLifecycleManager {
         return ok;
     }
 
-    private void forceStop(String pkg, String reason) {
+    private boolean forceStop(String pkg, String reason) {
         boolean ok = privilegedShell.forceStopPackageBlocking(pkg);
         AppDebugManager.d(Category.AUTO_KILL_BASE,
                 TAG + ": " + (ok ? "FORCE-STOP " : "FORCE-STOP FAILED ") + pkg + " (" + reason + ")");
+        return ok;
     }
 
     private void clearBackgroundState(String pkg) {
