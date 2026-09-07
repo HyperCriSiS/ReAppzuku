@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application>
-        <!-- Test-only: instrumentation and target APKs use distinct UIDs on the API 36 gate. -->
-        <service
-            android:name="com.gree1d.reappzuku.utils.triggers.analyzers.ProcessDumpProbeService"
-            android:exported="true" />
-    </application>
-</manifest>
