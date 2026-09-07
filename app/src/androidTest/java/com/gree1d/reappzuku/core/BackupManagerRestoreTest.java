@@ -10,6 +10,7 @@ import android.content.SharedPreferences;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.PresetManager;
 import com.gree1d.reappzuku.utils.PresetModel;
 
@@ -175,6 +176,27 @@ public class BackupManagerRestoreTest {
                 PresetManager.KEY_BACKUP_PREFIX + PreferenceKeys.KEY_AUTO_KILL_ENABLED,
                 true));
         assertEquals("imported-active", presetManager.loadPreset(PresetModel.PRESET_1).name);
+    }
+
+    @Test
+    public void unknownManualOpsBitsAreRejectedBeforeDurableRestoreWrite() throws Exception {
+        String packageName = "com.example.manual";
+        String maskKey = PreferenceKeys.KEY_MANUAL_OPS_PREFIX + packageName;
+        assertTrue(prefs.edit()
+                .putBoolean(KEY_EXIT_ON_BACK, false)
+                .putInt(maskKey, 0x01)
+                .commit());
+
+        int unknownBit = 1 << BackgroundAppManager.ALL_OPS.length;
+        JSONObject backup = new JSONObject()
+                .put(KEY_EXIT_ON_BACK, true)
+                .put("manual_ops_masks", new JSONObject().put(packageName, unknownBit));
+
+        BackupManager manager = new BackupManager(context);
+
+        assertFalse(manager.restoreBackupJson(backup.toString()));
+        assertFalse(prefs.getBoolean(KEY_EXIT_ON_BACK, true));
+        assertEquals(0x01, prefs.getInt(maskKey, -1));
     }
 
     @Test
