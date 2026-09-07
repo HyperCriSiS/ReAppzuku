@@ -1,6 +1,7 @@
 package com.gree1d.reappzuku.manager;
 
 import com.gree1d.reappzuku.core.PackageNameValidator;
+import com.gree1d.reappzuku.core.PackageStateSource;
 import com.gree1d.reappzuku.core.PrivilegedShell;
 
 import android.content.Context;
@@ -137,6 +138,7 @@ public class BackgroundAppManager {
     private final ExecutorService executor;
     private final ShellManager shellManager;
     private final PrivilegedShell privilegedShell;
+    private final PackageStateSource packageStateSource;
     private final List<AppModel> currentAppsList = new ArrayList<>();
     private boolean showSystemApps = false;
     private boolean showPersistentApps = false;
@@ -160,6 +162,7 @@ public class BackgroundAppManager {
         this.shellExecutor = shellExecutor;
         this.shellManager = shellManager;
         this.privilegedShell = new PrivilegedShell(shellManager);
+        this.packageStateSource = new PackageStateSource(shellManager);
         this.iconCache = ((App) context.getApplicationContext()).getIconCache();
         this.sharedpreferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
     }
@@ -297,40 +300,23 @@ public class BackgroundAppManager {
             BackgroundRestrictionState backgroundRestrictionState = getBackgroundRestrictionState();
 
             if (shellManager.hasAnyShellPermission()) {
-                String command = "ps -A -o pid,rss,name | grep '\\.'";
                 try {
-                    String fullOutput = runPs(command);
-                    if (fullOutput != null) {
-                        try (BufferedReader reader = new BufferedReader(new StringReader(fullOutput))) {
-                            String line;
-                            while ((line = reader.readLine()) != null) {
-                                String[] parts = line.trim().split("\\s+");
-                                if (parts.length >= 3) {
-                                    String packageName = parts[2].trim();
-                                    if (packageName.contains(":")) {
-                                        packageName = packageName.substring(0, packageName.indexOf(":"));
-                                    }
-                                    if (!packageName.isEmpty() && packageName.contains(".")
-                                            && !packageName.startsWith("ERROR:")) {
-                                        try {
-                                            packageManager.getApplicationInfo(packageName, 0);
-                                            long rss = 0;
-                                            int pid = -1;
-                                            try { rss = Long.parseLong(parts[1].trim()); } catch (NumberFormatException ignored) {}
-                                            try { pid = Integer.parseInt(parts[0].trim()); } catch (NumberFormatException ignored) {}
-                                            long[] existing = psAggregated.get(packageName);
-                                            if (existing == null) {
-                                                psAggregated.put(packageName, new long[]{rss, pid});
-                                            } else {
-                                                existing[0] += rss;
-                                                if (pid != -1 && (existing[1] == -1 || pid < existing[1])) {
-                                                    existing[1] = pid;
-                                                }
-                                            }
-                                        } catch (PackageManager.NameNotFoundException ignored) {
-                                        }
+                    PackageStateSource.Snapshot snapshot = packageStateSource.readRunningProcessesWithRss();
+                    if (snapshot.available) {
+                        for (PackageStateSource.ProcessSample sample : snapshot.samples) {
+                            String packageName = sample.packageName;
+                            try {
+                                packageManager.getApplicationInfo(packageName, 0);
+                                long[] existing = psAggregated.get(packageName);
+                                if (existing == null) {
+                                    psAggregated.put(packageName, new long[]{sample.rssKb, sample.pid});
+                                } else {
+                                    existing[0] += sample.rssKb;
+                                    if (sample.pid < existing[1]) {
+                                        existing[1] = sample.pid;
                                     }
                                 }
+                            } catch (PackageManager.NameNotFoundException ignored) {
                             }
                         }
                     } else {
@@ -420,24 +406,10 @@ public class BackgroundAppManager {
             if (onQuickList != null) {
                 Map<String, Integer> quickPidByPackage = new HashMap<>();
                 try {
-                    String quickOutput = runPs("ps -A -o pid,name | grep '\\.'");
-                    if (quickOutput != null) {
-                        try (BufferedReader reader = new BufferedReader(new StringReader(quickOutput))) {
-                            String line;
-                            while ((line = reader.readLine()) != null) {
-                                String[] parts = line.trim().split("\\s+", 2);
-                                if (parts.length < 2) continue;
-                                String packageName = parts[1].trim();
-                                if (packageName.contains(":")) {
-                                    packageName = packageName.substring(0, packageName.indexOf(":"));
-                                }
-                                if (packageName.isEmpty() || !packageName.contains(".")) continue;
-                                try {
-                                    int pid = Integer.parseInt(parts[0].trim());
-                                    quickPidByPackage.putIfAbsent(packageName, pid);
-                                } catch (NumberFormatException ignored) {
-                                }
-                            }
+                    PackageStateSource.Snapshot snapshot = packageStateSource.readRunningProcesses();
+                    if (snapshot.available) {
+                        for (PackageStateSource.ProcessSample sample : snapshot.samples) {
+                            quickPidByPackage.putIfAbsent(sample.packageName, sample.pid);
                         }
                     }
                 } catch (Exception e) {
@@ -464,28 +436,11 @@ public class BackgroundAppManager {
                 Map<String, List<Integer>> pidsByPackageForMeminfo = new HashMap<>();
                 Map<Integer, Long> psRssByPid = new HashMap<>();
                 try {
-                    String pidListOutput = runPs("ps -A -o pid,rss,name | grep '\\.'");
-                    if (pidListOutput != null) {
-                        try (BufferedReader reader = new BufferedReader(new StringReader(pidListOutput))) {
-                            String line;
-                            while ((line = reader.readLine()) != null) {
-                                String[] parts = line.trim().split("\\s+", 3);
-                                if (parts.length < 3) continue;
-                                String packageName = parts[2].trim();
-                                if (packageName.contains(":")) {
-                                    packageName = packageName.substring(0, packageName.indexOf(":"));
-                                }
-                                if (packageName.isEmpty() || !packageName.contains(".")) continue;
-                                try {
-                                    int pid = Integer.parseInt(parts[0].trim());
-                                    pidsByPackageForMeminfo.computeIfAbsent(packageName, k -> new ArrayList<>()).add(pid);
-                                    try {
-                                        psRssByPid.put(pid, Long.parseLong(parts[1].trim()));
-                                    } catch (NumberFormatException ignored) {
-                                    }
-                                } catch (NumberFormatException ignored) {
-                                }
-                            }
+                    PackageStateSource.Snapshot snapshot = packageStateSource.readRunningProcessesWithRss();
+                    if (snapshot.available) {
+                        for (PackageStateSource.ProcessSample sample : snapshot.samples) {
+                            pidsByPackageForMeminfo.computeIfAbsent(sample.packageName, k -> new ArrayList<>()).add(sample.pid);
+                            psRssByPid.put(sample.pid, sample.rssKb);
                         }
                     }
                 } catch (Exception e) {
@@ -540,40 +495,23 @@ public class BackgroundAppManager {
                 if (psAggregated.isEmpty()) {
                     memorySource = "RSS";
                     AppDebugManager.w(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": loadBackgroundAppsForMainScreen: getProcessMemoryInfo yielded no packages — falling back to ps/rss");
-                    String command = "ps -A -o pid,rss,name | grep '\\.'";
-                    String fullOutput = runPs(command);
-                    if (fullOutput != null) {
-                        try (BufferedReader reader = new BufferedReader(new StringReader(fullOutput))) {
-                            String line;
-                            while ((line = reader.readLine()) != null) {
-                                String[] parts = line.trim().split("\\s+");
-                                if (parts.length >= 3) {
-                                    String packageName = parts[2].trim();
-                                    if (packageName.contains(":")) {
-                                        packageName = packageName.substring(0, packageName.indexOf(":"));
-                                    }
-                                    if (!packageName.isEmpty() && packageName.contains(".")
-                                            && !packageName.startsWith("ERROR:")) {
-                                        try {
-                                            packageManager.getApplicationInfo(packageName, 0);
-                                            long rss = 0;
-                                            int pid = -1;
-                                            try { rss = Long.parseLong(parts[1].trim()); } catch (NumberFormatException ignored) {}
-                                            try { pid = Integer.parseInt(parts[0].trim()); } catch (NumberFormatException ignored) {}
-                                            long[] existing = psAggregated.get(packageName);
-                                            if (existing == null) {
-                                                packageMemorySource.put(packageName, "RSS");
-                                                psAggregated.put(packageName, new long[]{rss, pid});
-                                            } else {
-                                                existing[0] += rss;
-                                                if (pid != -1 && (existing[1] == -1 || pid < existing[1])) {
-                                                    existing[1] = pid;
-                                                }
-                                            }
-                                        } catch (PackageManager.NameNotFoundException ignored) {
-                                        }
+                    PackageStateSource.Snapshot snapshot = packageStateSource.readRunningProcessesWithRss();
+                    if (snapshot.available) {
+                        for (PackageStateSource.ProcessSample sample : snapshot.samples) {
+                            String packageName = sample.packageName;
+                            try {
+                                packageManager.getApplicationInfo(packageName, 0);
+                                long[] existing = psAggregated.get(packageName);
+                                if (existing == null) {
+                                    packageMemorySource.put(packageName, "RSS");
+                                    psAggregated.put(packageName, new long[]{sample.rssKb, sample.pid});
+                                } else {
+                                    existing[0] += sample.rssKb;
+                                    if (sample.pid < existing[1]) {
+                                        existing[1] = sample.pid;
                                     }
                                 }
+                            } catch (PackageManager.NameNotFoundException ignored) {
                             }
                         }
                     } else {
