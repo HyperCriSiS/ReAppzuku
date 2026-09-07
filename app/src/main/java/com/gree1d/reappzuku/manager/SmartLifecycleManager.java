@@ -204,13 +204,13 @@ public final class SmartLifecycleManager {
             String servicesDump, String wallpaperDump, String devicePolicyDump, String connectivityDump) {
         if (isEnabledAccessibilityService(pkg)) return "accessibility service";
         if (isEnabledNotificationListener(pkg)) return "notification listener";
-        if (containsPackage(widgetDump, pkg)) return "active widget";
-        if (containsPackage(mediaDump, pkg)) return "media session";
-        if (containsPackageNear(servicesDump, pkg, "isForeground=true", 1800)
-                || containsPackageNear(servicesDump, pkg, "foregroundId=", 1800)) return "foreground service";
-        if (containsPackage(wallpaperDump, pkg)) return "wallpaper";
-        if (containsPackage(devicePolicyDump, pkg)) return "device policy";
-        if (containsPackage(connectivityDump, pkg) && connectivityDump.contains("VPN")) return "VPN/network service";
+        if (PackageTextMatcher.containsExactPackage(widgetDump, pkg)) return "active widget";
+        if (PackageTextMatcher.containsExactPackage(mediaDump, pkg)) return "media session";
+        if (PackageTextMatcher.containsMarkerNearPackage(servicesDump, pkg, "isForeground=true", 1800)
+                || PackageTextMatcher.containsMarkerNearPackage(servicesDump, pkg, "foregroundId=", 1800)) return "foreground service";
+        if (PackageTextMatcher.containsExactPackage(wallpaperDump, pkg)) return "wallpaper";
+        if (PackageTextMatcher.containsExactPackage(devicePolicyDump, pkg)) return "device policy";
+        if (PackageTextMatcher.containsMarkerNearPackage(connectivityDump, pkg, "VPN", 1800)) return "VPN/network service";
         return null;
     }
 
@@ -290,19 +290,4 @@ public final class SmartLifecycleManager {
         return output == null ? "" : output;
     }
 
-    private static boolean containsPackage(String text, String pkg) {
-        return text != null && !text.isEmpty() && text.contains(pkg);
-    }
-
-    private static boolean containsPackageNear(String text, String pkg, String marker, int radius) {
-        if (text == null || text.isEmpty()) return false;
-        int index = text.indexOf(pkg);
-        while (index >= 0) {
-            int start = Math.max(0, index - radius);
-            int end = Math.min(text.length(), index + pkg.length() + radius);
-            if (text.substring(start, end).contains(marker)) return true;
-            index = text.indexOf(pkg, index + pkg.length());
-        }
-        return false;
-    }
 }
