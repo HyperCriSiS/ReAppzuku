@@ -20,14 +20,14 @@ public final class ExactAlarmCapability {
     public static boolean scheduleExactOrBestEffort(Context context, AlarmManager am, int type,
             long triggerAtMillis, PendingIntent operation, boolean allowWhileIdle) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !am.canScheduleExactAlarms()) {
-            if (allowWhileIdle && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (allowWhileIdle) {
                 am.setAndAllowWhileIdle(type, triggerAtMillis, operation);
             } else {
                 am.set(type, triggerAtMillis, operation);
             }
             return false;
         }
-        if (allowWhileIdle && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (allowWhileIdle) {
             am.setExactAndAllowWhileIdle(type, triggerAtMillis, operation);
         } else {
             am.setExact(type, triggerAtMillis, operation);

@@ -3,7 +3,6 @@ package com.gree1d.reappzuku.ui;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.LayoutInflater;
@@ -914,8 +913,7 @@ public class LogDetailActivity extends BaseActivity {
     // ---------- Shared helpers ----------
 
     private boolean isFinishingOrDestroyed() {
-        return isFinishing() ||
-                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed());
+        return isFinishing() || isDestroyed();
     }
 
     private void openAppInfo(String packageName) {
