@@ -19,6 +19,7 @@ import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.manager.SmartLifecycleManager;
+import com.gree1d.reappzuku.manager.SmartLifecycleRecoveryPolicy;
 
 import java.util.concurrent.TimeUnit;
 
@@ -88,7 +89,12 @@ public class SmartLifecycleWorker extends Worker {
                 return bootPass ? Result.retry() : Result.success();
             }
             SmartLifecycleManager manager = new SmartLifecycleManager(context, shellManager);
-            manager.runPass(bootPass);
+            boolean passCompleted = manager.runPass(bootPass);
+            if (SmartLifecycleRecoveryPolicy.shouldRetryWorker(bootPass, passCompleted)) {
+                AppDebugManager.w(Category.AUTO_KILL_BASE,
+                        "SmartLifecycleWorker: boot cleanup had force-stop failures, retrying");
+                return Result.retry();
+            }
             return Result.success();
         } catch (Throwable t) {
             AppDebugManager.e(Category.AUTO_KILL_BASE, "SmartLifecycleWorker: pass failed", t);
