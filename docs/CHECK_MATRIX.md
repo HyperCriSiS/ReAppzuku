@@ -33,15 +33,15 @@ Only **PROVEN** is fully closed.
 | A07 | Smart Lifecycle | DECIDED | Recovery policy, boot-cleanup retry, failed-force-stop state preservation, exact package matching, dump protection and foreground/process parsing now have focused tests; API-36 repeated boot reconciliation is also proven. Physical/OEM process-output and false-positive diversity remain open. |
 | A08 | Sleep / freeze lifecycle | DECIDED | Source/state coverage is backed by API-36 run `34075290320`, which proves real owned freeze, durable ownership across external app process death, and owned thaw/cleanup after wake/restart. Physical/OEM/Doze diversity remains open. |
 | A09 | Presets / Restrictions Scheduler / exact alarms | DECIDED | Exact-alarm denial fallback, repeated boot WorkManager reconciliation and real API-36 OS reboot with scheduler/preset alarm reconstruction pass; physical/OEM variation remains release-diversity evidence. |
-| A10 | Accessibility / app-launch tracking | DECIDED | Service configuration and unnecessary view-tree scope were corrected; `AppLaunchTriggerPolicy` now JVM-tests exact target eligibility and 5-second duplicate suppression (`34153818522`). Android accessibility runtime evidence remains pending. |
+| A10 | Accessibility / app-launch tracking | DECIDED | Service configuration and unnecessary view-tree scope were corrected; `AppLaunchTriggerPolicy` JVM-tests exact target eligibility/5-second duplicate suppression (`34153818522`), and `AccessibilityServicePolicyTest` locks the minimal `TYPE_WINDOW_STATE_CHANGED`-only service contract (`34156391150`). Android accessibility runtime evidence remains pending. |
 | A11 | Boot / process death / restart / recovery | DECIDED | Real API-36 OS reboot recovery, Shizuku daemon death/rebind, AutoKill desired-state recovery and Sleep owned-freeze recovery across external process death all pass; physical/OEM diversity remains release evidence rather than an implementation P0. |
 | A12 | Settings / App Behavior / compatibility interlocks | DECIDED | Central `BackgroundWorkPolicy` owns compatibility; run `34057507889` exhaustively proves all 32 continuity-blocker masks against all requested Exit-on-Back / prevent-Shizuku-autostart combinations. Runtime UI diversity remains separate. |
-| A13 | Backup / restore | DECIDED | API-36 instrumentation passes transactional rollback fault injection, legacy/future/malformed bounds and active-preset reconciliation, and `34000092714` passes a real MediaStore `content://` export/import/restore round-trip; physical/OEM provider UI remains release-diversity evidence. |
+| A13 | Backup / restore | DECIDED | API-36 instrumentation passes transactional rollback fault injection, legacy/future/malformed bounds and active-preset reconciliation, while package collections are capped, preset times/package lists are validated and standalone preset reads reuse the bounded backup reader. `34000092714` passes a real MediaStore `content://` round-trip; physical/OEM provider UI remains release-diversity evidence. |
 | A14 | Room DB / statistics / logs | DECIDED | Supported v2→v11 migration executes successfully on API 36 with `app_stats` preservation and final-schema validation; SQL debug bind values are redacted (`34065691224`). Unavailable upstream schema history 1/3–10 cannot be fabricated. |
-| A15 | Update channel / release / rollback | DECIDED | Fork-owned update resolution now enumerates stable numeric releases without rolling-tag masking, and run `34037508198` proves the current installed test APK is byte-identical to the built APK and embeds only the expected fork update endpoints. Stable signing/rollback evidence remains incomplete. |
-| A16 | Exported surfaces: shortcuts / tiles / receivers / widget | DECIDED | Shortcut confused-deputy path is hardened, the explicit-intent abuse step passed in `33986395874`, and run `34138775145` now enforces exact production-manifest ↔ `EXPORTED_COMPONENTS.md` parity plus key platform permissions. Broader entrypoint abuse coverage remains separate. |
-| A17 | UI / error recovery / accessibility / i18n | DECIDED | Fork feature translations and lint-critical accessibility fixes are complete; broader runtime/UX evidence remains pending. |
-| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins, zero-error lint, dependency locking/SHA-256 verification and a stable API-36 runtime lane are enforced; API-37 preview execution remains blocked. |
+| A15 | Update channel / release / rollback | DECIDED | Fork-owned update resolution enumerates stable numeric releases, direct APK/release links are derived only from validated fork metadata, and the release workflow binds stable tag ↔ source `versionName` ↔ built APK `versionName`. Run `34037508198` proves installed-byte identity and fork-only endpoints. Stable signing/rollback identity remains incomplete. |
+| A16 | Exported surfaces: shortcuts / tiles / receivers / widget | DECIDED | Shortcut confused-deputy routing now has an explicit principal policy (`f3145bb0`, `34154664082`), the explicit-intent abuse step passed in `33986395874`, and manifest/documentation parity plus platform permissions are regression-tested (`34138775145`). `ManifestCapabilityPolicyTest` additionally prevents silent package-visibility/usage-stats/Leanback capability drift (`677cd2ac`, `34163432363`); broader entrypoint runtime abuse coverage remains separate. |
+| A17 | UI / error recovery / accessibility / i18n | DECIDED | Fork translations/accessibility fixes are covered, `NavigationManifestPolicyTest` prevents recursive activity-parent routing, and the accidental manifest rollback exposed while fixing `LogDetailActivity` was restored to the last-green capability set while preserving the correct parent (`f426b55c`, `34163189731`). Broader runtime/UX evidence remains pending. |
+| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins, zero-error lint, dependency locking/SHA-256 verification and stable tag/source/APK version binding are enforced. `main` and `ondemand-shizuku` share identical permanent validation/release workflows; API-37 preview execution remains blocked. |
 
 ## Axis B — independent lenses
 
@@ -93,12 +93,12 @@ The table intentionally stays conservative: a successful APK build alone is not 
 | A10 Accessibility | D | R | R | D | D | **R** | - | - | **R** | D | R | D | **P** | **R** | R | R | - | **R** |
 | A11 Boot/recovery | **R** | **R** | R | **P** | **R** | D | - | D | R | R | R | D | **P** | R | - | **R** | R | R |
 | A12 App Behavior policy | D | D | R | D | D | D | - | D | D | D | R | D | **P** | D | R | **R** | R | R |
-| A13 Backup/restore | **R** | R | R | **P** | R | R | **R** | **P** | D | R | **P** | R | **P** | R | R | **R** | **R** | **R** |
+| A13 Backup/restore | **R** | R | R | **P** | R | D | **P** | **P** | D | R | **P** | R | **P** | R | R | **R** | **R** | **D** |
 | A14 Room DB | D | R | R | D | R | D | - | **P** | D | D | **P** | R | **P** | R | - | R | **R** | R |
-| A15 Update/release | **R** | R | R | R | R | R | **R** | D | D | R | **R** | R | **R** | R | R | R | **R** | R |
-| A16 Exported entrypoints | D | R | R | R | R | **R** | **R** | - | R | R | R | R | **P** | R | - | **R** | R | **R** |
-| A17 UI/i18n | D | R | R | D | D | D | - | D | D | R | R | R | R | **R** | **R** | R | R | R |
-| A18 Build/supply chain | D | - | R | R | R | **R** | **R** | - | R | **R** | **R** | R | **R** | R | R | R | **R** | R |
+| A15 Update/release | D | R | R | R | R | D | **P** | D | D | D | D | R | **P** | R | R | R | **R** | D |
+| A16 Exported entrypoints | D | R | R | R | R | D | D | - | D | D | R | R | **P** | R | - | D | R | D |
+| A17 UI/i18n | D | R | R | D | D | D | - | D | D | D | R | R | **P** | D | **R** | R | R | R |
+| A18 Build/supply chain | D | - | R | R | R | D | D | - | D | D | D | R | **P** | R | R | R | **R** | D |
 
 No runtime surface is currently marked fully PROVEN. That is intentional until repeatable evidence exists.
 
@@ -129,11 +129,10 @@ historical “current” wording where implementation has moved on.
 - **CM-P1-05 / 06 / 07:** normal CI is source-authoritative, immutable-SHA pinned and split into
   read-only validation and writable publishing. Lint must show zero errors before its reviewed
   warning baseline is accepted.
-- **CM-P1-09:** accessibility service settings path/scope are corrected.
-- **CM-P1-10:** exported shortcut privilege boundary is authenticated/confirmed, remaining
-  exported principals are documented in `EXPORTED_COMPONENTS.md`, the explicit-intent shortcut abuse step passed in run `33986395874`, and normal run `34138775145` now enforces exact production-manifest/documentation parity plus key platform permissions.
-- **CM-P1-11:** Android cloud/device-transfer backup is explicitly excluded; the versioned
-  ReAppzuku backup is the configuration contract.
+- **CM-P1-08:** the original “no automated test tree” finding is closed. The branch now has broad JVM policy/parser/security coverage plus Android instrumentation for restore, migration, boot, permission, process topology, Shizuku death/rebind, process death, shortcut abuse and real privileged commands. Individual runtime-diversity gaps remain tracked by their matrix surfaces rather than by a blanket lack-of-tests finding.
+- **CM-P1-09:** accessibility service settings path/scope are corrected; `AccessibilityServicePolicyTest` locks the minimal window-state-only contract and normal run `34156391150` passed.
+- **CM-P1-10:** exported shortcut privilege routing is now an explicit `ShortcutEntryPolicy`; authenticated secure actions, rejected unauthenticated secure actions and confirmation-only legacy/unknown routes are JVM-tested. Run `34154664082` passed, `33986395874` retains explicit-intent abuse evidence, and `34138775145` enforces production-manifest/documentation parity.
+- **CM-P1-11:** Android cloud/device-transfer backup is explicitly excluded and locked by `PlatformBackupPolicyTest`; run `34155781163` passed. The versioned ReAppzuku backup remains the configuration contract.
 - **CM-P1-12:** Android 16/API 36 now provides a stable repeatable runtime baseline. The separate
   Android-17/API-37 preview lane still blocks at PackageManager transport before repeatable app probes,
   so `targetSdk 37` remains gated.
@@ -149,6 +148,14 @@ historical “current” wording where implementation has moved on.
 - **CM-P2-05:** SQL debug bind contents are redacted by `SqlQueryLogFormatter`; tests assert sensitive package/state tokens cannot enter the formatted log while retaining SQL shape and bind count. Normal validation `34065691224` passed.
 
 Latest assurance evidence:
+- workflow run `34163432363`: full normal validation passed with `ManifestCapabilityPolicyTest`, moving critical package-visibility/usage-stats/Leanback manifest drift detection into the unit-test stage as well as lint;
+- workflow run `34163189731`: after restoring the last-green manifest capability set while preserving the corrected `LogDetailActivity` parent, unit tests, zero-error lint, AndroidTest compilation, Room schema verification and APK build/upload all passed;
+- workflow run `34156391150`: full normal validation passed with the minimal accessibility-service scope contract;
+- workflow run `34155781163`: full normal validation passed with platform cloud/device-transfer backup exclusion locked by tests;
+- workflow run `34154664082`: full normal validation passed with explicit exported-shortcut principal routing;
+- commits `4156ed6b`/`4be29c0f` bind update assets and links to the validated fork/tag contract; `1aca3af6` mirrors the hardened stable-release workflow onto the product branch, including stable tag ↔ source/APK version checks;
+- commits `2b8ad243`/`5f8e470c` validate imported preset clock/package structure and bound standalone preset reads; `893b9454` retains the already-proven transactional restore while adding collection-count bounds;
+- commit `f426b55c` repaired an unintended older-manifest overwrite detected by lint, preserving only the intended `LogDetailActivity` parent fix and restoring the reviewed permission/Leanback capability set;
 - workflow run `34154071232`: final cleaned product head passed unit, lint, AndroidTest compilation, Room-schema verification and debug APK build after removing the blocked synthetic A04 service harness;
 - workflow run `34153818522`: full normal validation passed after extracting `AppLaunchTriggerPolicy` with exact-target, feature-gate and duplicate-suppression JVM coverage;
 - workflow run `34138775145`: full normal validation passed after adding exported-component documentation parity and platform-permission regression coverage;
@@ -331,12 +338,16 @@ Current workflows use references such as `actions/checkout@v6`, `actions/setup-j
 
 Voice-platform quality gates require external Actions to be pinned to immutable full commit SHAs.
 
-### CM-P1-08 — No automated test tree
+### CM-P1-08 — No automated test tree — RESOLVED 2026-09-07
 
-The repository currently has no meaningful `app/src/test` or `app/src/androidTest` suite despite
-large stateful managers and privileged flows.
+Historical finding: the repository originally lacked meaningful `app/src/test` / `app/src/androidTest`
+coverage despite large stateful managers and privileged flows.
 
-This is the main reason most matrix cells remain RISK/DECIDED rather than PROVEN.
+Current state: the branch now contains a broad JVM suite for policy, parser, manifest, backup,
+release, shell and lifecycle contracts plus Android instrumentation for transactional restore,
+migration, boot/restart, Shizuku permission/death/rebind, process topology/process death, shortcut
+abuse and representative real privileged commands. Remaining RISK/DECIDED cells are therefore
+surface-specific runtime/diversity gaps, not a blanket absence of automated tests.
 
 ### CM-P1-09 — Accessibility service configuration has a stale settings activity
 
@@ -354,23 +365,26 @@ needs package/window-state information.
 **Fix direction:** correct settings activity and remove unnecessary accessibility surface unless a
 tested feature requires it.
 
-### CM-P1-10 — Exported privileged shortcut surface needs principal review
+### CM-P1-10 — Exported privileged shortcut surface needs principal review — RESOLVED AT SOURCE/TEST LEVEL 2026-09-07
 
-`KillShortcutActivity` is exported and ultimately triggers privileged kill behavior.
-That may be necessary for launcher shortcuts, but the current architecture does not make the
-caller/principal boundary explicit.
+Historical finding: `KillShortcutActivity` is exported and ultimately reaches privileged kill behavior,
+while the caller/principal boundary was not explicit.
 
-**Fix direction:** split public user-entry surface from internal privileged executor and prove that
-third-party explicit intents cannot cause unintended privileged actions.
+Current state: `ShortcutEntryPolicy` makes the routing contract explicit and exhaustively tests secure,
+legacy, unknown and null actions; unauthenticated secure actions are rejected and non-secure public
+routes require confirmation. `ShortcutAuth` still authenticates time-bounded secure intents, explicit
+third-party intent abuse has Android evidence, and exported-principal drift is separately locked by
+`ExportedComponentsParityTest`. Broader OEM/launcher behavior remains A16 release-diversity evidence.
 
-### CM-P1-11 — Automatic Android backup is not explicitly reconciled with ReAppzuku backup
+### CM-P1-11 — Automatic Android backup is not explicitly reconciled with ReAppzuku backup — RESOLVED 2026-09-07
 
-The manifest has `android:allowBackup="true"` while ReAppzuku also implements its own structured
-backup/restore.
+Historical finding: platform Auto Backup and ReAppzuku's structured backup could have created
+competing restore contracts.
 
-**Fix direction:** define which state may enter Android Auto Backup, exclude privileged/runtime
-state explicitly with backup/data-extraction rules, or disable platform backup if the application
-backup is the sole supported contract.
+Current state: `android:allowBackup="false"` is enforced, legacy Full Backup excludes all domains,
+and Android 12+ Cloud Backup plus Device Transfer exclude root state. `PlatformBackupPolicyTest`
+locks all three decisions; ReAppzuku's bounded/versioned application backup is the sole supported
+configuration-transfer contract.
 
 ### CM-P1-12 — Android 17 / API 37 compatibility lane is missing
 

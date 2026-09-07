@@ -52,6 +52,9 @@ Status convention:
 - [x] Runtime/alarm/service reconciliation happens only after durable writes succeed.
 - [x] Failed writes/runtime reconciliation roll preferences back and best-effort restore old runtime state.
 - [x] Reject oversized (>2 MiB), malformed and future-version backup payloads.
+- [x] Bound every package-oriented backup collection (including manual AppOps masks) to a deliberately generous 10,000 entries to prevent restore amplification without constraining real devices.
+- [x] Validate imported preset clock ranges and package collections before scheduling/storage; invalid package identifiers fail closed as parse errors.
+- [x] Reuse the bounded `BackupFileStore` reader for standalone preset imports so preset JSON cannot bypass the backup payload-size boundary.
 - [x] Add focused automated restore tests for corrupt/legacy/future/oversized/rollback paths.
 - [x] Execute transactional rollback and active-preset restore on Android runtime.
 
@@ -64,6 +67,7 @@ Status convention:
 ## Phase 4 — Persistence and migration evidence
 
 - [x] Explicitly exclude Android cloud backup and device-transfer restore; ReAppzuku's versioned backup remains the configuration contract.
+- [x] Lock `allowBackup=false`, legacy Full Backup exclusion, Android 12+ Cloud Backup exclusion and Device Transfer exclusion with `PlatformBackupPolicyTest` (`34155781163`).
 - [x] Room schema export configured and current schema 11 generation verified in CI.
 - [x] `MigrationTestHelper` instrumentation test for supported historical schema v2 -> v11 compiles.
 - [x] Migration test validates preservation of existing `app_stats` data and final schema on Android.
@@ -110,6 +114,9 @@ Status convention:
 - [x] Validation workflow is source-authoritative; no patch/generator step remains after migrations complete.
 - [x] Retire the obsolete parallel `android.yml` release/CI path; `main` now keeps only the source-authoritative on-demand validation and hardened `signed-release.yml` workflows after the one-shot cleanup.
 - [x] Split read-only validation from release publishing with job-level least-privilege tokens.
+- [x] Bind stable release tags to source `versionName`, built APK `versionName`, package identity, expected artifact name and signing certificate before publish.
+- [x] Keep `main` and `ondemand-shizuku` permanent validation/release workflow blobs identical so a later branch merge cannot silently roll release policy backward.
+- [x] Bind updater APK/release links to the validated `HyperCriSiS/ReAppzuku` tag/asset contract instead of trusting arbitrary release metadata URLs or the first `.apk` asset.
 - [x] Run `lintDebug` without `updateLintBaseline`; baseline changes only through reviewed source commits.
 - [x] Pin every external Action in active repository workflows.
 - [x] Establish a reviewed warning-only lint baseline: full scan must contain zero errors before a baseline may be accepted.
@@ -152,6 +159,13 @@ Status convention:
 - SQL debug logging is privacy-bounded: commits `0d55aab8`/`711f8195` redact bind values while retaining SQL shape and bind count; normal validation `34065691224` passed.
 - `PackageStateSource` now centralizes BackgroundAppManager's read-only running-process collection; integration commit `685d333f89692d13b7c0d8dd8514c3674eea6be1` passed the full normal gate in run `34138482661`.
 - Exported-component drift is now regression-tested: commit `45650077e28a846e300fbb7ffc1668d57791dbad` requires the production manifest's `exported=true` principals to match `EXPORTED_COMPONENTS.md` and checks key platform permissions; run `34138775145` passed.
+- Exported shortcut routing is now an explicit principal contract (`f3145bb0`): only authenticated secure actions can reach direct RAM-kill execution, while legacy/unknown public routes remain confirmation-bound; run `34154664082` passed.
+- Platform backup exclusion is a CI contract (`7c096a9b`): `allowBackup=false`, legacy Full Backup, Cloud Backup and Device Transfer exclusions all passed normal validation `34155781163`.
+- Accessibility scope is now locked to the minimum window-state contract by `AccessibilityServicePolicyTest`; run `34156391150` passed.
+- Update/release trust is narrowed by `4156ed6b`/`4be29c0f` and the synchronized `signed-release.yml`: only validated fork/tag/asset URLs are eligible for direct updates, and stable publish requires tag ↔ source `versionName` ↔ APK `versionName` equality.
+- Backup/preset untrusted-input boundaries now cap package collections, validate preset clock/package structure and reuse the bounded backup reader for standalone preset imports (`2b8ad243`, `5f8e470c`, `893b9454`).
+- A navigation audit found `LogDetailActivity` recursively naming itself as parent. The intended parent fix accidentally carried an older full manifest; zero-error lint exposed that regression. Commit `f426b55c` restored the complete last-green manifest capability set while preserving the correct `StatisticsActivity` parent, and run `34163189731` then passed unit, lint, AndroidTest compile, Room schema and APK gates.
+- Commit `677cd2ac` adds a focused manifest-capability regression contract for package visibility, usage-stats exclusion and the optional Leanback/TV surface; run `34163432363` passed the complete normal gate.
 - Real API-36 ProcessRecord parsing through the official Shizuku backend is proven. `ServiceRecord` parsing remains JVM-fixture-proven but awaits a naturally foreground/physical-device runtime source; the failing synthetic service harness was removed instead of being normalized as a permanent flaky gate.
 - This stable API-36 lane is now the repeatable Android-runtime baseline. External app force-stop/process death, Sleep owned-freeze recovery, real Shizuku permission-dialog Activity recreation, on-demand process topology and representative privileged command families are proven on this lane. Remaining release-diversity gaps are physical/OEM variation, final installed-release/signing identity + rollback evidence and root-specific execution; API 37 remains separately blocked by the preview PackageManager transport failure.
 
@@ -197,6 +211,13 @@ Status convention:
 - Final cleaned-head validation `34154071232` passed after removing the blocked synthetic A04 service harness; the guarded runtime probe now represents only the actually proven real API-36 `ProcessRecord` contract.
 - `SqlQueryLogFormatter` preserves query shape and bind count without logging bind contents, closing the debug SQL metadata leak identified by CM-P2-05 (`34065691224`).
 - `ExportedComponentsParityTest` prevents silent growth/drift of production `exported=true` surfaces relative to `EXPORTED_COMPONENTS.md` (`34138775145`).
+- The original “no automated test tree” finding is closed: the branch now has broad JVM policy/parser/security tests plus Android instrumentation for restore/migration, boot/restart, permission/death/rebind, process topology/process death, shortcut abuse and real privileged commands. Remaining matrix gaps are surface-specific runtime diversity.
+- `ShortcutEntryPolicy` makes the exported shortcut principal boundary deterministic and JVM-testable; run `34154664082` passed.
+- `AccessibilityServicePolicyTest` locks the minimal accessibility metadata contract; run `34156391150` passed.
+- `ReleaseAssetPolicy` and `ReleaseWorkflowPolicyTest` bind updater/release behavior to the fork, stable numeric tag, exact APK asset and tag/source/APK version identity while preserving least-privilege publish separation.
+- `PresetInputPolicy`, `BackupCollectionPolicy` and bounded `BackupFileStore` reuse close avoidable untrusted-import amplification paths without changing normal backup semantics.
+- `NavigationManifestPolicyTest` protects activity parent relationships. After lint caught an unintended older-manifest overwrite, `f426b55c` restored the reviewed capability manifest while retaining the intended LogDetail parent fix; full validation `34163189731` passed.
+- `ManifestCapabilityPolicyTest` now fails early if the reviewed `QUERY_ALL_PACKAGES` justification, no-`PACKAGE_USAGE_STATS` contract, Leanback banner or optional touchscreen/Leanback declarations drift; full validation `34163432363` passed.
 
 ## Stable-release gate
 
