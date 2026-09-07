@@ -104,13 +104,22 @@ jobs:
           echo "user-state: $(adb shell cmd user get-user-state 0 2>/dev/null | tr -d '\r' || true)"
 
           package_ready=false
+          consecutive_ready=0
           for i in $(seq 1 80); do
-            adb shell cmd package list packages android >/tmp/pkg-ready.txt 2>/tmp/pkg-ready.err && { package_ready=true; break; }
-            sleep 0.5
+            if adb shell cmd package list packages android >/tmp/pkg-ready.txt 2>/tmp/pkg-ready.err \
+              && grep -Fq 'package:android' /tmp/pkg-ready.txt; then
+              consecutive_ready=$((consecutive_ready + 1))
+              if [ "$consecutive_ready" -ge 3 ]; then
+                package_ready=true
+                break
+              fi
+            else
+              consecutive_ready=0
+            fi
+            sleep 1
           done
           test "$package_ready" = true
-          grep -Fq 'package:android' /tmp/pkg-ready.txt
-          echo 'API 37 booted and PackageManager responded'
+          echo 'API 37 booted; PackageManager answered three consecutive probes'
 
       - name: Build targetSdk 37 candidate without changing source branch
         shell: bash
@@ -139,18 +148,23 @@ jobs:
           set -euo pipefail
           install_with_retry() {
             local apk="$1"
+            local label="$2"
             for attempt in 1 2 3; do
-              if adb install --no-streaming -r -t "$apk"; then
+              local log="/tmp/install-${label}-attempt-${attempt}.log"
+              echo "Installing $label (attempt $attempt)"
+              if adb install -r -t "$apk" >"$log" 2>&1; then
+                cat "$log"
                 return 0
               fi
-              echo "install attempt $attempt failed" >&2
+              cat "$log" >&2
+              echo "install attempt $attempt for $label failed" >&2
               adb shell cmd package list packages android >/dev/null 2>&1 || true
-              sleep 2
+              sleep 3
             done
             return 1
           }
-          install_with_retry app/build/outputs/apk/debug/app-debug.apk
-          install_with_retry app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          install_with_retry app/build/outputs/apk/debug/app-debug.apk app
+          install_with_retry app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk androidTest
           dump="$(adb shell dumpsys package com.gree1d.reappzuku | tr -d '\r')"
           grep -Fq 'targetSdk=37' <<<"$dump"
           grep -Fq 'versionName=1.8.7' <<<"$dump"
@@ -177,13 +191,23 @@ jobs:
           set +e
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
           export PATH="$SDK_ROOT/platform-tools:$PATH"
+          echo '--- captured install attempts ---'
+          for log in /tmp/install-*.log; do
+            [ -e "$log" ] || continue
+            echo "### $log"
+            cat "$log"
+          done
           adb devices -l || true
           if adb get-state >/dev/null 2>&1; then
+            echo '--- device state ---'
             adb shell getprop ro.build.version.release || true
             adb shell getprop ro.build.version.sdk || true
             adb shell cmd user get-user-state 0 || true
-            adb shell cmd package list packages android || true
-            adb shell dumpsys package com.gree1d.reappzuku | head -260 || true
-            adb logcat -d | grep -E 'AndroidRuntime|FATAL EXCEPTION|PackageManager|ReAppzuku' | tail -800 || true
+            adb shell cmd package list packages android 2>/dev/null | grep -F 'package:android' || true
+            echo '--- ReAppzuku package state ---'
+            adb shell dumpsys package com.gree1d.reappzuku 2>/dev/null | head -180 || true
+            echo '--- focused PackageInstaller log ---'
+            adb logcat -d | grep -E 'PackageInstaller|PackageInstallerSession|INSTALL_FAILED|PackageManager.*reappzuku|ReAppzuku' | tail -300 || true
           fi
-          tail -300 /tmp/emulator-target37.log 2>/dev/null || true
+          echo '--- emulator tail ---'
+          tail -160 /tmp/emulator-target37.log 2>/dev/null || true
