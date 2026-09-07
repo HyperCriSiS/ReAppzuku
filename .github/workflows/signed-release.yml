@@ -77,6 +77,31 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "Building exact source commit: $sha"
 
+      - name: Validate stable tag against source version before signing
+        if: ${{ inputs.publish && !inputs.prerelease }}
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          normalized_tag="$RELEASE_TAG"
+          normalized_tag="${normalized_tag#v}"
+          normalized_tag="${normalized_tag#V}"
+          [[ "$normalized_tag" =~ ^[0-9]+(\.[0-9]+)*$ ]] || {
+            echo 'Stable release tags must be numeric versions with an optional leading v, e.g. 1.8.7 or v1.8.7.' >&2
+            exit 1
+          }
+          source_version="$(sed -n -E 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^\"]+)".*/\1/p' app/build.gradle | head -1)"
+          test -n "$source_version" || { echo 'Could not resolve source versionName from app/build.gradle.' >&2; exit 1; }
+          [[ "$source_version" =~ ^[0-9]+(\.[0-9]+)*$ ]] || {
+            echo "Stable source versionName must be numeric, got: $source_version" >&2
+            exit 1
+          }
+          test "$normalized_tag" = "$source_version" || {
+            echo "Stable release tag/source version mismatch: tag=$RELEASE_TAG source versionName=$source_version" >&2
+            exit 1
+          }
+
       - name: Set up JDK 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
@@ -134,6 +159,8 @@ jobs:
           EXPECTED_CERT_SHA256: ${{ secrets.ANDROID_SIGNING_CERT_SHA256 }}
           RELEASE_TAG: ${{ inputs.tag }}
           SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          PUBLISH: ${{ inputs.publish }}
+          PRERELEASE: ${{ inputs.prerelease }}
         run: |
           set -euo pipefail
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
@@ -145,6 +172,21 @@ jobs:
           badging="$($AAPT dump badging "$input_apk" | head -1)"
           printf '%s\n' "$badging"
           grep -Fq "package: name='com.gree1d.reappzuku'" <<<"$badging" || { echo 'Refusing release APK with unexpected application id.' >&2; exit 1; }
+          version_name="$(sed -n -E "s/.*versionName='([^']+)'.*/\1/p" <<<"$badging")"
+          test -n "$version_name" || { echo 'Could not resolve APK versionName.' >&2; exit 1; }
+          if [ "$PUBLISH" = "true" ] && [ "$PRERELEASE" != "true" ]; then
+            normalized_tag="$RELEASE_TAG"
+            normalized_tag="${normalized_tag#v}"
+            normalized_tag="${normalized_tag#V}"
+            [[ "$version_name" =~ ^[0-9]+(\.[0-9]+)*$ ]] || {
+              echo "Stable APK versionName must be numeric, got: $version_name" >&2
+              exit 1
+            }
+            test "$normalized_tag" = "$version_name" || {
+              echo "Stable release tag/APK version mismatch: tag=$RELEASE_TAG APK versionName=$version_name" >&2
+              exit 1
+            }
+          fi
           "$APKSIGNER" verify --verbose --print-certs "$input_apk" | tee /tmp/signed-certs.txt
           actual="$(sed -n -E 's/^.*certificate SHA-256 digest: *//p' /tmp/signed-certs.txt | head -1 | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
           expected="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
@@ -214,6 +256,13 @@ jobs:
           apk="${apks[0]}"
           checksum="$apk.sha256"
           test -f "$checksum"
+          safe_tag="$(printf '%s' "$RELEASE_TAG" | tr -cs 'A-Za-z0-9._-' '-')"
+          [ -n "$safe_tag" ] || safe_tag='signed-build'
+          expected_name="ReAppzuku-${safe_tag}.apk"
+          test "$(basename "$apk")" = "$expected_name" || {
+            echo "Refusing staged APK with unexpected name: $(basename "$apk") expected=$expected_name" >&2
+            exit 1
+          }
           (
             cd release-dist
             sha256sum -c "$(basename "$checksum")"
