@@ -39,6 +39,7 @@ Status convention:
 - [x] MainActivity waits/retries only for transitional states instead of mapping waiting to generic shell failure.
 - [x] JVM transition tests cover root precedence, permission/readiness separation and lost state.
 - [x] Instrument binder-late, deny -> grant, Activity recreation and Shizuku restart/service-death recovery: deterministic API-36 bridge coverage proves the state permutations; real official-Shizuku first-run grant is proven by `34000092714`, same-process daemon death/rebind plus privileged command recovery by `33997372602`, and exact Activity recreation behind the still-open real Shizuku permission dialog followed by grant/READY/scan ordering by `34036827312`.
+- [x] Gate queued `ShappkyService` actions on a genuinely ready shell backend. Sleep recovery testing exposed a race where permission was granted but the UserService was not ready; commit `69750c7de8080a689f8a5703f814f6efbc2a6c54` now waits for `ROOT_READY`/`SHIZUKU_READY` with one bounded Shizuku retry before managers or queued privileged actions initialize. One-time validation `34065892554` passed unit, lint, AndroidTest compile and debug build.
 - [x] Add event-driven UI recovery when Shizuku appears after MainActivity is already open. Real first-run testing exposed a lost late-Binder race; commit `ba73b39e4e47e75a19ac2a01a120a69854e19f30`, guarded by run `33999924081`, adds sticky Binder-triggered preparation plus a coalesced retry, and run `34000092714` proves the repaired flow end-to-end.
 
 ## Phase 3 — Transactional backup and restore
@@ -80,6 +81,7 @@ Status convention:
 - [x] Review every remaining `exported=true` component and document its principal boundary in `EXPORTED_COMPONENTS.md`.
 - [x] Route mutating package/component/PID operations through typed, validated `PrivilegedShell` commands and reject invalid persisted/input values before shell execution.
 - [x] Fixture-test dumpsys/parser protection logic across Android/OEM variants.
+- [x] Bound Smart Lifecycle text heuristics behind `PackageTextMatcher`, `SmartLifecycleProtectionPolicy` and `SmartLifecycleTextParser`; JVM tests cover exact package boundaries, dump-protection decisions and foreground/process parsing.
 
 ### Privileged parser evidence — 2026-09-05
 
@@ -87,7 +89,9 @@ Status convention:
 - JVM fixtures cover AOSP PID-prefixed `ProcessRecord`, remote-process/OEM-style records, `curProcState`/`setProcState`, CRLF, exact package boundaries, binder package extraction, and short/full `ServiceRecord` forms including `$` class names.
 - `ProtectedAppsTest` locks exact AOSP/Shizuku package protection plus current keyboard/launcher behavior and rejects prefix-neighbor false positives.
 - One-time gate run `33940487030` passed unit tests, lint, AndroidTest compilation and debug APK build before committing the production integration as `57d8897c70a5b4c9565379cd72317f1abb7c9e59`.
-- This is repeatable parser/source evidence, not a substitute for the still-open Android/OEM runtime probes.
+- Smart Lifecycle no longer performs broad substring matching directly in the manager: commits `697fcdc4`, `69186c41` and `7fa4b6d6` extract exact package matching, dump-protection policy and foreground/process parsers with JVM coverage.
+- API-36 runs through official Shizuku repeatedly reach `SHIZUKU_READY` and parse the real ReAppzuku ActivityManager `ProcessRecord`; run `34153570390` logs `API36_PROCESS_RECORD_PARSED`. Attempts to inject a deterministic test-only `ServiceRecord` were blocked by Android 16 background-service start policy even from the Shizuku shell, so live ServiceRecord evidence is deliberately left open rather than weakening the platform contract or spending further emulator retries.
+- OEM/physical-device parser diversity remains separate release evidence even after the stable API-36 runtime contract is exercised.
 
 
 ### Privileged shell evidence — 2026-09-05
@@ -96,13 +100,15 @@ Status convention:
 - Runs `33940964413` and `33941247796` passed unit tests, lint, AndroidTest compilation and debug APK build before integrating the major manager paths.
 - Final strict run `33946348081` passed the same gates and required a repository-wide mutating-shell audit to return `NONE` outside `PrivilegedShell`, including the Quick Tile and Restrictions Watchdog paths.
 - Normal read-only validation run `33946501074` then passed on the cleaned permanent source state.
-- These source/JVM/CI invariants are now supplemented by real official-Shizuku UserService execution and daemon death/rebind recovery in API-36 run `33997372602`; root-specific execution and broader representative command-family probes remain separate evidence.
+- These source/JVM/CI invariants are supplemented by real official-Shizuku UserService execution and daemon death/rebind recovery in API-36 run `33997372602`.
+- Representative real command families are also exercised in run `34005682619` against a disposable target: AppOps RUN_IN_BACKGROUND ignore/default, standby RARE/ACTIVE, DeviceIdle whitelist add/remove, suspend/unsuspend, disable-user/enable, force-stop and explicit component broadcast all passed with reversible rollback checks. Root-specific execution and deliberately destructive families such as uninstall remain separate evidence.
 
 ## Phase 6 — CI and supply chain
 
 - [x] Preserve `concurrency.cancel-in-progress` for the live-test workflow.
 - [x] Pin `actions/checkout` and `actions/setup-java` to immutable full commit SHAs.
 - [x] Validation workflow is source-authoritative; no patch/generator step remains after migrations complete.
+- [x] Retire the obsolete parallel `android.yml` release/CI path; `main` now keeps only the source-authoritative on-demand validation and hardened `signed-release.yml` workflows after the one-shot cleanup.
 - [x] Split read-only validation from release publishing with job-level least-privilege tokens.
 - [x] Run `lintDebug` without `updateLintBaseline`; baseline changes only through reviewed source commits.
 - [x] Pin every external Action in active repository workflows.
@@ -140,7 +146,14 @@ Status convention:
 - Run `34000092714` proved the fresh official-Shizuku permission dialog path with no pre-grant app scan and then passed the real MediaStore `content://` backup round-trip.
 - Run `34036827312` proved exact Activity destruction/recreation while the real Shizuku permission dialog remained open, followed by grant -> `SHIZUKU_READY` -> app scan ordering.
 - Update-provenance run `34037508198` installed the current test APK on API 36, pulled the installed package back byte-identically and verified the embedded fork-owned stable-release resolver across all DEX files. Updater changes are additionally green in normal validation runs `34037213036` and `34037439640`.
-- This stable API-36 lane is now the repeatable Android-runtime baseline. External app force-stop/process death and real Shizuku permission-dialog Activity recreation are proven. Remaining release-diversity gaps are physical/OEM variation, final installed-release/signing identity + rollback evidence and root-specific execution; API 37 remains separately blocked by the preview PackageManager transport failure.
+- Process-topology run `34057708486` proved the on-demand split on API 36: a provider-only case kept only `com.gree1d.reappzuku:shizuku` alive with the main process and `ShappkyService` absent; with auto-wake enabled, a real Shizuku restart then started the main process while preserving the provider process.
+- App Behavior validation `34057507889` exhaustively covers all 32 AutoKill/Smart Lifecycle/Sleep/Preset/Scheduler blocker masks against all requested Exit-on-Back / prevent-Shizuku-autostart combinations.
+- Sleep Mode run `34075290320` established a real owned freeze on a disposable package, proved both the disabled target and durable ownership marker survive external `am force-stop`, then restarted/woke ReAppzuku and thawed only the owned target while clearing ownership.
+- SQL debug logging is privacy-bounded: commits `0d55aab8`/`711f8195` redact bind values while retaining SQL shape and bind count; normal validation `34065691224` passed.
+- `PackageStateSource` now centralizes BackgroundAppManager's read-only running-process collection; integration commit `685d333f89692d13b7c0d8dd8514c3674eea6be1` passed the full normal gate in run `34138482661`.
+- Exported-component drift is now regression-tested: commit `45650077e28a846e300fbb7ffc1668d57791dbad` requires the production manifest's `exported=true` principals to match `EXPORTED_COMPONENTS.md` and checks key platform permissions; run `34138775145` passed.
+- Real API-36 ProcessRecord parsing through the official Shizuku backend is proven. `ServiceRecord` parsing remains JVM-fixture-proven but awaits a naturally foreground/physical-device runtime source; the failing synthetic service harness was removed instead of being normalized as a permanent flaky gate.
+- This stable API-36 lane is now the repeatable Android-runtime baseline. External app force-stop/process death, Sleep owned-freeze recovery, real Shizuku permission-dialog Activity recreation, on-demand process topology and representative privileged command families are proven on this lane. Remaining release-diversity gaps are physical/OEM variation, final installed-release/signing identity + rollback evidence and root-specific execution; API 37 remains separately blocked by the preview PackageManager transport failure.
 
 ## Phase 7 — Android 17 / API 37
 
@@ -166,11 +179,11 @@ Status convention:
 
 - [x] Propagate fork-specific Smart Lifecycle/App Behavior/security strings to supported locales.
 - [x] Explain blocking automation directly beside disabled App Behavior controls, listing the active AutoKill/Smart Lifecycle/Sleep/Preset/Scheduler blockers from the central policy.
-- [x] Split large managers behind testable facades: `PrivilegedShell`, `AlarmScheduler`, `Clock`/`ScheduleTime`, `BackupCodec` and central protection/background/parser policy boundaries now isolate the named high-risk seams.
-- [~] Keep `CHECK_MATRIX.md` status/evidence current after every high-impact change (refreshed through 2026-09-06; ongoing discipline).
+- [x] Split large managers behind testable facades: `PrivilegedShell`, `PackageStateSource`, `AlarmScheduler`, `Clock`/`ScheduleTime`, `BackupCodec` and central protection/background/parser policy boundaries now isolate the named high-risk seams.
+- [~] Keep `CHECK_MATRIX.md` status/evidence current after every high-impact change (refreshed through 2026-09-07; ongoing discipline).
 
 
-### Maintainability evidence — 2026-09-05
+### Maintainability evidence — 2026-09-05 to 2026-09-07
 
 - Scheduling facade gate `33946729221` passed unit tests, lint, AndroidTest compilation and debug APK build before integrating `Clock`/`ScheduleTime` and `AlarmScheduler`.
 - BackupCodec gate `33946888672` compiles the focused Android codec tests and passes the same application validation before integration.
@@ -179,6 +192,11 @@ Status convention:
 - `Clock` plus pure `ScheduleTime` make daily scheduling deterministic under JVM tests, while `AlarmScheduler` centralizes AlarmManager availability and exact-vs-best-effort behavior.
 - `PresetManager` and `RestrictionsScheduler` keep their existing public constructors but receive clock/alarm dependencies through internal injection points.
 - `BackupCodec` now owns bounded/versioned JSON envelope decode/encode while `BackupManager` retains the transactional storage/rollback side effects; the named facade extraction item is closed.
+- `PackageStateSource` owns read-only `ps` collection/parsing for `BackgroundAppManager`, replacing four duplicated parsing paths with one JVM-testable contract; run `34138482661` passed the full normal gate.
+- `AppLaunchTriggerPolicy` now owns accessibility app-launch eligibility and duplicate suppression as a pure JVM-testable contract without changing event ordering or AutoKill side effects; run `34153818522` passed full normal validation.
+- Final cleaned-head validation `34154071232` passed after removing the blocked synthetic A04 service harness; the guarded runtime probe now represents only the actually proven real API-36 `ProcessRecord` contract.
+- `SqlQueryLogFormatter` preserves query shape and bind count without logging bind contents, closing the debug SQL metadata leak identified by CM-P2-05 (`34065691224`).
+- `ExportedComponentsParityTest` prevents silent growth/drift of production `exported=true` surfaces relative to `EXPORTED_COMPONENTS.md` (`34138775145`).
 
 ## Stable-release gate
 
