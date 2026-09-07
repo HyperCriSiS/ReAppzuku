@@ -48,6 +48,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
           CLT_ZIP=/tmp/commandlinetools-linux-15859902_latest.zip
           curl --fail --location --proto '=https' --tlsv1.2 --retry 3 \
             'https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip' \
@@ -56,7 +57,7 @@ jobs:
           rm -rf /tmp/android-clt
           mkdir -p /tmp/android-clt
           unzip -q "$CLT_ZIP" -d /tmp/android-clt
-          /tmp/android-clt/cmdline-tools/bin/sdkmanager --version
+          /tmp/android-clt/cmdline-tools/bin/sdkmanager --sdk_root="$SDK_ROOT" --version
           echo '/tmp/android-clt/cmdline-tools/bin' >> "$GITHUB_PATH"
 
       - name: Boot current API 37 emulator
@@ -64,6 +65,8 @@ jobs:
         run: |
           set -euo pipefail
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          export ANDROID_SDK_ROOT="$SDK_ROOT"
+          export ANDROID_HOME="$SDK_ROOT"
           export PATH="/tmp/android-clt/cmdline-tools/bin:$SDK_ROOT/platform-tools:$SDK_ROOT/emulator:$PATH"
           SDKMANAGER=/tmp/android-clt/cmdline-tools/bin/sdkmanager
           AVDMANAGER=/tmp/android-clt/cmdline-tools/bin/avdmanager
@@ -77,10 +80,8 @@ jobs:
             "$IMAGE"
 
           echo no | "$AVDMANAGER" create avd \
-            --sdk_root="$SDK_ROOT" \
             --name reappzuku-target37 \
             --package "$IMAGE" \
-            --abi 'google_apis_ps16k/x86_64' \
             --device pixel_6 \
             --force
 
@@ -88,6 +89,9 @@ jobs:
           test -s "$AVD_INI"
           grep -F 'target=android-37.0' "$AVD_INI"
 
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm || true
+          fi
           nohup emulator -avd reappzuku-target37 \
             -no-window -no-audio -no-boot-anim \
             -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 3072 \
