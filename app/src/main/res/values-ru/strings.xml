@@ -387,7 +387,6 @@
     <string name="settings_backup_option_restore">Восстановить настройки</string>
     <string name="settings_backup_create_failed">Не удалось создать данные резервной копии</string>
     <string name="settings_backup_success">Настройки успешно сохранены</string>
-    <string name="settings_backup_write_failed">Не удалось записать файл</string>
     <string name="settings_backup_export_failed">Ошибка экспорта: %1$s</string>
     <string name="settings_restore_success">Восстановлено успешно</string>
     <string name="settings_restore_need_permission">Восстановлены сохраненные настройки. Предоставьте Shizuku/Root доступ для повторного применения фоновых ограничений.</string>

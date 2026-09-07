@@ -387,7 +387,6 @@
     <string name="settings_backup_option_restore">Відновити налаштування</string>
     <string name="settings_backup_create_failed">Не вдалося створити дані резервної копії</string>
     <string name="settings_backup_success">Налаштування успішно збережено</string>
-    <string name="settings_backup_write_failed">Не вдалося записати файл</string>
     <string name="settings_backup_export_failed">Помилка експорту: %1$s</string>
     <string name="settings_restore_success">Відновлено успішно</string>
     <string name="settings_restore_need_permission">Відновлено збережені налаштування. Надайте Shizuku/Root доступ для повторного застосування фонових обмежень.</string>

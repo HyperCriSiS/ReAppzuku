@@ -562,16 +562,6 @@
             column="80"/>
     </issue>
 
-    <issue
-        id="LeanbackUsesWifi"
-        message="Requiring Wifi permissions limits app availability on TVs that support only Ethernet"
-        errorLine1="    &lt;uses-permission android:name=&quot;android.permission.ACCESS_WIFI_STATE&quot; />"
-        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/AndroidManifest.xml"
-            line="16"
-            column="5"/>
-    </issue>
 
 
 

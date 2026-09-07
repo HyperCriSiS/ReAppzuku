@@ -407,7 +407,6 @@
     <string name="settings_backup_option_restore">Restore settings</string>
     <string name="settings_backup_create_failed">Failed to create backup data</string>
     <string name="settings_backup_success">Settings saved successfully</string>
-    <string name="settings_backup_write_failed">Failed to write to file</string>
     <string name="settings_backup_export_failed">Export failed: %1$s</string>
     <string name="settings_restore_success">Restored successfully</string>
     <string name="settings_restore_need_permission">Saved settings restored. Grant Shizuku/Root access to re-apply background restrictions.</string>

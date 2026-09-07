@@ -391,7 +391,6 @@
     <string name="settings_backup_option_restore">Restaurar ajustes</string>
     <string name="settings_backup_create_failed">Error al crear los datos de la copia de seguridad</string>
     <string name="settings_backup_success">Ajustes guardados correctamente</string>
-    <string name="settings_backup_write_failed">Error al escribir en el archivo</string>
     <string name="settings_backup_export_failed">Error de exportación: %1$s</string>
     <string name="settings_restore_success">Restaurado correctamente</string>
     <string name="settings_restore_need_permission">Se restauraron los ajustes guardados. Concede acceso Shizuku/Root para volver a aplicar las restricciones en segundo plano.</string>
