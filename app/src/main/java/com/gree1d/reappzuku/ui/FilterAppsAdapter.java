@@ -28,6 +28,7 @@ import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
+import java.util.Locale;
 
 public class FilterAppsAdapter extends BaseAdapter implements Filterable {
 
@@ -946,13 +947,16 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
             AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: performFiltering constraint=\"" + constraint + "\"");
             FilterResults results = new FilterResults();
             List<AppModel> filteredList = new ArrayList<>();
-            String filterString = (constraint != null && constraint.length() > 0)
-                    ? constraint.toString().toLowerCase().trim() : "";
+            String rawFilter = (constraint != null && constraint.length() > 0)
+                    ? constraint.toString().trim() : "";
+            Locale labelLocale = Locale.getDefault();
+            String labelFilter = rawFilter.toLowerCase(labelLocale);
+            String packageFilter = rawFilter.toLowerCase(Locale.ROOT);
             for (AppModel app : allApps) {
                 if (!shouldShow(app)) continue;
-                if (filterString.isEmpty()
-                        || app.getAppName().toLowerCase().contains(filterString)
-                        || app.getPackageName().toLowerCase().contains(filterString)) {
+                if (rawFilter.isEmpty()
+                        || app.getAppName().toLowerCase(labelLocale).contains(labelFilter)
+                        || app.getPackageName().toLowerCase(Locale.ROOT).contains(packageFilter)) {
                     filteredList.add(app);
                 }
             }

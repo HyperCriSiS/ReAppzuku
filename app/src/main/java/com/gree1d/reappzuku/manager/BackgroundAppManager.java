@@ -47,6 +47,7 @@ import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.ManualOpsMaskPolicy;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 
+import java.util.Locale;
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 
@@ -785,7 +786,7 @@ public class BackgroundAppManager {
                 Collections.sort(apps,
                         Comparator.comparing(AppModel::isSystemApp)
                                 .thenComparing(AppModel::isPersistentApp)
-                                .thenComparing(a -> a.getAppName().toLowerCase()));
+                                .thenComparing(a -> a.getAppName().toLowerCase(Locale.getDefault())));
                 break;
         }
     }
