@@ -2,9 +2,20 @@ name: Android 17 API 37 runtime compatibility
 
 on:
   workflow_dispatch:
+    inputs:
+      product_ref:
+        description: Product branch or commit to test
+        required: true
+        default: ondemand-shizuku
+        type: string
+      test_class:
+        description: Optional fully qualified instrumentation class or class#method
+        required: false
+        default: ''
+        type: string
 
 concurrency:
-  group: android17-api37-runtime
+  group: android17-api37-runtime-${{ inputs.product_ref }}
   cancel-in-progress: true
 
 permissions:
@@ -19,6 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          ref: ${{ inputs.product_ref }}
           persist-credentials: false
 
       - name: Set up JDK 17
@@ -156,6 +168,8 @@ jobs:
 
       - name: Run Android instrumentation on API 37
         shell: bash
+        env:
+          TEST_CLASS: ${{ inputs.test_class }}
         run: |
           set -euo pipefail
           INSTRUMENTATION="$(
@@ -165,7 +179,11 @@ jobs:
               | head -n 1
           )"
           test -n "$INSTRUMENTATION"
-          adb shell am instrument -w -r "$INSTRUMENTATION" | tee /tmp/api37-instrumentation.txt
+          args=()
+          if [ -n "$TEST_CLASS" ]; then
+            args=(-e class "$TEST_CLASS")
+          fi
+          adb shell am instrument -w -r "${args[@]}" "$INSTRUMENTATION" | tee /tmp/api37-instrumentation.txt
           grep -Eq 'OK \([0-9]+ tests?\)' /tmp/api37-instrumentation.txt
           ! grep -Fq 'FAILURES!!!' /tmp/api37-instrumentation.txt
 
