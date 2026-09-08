@@ -1,0 +1,103 @@
+name: One-time locale-aware app search patch
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout topic branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: roadmap/locale-aware-app-search
+          fetch-depth: 0
+
+      - name: Make user search and default sorting locale-explicit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "92f847c04e2659f9abdf2acb17b40ac24ea2da5a"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if text.count(old) != 1:
+                  raise SystemExit(f'{path}: expected exactly one replacement target, found {text.count(old)}')
+              p.write_text(text.replace(old, new, 1))
+
+          def ensure_locale_import(path):
+              p = Path(path)
+              text = p.read_text()
+              if 'import java.util.Locale;' in text:
+                  return
+              lines = text.splitlines()
+              static_idx = next((i for i, line in enumerate(lines) if line.startswith('import static ')), None)
+              if static_idx is not None:
+                  lines.insert(static_idx, 'import java.util.Locale;')
+              else:
+                  imports = [i for i, line in enumerate(lines) if line.startswith('import ')]
+                  if not imports:
+                      raise SystemExit(f'{path}: no import block found')
+                  lines.insert(imports[-1] + 1, 'import java.util.Locale;')
+              p.write_text('\n'.join(lines) + ('\n' if text.endswith('\n') else ''))
+
+          background = 'app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java'
+          replace_once(
+              background,
+              '.thenComparing(a -> a.getAppName().toLowerCase()));',
+              '.thenComparing(a -> a.getAppName().toLowerCase(Locale.getDefault())));')
+          ensure_locale_import(background)
+
+          main = 'app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java'
+          replace_once(
+              main,
+              '''            String lowerQuery = query.toLowerCase();\n            for (AppModel app : fullAppsList) {\n                if (app.getAppName().toLowerCase().contains(lowerQuery) ||\n                        app.getPackageName().toLowerCase().contains(lowerQuery)) {\n                    appsDataList.add(app);\n                }\n            }''',
+              '''            Locale labelLocale = Locale.getDefault();\n            String labelQuery = query.toLowerCase(labelLocale);\n            String packageQuery = query.toLowerCase(Locale.ROOT);\n            for (AppModel app : fullAppsList) {\n                if (app.getAppName().toLowerCase(labelLocale).contains(labelQuery) ||\n                        app.getPackageName().toLowerCase(Locale.ROOT).contains(packageQuery)) {\n                    appsDataList.add(app);\n                }\n            }''')
+          ensure_locale_import(main)
+
+          adapter = 'app/src/main/java/com/gree1d/reappzuku/ui/FilterAppsAdapter.java'
+          replace_once(
+              adapter,
+              '''            String filterString = (constraint != null && constraint.length() > 0)\n                    ? constraint.toString().toLowerCase().trim() : "";\n            for (AppModel app : allApps) {\n                if (!shouldShow(app)) continue;\n                if (filterString.isEmpty()\n                        || app.getAppName().toLowerCase().contains(filterString)\n                        || app.getPackageName().toLowerCase().contains(filterString)) {\n                    filteredList.add(app);\n                }\n            }''',
+              '''            String rawFilter = (constraint != null && constraint.length() > 0)\n                    ? constraint.toString().trim() : "";\n            Locale labelLocale = Locale.getDefault();\n            String labelFilter = rawFilter.toLowerCase(labelLocale);\n            String packageFilter = rawFilter.toLowerCase(Locale.ROOT);\n            for (AppModel app : allApps) {\n                if (!shouldShow(app)) continue;\n                if (rawFilter.isEmpty()\n                        || app.getAppName().toLowerCase(labelLocale).contains(labelFilter)\n                        || app.getPackageName().toLowerCase(Locale.ROOT).contains(packageFilter)) {\n                    filteredList.add(app);\n                }\n            }''')
+          ensure_locale_import(adapter)
+
+          baseline = Path('app/lint-baseline.xml')
+          text = baseline.read_text()
+          target_paths = {
+              'src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java',
+              'src/main/java/com/gree1d/reappzuku/ui/MainActivity.java',
+              'src/main/java/com/gree1d/reappzuku/ui/FilterAppsAdapter.java',
+          }
+          pattern = re.compile(r'\n\s*<issue\n.*?\n\s*</issue>', re.S)
+          removed = []
+          def filter_issue(match):
+              block = match.group(0)
+              if 'id="DefaultLocale"' in block and any(f'file="{path}"' in block for path in target_paths):
+                  removed.append(block)
+                  return ''
+              return block
+          updated = pattern.sub(filter_issue, text)
+          if len(removed) != 7:
+              raise SystemExit(f'expected 7 DefaultLocale baseline entries, removed {len(removed)}')
+          baseline.write_text(updated)
+          PY
+
+          git diff --check
+          test "$(git status --porcelain | wc -l)" -eq 4
+          git config user.name HyperCriSiS
+          git config user.email dev.github@w3b.world
+          git add app/lint-baseline.xml \
+            app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java \
+            app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java \
+            app/src/main/java/com/gree1d/reappzuku/ui/FilterAppsAdapter.java
+          git commit -m 'Make app search locale-aware and package matching stable'
+          git push origin HEAD:roadmap/locale-aware-app-search
