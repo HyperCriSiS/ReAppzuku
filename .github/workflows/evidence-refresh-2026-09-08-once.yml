@@ -1,0 +1,94 @@
+name: One-time evidence refresh 2026-09-08
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout evidence branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: roadmap/evidence-refresh-2026-09-08
+          fetch-depth: 0
+
+      - name: Refresh roadmap and matrix evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "94f37c7dd5b8dc388245728e5f8c5b955599a1f2"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one replacement, found {count}: {old[:90]!r}')
+              p.write_text(text.replace(old, new, 1))
+
+          road = 'docs/ROADMAP.md'
+          replace_once(road,
+              'Backup format v5 includes fork behavior settings and rejects future versions.',
+              'Backup format v6 includes fork behavior settings plus exact per-package manual restriction details (AppOps mask, standby bucket and whitelist-removal choice) and rejects future versions.')
+          replace_once(road,
+              '- [x] Add focused automated restore tests for corrupt/legacy/future/oversized/rollback paths.\n- [x] Execute transactional rollback and active-preset restore on Android runtime.',
+              '- [x] Add focused automated restore tests for corrupt/legacy/future/oversized/rollback paths.\n- [x] Backup v6 round-trips the complete manual-restriction tuple per package: AppOps mask, standby bucket and whitelist-removal choice; imported detail maps must exactly match the manual-app set, stale per-package detail keys are replaced, and v5 backups restore the formerly non-portable fields to defaults instead of leaking device-local state.\n- [x] Execute transactional rollback and active-preset restore on Android runtime.')
+          replace_once(road, '### Transactional restore test coverage — 2026-09-04 to 2026-09-05', '### Transactional restore test coverage — 2026-09-04 to 2026-09-08')
+          replace_once(road,
+              '- API-36 runtime gate `33974637281` executed the complete transactional restore suite successfully. Run `34000092714` additionally passed a real Android MediaStore `content://` export/import/restore round-trip; physical/OEM document-provider UI remains separate release-diversity validation.',
+              '- API-36 runtime gate `33974637281` executed the original transactional restore suite successfully. Focused API-36 run `34259632923` installed the current app + instrumentation APKs and passed all 12 `BackupManagerRestoreTest` cases (`BACKUP_V6_RUNTIME_OK`), including v6 manual-detail round-trip/stale replacement, invalid-bucket rejection and v5 compatibility. Run `34000092714` additionally passed a real Android MediaStore `content://` export/import/restore round-trip; physical/OEM document-provider UI remains separate release-diversity validation.')
+          replace_once(road, '### Assurance evidence — 2026-09-04 to 2026-09-05', '### Assurance evidence — 2026-09-04 to 2026-09-08')
+          replace_once(road, '### Stable Android 16 / API 36 runtime evidence — 2026-09-05 to 2026-09-06', '### Stable Android 16 / API 36 runtime evidence — 2026-09-05 to 2026-09-08')
+          replace_once(road,
+              '- Backup/preset untrusted-input boundaries now cap package collections, validate preset clock/package structure and reuse the bounded backup reader for standalone preset imports (`2b8ad243`, `5f8e470c`, `893b9454`).',
+              '- Backup/preset untrusted-input boundaries now cap package collections, validate preset clock/package structure and reuse the bounded backup reader for standalone preset imports (`2b8ad243`, `5f8e470c`, `893b9454`). Backup v6 additionally makes the manual AppOps/bucket/whitelist tuple an exact snapshot; API-36 run `34259632923` passed all 12 focused restore tests on the installed app/test APKs.')
+          replace_once(road,
+              '- Real API-36 ProcessRecord parsing through the official Shizuku backend is proven. `ServiceRecord` parsing remains JVM-fixture-proven but awaits a naturally foreground/physical-device runtime source; the failing synthetic service harness was removed instead of being normalized as a permanent flaky gate.',
+              '- Real API-36 ProcessRecord parsing through the official Shizuku backend is proven. `ServiceRecord` parsing remains JVM-fixture-proven but awaits a naturally foreground/physical-device runtime source; the failing synthetic service harness was removed instead of being normalized as a permanent flaky gate.\n- Platform API bounds were tightened in PR #4: API-34-only `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` is no longer passed on API 29–33, dead pre-minSdk branches were removed, and repaired-head validation `34168563677` passed.\n- Locale-sensitive machine parsing was eliminated from the audited system/dumpsys token paths in PR #5 (`92f847c0`); normal validation `34259194668` passed. User-facing app-label search/sorting and machine package-name matching were then separated explicitly in PR #6 (`94f37c7d`), with normal validation `34259963846` passing.')
+          replace_once(road, 'refreshed through 2026-09-07; ongoing discipline', 'refreshed through 2026-09-08; ongoing discipline')
+          replace_once(road, '### Maintainability evidence — 2026-09-05 to 2026-09-07', '### Maintainability evidence — 2026-09-05 to 2026-09-08')
+          replace_once(road,
+              '- `ManifestCapabilityPolicyTest` now fails early if the reviewed `QUERY_ALL_PACKAGES` justification, no-`PACKAGE_USAGE_STATS` contract, Leanback banner or optional touchscreen/Leanback declarations drift; full validation `34163432363` passed.',
+              '- `ManifestCapabilityPolicyTest` now fails early if the reviewed `QUERY_ALL_PACKAGES` justification, no-`PACKAGE_USAGE_STATS` contract, Leanback banner or optional touchscreen/Leanback declarations drift; full validation `34163432363` passed.\n- PR #4 removed obsolete minSdk branches and corrected the foreground-service type boundary so `SPECIAL_USE` is referenced only on API 34+; repaired-head normal validation `34168563677` passed.\n- PR #5 made machine-readable system/dumpsys token casing deterministic with `Locale.ROOT` across 20 parser paths and retired the matching lint exceptions; run `34259194668` passed.\n- PR #6 made app-label search/sorting explicitly user-locale aware while package identifiers use `Locale.ROOT`; run `34259963846` passed.\n- Backup v6 manual-restriction snapshot semantics have real API-36 execution evidence: run `34259632923` installed both APKs and passed `BackupManagerRestoreTest` 12/12.')
+
+          matrix = 'docs/CHECK_MATRIX.md'
+          replace_once(matrix, '> Audit baseline: `ondemand-shizuku`, refreshed 2026-09-07.', '> Audit baseline: `ondemand-shizuku`, refreshed 2026-09-08.')
+          replace_once(matrix,
+              '| A13 | Backup / restore | DECIDED | API-36 instrumentation passes transactional rollback fault injection, legacy/future/malformed bounds and active-preset reconciliation, while package collections are capped, preset times/package lists are validated and standalone preset reads reuse the bounded backup reader. `34000092714` passes a real MediaStore `content://` round-trip; physical/OEM provider UI remains release-diversity evidence. |',
+              '| A13 | Backup / restore | DECIDED | API-36 instrumentation passes transactional rollback fault injection, legacy/future/malformed bounds and active-preset reconciliation. Backup v6 now round-trips exact manual AppOps/bucket/whitelist detail snapshots with stale-key replacement and v5-default compatibility; focused API-36 run `34259632923` passed all 12 `BackupManagerRestoreTest` cases. `34000092714` passes a real MediaStore `content://` round-trip; physical/OEM provider UI remains release-diversity evidence. |')
+          replace_once(matrix,
+              '| A17 | UI / error recovery / accessibility / i18n | DECIDED | Fork translations/accessibility fixes are covered, `NavigationManifestPolicyTest` prevents recursive activity-parent routing, and the accidental manifest rollback exposed while fixing `LogDetailActivity` was restored to the last-green capability set while preserving the correct parent (`f426b55c`, `34163189731`). Broader runtime/UX evidence remains pending. |',
+              '| A17 | UI / error recovery / accessibility / i18n | DECIDED | Fork translations/accessibility fixes are covered, `NavigationManifestPolicyTest` prevents recursive activity-parent routing, machine token normalization is locale-independent (`34259194668`), and app-label search/sorting vs package matching now uses explicit user-locale/`Locale.ROOT` semantics (`34259963846`). The manifest-parent regression remains locked by `f426b55c`/`34163189731`; broader runtime/UX evidence remains pending. |')
+          replace_once(matrix,
+              '| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins, zero-error lint, dependency locking/SHA-256 verification and stable tag/source/APK version binding are enforced. `main` and `ondemand-shizuku` share identical permanent validation/release workflows; API-37 preview execution remains blocked. |',
+              '| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins, zero-error lint, dependency locking/SHA-256 verification and stable tag/source/APK version binding are enforced. Platform API lint debt was reduced while correcting the API-34 `SPECIAL_USE` FGS boundary (`34168563677`). API-37 preview execution remains blocked; no runtime-compatibility claim is made. |')
+          replace_once(matrix, '## Evidence/status refresh — 2026-09-07', '## Evidence/status refresh — 2026-09-08')
+          replace_once(matrix,
+              '- **CM-P1-03:** restore is validate-first, bounded, future-version aware and transactional with\n  rollback. API-36 instrumentation passes injected durable failures and imported active-preset reconciliation,\n  and run `34000092714` passes a real Android MediaStore `content://` export/import/restore round-trip. Physical/OEM document-provider UI remains release-diversity evidence.',
+              '- **CM-P1-03:** restore is validate-first, bounded, future-version aware and transactional with rollback. Backup v6 adds exact per-package manual AppOps/bucket/whitelist detail snapshots, rejects mismatched/invalid detail maps before durable commit, replaces stale prefix state, and keeps v5 compatibility by defaulting fields that were not portable yet. Focused API-36 run `34259632923` installed both APKs and passed all 12 `BackupManagerRestoreTest` cases; run `34000092714` separately passes a real Android MediaStore `content://` export/import/restore round-trip. Physical/OEM document-provider UI remains release-diversity evidence.')
+          replace_once(matrix,
+              '- **CM-P2-03:** ActivityManager `ProcessRecord`/`ServiceRecord` parsing is isolated in pure Java; Smart Lifecycle package/dump/foreground/process text handling is further bounded by `PackageTextMatcher`, `SmartLifecycleProtectionPolicy` and `SmartLifecycleTextParser` with JVM tests. Run `34153570390` proves the `ProcessRecord` half on real API 36 through official Shizuku; live `ServiceRecord` injection remains a platform-harness gap rather than a source/parser gap. OEM/physical parser diversity remains open.',
+              '- **CM-P2-03:** ActivityManager `ProcessRecord`/`ServiceRecord` parsing is isolated in pure Java; Smart Lifecycle package/dump/foreground/process text handling is further bounded by `PackageTextMatcher`, `SmartLifecycleProtectionPolicy` and `SmartLifecycleTextParser` with JVM tests. Machine-readable system/dumpsys token normalization across the audited analyzers now uses `Locale.ROOT` (PR #5, run `34259194668`). Run `34153570390` proves the `ProcessRecord` half on real API 36 through official Shizuku; live `ServiceRecord` injection remains a platform-harness gap rather than a source/parser gap. OEM/physical parser diversity remains open.')
+          replace_once(matrix,
+              '- **CM-P2-04:** fork-specific Smart Lifecycle, App Behavior, shortcut-security and accessibility\n  strings are propagated to the current localized set (ES/RU/UK/ZH). Disabled App Behavior controls also list the exact\n  active continuity blockers from `BackgroundWorkPolicy`.',
+              '- **CM-P2-04:** fork-specific Smart Lifecycle, App Behavior, shortcut-security and accessibility strings are propagated to the current localized set (ES/RU/UK/ZH). Disabled App Behavior controls list the exact active continuity blockers from `BackgroundWorkPolicy`. PR #6 additionally makes app-label matching/sorting explicitly user-locale aware while package identifiers use `Locale.ROOT`; normal validation `34259963846` passed.')
+          replace_once(matrix, 'Latest assurance evidence:\n', 'Latest assurance evidence:\n- workflow run `34259963846`: full normal validation passed for explicit user-locale app-label search/sorting and locale-independent package-name matching (PR #6);\n- workflow run `34259632923`: real API-36 installed-app instrumentation passed `BackupManagerRestoreTest` 12/12 with `BACKUP_V6_RUNTIME_OK`, covering backup-v6 manual-detail round-trip/stale replacement, invalid bucket rejection, v5 compatibility and prior rollback/error paths;\n- workflow run `34259194668`: full normal validation passed after 20 machine/system parser casing paths moved to `Locale.ROOT` and the corresponding lint exceptions were retired (PR #5);\n- workflow run `34168563677`: repaired-head full normal validation passed after the API-34-only `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` boundary was corrected and obsolete pre-minSdk branches/baseline findings were removed (PR #4);\n')
+          replace_once(matrix,
+              '**Maintainability status:** the named high-risk seams now have explicit `PrivilegedShell`, `PackageStateSource`, `AppLaunchTriggerPolicy`, parser/protection/background policy, `Clock`/`ScheduleTime`, `AlarmScheduler`, `BackupCodec` and SQL-log redaction boundaries. API-36 runtime covers real Shizuku first-run/UserService/daemon recovery, permission-dialog Activity recreation, real OS reboot/alarm reconstruction, external app force-stop/process restart, Sleep owned-freeze recovery, on-demand process topology, representative privileged command families, shortcut abuse and MediaStore backup I/O. Real API-36 `ProcessRecord` parsing is proven; the synthetic `ServiceRecord` harness was removed after Android 16 consistently blocked its background start, leaving ServiceRecord runtime diversity for a foreground/physical-device lane. Root, physical/OEM diversity and final stable-release signing/rollback evidence remain open.',
+              '**Maintainability status:** the named high-risk seams now have explicit `PrivilegedShell`, `PackageStateSource`, `AppLaunchTriggerPolicy`, parser/protection/background policy, `Clock`/`ScheduleTime`, `AlarmScheduler`, `BackupCodec`, manual-restriction backup policies and SQL-log redaction boundaries. Machine parser casing is deterministic with `Locale.ROOT`, while user-facing app-label search/sorting and package matching use explicit locale semantics. API-36 runtime covers real Shizuku first-run/UserService/daemon recovery, permission-dialog Activity recreation, real OS reboot/alarm reconstruction, external app force-stop/process restart, Sleep owned-freeze recovery, on-demand process topology, representative privileged command families, shortcut abuse, MediaStore backup I/O and the 12-case backup-v6 restore suite. Real API-36 `ProcessRecord` parsing is proven; the synthetic `ServiceRecord` harness was removed after Android 16 consistently blocked its background start, leaving ServiceRecord runtime diversity for a foreground/physical-device lane. Root, physical/OEM diversity and final stable-release signing/rollback evidence remain open.')
+          PY
+
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 2
+          git config user.name HyperCriSiS
+          git config user.email dev.github@w3b.world
+          git add docs/ROADMAP.md docs/CHECK_MATRIX.md
+          git commit -m 'Refresh assurance evidence through September 8'
+          git push origin HEAD:roadmap/evidence-refresh-2026-09-08
