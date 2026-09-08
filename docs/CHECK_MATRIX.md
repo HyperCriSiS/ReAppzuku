@@ -41,7 +41,7 @@ Only **PROVEN** is fully closed.
 | A15 | Update channel / release / rollback | DECIDED | Fork-owned update resolution enumerates stable numeric releases, direct APK/release links are derived only from validated fork metadata, and the release workflow binds stable tag ↔ source `versionName` ↔ built APK `versionName`. Run `34037508198` proves installed-byte identity and fork-only endpoints. Stable signing/rollback identity remains incomplete. |
 | A16 | Exported surfaces: shortcuts / tiles / receivers / widget | DECIDED | Shortcut confused-deputy routing now has an explicit principal policy (`f3145bb0`, `34154664082`), the explicit-intent abuse step passed in `33986395874`, and manifest/documentation parity plus platform permissions are regression-tested (`34138775145`). `ManifestCapabilityPolicyTest` additionally prevents silent package-visibility/usage-stats/Leanback capability drift (`677cd2ac`, `34163432363`); broader entrypoint runtime abuse coverage remains separate. |
 | A17 | UI / error recovery / accessibility / i18n | DECIDED | Fork translations/accessibility fixes are covered, `NavigationManifestPolicyTest` prevents recursive activity-parent routing, machine token normalization is locale-independent (`34259194668`), and app-label search/sorting vs package matching now uses explicit user-locale/`Locale.ROOT` semantics (`34259963846`). The manifest-parent regression remains locked by `f426b55c`/`34163189731`; broader runtime/UX evidence remains pending. |
-| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins, zero-error lint, dependency locking/SHA-256 verification and stable tag/source/APK version binding are enforced. Platform API lint debt was reduced while correcting the API-34 `SPECIAL_USE` FGS boundary (`34168563677`). API-37 preview execution remains blocked; no runtime-compatibility claim is made. |
+| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins, zero-error lint, dependency locking/SHA-256 verification and stable tag/source/APK version binding are enforced. Platform API lint debt was reduced while correcting the API-34 `SPECIAL_USE` FGS boundary (`34168563677`). Target-37 source validation `34274940182` and branch-exact Android 17/API 37 runtime + launcher smoke `34276106536` now close the former preview-runtime blocker. |
 
 ## Axis B — independent lenses
 
@@ -131,9 +131,7 @@ historical “current” wording where implementation has moved on.
 - **CM-P1-09:** accessibility service settings path/scope are corrected; `AccessibilityServicePolicyTest` locks the minimal window-state-only contract and normal run `34156391150` passed.
 - **CM-P1-10:** exported shortcut privilege routing is now an explicit `ShortcutEntryPolicy`; authenticated secure actions, rejected unauthenticated secure actions and confirmation-only legacy/unknown routes are JVM-tested. Run `34154664082` passed, `33986395874` retains explicit-intent abuse evidence, and `34138775145` enforces production-manifest/documentation parity.
 - **CM-P1-11:** Android cloud/device-transfer backup is explicitly excluded and locked by `PlatformBackupPolicyTest`; run `34155781163` passed. The versioned ReAppzuku backup remains the configuration contract.
-- **CM-P1-12:** Android 16/API 36 now provides a stable repeatable runtime baseline. The separate
-  Android-17/API-37 preview lane still blocks at PackageManager transport before repeatable app probes,
-  so `targetSdk 37` remains gated.
+- **CM-P1-12:** Android 16/API 36 remains the broad repeatable runtime baseline, and Android 17/API 37 is now independently proven for the committed target-37 candidate. Run `34276106536` passed build, first-attempt app/test install, installed `targetSdk=37`, all 41 instrumentation tests and launcher crash smoke; the old preview PackageManager transport blocker is historical only.
 - **CM-P2-01:** `PackageStateSource` is now an integrated read-only facade for BackgroundAppManager's running-process queries; commit `685d333f89692d13b7c0d8dd8514c3674eea6be1` replaces four duplicated `ps` parsing paths and passed normal run `34138482661`.
 - **CM-P2-02:** mutating package/component/PID operations route through `PrivilegedShell` with
   typed enums/validated identifiers. Strict run `33946348081` required the repository-wide raw
@@ -144,6 +142,8 @@ historical “current” wording where implementation has moved on.
 - **CM-P2-05:** SQL debug bind contents are redacted by `SqlQueryLogFormatter`; tests assert sensitive package/state tokens cannot enter the formatted log while retaining SQL shape and bind count. Normal validation `34065691224` passed.
 
 Latest assurance evidence:
+- workflow run `34276106536`: branch-exact Android 17/API 37 target-37 gate built the committed APKs, installed app + androidTest on first attempt, verified installed `targetSdk=37`, passed `OK (41 tests)` and launcher crash smoke;
+- workflow run `34274940182`: normal source-authoritative validation passed unit, lint, AndroidTest compile, Room schema and APK build for target-37 commit `5cb32994`;
 - workflow run `34259963846`: full normal validation passed for explicit user-locale app-label search/sorting and locale-independent package-name matching (PR #6);
 - workflow run `34259632923`: real API-36 installed-app instrumentation passed `BackupManagerRestoreTest` 12/12 with `BACKUP_V6_RUNTIME_OK`, covering backup-v6 manual-detail round-trip/stale replacement, invalid bucket rejection, v5 compatibility and prior rollback/error paths;
 - workflow run `34259194668`: full normal validation passed after 20 machine/system parser casing paths moved to `Locale.ROOT` and the corresponding lint exceptions were retired (PR #5);
@@ -386,14 +386,9 @@ and Android 12+ Cloud Backup plus Device Transfer exclude root state. `PlatformB
 locks all three decisions; ReAppzuku's bounded/versioned application backup is the sole supported
 configuration-transfer contract.
 
-### CM-P1-12 — Android 17 / API 37 compatibility lane is missing
+### CM-P1-12 — Android 17 / API 37 compatibility lane
 
-The project currently compiles/targets API 36 with AGP 8.10.0. Android 17 is API 37 and includes
-behavior changes that can affect hidden/reflection-heavy and memory-sensitive code.
-
-**Fix direction:** add an API 37 compatibility lane first. Moving compile/target to 37 requires an
-AGP upgrade (official current minimum for API 37 is AGP 9.1.1), so treat that as a planned build
-migration rather than a blind version bump.
+**Status: resolved for emulator target-37 evidence.** The project now compiles and targets API 37 on AGP 9.4.0 / Gradle 9.6.0. Normal branch-exact validation `34274940182` passed on commit `5cb32994`, and Android 17/API 37 runtime run `34276106536` built the committed APKs, installed both on the first attempt, verified installed `targetSdk=37`, passed all 41 instrumentation tests and passed launcher crash smoke. The earlier preview `Broken pipe (32)` PackageManager result remains historical evidence only; current physical/OEM diversity is tracked separately.
 
 ---
 

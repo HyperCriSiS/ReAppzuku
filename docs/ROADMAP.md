@@ -123,7 +123,7 @@ Status convention:
 - [x] Establish a reviewed warning-only lint baseline: full scan must contain zero errors before a baseline may be accepted.
 - [x] Remove the ReAppzuku-owned Gradle-10 Groovy assignment deprecation identified by `--warning-mode all`.
 - [x] Enforce Gradle dependency verification with committed SHA-256 metadata and dependency locking.
-- [~] Expand emulator/device test lanes without wasting private Actions quota; the API 37 lane has been exercised and is currently blocked by preview PackageManager transport instability before repeatable instrumentation.
+- [x] Expand the emulator lane to Android 17/API 37 using the current `android-37.0;google_apis_ps16k;x86_64` image; run `34276106536` proves branch-exact target-37 APK build, first-attempt install, 41-test instrumentation and launcher smoke without consuming release/publish paths.
 
 ### Assurance evidence — 2026-09-04 to 2026-09-08
 
@@ -170,27 +170,27 @@ Status convention:
 - Real API-36 ProcessRecord parsing through the official Shizuku backend is proven. `ServiceRecord` parsing remains JVM-fixture-proven but awaits a naturally foreground/physical-device runtime source; the failing synthetic service harness was removed instead of being normalized as a permanent flaky gate.
 - Platform API bounds were tightened in PR #4: API-34-only `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` is no longer passed on API 29–33, dead pre-minSdk branches were removed, and repaired-head validation `34168563677` passed.
 - Locale-sensitive machine parsing was eliminated from the audited system/dumpsys token paths in PR #5 (`92f847c0`); normal validation `34259194668` passed. User-facing app-label search/sorting and machine package-name matching were then separated explicitly in PR #6 (`94f37c7d`), with normal validation `34259963846` passing.
-- This stable API-36 lane is now the repeatable Android-runtime baseline. External app force-stop/process death, Sleep owned-freeze recovery, real Shizuku permission-dialog Activity recreation, on-demand process topology and representative privileged command families are proven on this lane. Remaining release-diversity gaps are physical/OEM variation, final installed-release/signing identity + rollback evidence and root-specific execution; API 37 remains separately blocked by the preview PackageManager transport failure.
+- API 36 remains the broad repeatable Android-runtime baseline for Shizuku/reboot/process-state scenarios. Android 17/API 37 is now separately proven for the committed target-37 build, installation, 41-test instrumentation and launcher smoke in `34276106536`. Remaining release-diversity gaps are physical/OEM variation, final installed-release/signing identity + rollback evidence and root-specific execution.
 
 ## Phase 7 — Android 17 / API 37
 
-- [~] Android 17/API 37 runtime compatibility lane exists and has been executed before changing target SDK; build/boot/unlock/package-readiness are proven, but repeatable installation/instrumentation is `RISK/BLOCKED` by preview PackageManager `Broken pipe (32)` failures.
+- [x] Android 17/API 37 runtime compatibility is proven on the current `android-37.0;google_apis_ps16k;x86_64` image: branch-exact run `34276106536` booted API 37, built and installed both APKs on first attempt, verified installed `targetSdk=37`, passed all 41 instrumentation tests and passed launcher crash smoke.
 - [x] Plan compatible AGP/toolchain migration separately in `ANDROID17_COMPATIBILITY.md`.
-- [~] Execute the API 37 lane and re-test hidden APIs, Accessibility, FGS, WorkManager, alarm behavior and process/memory assumptions; current preview environment blocks the lane before those app probes can complete.
+- [x] Execute the API 37 lane against the committed target-37 candidate. Run `34276106536` exercised the complete instrumentation suite present at commit `5cb329948d0bd7032ec8f297c9fbd077202d34e5` plus launcher crash smoke on Android 17/API 37; deeper physical/OEM behavior remains release-diversity evidence rather than a target-37 blocker.
 - [x] Migrate build tooling to an API-37-capable AGP/Gradle combination while keeping `targetSdk 36`.
 - [x] Raise `compileSdk` to 37 and validate before changing target behavior.
-- [ ] Raise `targetSdk` to 37 only after target-37 behavior probes pass.
+- [x] Raise `targetSdk` to 37 after the target-37 behavior probes passed (`34274411475` probe; branch-exact normal validation `34274940182`; branch-exact Android 17 runtime + launcher smoke `34276106536`).
 
-### Android 17 runtime evidence — 2026-09-04
+### Android 17 runtime evidence — 2026-09-04 to 2026-09-08
 
 - Run `33699862420`: both app and instrumentation APKs installed successfully on API 37 and `USE_NEW_MESSAGEQUEUE` was enabled; instrumentation then exposed a lane bug because user 0 had not yet reached `RUNNING_UNLOCKED`.
 - The lane was corrected to require `RUNNING_UNLOCKED`, a ready PackageManager service, 8 GiB `/data`, stable-channel emulator binaries, explicit runner libraries, and build-before-emulator resource separation.
 - Run `33812905493`: API-37 image setup, app/androidTest build, stable-emulator boot, API=37 verification, `RUNNING_UNLOCKED`, PackageManager readiness and free-space checks all passed. Three non-streaming app installation attempts each pushed the 19,343,120-byte APK successfully, then failed only at the PackageManager transaction with `Failure calling service package: Broken pipe (32)`.
-- No APK validation/signature/parse/`INSTALL_FAILED_*` error was observed. Runtime compatibility therefore remains `RISK/BLOCKED`, not failed and not `PROVEN`. No further Actions retries should be spent on the same preview image.
+- No APK validation/signature/parse/`INSTALL_FAILED_*` error was observed. At that time runtime compatibility correctly remained `RISK/BLOCKED`; no further Actions retries were spent on that same preview image. This historical blocker is superseded by the 2026-09-08 evidence below.
 - The temporary runtime workflow was removed from the release path; normal read-only Validate -> write-only Publish CI was restored in `031a8634db725bb93185d3e55819dc8b5165e96d`.
 - Run `33814172310` proved the AGP 9.4.0 / Gradle 9.6.0 / built-in Kotlin 2.3.21 migration at `compileSdk 36`, `targetSdk 36`: unit tests, lint, AndroidTest compilation, Room schema validation and APK build all passed; publishing was skipped.
 - Run `33815939003` then proved `compileSdk 37` with `targetSdk 36` through the same gates. The validated APK SHA-256 is `50f07dc229729b0df68c14d6550cf0f52c286297c8ae541fc62f57c18a5c9912`; publishing was skipped.
-- The remaining Android-17 blocker is runtime execution only. `targetSdk 37` stays blocked until the API-37 runtime probes can execute repeatably.
+- The earlier preview PackageManager blocker is superseded by the current Android 17 image/tooling. Run `34274411475` first proved a temporary target-37 build could install both APKs and pass all 41 instrumentation tests. Run `34274940182` then passed the normal source-authoritative unit/lint/AndroidTest/Room/APK gates on committed target-37 commit `5cb32994`. Finally, branch-exact run `34276106536` built the committed APKs, installed app and androidTest on the first attempt, verified installed `targetSdk=37`, passed `OK (41 tests)` and passed the launcher crash-buffer smoke test. `targetSdk 37` is therefore no longer blocked by API-37 runtime evidence.
 
 ## Phase 8 — UX, i18n, maintainability
 
