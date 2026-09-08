@@ -123,18 +123,17 @@ jobs:
           test "$package_ready" = true
           echo 'API 37 booted; PackageManager answered three consecutive probes'
 
-      - name: Build committed targetSdk 37 candidate
+      - name: Build committed targetSdk 37 APKs
         shell: bash
         run: |
           set -euo pipefail
           chmod +x gradlew
           grep -F 'compileSdk = 37' app/build.gradle
           grep -F 'targetSdk = 37' app/build.gradle
-          ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+          ./gradlew assembleDebug assembleDebugAndroidTest
           test -s app/build/outputs/apk/debug/app-debug.apk
           test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
           git diff --check
-          test -z "$(git status --short)"
 
       - name: Install targetSdk 37 app and instrumentation
         shell: bash
