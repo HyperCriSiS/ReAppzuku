@@ -1,11 +1,11 @@
 # Android 17 / API 37 compatibility plan
 
-Status: toolchain migration and `compileSdk 37` are **PROVEN** with `targetSdk 36`. The API 37 runtime environment remains **RISK/BLOCKED** by repeatable PackageManager transport failure before repeatable instrumentation; runtime compatibility is therefore not `PROVEN`, and `targetSdk 37` remains blocked.
+Status: toolchain migration, `compileSdk 37`, committed `targetSdk 37`, Android 17/API 37 installation, full instrumentation and launcher smoke are **PROVEN**. The earlier preview PackageManager transport blocker is superseded by the current `android-37.0;google_apis_ps16k;x86_64` image/tooling evidence.
 
 ## Current build baseline
 
 - `compileSdk 37`
-- `targetSdk 36`
+- `targetSdk 37`
 - `minSdk 24`
 - Android Gradle Plugin `9.4.0`
 - Gradle `9.6.0`
@@ -40,9 +40,10 @@ The migration was intentionally staged and proven before raising `compileSdk`, s
    - Resolve new compile/lint findings without enabling target-37 behavior.
    - Re-run API 37 runtime lane.
 
-4. **Raise `targetSdk` to 37**
-   - Re-run the target-37 behavior checklist.
-   - Only then publish a target-37 test artifact.
+4. **Raise `targetSdk` to 37 — complete**
+   - Normal branch-exact validation passed in `34274940182`.
+   - Android 17/API 37 branch-exact build/install/instrumentation/launcher smoke passed in `34276106536`.
+   - No release publication was performed as part of the migration.
 
 ## Android 17 risk inventory
 
@@ -85,7 +86,7 @@ The API 37 runtime evidence lane (temporarily dispatched through the already reg
 2. boot an API 37 emulator;
 3. verify the runtime API is exactly 37;
 4. install debug + instrumentation APKs;
-5. enable `USE_NEW_MESSAGEQUEUE`;
+5. verify the installed package actually reports `targetSdk=37`;
 6. run Android instrumentation successfully;
 7. perform a launcher smoke test and fail on ReAppzuku crash-buffer entries;
 8. upload bounded diagnostic evidence;
@@ -106,7 +107,7 @@ The API 37 lane was exercised repeatedly against `system-images;android-37.0;goo
 - Runs `33700842763`, `33812502601`, and `33812905493` reached a healthy boot/unlocked/package-ready state but the preview system server returned `Failure calling service package: Broken pipe (32)` when the APK install transaction began.
 - Run `33812905493` pushed the exact app APK successfully three times using non-streaming install; every PackageManager transaction then failed with the same `Broken pipe (32)` even after the service recovered between attempts. No `INSTALL_FAILED_*`, signature, parse, permission, or APK validation error was reported.
 
-Conclusion: API 37 runtime compatibility is **not proven and not disproven**. The current blocker is the preview emulator/system-server PackageManager transport, with one earlier successful install showing that the APK itself is installable on the same API 37 image. Do not spend additional private Actions quota retrying the same image. Re-run this lane when an updated API 37 image/emulator combination or another repeatable API 37 execution environment is available.
+Conclusion of the 2026-09-04 investigation: the then-current preview emulator/system-server PackageManager transport blocked repeatable evidence. That conclusion is retained as historical audit context and is superseded by the 2026-09-08 evidence below.
 
 After the bounded investigation, the normal least-privilege Validate -> Publish workflow was restored from the known-good assurance state in commit `031a8634db725bb93185d3e55819dc8b5165e96d`.
 
@@ -116,4 +117,16 @@ After the bounded investigation, the normal least-privilege Validate -> Publish 
 - Run `33814172310` passed unit tests, lint, AndroidTest APK compilation, Room schema-11 validation and debug APK assembly. Publish was deliberately skipped.
 - Commit `65a597b5eb8b5854f24f9d0ceb8c24c529f6ec78` raised only `compileSdk` to 37; `targetSdk` remained 36.
 - Run `33815939003` passed the same complete validation chain under `compileSdk 37`. The resulting validation APK SHA-256 is `50f07dc229729b0df68c14d6550cf0f52c286297c8ae541fc62f57c18a5c9912`; publish was deliberately skipped.
-- Therefore toolchain compatibility and API-37 compilation are `PROVEN`. Runtime compatibility remains independently `RISK/BLOCKED`, and `targetSdk 37` must not be enabled until those runtime probes pass.
+- Therefore toolchain compatibility and API-37 compilation were already `PROVEN` before the target bump. The then-open runtime gate was subsequently closed by the 2026-09-08 target-37 evidence below.
+
+
+## Target SDK 37 runtime closure — 2026-09-08
+
+- Probe run `34274411475` used the current Android 17/API 37 `android-37.0;google_apis_ps16k;x86_64` image, temporarily changed only `targetSdk 36 -> 37`, installed app and androidTest APKs on the first attempt, verified the installed package reported `targetSdk=37`, and completed `OK (41 tests)`.
+- Commit `5cb329948d0bd7032ec8f297c9fbd077202d34e5` made `targetSdk 37` source-authoritative and updated the permanent Android-17 runtime lane to the proven toolchain/image path.
+- Normal branch-exact validation `34274940182` passed unit tests, lint, AndroidTest compilation, Room schema verification and debug APK assembly for that exact commit.
+- Branch-exact runtime run `34276106536` then booted Android 17/API 37, built the committed target-37 APKs, installed both APKs on the first streamed-install attempt, verified `targetSdk=37` and `versionName=1.8.7`, passed the complete `OK (41 tests)` instrumentation suite, force-stopped and launched the normal app entry point, and found no ReAppzuku entry in the crash buffer.
+- No manual `USE_NEW_MESSAGEQUEUE` override is used in the committed target-37 lane; target-37 behavior is exercised by the actual installed target SDK.
+- No release was published by any of these gates.
+
+Result: Android 17/API 37 runtime compatibility for the committed target-37 candidate is **PROVEN**. Remaining physical/OEM, root-specific and stable signing/rollback checks remain separate release-diversity evidence.
