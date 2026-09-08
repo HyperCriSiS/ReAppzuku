@@ -18,7 +18,7 @@ Status convention:
 - [x] Keep only `SCHEDULE_EXACT_ALARM`; remove unnecessary exact-alarm declaration.
 - [x] Remove locked-boot path because configuration lives in credential-encrypted storage.
 - [x] Remove destructive Room fallback.
-- [x] Backup format v5 includes fork behavior settings and rejects future versions.
+- [x] Backup format v6 includes fork behavior settings plus exact per-package manual restriction details (AppOps mask, standby bucket and whitelist-removal choice) and rejects future versions.
 - [x] Accessibility configuration no longer requests unnecessary view-tree reporting.
 - [x] First JVM regression tests and source-authoritative CI gates.
 
@@ -56,13 +56,14 @@ Status convention:
 - [x] Validate imported preset clock ranges and package collections before scheduling/storage; invalid package identifiers fail closed as parse errors.
 - [x] Reuse the bounded `BackupFileStore` reader for standalone preset imports so preset JSON cannot bypass the backup payload-size boundary.
 - [x] Add focused automated restore tests for corrupt/legacy/future/oversized/rollback paths.
+- [x] Backup v6 round-trips the complete manual-restriction tuple per package: AppOps mask, standby bucket and whitelist-removal choice; imported detail maps must exactly match the manual-app set, stale per-package detail keys are replaced, and v5 backups restore the formerly non-portable fields to defaults instead of leaking device-local state.
 - [x] Execute transactional rollback and active-preset restore on Android runtime.
 
-### Transactional restore test coverage — 2026-09-04 to 2026-09-05
+### Transactional restore test coverage — 2026-09-04 to 2026-09-08
 
 - Android instrumentation coverage exercises malformed JSON, unversioned legacy payloads, future-version rejection, the 2 MiB input bound, restoration from captured main/preset rollback snapshots, injected failure after the main commit, injected failure after the first preset commit, and imported active-preset reconciliation.
 - The rollback paths execute against real Android `SharedPreferences` and `PresetManager` storage without changing production behavior.
-- API-36 runtime gate `33974637281` executed the complete transactional restore suite successfully. Run `34000092714` additionally passed a real Android MediaStore `content://` export/import/restore round-trip; physical/OEM document-provider UI remains separate release-diversity validation.
+- API-36 runtime gate `33974637281` executed the original transactional restore suite successfully. Focused API-36 run `34259632923` installed the current app + instrumentation APKs and passed all 12 `BackupManagerRestoreTest` cases (`BACKUP_V6_RUNTIME_OK`), including v6 manual-detail round-trip/stale replacement, invalid-bucket rejection and v5 compatibility. Run `34000092714` additionally passed a real Android MediaStore `content://` export/import/restore round-trip; physical/OEM document-provider UI remains separate release-diversity validation.
 
 ## Phase 4 — Persistence and migration evidence
 
@@ -124,7 +125,7 @@ Status convention:
 - [x] Enforce Gradle dependency verification with committed SHA-256 metadata and dependency locking.
 - [~] Expand emulator/device test lanes without wasting private Actions quota; the API 37 lane has been exercised and is currently blocked by preview PackageManager transport instability before repeatable instrumentation.
 
-### Assurance evidence — 2026-09-04 to 2026-09-05
+### Assurance evidence — 2026-09-04 to 2026-09-08
 
 - Workflow run `33577363239` passed unit tests, zero-error full lint, reviewed warning baseline,
   `assembleDebugAndroidTest`, Room schema-11 existence check, and debug APK build.
@@ -140,7 +141,7 @@ Status convention:
 - Dependency-verification refresh run `33900939628` regenerated the complete SHA-256 set from fresh resolution and then passed the build again after deleting the dependency cache, closing the warm-cache blind spot.
 - Normal read-only validation run `33901414025` subsequently passed on the permanent locked/verified dependency state.
 
-### Stable Android 16 / API 36 runtime evidence — 2026-09-05 to 2026-09-06
+### Stable Android 16 / API 36 runtime evidence — 2026-09-05 to 2026-09-08
 
 - API-36 gate `33974637281` booted to `RUNNING_UNLOCKED` and passed the complete instrumentation suite present at that commit: transactional restore/fault injection, imported active-preset reconciliation, ShellManager binder/permission/death-rebind sequences, the denied exact-alarm best-effort fallback, and Room v2 -> v11 migration with `app_stats` preservation and final-schema validation.
 - The first diagnostic API-36 execution `33974371939` reached 17/18 passing tests and identified the only failure as missing Room schema assets, not a migration failure. `app/schemas` is now packaged into `androidTest` assets.
@@ -163,10 +164,12 @@ Status convention:
 - Platform backup exclusion is a CI contract (`7c096a9b`): `allowBackup=false`, legacy Full Backup, Cloud Backup and Device Transfer exclusions all passed normal validation `34155781163`.
 - Accessibility scope is now locked to the minimum window-state contract by `AccessibilityServicePolicyTest`; run `34156391150` passed.
 - Update/release trust is narrowed by `4156ed6b`/`4be29c0f` and the synchronized `signed-release.yml`: only validated fork/tag/asset URLs are eligible for direct updates, and stable publish requires tag ↔ source `versionName` ↔ APK `versionName` equality.
-- Backup/preset untrusted-input boundaries now cap package collections, validate preset clock/package structure and reuse the bounded backup reader for standalone preset imports (`2b8ad243`, `5f8e470c`, `893b9454`).
+- Backup/preset untrusted-input boundaries now cap package collections, validate preset clock/package structure and reuse the bounded backup reader for standalone preset imports (`2b8ad243`, `5f8e470c`, `893b9454`). Backup v6 additionally makes the manual AppOps/bucket/whitelist tuple an exact snapshot; API-36 run `34259632923` passed all 12 focused restore tests on the installed app/test APKs.
 - A navigation audit found `LogDetailActivity` recursively naming itself as parent. The intended parent fix accidentally carried an older full manifest; zero-error lint exposed that regression. Commit `f426b55c` restored the complete last-green manifest capability set while preserving the correct `StatisticsActivity` parent, and run `34163189731` then passed unit, lint, AndroidTest compile, Room schema and APK gates.
 - Commit `677cd2ac` adds a focused manifest-capability regression contract for package visibility, usage-stats exclusion and the optional Leanback/TV surface; run `34163432363` passed the complete normal gate.
 - Real API-36 ProcessRecord parsing through the official Shizuku backend is proven. `ServiceRecord` parsing remains JVM-fixture-proven but awaits a naturally foreground/physical-device runtime source; the failing synthetic service harness was removed instead of being normalized as a permanent flaky gate.
+- Platform API bounds were tightened in PR #4: API-34-only `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` is no longer passed on API 29–33, dead pre-minSdk branches were removed, and repaired-head validation `34168563677` passed.
+- Locale-sensitive machine parsing was eliminated from the audited system/dumpsys token paths in PR #5 (`92f847c0`); normal validation `34259194668` passed. User-facing app-label search/sorting and machine package-name matching were then separated explicitly in PR #6 (`94f37c7d`), with normal validation `34259963846` passing.
 - This stable API-36 lane is now the repeatable Android-runtime baseline. External app force-stop/process death, Sleep owned-freeze recovery, real Shizuku permission-dialog Activity recreation, on-demand process topology and representative privileged command families are proven on this lane. Remaining release-diversity gaps are physical/OEM variation, final installed-release/signing identity + rollback evidence and root-specific execution; API 37 remains separately blocked by the preview PackageManager transport failure.
 
 ## Phase 7 — Android 17 / API 37
@@ -194,10 +197,10 @@ Status convention:
 - [x] Propagate fork-specific Smart Lifecycle/App Behavior/security strings to supported locales.
 - [x] Explain blocking automation directly beside disabled App Behavior controls, listing the active AutoKill/Smart Lifecycle/Sleep/Preset/Scheduler blockers from the central policy.
 - [x] Split large managers behind testable facades: `PrivilegedShell`, `PackageStateSource`, `AlarmScheduler`, `Clock`/`ScheduleTime`, `BackupCodec` and central protection/background/parser policy boundaries now isolate the named high-risk seams.
-- [~] Keep `CHECK_MATRIX.md` status/evidence current after every high-impact change (refreshed through 2026-09-07; ongoing discipline).
+- [~] Keep `CHECK_MATRIX.md` status/evidence current after every high-impact change (refreshed through 2026-09-08; ongoing discipline).
 
 
-### Maintainability evidence — 2026-09-05 to 2026-09-07
+### Maintainability evidence — 2026-09-05 to 2026-09-08
 
 - Scheduling facade gate `33946729221` passed unit tests, lint, AndroidTest compilation and debug APK build before integrating `Clock`/`ScheduleTime` and `AlarmScheduler`.
 - BackupCodec gate `33946888672` compiles the focused Android codec tests and passes the same application validation before integration.
@@ -218,6 +221,10 @@ Status convention:
 - `PresetInputPolicy`, `BackupCollectionPolicy` and bounded `BackupFileStore` reuse close avoidable untrusted-import amplification paths without changing normal backup semantics.
 - `NavigationManifestPolicyTest` protects activity parent relationships. After lint caught an unintended older-manifest overwrite, `f426b55c` restored the reviewed capability manifest while retaining the intended LogDetail parent fix; full validation `34163189731` passed.
 - `ManifestCapabilityPolicyTest` now fails early if the reviewed `QUERY_ALL_PACKAGES` justification, no-`PACKAGE_USAGE_STATS` contract, Leanback banner or optional touchscreen/Leanback declarations drift; full validation `34163432363` passed.
+- PR #4 removed obsolete minSdk branches and corrected the foreground-service type boundary so `SPECIAL_USE` is referenced only on API 34+; repaired-head normal validation `34168563677` passed.
+- PR #5 made machine-readable system/dumpsys token casing deterministic with `Locale.ROOT` across 20 parser paths and retired the matching lint exceptions; run `34259194668` passed.
+- PR #6 made app-label search/sorting explicitly user-locale aware while package identifiers use `Locale.ROOT`; run `34259963846` passed.
+- Backup v6 manual-restriction snapshot semantics have real API-36 execution evidence: run `34259632923` installed both APKs and passed `BackupManagerRestoreTest` 12/12.
 
 ## Stable-release gate
 

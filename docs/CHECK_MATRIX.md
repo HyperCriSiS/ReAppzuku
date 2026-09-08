@@ -2,7 +2,7 @@
 
 > Adapted from the Voice-platform Architecture Control Matrix.
 >
-> Audit baseline: `ondemand-shizuku`, refreshed 2026-09-07.
+> Audit baseline: `ondemand-shizuku`, refreshed 2026-09-08.
 
 ## Purpose
 
@@ -36,12 +36,12 @@ Only **PROVEN** is fully closed.
 | A10 | Accessibility / app-launch tracking | DECIDED | Service configuration and unnecessary view-tree scope were corrected; `AppLaunchTriggerPolicy` JVM-tests exact target eligibility/5-second duplicate suppression (`34153818522`), and `AccessibilityServicePolicyTest` locks the minimal `TYPE_WINDOW_STATE_CHANGED`-only service contract (`34156391150`). Android accessibility runtime evidence remains pending. |
 | A11 | Boot / process death / restart / recovery | DECIDED | Real API-36 OS reboot recovery, Shizuku daemon death/rebind, AutoKill desired-state recovery and Sleep owned-freeze recovery across external process death all pass; physical/OEM diversity remains release evidence rather than an implementation P0. |
 | A12 | Settings / App Behavior / compatibility interlocks | DECIDED | Central `BackgroundWorkPolicy` owns compatibility; run `34057507889` exhaustively proves all 32 continuity-blocker masks against all requested Exit-on-Back / prevent-Shizuku-autostart combinations. Runtime UI diversity remains separate. |
-| A13 | Backup / restore | DECIDED | API-36 instrumentation passes transactional rollback fault injection, legacy/future/malformed bounds and active-preset reconciliation, while package collections are capped, preset times/package lists are validated and standalone preset reads reuse the bounded backup reader. `34000092714` passes a real MediaStore `content://` round-trip; physical/OEM provider UI remains release-diversity evidence. |
+| A13 | Backup / restore | DECIDED | API-36 instrumentation passes transactional rollback fault injection, legacy/future/malformed bounds and active-preset reconciliation. Backup v6 now round-trips exact manual AppOps/bucket/whitelist detail snapshots with stale-key replacement and v5-default compatibility; focused API-36 run `34259632923` passed all 12 `BackupManagerRestoreTest` cases. `34000092714` passes a real MediaStore `content://` round-trip; physical/OEM provider UI remains release-diversity evidence. |
 | A14 | Room DB / statistics / logs | DECIDED | Supported v2→v11 migration executes successfully on API 36 with `app_stats` preservation and final-schema validation; SQL debug bind values are redacted (`34065691224`). Unavailable upstream schema history 1/3–10 cannot be fabricated. |
 | A15 | Update channel / release / rollback | DECIDED | Fork-owned update resolution enumerates stable numeric releases, direct APK/release links are derived only from validated fork metadata, and the release workflow binds stable tag ↔ source `versionName` ↔ built APK `versionName`. Run `34037508198` proves installed-byte identity and fork-only endpoints. Stable signing/rollback identity remains incomplete. |
 | A16 | Exported surfaces: shortcuts / tiles / receivers / widget | DECIDED | Shortcut confused-deputy routing now has an explicit principal policy (`f3145bb0`, `34154664082`), the explicit-intent abuse step passed in `33986395874`, and manifest/documentation parity plus platform permissions are regression-tested (`34138775145`). `ManifestCapabilityPolicyTest` additionally prevents silent package-visibility/usage-stats/Leanback capability drift (`677cd2ac`, `34163432363`); broader entrypoint runtime abuse coverage remains separate. |
-| A17 | UI / error recovery / accessibility / i18n | DECIDED | Fork translations/accessibility fixes are covered, `NavigationManifestPolicyTest` prevents recursive activity-parent routing, and the accidental manifest rollback exposed while fixing `LogDetailActivity` was restored to the last-green capability set while preserving the correct parent (`f426b55c`, `34163189731`). Broader runtime/UX evidence remains pending. |
-| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins, zero-error lint, dependency locking/SHA-256 verification and stable tag/source/APK version binding are enforced. `main` and `ondemand-shizuku` share identical permanent validation/release workflows; API-37 preview execution remains blocked. |
+| A17 | UI / error recovery / accessibility / i18n | DECIDED | Fork translations/accessibility fixes are covered, `NavigationManifestPolicyTest` prevents recursive activity-parent routing, machine token normalization is locale-independent (`34259194668`), and app-label search/sorting vs package matching now uses explicit user-locale/`Locale.ROOT` semantics (`34259963846`). The manifest-parent regression remains locked by `f426b55c`/`34163189731`; broader runtime/UX evidence remains pending. |
+| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins, zero-error lint, dependency locking/SHA-256 verification and stable tag/source/APK version binding are enforced. Platform API lint debt was reduced while correcting the API-34 `SPECIAL_USE` FGS boundary (`34168563677`). API-37 preview execution remains blocked; no runtime-compatibility claim is made. |
 
 ## Axis B — independent lenses
 
@@ -105,7 +105,7 @@ No runtime surface is currently marked fully PROVEN. That is intentional until r
 ---
 
 
-## Evidence/status refresh — 2026-09-07
+## Evidence/status refresh — 2026-09-08
 
 The finding narratives below are retained as audit provenance. This refresh supersedes their
 historical “current” wording where implementation has moved on.
@@ -120,9 +120,7 @@ historical “current” wording where implementation has moved on.
 - **CM-P1-01 / CM-P1-02:** boot preset recovery and one central exact-alarm capability are
   implemented. API-36 runtime proves denied-exact-alarm best-effort fallback plus repeated
   BootReceiver WorkManager idempotency, and run `33985971887` proves real OS reboot recovery with scheduler/preset alarm reconstruction; physical/OEM variation remains release-diversity evidence.
-- **CM-P1-03:** restore is validate-first, bounded, future-version aware and transactional with
-  rollback. API-36 instrumentation passes injected durable failures and imported active-preset reconciliation,
-  and run `34000092714` passes a real Android MediaStore `content://` export/import/restore round-trip. Physical/OEM document-provider UI remains release-diversity evidence.
+- **CM-P1-03:** restore is validate-first, bounded, future-version aware and transactional with rollback. Backup v6 adds exact per-package manual AppOps/bucket/whitelist detail snapshots, rejects mismatched/invalid detail maps before durable commit, replaces stale prefix state, and keeps v5 compatibility by defaulting fields that were not portable yet. Focused API-36 run `34259632923` installed both APKs and passed all 12 `BackupManagerRestoreTest` cases; run `34000092714` separately passes a real Android MediaStore `content://` export/import/restore round-trip. Physical/OEM document-provider UI remains release-diversity evidence.
 - **CM-P1-04:** destructive Room fallback is removed. v2→v11 `MigrationTestHelper` now executes
   successfully on API 36, preserving existing `app_stats` rows and validating the final schema.
   Historical schemas 1 and 3–10 were never preserved upstream and are intentionally not fabricated.
@@ -140,14 +138,16 @@ historical “current” wording where implementation has moved on.
 - **CM-P2-02:** mutating package/component/PID operations route through `PrivilegedShell` with
   typed enums/validated identifiers. Strict run `33946348081` required the repository-wide raw
   mutating-shell audit to return `NONE`; run `34005682619` additionally proves representative real Shizuku AppOps/standby/DeviceIdle/suspend/enable/force-stop/broadcast families with rollback checks. Root-specific and deliberately destructive families remain open.
-- **CM-P2-03:** ActivityManager `ProcessRecord`/`ServiceRecord` parsing is isolated in pure Java; Smart Lifecycle package/dump/foreground/process text handling is further bounded by `PackageTextMatcher`, `SmartLifecycleProtectionPolicy` and `SmartLifecycleTextParser` with JVM tests. Run `34153570390` proves the `ProcessRecord` half on real API 36 through official Shizuku; live `ServiceRecord` injection remains a platform-harness gap rather than a source/parser gap. OEM/physical parser diversity remains open.
+- **CM-P2-03:** ActivityManager `ProcessRecord`/`ServiceRecord` parsing is isolated in pure Java; Smart Lifecycle package/dump/foreground/process text handling is further bounded by `PackageTextMatcher`, `SmartLifecycleProtectionPolicy` and `SmartLifecycleTextParser` with JVM tests. Machine-readable system/dumpsys token normalization across the audited analyzers now uses `Locale.ROOT` (PR #5, run `34259194668`). Run `34153570390` proves the `ProcessRecord` half on real API 36 through official Shizuku; live `ServiceRecord` injection remains a platform-harness gap rather than a source/parser gap. OEM/physical parser diversity remains open.
 - **CM-P1-06 / A18:** Gradle dependency locking and SHA-256 verification are now enforced; run `33900939628` re-proved verification from an empty dependency cache and normal run `33901414025` passed afterward.
-- **CM-P2-04:** fork-specific Smart Lifecycle, App Behavior, shortcut-security and accessibility
-  strings are propagated to the current localized set (ES/RU/UK/ZH). Disabled App Behavior controls also list the exact
-  active continuity blockers from `BackgroundWorkPolicy`.
+- **CM-P2-04:** fork-specific Smart Lifecycle, App Behavior, shortcut-security and accessibility strings are propagated to the current localized set (ES/RU/UK/ZH). Disabled App Behavior controls list the exact active continuity blockers from `BackgroundWorkPolicy`. PR #6 additionally makes app-label matching/sorting explicitly user-locale aware while package identifiers use `Locale.ROOT`; normal validation `34259963846` passed.
 - **CM-P2-05:** SQL debug bind contents are redacted by `SqlQueryLogFormatter`; tests assert sensitive package/state tokens cannot enter the formatted log while retaining SQL shape and bind count. Normal validation `34065691224` passed.
 
 Latest assurance evidence:
+- workflow run `34259963846`: full normal validation passed for explicit user-locale app-label search/sorting and locale-independent package-name matching (PR #6);
+- workflow run `34259632923`: real API-36 installed-app instrumentation passed `BackupManagerRestoreTest` 12/12 with `BACKUP_V6_RUNTIME_OK`, covering backup-v6 manual-detail round-trip/stale replacement, invalid bucket rejection, v5 compatibility and prior rollback/error paths;
+- workflow run `34259194668`: full normal validation passed after 20 machine/system parser casing paths moved to `Locale.ROOT` and the corresponding lint exceptions were retired (PR #5);
+- workflow run `34168563677`: repaired-head full normal validation passed after the API-34-only `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` boundary was corrected and obsolete pre-minSdk branches/baseline findings were removed (PR #4);
 - workflow run `34163432363`: full normal validation passed with `ManifestCapabilityPolicyTest`, moving critical package-visibility/usage-stats/Leanback manifest drift detection into the unit-test stage as well as lint;
 - workflow run `34163189731`: after restoring the last-green manifest capability set while preserving the corrected `LogDetailActivity` parent, unit tests, zero-error lint, AndroidTest compilation, Room schema verification and APK build/upload all passed;
 - workflow run `34156391150`: full normal validation passed with the minimal accessibility-service scope contract;
@@ -194,7 +194,7 @@ Latest assurance evidence:
 - earlier release target: `e202e38c049a0d4a7cfc561f7a9c8348c9abd8ae`;
 - earlier APK SHA-256: `d841e34685d790197266c1e9c90a11619a33a219377892f2c429c00930dbf5d4`.
 
-**Maintainability status:** the named high-risk seams now have explicit `PrivilegedShell`, `PackageStateSource`, `AppLaunchTriggerPolicy`, parser/protection/background policy, `Clock`/`ScheduleTime`, `AlarmScheduler`, `BackupCodec` and SQL-log redaction boundaries. API-36 runtime covers real Shizuku first-run/UserService/daemon recovery, permission-dialog Activity recreation, real OS reboot/alarm reconstruction, external app force-stop/process restart, Sleep owned-freeze recovery, on-demand process topology, representative privileged command families, shortcut abuse and MediaStore backup I/O. Real API-36 `ProcessRecord` parsing is proven; the synthetic `ServiceRecord` harness was removed after Android 16 consistently blocked its background start, leaving ServiceRecord runtime diversity for a foreground/physical-device lane. Root, physical/OEM diversity and final stable-release signing/rollback evidence remain open.
+**Maintainability status:** the named high-risk seams now have explicit `PrivilegedShell`, `PackageStateSource`, `AppLaunchTriggerPolicy`, parser/protection/background policy, `Clock`/`ScheduleTime`, `AlarmScheduler`, `BackupCodec`, manual-restriction backup policies and SQL-log redaction boundaries. Machine parser casing is deterministic with `Locale.ROOT`, while user-facing app-label search/sorting and package matching use explicit locale semantics. API-36 runtime covers real Shizuku first-run/UserService/daemon recovery, permission-dialog Activity recreation, real OS reboot/alarm reconstruction, external app force-stop/process restart, Sleep owned-freeze recovery, on-demand process topology, representative privileged command families, shortcut abuse, MediaStore backup I/O and the 12-case backup-v6 restore suite. Real API-36 `ProcessRecord` parsing is proven; the synthetic `ServiceRecord` harness was removed after Android 16 consistently blocked its background start, leaving ServiceRecord runtime diversity for a foreground/physical-device lane. Root, physical/OEM diversity and final stable-release signing/rollback evidence remain open.
 
 # High-priority findings
 
