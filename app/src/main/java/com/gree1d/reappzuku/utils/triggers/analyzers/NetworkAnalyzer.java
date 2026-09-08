@@ -14,6 +14,7 @@ import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
+import java.util.Locale;
 
 public class NetworkAnalyzer {
 
@@ -61,8 +62,8 @@ public class NetworkAnalyzer {
                 Pattern addrPat = Pattern.compile(
                         "(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:\\d+)");
                 for (String line : connOut.split("\n")) {
-                    if (!line.toLowerCase().contains("established")
-                            && !line.toLowerCase().contains("connected")) continue;
+                    if (!line.toLowerCase(Locale.ROOT).contains("established")
+                            && !line.toLowerCase(Locale.ROOT).contains("connected")) continue;
                     Matcher m = addrPat.matcher(line);
                     while (m.find() && established.size() < 5) {
                         String addr = m.group(1);

@@ -14,6 +14,7 @@ import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
+import java.util.Locale;
 
 public class MediaAnalyzer {
 
@@ -140,7 +141,7 @@ public class MediaAnalyzer {
 
 // ---- mapAudioFocusGain ----
     public String mapAudioFocusGain(String raw) {
-        switch (raw.toUpperCase()) {
+        switch (raw.toUpperCase(Locale.ROOT)) {
             case "AUDIOFOCUS_GAIN":               return "GAIN (exclusive)";
             case "AUDIOFOCUS_GAIN_TRANSIENT":     return "GAIN_TRANSIENT";
             case "AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK": return "GAIN_TRANSIENT_DUCK";
@@ -234,7 +235,7 @@ public class MediaAnalyzer {
                     String detail = analyzer.getContext().getString(R.string.triggers_ble_scan_count, scanCnt)
                             + (scanMode != null ? " · mode:" + scanMode : "");
                     boolean isLowLatency = scanMode != null
-                            && scanMode.toUpperCase().contains("LOW_LATENCY");
+                            && scanMode.toUpperCase(Locale.ROOT).contains("LOW_LATENCY");
                     AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": Bluetooth/manager - BLE scan found: count=" + scanCnt + " mode=" + scanMode);
                     list.add(new TriggerInfo(TriggerInfo.Group.ACTIVE_NOW,
                             AppTriggersAnalyzer.KEY_CAT_BLE_SCAN,
