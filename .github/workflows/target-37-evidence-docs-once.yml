@@ -1,0 +1,129 @@
+name: One-time target 37 evidence docs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target 37 branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: roadmap/target-sdk-37
+          fetch-depth: 1
+
+      - name: Guard exact product head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "5cb329948d0bd7032ec8f297c9fbd077202d34e5"
+
+      - name: Refresh target 37 evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('docs/ROADMAP.md')
+          s = p.read_text()
+          replacements = {
+              "- [~] Expand emulator/device test lanes without wasting private Actions quota; the API 37 lane has been exercised and is currently blocked by preview PackageManager transport instability before repeatable instrumentation.":
+              "- [x] Expand the emulator lane to Android 17/API 37 using the current `android-37.0;google_apis_ps16k;x86_64` image; run `34276106536` proves branch-exact target-37 APK build, first-attempt install, 41-test instrumentation and launcher smoke without consuming release/publish paths.",
+              "- This stable API-36 lane is now the repeatable Android-runtime baseline. External app force-stop/process death, Sleep owned-freeze recovery, real Shizuku permission-dialog Activity recreation, on-demand process topology and representative privileged command families are proven on this lane. Remaining release-diversity gaps are physical/OEM variation, final installed-release/signing identity + rollback evidence and root-specific execution; API 37 remains separately blocked by the preview PackageManager transport failure.":
+              "- API 36 remains the broad repeatable Android-runtime baseline for Shizuku/reboot/process-state scenarios. Android 17/API 37 is now separately proven for the committed target-37 build, installation, 41-test instrumentation and launcher smoke in `34276106536`. Remaining release-diversity gaps are physical/OEM variation, final installed-release/signing identity + rollback evidence and root-specific execution.",
+              "- [~] Android 17/API 37 runtime compatibility lane exists and has been executed before changing target SDK; build/boot/unlock/package-readiness are proven, but repeatable installation/instrumentation is `RISK/BLOCKED` by preview PackageManager `Broken pipe (32)` failures.":
+              "- [x] Android 17/API 37 runtime compatibility is proven on the current `android-37.0;google_apis_ps16k;x86_64` image: branch-exact run `34276106536` booted API 37, built and installed both APKs on first attempt, verified installed `targetSdk=37`, passed all 41 instrumentation tests and passed launcher crash smoke.",
+              "- [~] Execute the API 37 lane and re-test hidden APIs, Accessibility, FGS, WorkManager, alarm behavior and process/memory assumptions; current preview environment blocks the lane before those app probes can complete.":
+              "- [x] Execute the API 37 lane against the committed target-37 candidate. Run `34276106536` exercised the complete instrumentation suite present at commit `5cb329948d0bd7032ec8f297c9fbd077202d34e5` plus launcher crash smoke on Android 17/API 37; deeper physical/OEM behavior remains release-diversity evidence rather than a target-37 blocker.",
+              "- [ ] Raise `targetSdk` to 37 only after target-37 behavior probes pass.":
+              "- [x] Raise `targetSdk` to 37 after the target-37 behavior probes passed (`34274411475` probe; branch-exact normal validation `34274940182`; branch-exact Android 17 runtime + launcher smoke `34276106536`).",
+              "### Android 17 runtime evidence — 2026-09-04":
+              "### Android 17 runtime evidence — 2026-09-04 to 2026-09-08",
+              "- No APK validation/signature/parse/`INSTALL_FAILED_*` error was observed. Runtime compatibility therefore remains `RISK/BLOCKED`, not failed and not `PROVEN`. No further Actions retries should be spent on the same preview image.":
+              "- No APK validation/signature/parse/`INSTALL_FAILED_*` error was observed. At that time runtime compatibility correctly remained `RISK/BLOCKED`; no further Actions retries were spent on that same preview image. This historical blocker is superseded by the 2026-09-08 evidence below.",
+              "- The remaining Android-17 blocker is runtime execution only. `targetSdk 37` stays blocked until the API-37 runtime probes can execute repeatably.":
+              "- The earlier preview PackageManager blocker is superseded by the current Android 17 image/tooling. Run `34274411475` first proved a temporary target-37 build could install both APKs and pass all 41 instrumentation tests. Run `34274940182` then passed the normal source-authoritative unit/lint/AndroidTest/Room/APK gates on committed target-37 commit `5cb32994`. Finally, branch-exact run `34276106536` built the committed APKs, installed app and androidTest on the first attempt, verified installed `targetSdk=37`, passed `OK (41 tests)` and passed the launcher crash-buffer smoke test. `targetSdk 37` is therefore no longer blocked by API-37 runtime evidence.",
+          }
+          for old, new in replacements.items():
+              if old not in s:
+                  raise SystemExit(f'ROADMAP replacement missing: {old[:90]}')
+              s = s.replace(old, new)
+          p.write_text(s)
+
+          p = Path('docs/ANDROID17_COMPATIBILITY.md')
+          s = p.read_text()
+          replacements = {
+              "Status: toolchain migration and `compileSdk 37` are **PROVEN** with `targetSdk 36`. The API 37 runtime environment remains **RISK/BLOCKED** by repeatable PackageManager transport failure before repeatable instrumentation; runtime compatibility is therefore not `PROVEN`, and `targetSdk 37` remains blocked.":
+              "Status: toolchain migration, `compileSdk 37`, committed `targetSdk 37`, Android 17/API 37 installation, full instrumentation and launcher smoke are **PROVEN**. The earlier preview PackageManager transport blocker is superseded by the current `android-37.0;google_apis_ps16k;x86_64` image/tooling evidence.",
+              "- `targetSdk 36`": "- `targetSdk 37`",
+              "4. **Raise `targetSdk` to 37**\n   - Re-run the target-37 behavior checklist.\n   - Only then publish a target-37 test artifact.":
+              "4. **Raise `targetSdk` to 37 — complete**\n   - Normal branch-exact validation passed in `34274940182`.\n   - Android 17/API 37 branch-exact build/install/instrumentation/launcher smoke passed in `34276106536`.\n   - No release publication was performed as part of the migration.",
+              "5. enable `USE_NEW_MESSAGEQUEUE`;\n6. run Android instrumentation successfully;\n7. perform a launcher smoke test and fail on ReAppzuku crash-buffer entries;\n8. upload bounded diagnostic evidence;\n9. never publish a release.":
+              "5. verify the installed package actually reports `targetSdk=37`;\n6. run Android instrumentation successfully;\n7. perform a launcher smoke test and fail on ReAppzuku crash-buffer entries;\n8. upload bounded diagnostic evidence;\n9. never publish a release.",
+              "Conclusion: API 37 runtime compatibility is **not proven and not disproven**. The current blocker is the preview emulator/system-server PackageManager transport, with one earlier successful install showing that the APK itself is installable on the same API 37 image. Do not spend additional private Actions quota retrying the same image. Re-run this lane when an updated API 37 image/emulator combination or another repeatable API 37 execution environment is available.":
+              "Conclusion of the 2026-09-04 investigation: the then-current preview emulator/system-server PackageManager transport blocked repeatable evidence. That conclusion is retained as historical audit context and is superseded by the 2026-09-08 evidence below.",
+              "- Therefore toolchain compatibility and API-37 compilation are `PROVEN`. Runtime compatibility remains independently `RISK/BLOCKED`, and `targetSdk 37` must not be enabled until those runtime probes pass.":
+              "- Therefore toolchain compatibility and API-37 compilation were already `PROVEN` before the target bump. The then-open runtime gate was subsequently closed by the 2026-09-08 target-37 evidence below.",
+          }
+          for old, new in replacements.items():
+              if old not in s:
+                  raise SystemExit(f'ANDROID17 replacement missing: {old[:90]}')
+              s = s.replace(old, new, 1)
+          closure = """
+
+          ## Target SDK 37 runtime closure — 2026-09-08
+
+          - Probe run `34274411475` used the current Android 17/API 37 `android-37.0;google_apis_ps16k;x86_64` image, temporarily changed only `targetSdk 36 -> 37`, installed app and androidTest APKs on the first attempt, verified the installed package reported `targetSdk=37`, and completed `OK (41 tests)`.
+          - Commit `5cb329948d0bd7032ec8f297c9fbd077202d34e5` made `targetSdk 37` source-authoritative and updated the permanent Android-17 runtime lane to the proven toolchain/image path.
+          - Normal branch-exact validation `34274940182` passed unit tests, lint, AndroidTest compilation, Room schema verification and debug APK assembly for that exact commit.
+          - Branch-exact runtime run `34276106536` then booted Android 17/API 37, built the committed target-37 APKs, installed both APKs on the first streamed-install attempt, verified `targetSdk=37` and `versionName=1.8.7`, passed the complete `OK (41 tests)` instrumentation suite, force-stopped and launched the normal app entry point, and found no ReAppzuku entry in the crash buffer.
+          - No manual `USE_NEW_MESSAGEQUEUE` override is used in the committed target-37 lane; target-37 behavior is exercised by the actual installed target SDK.
+          - No release was published by any of these gates.
+
+          Result: Android 17/API 37 runtime compatibility for the committed target-37 candidate is **PROVEN**. Remaining physical/OEM, root-specific and stable signing/rollback checks remain separate release-diversity evidence.
+          """
+          closure = '\n'.join(line[10:] if line.startswith('          ') else line for line in closure.splitlines())
+          if '## Target SDK 37 runtime closure — 2026-09-08' not in s:
+              s += closure + '\n'
+          p.write_text(s)
+
+          p = Path('docs/CHECK_MATRIX.md')
+          s = p.read_text()
+          replacements = {
+              "- **CM-P1-12:** Android 16/API 36 now provides a stable repeatable runtime baseline. The separate\n  Android-17/API-37 preview lane still blocks at PackageManager transport before repeatable app probes,\n  so `targetSdk 37` remains gated.":
+              "- **CM-P1-12:** Android 16/API 36 remains the broad repeatable runtime baseline, and Android 17/API 37 is now independently proven for the committed target-37 candidate. Run `34276106536` passed build, first-attempt app/test install, installed `targetSdk=37`, all 41 instrumentation tests and launcher crash smoke; the old preview PackageManager transport blocker is historical only.",
+              "| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins, zero-error lint, dependency locking/SHA-256 verification and stable tag/source/APK version binding are enforced. Platform API lint debt was reduced while correcting the API-34 `SPECIAL_USE` FGS boundary (`34168563677`). API-37 preview execution remains blocked; no runtime-compatibility claim is made. |":
+              "| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins, zero-error lint, dependency locking/SHA-256 verification and stable tag/source/APK version binding are enforced. Platform API lint debt was reduced while correcting the API-34 `SPECIAL_USE` FGS boundary (`34168563677`). Target-37 source validation `34274940182` and branch-exact Android 17/API 37 runtime + launcher smoke `34276106536` now close the former preview-runtime blocker. |",
+              "### CM-P1-12 — Android 17 / API 37 compatibility lane is missing\n\nThe project currently compiles/targets API 36 with AGP 8.10.0. Android 17 is API 37 and includes\nbehavior changes that can affect hidden/reflection-heavy and memory-sensitive code.\n\n**Fix direction:** add an API 37 compatibility lane first. Moving compile/target to 37 requires an\nAGP upgrade (official current minimum for API 37 is AGP 9.1.1), so treat that as a planned build\nmigration rather than a blind version bump.":
+              "### CM-P1-12 — Android 17 / API 37 compatibility lane\n\n**Status: resolved for emulator target-37 evidence.** The project now compiles and targets API 37 on AGP 9.4.0 / Gradle 9.6.0. Normal branch-exact validation `34274940182` passed on commit `5cb32994`, and Android 17/API 37 runtime run `34276106536` built the committed APKs, installed both on the first attempt, verified installed `targetSdk=37`, passed all 41 instrumentation tests and passed launcher crash smoke. The earlier preview `Broken pipe (32)` PackageManager result remains historical evidence only; current physical/OEM diversity is tracked separately.",
+          }
+          for old, new in replacements.items():
+              if old not in s:
+                  raise SystemExit(f'MATRIX replacement missing: {old[:90]}')
+              s = s.replace(old, new)
+          marker = "Latest assurance evidence:\n"
+          evidence = "- workflow run `34276106536`: branch-exact Android 17/API 37 target-37 gate built the committed APKs, installed app + androidTest on first attempt, verified installed `targetSdk=37`, passed `OK (41 tests)` and launcher crash smoke;\n- workflow run `34274940182`: normal source-authoritative validation passed unit, lint, AndroidTest compile, Room schema and APK build for target-37 commit `5cb32994`;\n"
+          if evidence not in s:
+              if marker not in s:
+                  raise SystemExit('MATRIX evidence marker missing')
+              s = s.replace(marker, marker + evidence, 1)
+          p.write_text(s)
+          PY
+          git diff --check
+          git diff -- docs/ROADMAP.md docs/CHECK_MATRIX.md docs/ANDROID17_COMPATIBILITY.md
+
+      - name: Commit evidence docs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'HyperCriSiS'
+          git config user.email 'dev.github@w3b.world'
+          git add docs/ROADMAP.md docs/CHECK_MATRIX.md docs/ANDROID17_COMPATIBILITY.md
+          test -n "$(git diff --cached --name-only)"
+          git commit -m 'Close Android 17 target 37 runtime evidence'
+          git push origin HEAD:roadmap/target-sdk-37
