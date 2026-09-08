@@ -14,28 +14,6 @@
 
     <issue
         id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="                if (pkgOut != null &amp;&amp; pkgOut.toLowerCase().contains(&quot;syncadapter&quot;)) {"
-        errorLine2="                                             ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/ComponentsAnalyzer.java"
-            line="361"
-            column="46"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="                String t = line.toLowerCase();"
-        errorLine2="                                ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/ComponentsAnalyzer.java"
-            line="515"
-            column="33"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
         message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
         errorLine1="            app.setCpuUsage(String.format(&quot;CPU: %.1f%%&quot;, cpu), cpu);"
         errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
@@ -43,39 +21,6 @@
             file="src/main/java/com/gree1d/reappzuku/manager/CpuMonitor.java"
             line="167"
             column="29"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="                    &amp;&amp; battery.toLowerCase().contains(&quot;exempt&quot;)) {"
-        errorLine2="                               ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/DozeOpsAnalyzer.java"
-            line="87"
-            column="32"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toUpperCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="                    String op   = mOp.group(1).toUpperCase();"
-        errorLine2="                                               ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/DozeOpsAnalyzer.java"
-            line="345"
-            column="48"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="                    String mode = mOp.group(2).toLowerCase();"
-        errorLine2="                                               ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/DozeOpsAnalyzer.java"
-            line="346"
-            column="48"/>
     </issue>
 
     <issue
@@ -114,50 +59,6 @@
     <issue
         id="DefaultLocale"
         message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="        switch (action.trim().toLowerCase()) {"
-        errorLine2="                              ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/LogDetailActivity.java"
-            line="986"
-            column="31"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="        switch (action.trim().toLowerCase()) {"
-        errorLine2="                              ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/LogDetailActivity.java"
-            line="998"
-            column="31"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="        switch (action.trim().toLowerCase()) {"
-        errorLine2="                              ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/LogDetailActivity.java"
-            line="1007"
-            column="31"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="        switch (trimmed.toLowerCase()) {"
-        errorLine2="                        ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/LogDetailActivity.java"
-            line="1030"
-            column="25"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
         errorLine1="            String lowerQuery = query.toLowerCase();"
         errorLine2="                                      ~~~~~~~~~~~">
         <location
@@ -186,50 +87,6 @@
             file="src/main/java/com/gree1d/reappzuku/ui/MainActivity.java"
             line="992"
             column="46"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toUpperCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="        switch (raw.toUpperCase()) {"
-        errorLine2="                    ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/MediaAnalyzer.java"
-            line="143"
-            column="21"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toUpperCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="                            &amp;&amp; scanMode.toUpperCase().contains(&quot;LOW_LATENCY&quot;);"
-        errorLine2="                                        ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/MediaAnalyzer.java"
-            line="237"
-            column="41"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="                    if (!line.toLowerCase().contains(&quot;established&quot;)"
-        errorLine2="                              ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/NetworkAnalyzer.java"
-            line="64"
-            column="31"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="                            &amp;&amp; !line.toLowerCase().contains(&quot;connected&quot;)) continue;"
-        errorLine2="                                     ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/NetworkAnalyzer.java"
-            line="65"
-            column="38"/>
     </issue>
 
     <issue
@@ -373,83 +230,6 @@
             file="src/main/java/com/gree1d/reappzuku/manager/PresetManager.java"
             line="607"
             column="47"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="        String n = raw.toLowerCase();"
-        errorLine2="                       ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/manager/ScanSystem.java"
-            line="576"
-            column="24"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toUpperCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="        String u = raw.toUpperCase();"
-        errorLine2="                       ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/manager/ScanSystem.java"
-            line="601"
-            column="24"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="                blkType = mRec.group(2).toLowerCase();"
-        errorLine2="                                        ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/SchedulingAnalyzer.java"
-            line="492"
-            column="41"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toUpperCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="            default: sb.append(type.substring(0, Math.min(2, type.length())).toUpperCase());"
-        errorLine2="                                                                             ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/SchedulingAnalyzer.java"
-            line="593"
-            column="78"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="        String n = raw.toLowerCase();"
-        errorLine2="                       ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/SensorsLocationAnalyzer.java"
-            line="164"
-            column="24"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="                        String provider = mProv.group(1).toLowerCase();"
-        errorLine2="                                                         ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/SensorsLocationAnalyzer.java"
-            line="220"
-            column="58"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toUpperCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="        String n = raw.toUpperCase();"
-        errorLine2="                       ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/SensorsLocationAnalyzer.java"
-            line="291"
-            column="24"/>
     </issue>
 
 

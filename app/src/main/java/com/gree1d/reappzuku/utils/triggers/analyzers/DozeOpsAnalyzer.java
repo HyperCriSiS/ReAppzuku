@@ -14,6 +14,7 @@ import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
+import java.util.Locale;
 
 public class DozeOpsAnalyzer {
 
@@ -84,7 +85,7 @@ public class DozeOpsAnalyzer {
             String battery = analyzer.getShellManager().runShellCommandAndGetFullOutput(
                     "dumpsys battery | grep -i " + packageName);
             if (battery != null && !battery.trim().isEmpty()
-                    && battery.toLowerCase().contains("exempt")) {
+                    && battery.toLowerCase(Locale.ROOT).contains("exempt")) {
                 list.add(new TriggerInfo(TriggerInfo.Group.OTHER,
                         AppTriggersAnalyzer.KEY_CAT_DOZE,
                         analyzer.getContext().getString(R.string.triggers_cat_doze),
@@ -342,8 +343,8 @@ public class DozeOpsAnalyzer {
                     Matcher mOp = opPat.matcher(t);
                     if (!mOp.find()) continue;
 
-                    String op   = mOp.group(1).toUpperCase();
-                    String mode = mOp.group(2).toLowerCase();
+                    String op   = mOp.group(1).toUpperCase(Locale.ROOT);
+                    String mode = mOp.group(2).toLowerCase(Locale.ROOT);
 
                     OpDescriptor desc = appOpDescriptor(op);
                     if (desc == null) continue;

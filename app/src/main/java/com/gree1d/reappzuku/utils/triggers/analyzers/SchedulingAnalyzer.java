@@ -14,6 +14,7 @@ import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
+import java.util.Locale;
 
 public class SchedulingAnalyzer {
 
@@ -489,7 +490,7 @@ public class SchedulingAnalyzer {
                     recordPiEntry(piEntries, blkType, blkAct, blkCmp, MAX_PI_ENTRIES, packageName);
 
                 String owner = mRec.group(1);
-                blkType = mRec.group(2).toLowerCase();
+                blkType = mRec.group(2).toLowerCase(Locale.ROOT);
                 blkAct  = null;
                 blkCmp  = null;
                 inBlock = owner.equals(packageName);
@@ -590,7 +591,7 @@ public class SchedulingAnalyzer {
             case "broadcast": sb.append("BC"); break;
             case "service":   sb.append("SV"); break;
             case "activity":  sb.append("AC"); break;
-            default: sb.append(type.substring(0, Math.min(2, type.length())).toUpperCase());
+            default: sb.append(type.substring(0, Math.min(2, type.length())).toUpperCase(Locale.ROOT));
         }
         if (cmp != null) {
             String cls = cmp.contains("/") ? cmp.substring(cmp.indexOf('/') + 1) : cmp;

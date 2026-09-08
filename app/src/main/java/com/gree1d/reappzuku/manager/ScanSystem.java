@@ -21,6 +21,7 @@ import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.utils.AppModel;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
 import com.gree1d.reappzuku.R;
+import java.util.Locale;
 
 public class ScanSystem {
 
@@ -573,7 +574,7 @@ public class ScanSystem {
     }
 
     private String classifySensor(String raw) {
-        String n = raw.toLowerCase();
+        String n = raw.toLowerCase(Locale.ROOT);
         if (n.contains("accelero"))                             return "Accelerometer";
         if (n.contains("gyro"))                                 return "Gyroscope";
         if (n.contains("magnet"))                               return "Magnetometer";
@@ -598,7 +599,7 @@ public class ScanSystem {
     }
 
     private String normalizeAccuracy(String raw) {
-        String u = raw.toUpperCase();
+        String u = raw.toUpperCase(Locale.ROOT);
         if (u.contains("HIGH"))    return "HIGH_ACCURACY";
         if (u.contains("BALANCE")) return "BALANCED";
         if (u.contains("LOW"))     return "LOW_POWER";
