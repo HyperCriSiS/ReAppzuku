@@ -14,7 +14,7 @@ jobs:
       - name: Checkout product branch
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
-          ref: ondemand-shizuku
+          ref: roadmap/target-sdk-37
 
       - name: Set up JDK 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
@@ -123,26 +123,18 @@ jobs:
           test "$package_ready" = true
           echo 'API 37 booted; PackageManager answered three consecutive probes'
 
-      - name: Build targetSdk 37 candidate without changing source branch
+      - name: Build committed targetSdk 37 candidate
         shell: bash
         run: |
           set -euo pipefail
           chmod +x gradlew
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('app/build.gradle')
-          text = path.read_text()
-          old = 'targetSdk = 36'
-          assert text.count(old) == 1
-          path.write_text(text.replace(old, 'targetSdk = 37'))
-          PY
           grep -F 'compileSdk = 37' app/build.gradle
           grep -F 'targetSdk = 37' app/build.gradle
           ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
           test -s app/build/outputs/apk/debug/app-debug.apk
           test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
           git diff --check
-          git diff -- app/build.gradle
+          test -z "$(git status --short)"
 
       - name: Install targetSdk 37 app and instrumentation
         shell: bash
@@ -185,6 +177,26 @@ jobs:
           grep -Eq 'OK \([0-9]+ tests?\)' <<<"$clean"
           ! grep -Fq 'FAILURES!!!' <<<"$clean"
           echo 'targetSdk 37 instrumentation passed'
+
+      - name: Launcher smoke test on targetSdk 37
+        shell: bash
+        run: |
+          set -euo pipefail
+          adb shell am force-stop com.gree1d.reappzuku
+          adb logcat -c
+          adb shell monkey \
+            -p com.gree1d.reappzuku \
+            -c android.intent.category.LAUNCHER \
+            1 >/tmp/api37-monkey.txt 2>&1 || true
+          sleep 8
+          adb logcat -d -b crash > /tmp/api37-crash.txt
+          if grep -q 'com.gree1d.reappzuku' /tmp/api37-crash.txt; then
+            cat /tmp/api37-crash.txt
+            exit 1
+          fi
+          dump="$(adb shell dumpsys package com.gree1d.reappzuku | tr -d '\r')"
+          grep -Fq 'targetSdk=37' <<<"$dump"
+          echo 'targetSdk 37 launcher smoke passed'
 
       - name: Diagnostics on failure
         if: failure()
