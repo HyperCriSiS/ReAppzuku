@@ -3,17 +3,6 @@
 
     <issue
         id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="                                .thenComparing(a -> a.getAppName().toLowerCase()));"
-        errorLine2="                                                                   ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java"
-            line="847"
-            column="68"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
         message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
         errorLine1="            app.setCpuUsage(String.format(&quot;CPU: %.1f%%&quot;, cpu), cpu);"
         errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
@@ -21,72 +10,6 @@
             file="src/main/java/com/gree1d/reappzuku/manager/CpuMonitor.java"
             line="167"
             column="29"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="                    ? constraint.toString().toLowerCase().trim() : &quot;&quot;;"
-        errorLine2="                                            ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/FilterAppsAdapter.java"
-            line="950"
-            column="45"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="                        || app.getAppName().toLowerCase().contains(filterString)"
-        errorLine2="                                            ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/FilterAppsAdapter.java"
-            line="954"
-            column="45"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="                        || app.getPackageName().toLowerCase().contains(filterString)) {"
-        errorLine2="                                                ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/FilterAppsAdapter.java"
-            line="955"
-            column="49"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="            String lowerQuery = query.toLowerCase();"
-        errorLine2="                                      ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/MainActivity.java"
-            line="989"
-            column="39"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="                if (app.getAppName().toLowerCase().contains(lowerQuery) ||"
-        errorLine2="                                     ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/MainActivity.java"
-            line="991"
-            column="38"/>
-    </issue>
-
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `toLowerCase(Locale)` instead. For strings meant to be internal use `Locale.ROOT`, otherwise `Locale.getDefault()`."
-        errorLine1="                        app.getPackageName().toLowerCase().contains(lowerQuery)) {"
-        errorLine2="                                             ~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/MainActivity.java"
-            line="992"
-            column="46"/>
     </issue>
 
     <issue

@@ -54,6 +54,7 @@ import rikka.shizuku.Shizuku;
 import com.gree1d.reappzuku.utils.AppModel;
 import com.gree1d.reappzuku.utils.FocusHighlightUtil;
 
+import java.util.Locale;
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 
@@ -995,10 +996,12 @@ public class MainActivity extends BaseActivity {
         if (query == null || query.isEmpty()) {
             appsDataList.addAll(fullAppsList);
         } else {
-            String lowerQuery = query.toLowerCase();
+            Locale labelLocale = Locale.getDefault();
+            String labelQuery = query.toLowerCase(labelLocale);
+            String packageQuery = query.toLowerCase(Locale.ROOT);
             for (AppModel app : fullAppsList) {
-                if (app.getAppName().toLowerCase().contains(lowerQuery) ||
-                        app.getPackageName().toLowerCase().contains(lowerQuery)) {
+                if (app.getAppName().toLowerCase(labelLocale).contains(labelQuery) ||
+                        app.getPackageName().toLowerCase(Locale.ROOT).contains(packageQuery)) {
                     appsDataList.add(app);
                 }
             }
