@@ -53,6 +53,7 @@ jobs:
             --package "system-images;android-36;google_apis;x86_64" \
             --device pixel_6
           sudo chmod 666 /dev/kvm || true
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
           "$ADB" start-server
           "$EMULATOR" -avd reappzuku-api36-backup-v6 \
             -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data \
@@ -85,21 +86,26 @@ jobs:
           test "$boot_ready" = true
 
           "$ADB" shell input keyevent 82 || true
-          unlocked=false
+          test "$("$ADB" shell getprop ro.build.version.sdk | tr -d '\r')" = "36"
+          package_ready=false
+          consecutive_ready=0
           for i in $(seq 1 45); do
-            state="$("$ADB" shell cmd user get-user-state 0 2>/dev/null | tr -d '\r' || true)"
-            if printf '%s' "$state" | grep -Fq 'RUNNING_UNLOCKED'; then
-              unlocked=true
-              break
+            if "$ADB" shell pm list packages android >/tmp/pkg-ready.txt 2>/tmp/pkg-ready.err \
+              && grep -Fq 'package:android' /tmp/pkg-ready.txt; then
+              consecutive_ready=$((consecutive_ready + 1))
+              if [ "$consecutive_ready" -ge 3 ]; then
+                package_ready=true
+                break
+              fi
+            else
+              consecutive_ready=0
             fi
             sleep 2
           done
-          test "$unlocked" = true
-          test "$("$ADB" shell getprop ro.build.version.sdk | tr -d '\r')" = "36"
+          test "$package_ready" = true
           "$ADB" shell settings put global window_animation_scale 0 || true
           "$ADB" shell settings put global transition_animation_scale 0 || true
           "$ADB" shell settings put global animator_duration_scale 0 || true
-          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
 
       - name: Install APKs
         shell: bash
