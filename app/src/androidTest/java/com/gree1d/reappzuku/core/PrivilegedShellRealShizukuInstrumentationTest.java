@@ -44,7 +44,7 @@ public class PrivilegedShellRealShizukuInstrumentationTest {
         executor = Executors.newSingleThreadExecutor();
         manager = new ShellManager(context, new Handler(Looper.getMainLooper()), executor);
 
-        assertTrue("real Shizuku Binder is unavailable", Shizuku.pingBinder());
+        assertTrue("real Shizuku Binder is unavailable", awaitBinder(10_000L));
         assertEquals("real Shizuku permission is not granted",
                 android.content.pm.PackageManager.PERMISSION_GRANTED,
                 Shizuku.checkSelfPermission());
@@ -142,6 +142,17 @@ public class PrivilegedShellRealShizukuInstrumentationTest {
                 PROBE_PACKAGE + "/com.gree1d.reappzuku.core.BootReceiver",
                 PrivilegedShell.ComponentAction.BROADCAST);
         assertSucceeded("explicit component broadcast", component);
+    }
+
+    private boolean awaitBinder(long timeoutMs) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            if (Shizuku.pingBinder()) {
+                return true;
+            }
+            Thread.sleep(100L);
+        }
+        return Shizuku.pingBinder();
     }
 
     private ShellBackendState awaitReady(long timeoutMs) throws Exception {
