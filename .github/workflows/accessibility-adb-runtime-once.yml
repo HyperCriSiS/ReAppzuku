@@ -93,16 +93,21 @@ jobs:
           # Keep every mutation path disabled. The probe only observes the production event path.
           adb shell am force-stop "$PACKAGE"
           PREFS_XML='<?xml version="1.0" encoding="utf-8" standalone="yes" ?><map><boolean name="autoKillEnabled" value="false" /><boolean name="app_launch_trigger_enabled" value="false" /></map>'
-          adb shell run-as "$PACKAGE" mkdir -p shared_prefs
-          printf '%s' "$PREFS_XML" | adb shell run-as "$PACKAGE" sh -c 'cat > shared_prefs/AppPreferences.xml'
-          adb shell run-as "$PACKAGE" chmod 660 shared_prefs/AppPreferences.xml
-          adb shell run-as "$PACKAGE" cat shared_prefs/AppPreferences.xml | tee /tmp/prefs-before.xml
+          DATA_DIR="$(adb shell dumpsys package "$PACKAGE" | sed -n 's/^[[:space:]]*dataDir=//p' | head -n 1 | tr -d '\r')"
+          test -n "$DATA_DIR"
+          test "$DATA_DIR" = "/data/user/0/$PACKAGE"
+          printf '%s' "$PREFS_XML" > /tmp/AppPreferences.xml
+          adb push /tmp/AppPreferences.xml /data/local/tmp/reappzuku-AppPreferences.xml >/dev/null
+          adb shell chmod 644 /data/local/tmp/reappzuku-AppPreferences.xml
+          adb shell run-as "$PACKAGE" mkdir -p "$DATA_DIR/shared_prefs"
+          adb shell run-as "$PACKAGE" cp /data/local/tmp/reappzuku-AppPreferences.xml "$DATA_DIR/shared_prefs/AppPreferences.xml"
+          adb shell run-as "$PACKAGE" chmod 660 "$DATA_DIR/shared_prefs/AppPreferences.xml"
+          adb shell run-as "$PACKAGE" cat "$DATA_DIR/shared_prefs/AppPreferences.xml" | tee /tmp/prefs-before.xml
           grep -Fq 'name="autoKillEnabled" value="false"' /tmp/prefs-before.xml
           grep -Fq 'name="app_launch_trigger_enabled" value="false"' /tmp/prefs-before.xml
 
-          # Android 17 ECM checks Accessibility against the bind-accessibility-service op.
-          # Set both the current op and the older/general restricted-settings op to the
-          # post-user-approval state so the probe tests ReAppzuku, not sideload protection UI.
+          # Android 17 ECM protects Accessibility under the bind-accessibility-service setting,
+          # while its package guard state is stored in ACCESS_RESTRICTED_SETTINGS.
           adb shell appops set --user 0 "$PACKAGE" BIND_ACCESSIBILITY_SERVICE allow
           adb shell appops set --user 0 "$PACKAGE" ACCESS_RESTRICTED_SETTINGS allow
           adb shell appops get --user 0 "$PACKAGE" BIND_ACCESSIBILITY_SERVICE | tee /tmp/appop-bind.txt
@@ -139,7 +144,7 @@ jobs:
 
           observed=false
           for i in $(seq 1 20); do
-            adb shell run-as "$PACKAGE" cat shared_prefs/AppPreferences.xml > /tmp/prefs-after.xml 2>/dev/null || true
+            adb shell run-as "$PACKAGE" cat "$DATA_DIR/shared_prefs/AppPreferences.xml" > /tmp/prefs-after.xml 2>/dev/null || true
             VALUE="$(sed -n "s/.*<long name=\"$KEY\" value=\"\([0-9][0-9]*\)\".*/\1/p" /tmp/prefs-after.xml | tail -n 1)"
             if [ -n "$VALUE" ] && [ "$VALUE" -ge "$BEFORE_MS" ]; then
               observed=true
