@@ -1,0 +1,46 @@
+name: One-time accessibility UiAutomation cleanup fix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout accessibility evidence branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: roadmap/accessibility-runtime-evidence
+          fetch-depth: 2
+      - name: Remove hidden UiAutomation cleanup call
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "3d733049c2125b73b4ff4977eb52c49b339d4e85"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/androidTest/java/com/gree1d/reappzuku/service/AccessibilityRuntimeInstrumentationTest.java')
+          s = p.read_text()
+          old = '''        if (uiAutomation != null) {
+            uiAutomation.destroy();
+            uiAutomation = null;
+        }
+'''
+          if s.count(old) != 1:
+              raise SystemExit(f'expected one UiAutomation cleanup block, found {s.count(old)}')
+          s = s.replace(old, '')
+          p.write_text(s)
+          PY
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 1
+          grep -Fq 'FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES' app/src/androidTest/java/com/gree1d/reappzuku/service/AccessibilityRuntimeInstrumentationTest.java
+          grep -Fq 'ECM_SETTLE_TIMEOUT_MS' app/src/androidTest/java/com/gree1d/reappzuku/service/AccessibilityRuntimeInstrumentationTest.java
+          ! grep -Fq 'uiAutomation.destroy()' app/src/androidTest/java/com/gree1d/reappzuku/service/AccessibilityRuntimeInstrumentationTest.java
+          git config user.name 'HyperCriSiS'
+          git config user.email 'dev.github@w3b.world'
+          git add app/src/androidTest/java/com/gree1d/reappzuku/service/AccessibilityRuntimeInstrumentationTest.java
+          git commit -m 'Let Instrumentation own UiAutomation lifecycle'
+          git push origin HEAD:roadmap/accessibility-runtime-evidence
