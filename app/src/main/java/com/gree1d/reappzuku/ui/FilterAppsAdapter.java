@@ -548,13 +548,13 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
 
         android.widget.RadioButton timerSuspendBtn = new android.widget.RadioButton(context);
         timerSuspendBtn.setId(View.generateViewId());
-        timerSuspendBtn.setText("pm suspend");
+        timerSuspendBtn.setText(context.getString(R.string.command_pm_suspend));
         timerSuspendBtn.setPadding(paddingH, 12, paddingH, 12);
         timerMethodGroup.addView(timerSuspendBtn);
 
         android.widget.RadioButton timerDisableBtn = new android.widget.RadioButton(context);
         timerDisableBtn.setId(View.generateViewId());
-        timerDisableBtn.setText("pm disable");
+        timerDisableBtn.setText(context.getString(R.string.command_pm_disable));
         timerDisableBtn.setPadding(paddingH, 12, paddingH, 12);
         timerMethodGroup.addView(timerDisableBtn);
 
@@ -578,13 +578,13 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
 
         android.widget.RadioButton permanentSuspendBtn = new android.widget.RadioButton(context);
         permanentSuspendBtn.setId(View.generateViewId());
-        permanentSuspendBtn.setText("pm suspend");
+        permanentSuspendBtn.setText(context.getString(R.string.command_pm_suspend));
         permanentSuspendBtn.setPadding(paddingH, 12, paddingH, 12);
         permanentMethodGroup.addView(permanentSuspendBtn);
 
         android.widget.RadioButton permanentDisableBtn = new android.widget.RadioButton(context);
         permanentDisableBtn.setId(View.generateViewId());
-        permanentDisableBtn.setText("pm disable");
+        permanentDisableBtn.setText(context.getString(R.string.command_pm_disable));
         permanentDisableBtn.setPadding(paddingH, 12, paddingH, 12);
         permanentMethodGroup.addView(permanentDisableBtn);
 

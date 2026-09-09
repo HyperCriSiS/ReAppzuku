@@ -1061,4 +1061,11 @@
     <string name="settings_smart_lifecycle_profile_aggressive">Aggressive · boot 2 min · standby 30 min · stop 2 h</string>
     <string name="settings_smart_boot_cleanup_title">Clean up boot-started apps</string>
     <string name="settings_smart_boot_cleanup_subtitle">After the boot grace period, stop managed apps that started by themselves and were not used since boot.</string>
+    <!-- Language-neutral UI formatting / literal shell command labels. -->
+    <string name="command_pm_suspend" translatable="false">pm suspend</string>
+    <string name="command_pm_disable" translatable="false">pm disable</string>
+    <string name="ui_indicator_expanded" translatable="false">▼</string>
+    <string name="ui_indicator_collapsed" translatable="false">▶</string>
+    <string name="ui_label_with_indicator" translatable="false">%1$s %2$s</string>
+    <string name="ui_time_range_value" translatable="false">%1$s – %2$s</string>
 </resources>
