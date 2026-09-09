@@ -1,0 +1,64 @@
+name: One-time accessibility runtime evidence refinement
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout accessibility evidence branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: roadmap/accessibility-runtime-evidence
+          fetch-depth: 2
+      - name: Make the production event the runtime binding proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "c0885a5da8d7b516db3071953654e10d70af9039"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/androidTest/java/com/gree1d/reappzuku/service/AccessibilityRuntimeInstrumentationTest.java')
+          s = p.read_text()
+
+          old = '''        AccessibilityServiceInfo serviceInfo = waitForEnabledService(serviceComponent);\n        assertNotNull("Accessibility service did not bind", serviceInfo);\n        assertEquals("Runtime event scope must stay window-state-only",\n                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED, serviceInfo.eventTypes);\n        assertEquals("Runtime feedback type must stay generic",\n                AccessibilityServiceInfo.FEEDBACK_GENERIC, serviceInfo.feedbackType);\n        assertEquals("Service must not request accessibility flags", 0, serviceInfo.flags);\n        assertEquals("Service must not gain view-tree retrieval capability", 0,\n                serviceInfo.getCapabilities()\n                        & AccessibilityServiceInfo.CAPABILITY_CAN_RETRIEVE_WINDOW_CONTENT);\n\n        long launchStartedAt = System.currentTimeMillis();\n'''
+          new = '''        // The production foreground timestamp below is a stronger runtime binding proof than\n        // AccessibilityManager#getEnabledAccessibilityServiceList while UiAutomation is attached:\n        // only AppLaunchAccessibilityService.onAccessibilityEvent() writes this package timestamp.\n        // The exact event/flag/capability scope remains independently locked by\n        // AccessibilityServicePolicyTest and the production accessibility XML.\n        Thread.sleep(2_000L);\n        long launchStartedAt = System.currentTimeMillis();\n'''
+          if s.count(old) != 1:
+              raise SystemExit(f'expected one runtime service-info assertion block, found {s.count(old)}')
+          s = s.replace(old, new)
+
+          start = s.find('    private AccessibilityServiceInfo waitForEnabledService(ComponentName component)')
+          end = s.find('    private void waitUntil(long timeoutMs, Condition condition)', start)
+          if start < 0 or end < 0:
+              raise SystemExit('waitForEnabledService helper bounds not found')
+          s = s[:start] + s[end:]
+
+          for imp in [
+              'import android.accessibilityservice.AccessibilityServiceInfo;\n',
+              'import android.view.accessibility.AccessibilityEvent;\n',
+              'import android.view.accessibility.AccessibilityManager;\n',
+              'import java.util.List;\n',
+          ]:
+              if s.count(imp) != 1:
+                  raise SystemExit(f'expected exactly one removable import: {imp!r}')
+              s = s.replace(imp, '')
+
+          if 'waitForEnabledService' in s:
+              raise SystemExit('manager-list binding gate remains')
+          if 'FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES' not in s:
+              raise SystemExit('non-suppressing UiAutomation invariant lost')
+          if 'prefs.getLong(foregroundKey, 0L) >= launchStartedAt' not in s:
+              raise SystemExit('production timestamp proof missing')
+          p.write_text(s)
+          PY
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 1
+          git config user.name 'HyperCriSiS'
+          git config user.email 'dev.github@w3b.world'
+          git add app/src/androidTest/java/com/gree1d/reappzuku/service/AccessibilityRuntimeInstrumentationTest.java
+          git commit -m 'Use production Accessibility event as runtime proof'
+          git push origin HEAD:roadmap/accessibility-runtime-evidence
