@@ -1,0 +1,181 @@
+name: One-time external Accessibility runtime probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  accessibility-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - name: Checkout product branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ondemand-shizuku
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+
+      - name: Prepare Android 17 toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          CLT_ZIP=/tmp/commandlinetools-linux-15859902_latest.zip
+          CLT_HOME="$SDK_ROOT/cmdline-tools/reappzuku-15859902"
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 \
+            'https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip' \
+            -o "$CLT_ZIP"
+          echo '4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  /tmp/commandlinetools-linux-15859902_latest.zip' | sha256sum -c -
+          rm -rf /tmp/android-clt "$CLT_HOME"
+          mkdir -p /tmp/android-clt "$CLT_HOME"
+          unzip -q "$CLT_ZIP" -d /tmp/android-clt
+          cp -a /tmp/android-clt/cmdline-tools/. "$CLT_HOME/"
+          echo "$CLT_HOME/bin" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/emulator" >> "$GITHUB_PATH"
+
+      - name: Install Android 17 emulator image
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          CLT_HOME="$SDK_ROOT/cmdline-tools/reappzuku-15859902"
+          IMAGE='system-images;android-37.0;google_apis_ps16k;x86_64'
+          yes | "$CLT_HOME/bin/sdkmanager" --sdk_root="$SDK_ROOT" --licenses >/dev/null || true
+          "$CLT_HOME/bin/sdkmanager" --sdk_root="$SDK_ROOT" \
+            'platform-tools' 'emulator' 'platforms;android-37.0' "$IMAGE"
+          echo no | "$CLT_HOME/bin/avdmanager" create avd \
+            --force --name reappzuku-accessibility37 --package "$IMAGE" --device pixel_6
+
+      - name: Boot Android 17 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ ! -e /dev/kvm ] || sudo chmod 666 /dev/kvm || true
+          nohup emulator @reappzuku-accessibility37 \
+            -no-window -no-audio -no-boot-anim -no-metrics -no-snapshot -wipe-data \
+            -gpu swiftshader_indirect >/tmp/accessibility-emulator.log 2>&1 &
+          adb wait-for-device
+          timeout 360 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done'
+          test "$(adb shell getprop ro.build.version.sdk | tr -d '\r')" = '37'
+          adb shell input keyevent 82 || true
+          adb shell wm dismiss-keyguard || true
+          adb shell settings put global window_animation_scale 0 || true
+          adb shell settings put global transition_animation_scale 0 || true
+          adb shell settings put global animator_duration_scale 0 || true
+
+      - name: Build and install product APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'targetSdk = 37' app/build.gradle
+          ./gradlew assembleDebug
+          adb install -r -t app/build/outputs/apk/debug/app-debug.apk | tee /tmp/install-app.txt
+          adb shell dumpsys package com.gree1d.reappzuku | grep -F 'targetSdk=37'
+
+      - name: Prove real Accessibility binding and foreground event externally
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACKAGE='com.gree1d.reappzuku'
+          COMPONENT='com.gree1d.reappzuku/com.gree1d.reappzuku.service.AppLaunchAccessibilityService'
+
+          # Keep every mutation path disabled. The probe only observes the production event path.
+          adb shell am force-stop "$PACKAGE"
+          PREFS_XML='<?xml version="1.0" encoding="utf-8" standalone="yes" ?><map><boolean name="autoKillEnabled" value="false" /><boolean name="app_launch_trigger_enabled" value="false" /></map>'
+          adb shell run-as "$PACKAGE" mkdir -p shared_prefs
+          printf '%s' "$PREFS_XML" | adb shell run-as "$PACKAGE" sh -c 'cat > shared_prefs/AppPreferences.xml'
+          adb shell run-as "$PACKAGE" chmod 660 shared_prefs/AppPreferences.xml
+          adb shell run-as "$PACKAGE" cat shared_prefs/AppPreferences.xml | tee /tmp/prefs-before.xml
+          grep -Fq 'name="autoKillEnabled" value="false"' /tmp/prefs-before.xml
+          grep -Fq 'name="app_launch_trigger_enabled" value="false"' /tmp/prefs-before.xml
+
+          # Android 17 ECM checks Accessibility against the bind-accessibility-service op.
+          # Set both the current op and the older/general restricted-settings op to the
+          # post-user-approval state so the probe tests ReAppzuku, not sideload protection UI.
+          adb shell appops set --user 0 "$PACKAGE" BIND_ACCESSIBILITY_SERVICE allow
+          adb shell appops set --user 0 "$PACKAGE" ACCESS_RESTRICTED_SETTINGS allow
+          adb shell appops get --user 0 "$PACKAGE" BIND_ACCESSIBILITY_SERVICE | tee /tmp/appop-bind.txt
+          adb shell appops get --user 0 "$PACKAGE" ACCESS_RESTRICTED_SETTINGS | tee /tmp/appop-restricted.txt
+          grep -Fqi 'allow' /tmp/appop-bind.txt
+          grep -Fqi 'allow' /tmp/appop-restricted.txt
+
+          adb shell settings put secure enabled_accessibility_services "$COMPONENT"
+          adb shell settings put secure accessibility_enabled 1
+          test "$(adb shell settings get secure accessibility_enabled | tr -d '\r')" = '1'
+          adb shell settings get secure enabled_accessibility_services | tee /tmp/enabled-services.txt
+          grep -Fq 'AppLaunchAccessibilityService' /tmp/enabled-services.txt
+
+          bound=false
+          for i in $(seq 1 25); do
+            adb shell dumpsys accessibility > /tmp/accessibility.txt
+            if grep -Fq 'AppLaunchAccessibilityService' /tmp/accessibility.txt; then
+              bound=true
+              break
+            fi
+            sleep 1
+          done
+          test "$bound" = true
+          echo 'Accessibility service present in system dumpsys state'
+
+          SETTINGS_COMPONENT="$(adb shell cmd package resolve-activity -a android.settings.SETTINGS --brief | tr -d '\r' | tail -n 1)"
+          SETTINGS_PACKAGE="${SETTINGS_COMPONENT%%/*}"
+          test -n "$SETTINGS_PACKAGE"
+          test "$SETTINGS_PACKAGE" != 'No activity found'
+          KEY="smart_last_foreground_${SETTINGS_PACKAGE}"
+
+          BEFORE_MS="$(date +%s%3N)"
+          adb shell am start -W -a android.settings.SETTINGS | tee /tmp/settings-launch.txt
+
+          observed=false
+          for i in $(seq 1 20); do
+            adb shell run-as "$PACKAGE" cat shared_prefs/AppPreferences.xml > /tmp/prefs-after.xml 2>/dev/null || true
+            VALUE="$(sed -n "s/.*<long name=\"$KEY\" value=\"\([0-9][0-9]*\)\".*/\1/p" /tmp/prefs-after.xml | tail -n 1)"
+            if [ -n "$VALUE" ] && [ "$VALUE" -ge "$BEFORE_MS" ]; then
+              observed=true
+              echo "Observed production foreground timestamp: $KEY=$VALUE"
+              break
+            fi
+            sleep 1
+          done
+          test "$observed" = true
+
+          grep -Fq 'name="autoKillEnabled" value="false"' /tmp/prefs-after.xml
+          grep -Fq 'name="app_launch_trigger_enabled" value="false"' /tmp/prefs-after.xml
+          echo 'External Accessibility runtime probe passed without enabling mutation paths'
+
+      - name: Collect evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p accessibility-evidence
+          for f in /tmp/accessibility-emulator.log /tmp/install-app.txt /tmp/prefs-before.xml /tmp/prefs-after.xml /tmp/appop-bind.txt /tmp/appop-restricted.txt /tmp/enabled-services.txt /tmp/accessibility.txt /tmp/settings-launch.txt; do
+            [ ! -f "$f" ] || cp "$f" accessibility-evidence/
+          done
+          adb shell getprop ro.build.version.release > accessibility-evidence/android-release.txt 2>/dev/null || true
+          adb shell getprop ro.build.version.sdk > accessibility-evidence/android-api.txt 2>/dev/null || true
+          adb shell dumpsys package com.gree1d.reappzuku > accessibility-evidence/package.txt 2>/dev/null || true
+          adb shell dumpsys accessibility > accessibility-evidence/accessibility-final.txt 2>/dev/null || true
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: accessibility-api37-external-evidence
+          path: accessibility-evidence/
+          retention-days: 7
+
+      - name: Stop emulator
+        if: always()
+        shell: bash
+        run: adb emu kill || true
