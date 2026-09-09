@@ -1479,137 +1479,17 @@
 
 
 
-    <issue
-        id="HardcodedText"
-        message="Hardcoded string &quot;Debug&quot;, should use `@string` resource"
-        errorLine1="                            android:text=&quot;Debug&quot;"
-        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/activity_settings.xml"
-            line="1379"
-            column="29"/>
-    </issue>
 
-    <issue
-        id="HardcodedText"
-        message="Hardcoded string &quot;Debug menu&quot;, should use `@string` resource"
-        errorLine1="                            android:text=&quot;Debug menu&quot;"
-        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/activity_settings.xml"
-            line="1405"
-            column="29"/>
-    </issue>
 
-    <issue
-        id="HardcodedText"
-        message="Hardcoded string &quot;—&quot;, should use `@string` resource"
-        errorLine1="                        android:text=&quot;—&quot;"
-        errorLine2="                        ~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/activity_statistics.xml"
-            line="74"
-            column="25"/>
-    </issue>
 
-    <issue
-        id="HardcodedText"
-        message="Hardcoded string &quot;—&quot;, should use `@string` resource"
-        errorLine1="                        android:text=&quot;—&quot;"
-        errorLine2="                        ~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/activity_statistics.xml"
-            line="90"
-            column="25"/>
-    </issue>
 
-    <issue
-        id="HardcodedText"
-        message="Hardcoded string &quot;—&quot;, should use `@string` resource"
-        errorLine1="                        android:text=&quot;—&quot;"
-        errorLine2="                        ~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/activity_statistics.xml"
-            line="106"
-            column="25"/>
-    </issue>
 
-    <issue
-        id="HardcodedText"
-        message="Hardcoded string &quot;08:00&quot;, should use `@string` resource"
-        errorLine1="            android:text=&quot;08:00&quot;"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/dialog_preset_time_range.xml"
-            line="29"
-            column="13"/>
-    </issue>
 
-    <issue
-        id="HardcodedText"
-        message="Hardcoded string &quot;20:00&quot;, should use `@string` resource"
-        errorLine1="            android:text=&quot;20:00&quot;"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/dialog_preset_time_range.xml"
-            line="55"
-            column="13"/>
-    </issue>
 
-    <issue
-        id="HardcodedText"
-        message="Hardcoded string &quot;No offenders for this period&quot;, should use `@string` resource"
-        errorLine1="            android:text=&quot;No offenders for this period&quot;"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/dialog_top_offenders.xml"
-            line="49"
-            column="13"/>
-    </issue>
 
-    <issue
-        id="HardcodedText"
-        message="Hardcoded string &quot;System&quot;, should use `@string` resource"
-        errorLine1="                    android:text=&quot;System&quot;"
-        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/item.xml"
-            line="145"
-            column="21"/>
-    </issue>
 
-    <issue
-        id="HardcodedText"
-        message="Hardcoded string &quot;Persistent&quot;, should use `@string` resource"
-        errorLine1="                    android:text=&quot;Persistent&quot;"
-        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/item.xml"
-            line="162"
-            column="21"/>
-    </issue>
 
-    <issue
-        id="HardcodedText"
-        message="Hardcoded string &quot;App Icon&quot;, should use `@string` resource"
-        errorLine1="        android:contentDescription=&quot;App Icon&quot; />"
-        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/item_filter_app.xml"
-            line="14"
-            column="9"/>
-    </issue>
 
-    <issue
-        id="HardcodedText"
-        message="Hardcoded string &quot;▶&quot;, should use `@string` resource"
-        errorLine1="                android:text=&quot;▶&quot;"
-        errorLine2="                ~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/item_trigger.xml"
-            line="33"
-            column="17"/>
-    </issue>
 
     <issue
         id="RtlSymmetry"

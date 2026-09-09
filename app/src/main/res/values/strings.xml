@@ -1071,4 +1071,9 @@
     <string name="ui_sort_indicator_closed" translatable="false">▼</string>
     <string name="ui_sort_label_with_indicator" translatable="false">%1$s  %2$s</string>
     <string name="ui_time_range_value" translatable="false">%1$s – %2$s</string>
+
+    <string name="settings_debug_title">Debug</string>
+    <string name="settings_debug_menu_title">Debug menu</string>
+    <string name="badge_persistent">Persistent</string>
+    <string name="filter_app_icon_content_description">App icon</string>
 </resources>

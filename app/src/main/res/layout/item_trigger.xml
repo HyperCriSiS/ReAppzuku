@@ -30,7 +30,7 @@
                 android:id="@+id/trigger_arrow"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="▶"
+                android:text="@string/ui_indicator_collapsed"
                 android:textSize="11sp"
                 android:textColor="?android:attr/textColorSecondary"
                 android:layout_marginEnd="6dp" />
