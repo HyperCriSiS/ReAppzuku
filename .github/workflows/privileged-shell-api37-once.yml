@@ -111,6 +111,7 @@ jobs:
           adb install -r /tmp/reappzuku-probe-target.apk | tee /tmp/install-target.txt
           adb shell pm clear com.gree1d.reappzuku
           adb shell pm revoke com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23 2>/dev/null || true
+          adb shell pm grant com.gree1d.reappzuku android.permission.POST_NOTIFICATIONS 2>/dev/null || true
           adb shell pm path com.gree1d.reappzuku.probetarget | grep -q '^package:'
           adb shell dumpsys package com.gree1d.reappzuku | grep -F 'targetSdk=37'
 
