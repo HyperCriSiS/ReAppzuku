@@ -1,0 +1,94 @@
+name: One-time explicit format locale patch
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout format-locale branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: roadmap/explicit-format-locales-v2
+          fetch-depth: 2
+      - name: Apply explicit formatting locales
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "fd33bc820cee901fabb1ea36f87d9d282de95d4d"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          cpu = Path('app/src/main/java/com/gree1d/reappzuku/manager/CpuMonitor.java')
+          s = cpu.read_text()
+          old = 'String.format("CPU: %.1f%%", cpu)'
+          if s.count(old) != 1:
+              raise SystemExit(f'CpuMonitor expected 1 format call, found {s.count(old)}')
+          if 'import java.util.Locale;' not in s:
+              anchor = 'import java.util.Map;\n'
+              if s.count(anchor) != 1:
+                  raise SystemExit('CpuMonitor import anchor drift')
+              s = s.replace(anchor, anchor + 'import java.util.Locale;\n')
+          s = s.replace(old, 'String.format(Locale.getDefault(), "CPU: %.1f%%", cpu)')
+          cpu.write_text(s)
+
+          power = Path('app/src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/PowerAnalyzer.java')
+          s = power.read_text()
+          old = 'String.format("%.2f mAh", powerMah)'
+          if s.count(old) != 1:
+              raise SystemExit(f'PowerAnalyzer expected 1 format call, found {s.count(old)}')
+          if 'import java.util.Locale;' not in s:
+              anchor = 'import java.util.List;\n'
+              if s.count(anchor) != 1:
+                  raise SystemExit('PowerAnalyzer import anchor drift')
+              s = s.replace(anchor, anchor + 'import java.util.Locale;\n')
+          s = s.replace(old, 'String.format(Locale.getDefault(), "%.2f mAh", powerMah)')
+          power.write_text(s)
+
+          preset = Path('app/src/main/java/com/gree1d/reappzuku/manager/PresetManager.java')
+          s = preset.read_text()
+          old = 'String.format("%02d",'
+          if s.count(old) != 12:
+              raise SystemExit(f'PresetManager expected 12 format calls, found {s.count(old)}')
+          if 'import java.util.Locale;' not in s:
+              anchor = 'import java.util.HashSet;\n'
+              if s.count(anchor) != 1:
+                  raise SystemExit('PresetManager import anchor drift')
+              s = s.replace(anchor, anchor + 'import java.util.Locale;\n')
+          s = s.replace(old, 'String.format(Locale.ROOT, "%02d",')
+          preset.write_text(s)
+
+          baseline = Path('app/lint-baseline.xml')
+          s = baseline.read_text()
+          block_re = re.compile(r'\n    <issue\n.*?\n    </issue>\n', re.S)
+          targets = ('CpuMonitor.java', 'PowerAnalyzer.java', 'PresetManager.java')
+          removed = []
+          def repl(match):
+              block = match.group(0)
+              if 'id="DefaultLocale"' in block and any(f'file="src/main/java/com/gree1d/reappzuku/' in block and t in block for t in targets):
+                  removed.append(block)
+                  return '\n'
+              return block
+          new = block_re.sub(repl, s)
+          if len(removed) != 14:
+              raise SystemExit(f'expected 14 DefaultLocale baseline blocks, removed {len(removed)}')
+          if new.count('id="DefaultLocale"') != s.count('id="DefaultLocale"') - 14:
+              raise SystemExit('unexpected DefaultLocale baseline delta')
+          baseline.write_text(new)
+          PY
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 4
+          grep -Fq 'String.format(Locale.getDefault(), "CPU: %.1f%%", cpu)' app/src/main/java/com/gree1d/reappzuku/manager/CpuMonitor.java
+          grep -Fq 'String.format(Locale.getDefault(), "%.2f mAh", powerMah)' app/src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/PowerAnalyzer.java
+          test "$(grep -Fo 'String.format(Locale.ROOT, "%02d",' app/src/main/java/com/gree1d/reappzuku/manager/PresetManager.java | wc -l)" -eq 12
+          git diff --stat
+          git config user.name 'HyperCriSiS'
+          git config user.email 'dev.github@w3b.world'
+          git add app/lint-baseline.xml app/src/main/java/com/gree1d/reappzuku/manager/CpuMonitor.java app/src/main/java/com/gree1d/reappzuku/manager/PresetManager.java app/src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/PowerAnalyzer.java
+          git commit -m 'Make numeric and scheduling formats locale-explicit'
+          git push origin HEAD:roadmap/explicit-format-locales-v2
