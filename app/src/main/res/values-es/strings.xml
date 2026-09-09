@@ -1025,4 +1025,9 @@
     <string name="appdebug_backup_restore">Copia de seguridad y restauración</string>
     <string name="appdebug_utils">Otras utilidades</string>
     
+
+    <string name="settings_debug_title">Depuración</string>
+    <string name="settings_debug_menu_title">Menú de depuración</string>
+    <string name="badge_persistent">Persistente</string>
+    <string name="filter_app_icon_content_description">Icono de la aplicación</string>
 </resources>

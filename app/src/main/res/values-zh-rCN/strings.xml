@@ -1024,4 +1024,9 @@
     <string name="appdebug_backup_restore">备份与恢复</string>
     <string name="appdebug_utils">其他工具</string>
     
+
+    <string name="settings_debug_title">调试</string>
+    <string name="settings_debug_menu_title">调试菜单</string>
+    <string name="badge_persistent">常驻</string>
+    <string name="filter_app_icon_content_description">应用图标</string>
 </resources>

@@ -1026,4 +1026,9 @@
     <string name="appdebug_backup_restore">Резервні копії</string>
     <string name="appdebug_utils">Інші утиліти</string>
     
+
+    <string name="settings_debug_title">Налагодження</string>
+    <string name="settings_debug_menu_title">Меню налагодження</string>
+    <string name="badge_persistent">Постійний</string>
+    <string name="filter_app_icon_content_description">Піктограма застосунку</string>
 </resources>

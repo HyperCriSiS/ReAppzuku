@@ -1026,4 +1026,9 @@
     <string name="appdebug_backup_restore">Бэкапы</string>
     <string name="appdebug_utils">Прочие утилиты</string>
     
+
+    <string name="settings_debug_title">Отладка</string>
+    <string name="settings_debug_menu_title">Меню отладки</string>
+    <string name="badge_persistent">Постоянное</string>
+    <string name="filter_app_icon_content_description">Значок приложения</string>
 </resources>
