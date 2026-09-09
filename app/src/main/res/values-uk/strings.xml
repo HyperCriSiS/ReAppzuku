@@ -163,7 +163,7 @@
 
     <!-- Монітор ОЗП -->
     <string name="ram_usage">ОЗП: %1$dMB / %2$dMB</string>
-    <string name="ram_usage_unavailable">ОЗП: --</string>
+    <string name="ram_usage_unavailable">ОЗП: —</string>
 
     <!-- ══════════════════════════════════════════════
          ФОНОВИЙ СЕРВІС (ShappkyService)

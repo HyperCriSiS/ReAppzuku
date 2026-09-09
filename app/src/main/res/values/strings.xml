@@ -182,7 +182,7 @@
 
     <!-- RAM Monitor -->
     <string name="ram_usage">RAM: %1$dMB / %2$dMB</string>
-    <string name="ram_usage_unavailable">RAM: --</string>
+    <string name="ram_usage_unavailable">RAM: —</string>
 
     <!-- ══════════════════════════════════════════════
          BACKGROUND SERVICE (ShappkyService)
