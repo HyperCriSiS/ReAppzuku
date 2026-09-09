@@ -22,15 +22,8 @@ jobs:
           from pathlib import Path
           import re
 
-          def replace_once(path, old, new):
-              p = Path(path)
-              s = p.read_text()
-              assert s.count(old) == 1, f'{path}: expected one occurrence of {old!r}, got {s.count(old)}'
-              p.write_text(s.replace(old, new, 1))
-
           p = Path('app/src/main/res/values/strings.xml')
           s = p.read_text()
-          marker = '</resources>'
           additions = '''    <!-- Language-neutral UI formatting / literal shell command labels. -->
               <string name="command_pm_suspend" translatable="false">pm suspend</string>
               <string name="command_pm_disable" translatable="false">pm disable</string>
@@ -39,10 +32,10 @@ jobs:
               <string name="ui_label_with_indicator" translatable="false">%1$s %2$s</string>
               <string name="ui_time_range_value" translatable="false">%1$s – %2$s</string>
           '''
-          for name in ['command_pm_suspend','command_pm_disable','ui_indicator_expanded','ui_indicator_collapsed','ui_label_with_indicator','ui_time_range_value']:
-              assert f'name="{name}"' not in s, name
-          assert s.count(marker) == 1
-          p.write_text(s.replace(marker, additions + marker, 1))
+          names = ['command_pm_suspend','command_pm_disable','ui_indicator_expanded','ui_indicator_collapsed','ui_label_with_indicator','ui_time_range_value']
+          assert all(f'name="{name}"' not in s for name in names)
+          assert s.count('</resources>') == 1
+          p.write_text(s.replace('</resources>', additions + '</resources>', 1))
 
           p = Path('app/src/main/java/com/gree1d/reappzuku/ui/FilterAppsAdapter.java')
           s = p.read_text()
@@ -52,39 +45,43 @@ jobs:
           s = s.replace('setText("pm disable")', 'setText(context.getString(R.string.command_pm_disable))')
           p.write_text(s)
 
-          replace_once(
-              'app/src/main/java/com/gree1d/reappzuku/ui/PresetSettingsActivity.java',
-              '''        binding.textPresetTimeRange.setText(
-                  formatTime(workingModel.startHour, workingModel.startMinute, use24h)
-                  + " – "
-                  + formatTime(workingModel.endHour, workingModel.endMinute, use24h));''',
-              '''        binding.textPresetTimeRange.setText(getString(
+          p = Path('app/src/main/java/com/gree1d/reappzuku/ui/PresetSettingsActivity.java')
+          s = p.read_text()
+          time_pattern = re.compile(
+              r'binding\.textPresetTimeRange\.setText\(\s*'
+              r'formatTime\(workingModel\.startHour, workingModel\.startMinute, use24h\)\s*'
+              r'\+ " – "\s*\+\s*'
+              r'formatTime\(workingModel\.endHour, workingModel\.endMinute, use24h\)\);')
+          s, count = time_pattern.subn(
+              '''binding.textPresetTimeRange.setText(getString(
                   R.string.ui_time_range_value,
                   formatTime(workingModel.startHour, workingModel.startMinute, use24h),
-                  formatTime(workingModel.endHour, workingModel.endMinute, use24h)));''')
-          replace_once(
-              'app/src/main/java/com/gree1d/reappzuku/ui/PresetSettingsActivity.java',
-              '        btn.setText(getString(R.string.filter_sort_button) + (open ? "  ▲" : "  ▼"));',
-              '''        btn.setText(getString(
+                  formatTime(workingModel.endHour, workingModel.endMinute, use24h)));''', s)
+          assert count == 1, f'time range replacements={count}'
+          old_sort = 'btn.setText(getString(R.string.filter_sort_button) + (open ? "  ▲" : "  ▼"));'
+          new_sort = '''btn.setText(getString(
                   R.string.ui_label_with_indicator,
                   getString(R.string.filter_sort_button),
-                  getString(open ? R.string.ui_indicator_expanded : R.string.ui_indicator_collapsed)));''')
+                  getString(open ? R.string.ui_indicator_expanded : R.string.ui_indicator_collapsed)));'''
+          assert s.count(old_sort) == 1
+          s = s.replace(old_sort, new_sort, 1)
+          p.write_text(s)
 
           p = Path('app/src/main/java/com/gree1d/reappzuku/ui/ScanResultAdapter.java')
           s = p.read_text()
           replacements = {
-              '        holder.appName.setText((expanded ? "▼ " : "▶ ") + load.appName);':
-                  '''        holder.appName.setText(context.getString(
+              'holder.appName.setText((expanded ? "▼ " : "▶ ") + load.appName);':
+                  '''holder.appName.setText(context.getString(
                   R.string.ui_label_with_indicator,
                   context.getString(expanded ? R.string.ui_indicator_expanded : R.string.ui_indicator_collapsed),
                   load.appName));''',
-              '                holder.appName.setText("▶ " + load.appName);':
-                  '''                holder.appName.setText(context.getString(
+              'holder.appName.setText("▶ " + load.appName);':
+                  '''holder.appName.setText(context.getString(
                       R.string.ui_label_with_indicator,
                       context.getString(R.string.ui_indicator_collapsed),
                       load.appName));''',
-              '                holder.appName.setText("▼ " + load.appName);':
-                  '''                holder.appName.setText(context.getString(
+              'holder.appName.setText("▼ " + load.appName);':
+                  '''holder.appName.setText(context.getString(
                       R.string.ui_label_with_indicator,
                       context.getString(R.string.ui_indicator_expanded),
                       load.appName));''',
