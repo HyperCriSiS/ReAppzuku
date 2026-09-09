@@ -52,9 +52,9 @@ public class ScanResultAdapter extends RecyclerView.Adapter<ScanResultAdapter.Vi
 
         boolean expanded = holder.findingsContainer.getVisibility() == View.VISIBLE;
         holder.appName.setText(context.getString(
-        R.string.ui_label_with_indicator,
-        context.getString(expanded ? R.string.ui_indicator_expanded : R.string.ui_indicator_collapsed),
-        load.appName));
+                R.string.ui_label_with_indicator,
+                context.getString(expanded ? R.string.ui_indicator_expanded : R.string.ui_indicator_collapsed),
+                load.appName));
 
         try {
             Drawable icon = pm.getApplicationIcon(load.packageName);
@@ -74,16 +74,16 @@ public class ScanResultAdapter extends RecyclerView.Adapter<ScanResultAdapter.Vi
             if (isExpanded) {
                 holder.findingsContainer.setVisibility(View.GONE);
                 holder.appName.setText(context.getString(
-            R.string.ui_label_with_indicator,
-            context.getString(R.string.ui_indicator_collapsed),
-            load.appName));
+                        R.string.ui_label_with_indicator,
+                        context.getString(R.string.ui_indicator_collapsed),
+                        load.appName));
                 AppDebugManager.d(Category.SCAN, "ScanResultAdapter: collapsed " + load.packageName);
             } else {
                 holder.findingsContainer.setVisibility(View.VISIBLE);
                 holder.appName.setText(context.getString(
-            R.string.ui_label_with_indicator,
-            context.getString(R.string.ui_indicator_expanded),
-            load.appName));
+                        R.string.ui_label_with_indicator,
+                        context.getString(R.string.ui_indicator_expanded),
+                        load.appName));
                 AppDebugManager.d(Category.SCAN, "ScanResultAdapter: expanded " + load.packageName);
             }
         });

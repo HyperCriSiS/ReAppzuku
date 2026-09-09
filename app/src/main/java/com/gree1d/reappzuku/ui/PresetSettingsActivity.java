@@ -918,9 +918,9 @@ public class PresetSettingsActivity extends BaseActivity {
     private void updateTimeRangeText() {
         boolean use24h = android.text.format.DateFormat.is24HourFormat(this);
         binding.textPresetTimeRange.setText(getString(
-        R.string.ui_time_range_value,
-        formatTime(workingModel.startHour, workingModel.startMinute, use24h),
-        formatTime(workingModel.endHour, workingModel.endMinute, use24h)));
+                R.string.ui_time_range_value,
+                formatTime(workingModel.startHour, workingModel.startMinute, use24h),
+                formatTime(workingModel.endHour, workingModel.endMinute, use24h)));
     }
 
     private void updateAppListModeText() {
@@ -1018,9 +1018,9 @@ public class PresetSettingsActivity extends BaseActivity {
 
     private void updateSortButtonText(TextView btn, boolean open) {
         btn.setText(getString(
-        R.string.ui_label_with_indicator,
-        getString(R.string.filter_sort_button),
-        getString(open ? R.string.ui_indicator_expanded : R.string.ui_indicator_collapsed)));
+                R.string.ui_sort_label_with_indicator,
+                getString(R.string.filter_sort_button),
+                getString(open ? R.string.ui_sort_indicator_open : R.string.ui_sort_indicator_closed)));
     }
 
     private void showSingleChoiceDialog(String title, String[] options, int selected,

@@ -1067,5 +1067,8 @@
     <string name="ui_indicator_expanded" translatable="false">▼</string>
     <string name="ui_indicator_collapsed" translatable="false">▶</string>
     <string name="ui_label_with_indicator" translatable="false">%1$s %2$s</string>
+    <string name="ui_sort_indicator_open" translatable="false">▲</string>
+    <string name="ui_sort_indicator_closed" translatable="false">▼</string>
+    <string name="ui_sort_label_with_indicator" translatable="false">%1$s  %2$s</string>
     <string name="ui_time_range_value" translatable="false">%1$s – %2$s</string>
 </resources>
