@@ -1,0 +1,67 @@
+name: One-time API 37 PrivilegedShell evidence docs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: roadmap/document-api37-privileged-shell
+          fetch-depth: 0
+      - name: Record API 37 PrivilegedShell evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('docs/CHECK_MATRIX.md')
+          s = p.read_text()
+          replacements = {
+              "| A03 | Privileged shell / Shizuku UserService | DECIDED | Readiness/death/rebind state is instrumented, queued service actions wait for a ready backend (`69750c7`, gate `34065892554`), and run `33997372602` proves real official-Shizuku UserService execution plus daemon-death/rebind recovery; root-specific execution remains open. |":
+              "| A03 | Privileged shell / Shizuku UserService | DECIDED | Readiness/death/rebind state is instrumented, queued service actions wait for a ready backend (`69750c7`, gate `34065892554`), and run `33997372602` proves real official-Shizuku UserService execution plus daemon-death/rebind recovery. Android 17/API 37 run `34316502181` additionally proves the real manager grant flow reaches `SHIZUKU_READY` and executes representative typed mutations through the real UserService; root-specific execution remains open. |",
+              "| A05 | Manual restrictions / freeze / force-stop / app ops | DECIDED | High-impact mutating operations use typed/validated `PrivilegedShell`; run `34005682619` proves representative real Shizuku command families and rollback behavior on a disposable target. Root-specific execution and deliberately destructive families remain separate evidence. |":
+              "| A05 | Manual restrictions / freeze / force-stop / app ops | DECIDED | High-impact mutating operations use typed/validated `PrivilegedShell`; API-36 run `34005682619` and Android 17/API 37 run `34316502181` prove representative real-Shizuku command families and rollback behavior on disposable targets. The API-37 run covers AppOps, standby bucket, DeviceIdle whitelist, suspend/unsuspend, disable-user/enable, force-stop and explicit component broadcast with post-test rollback checks. Root-specific execution and deliberately destructive families remain separate evidence. |",
+          }
+          for old, new in replacements.items():
+              assert s.count(old) == 1, old[:80]
+              s = s.replace(old, new, 1)
+          needle = "- workflow run `34308440409`: external API-37 foreign-principal abuse probe installed a separate unprivileged attacker APK (`uid=10232`, ReAppzuku `uid=10231`), verified Accessibility/Quick Tile/Shizuku-provider/BOOT_COMPLETED entrypoints were denied, and proved no rejected probe bootstrapped `ShappkyService`;\n"
+          assert s.count(needle) == 1
+          s = s.replace(needle, needle + "- workflow run `34316502181`: Android 17/API 37 started official Shizuku, granted ReAppzuku through the real manager dialog, reached `SHIZUKU_READY`, executed representative typed `PrivilegedShell` mutation families through the real UserService and verified disposable-target rollback;\n", 1)
+          old = "**Maintainability status:** the named high-risk seams now have explicit `PrivilegedShell`, `PackageStateSource`, `AppLaunchTriggerPolicy`, parser/protection/background policy, `Clock`/`ScheduleTime`, `AlarmScheduler`, `BackupCodec`, manual-restriction backup policies and SQL-log redaction boundaries. Machine parser casing is deterministic with `Locale.ROOT`, while user-facing app-label search/sorting and package matching use explicit locale semantics. API-36 runtime covers real Shizuku first-run/UserService/daemon recovery, permission-dialog Activity recreation, real OS reboot/alarm reconstruction, external app force-stop/process restart, Sleep owned-freeze recovery, on-demand process topology, representative privileged command families, shortcut abuse, MediaStore backup I/O and the 12-case backup-v6 restore suite. Real API-36 `ProcessRecord` parsing is proven; the synthetic `ServiceRecord` harness was removed after Android 16 consistently blocked its background start, leaving ServiceRecord runtime diversity for a foreground/physical-device lane. Root, physical/OEM diversity and final stable-release signing/rollback evidence remain open."
+          new = "**Maintainability status:** the named high-risk seams now have explicit `PrivilegedShell`, `PackageStateSource`, `AppLaunchTriggerPolicy`, parser/protection/background policy, `Clock`/`ScheduleTime`, `AlarmScheduler`, `BackupCodec`, manual-restriction backup policies and SQL-log redaction boundaries. Machine parser casing is deterministic with `Locale.ROOT`, while user-facing app-label search/sorting and package matching use explicit locale semantics. API-36 runtime covers real Shizuku first-run/UserService/daemon recovery, permission-dialog Activity recreation, real OS reboot/alarm reconstruction, external app force-stop/process restart, Sleep owned-freeze recovery, on-demand process topology, representative privileged command families, shortcut abuse, MediaStore backup I/O and the 12-case backup-v6 restore suite. Android 17/API 37 additionally proves real Shizuku manager authorization plus representative typed `PrivilegedShell` mutations and rollback in `34316502181`. Real API-36 `ProcessRecord` parsing is proven; the synthetic `ServiceRecord` harness was removed after Android 16 consistently blocked its background start, leaving ServiceRecord runtime diversity for a foreground/physical-device lane. Root, physical/OEM diversity and final stable-release signing/rollback evidence remain open."
+          assert s.count(old) == 1
+          p.write_text(s.replace(old, new, 1))
+
+          p = Path('docs/ROADMAP.md')
+          s = p.read_text()
+          changes = {
+              "- [x] Instrument binder-late, deny -> grant, Activity recreation and Shizuku restart/service-death recovery: deterministic API-36 bridge coverage proves the state permutations; real official-Shizuku first-run grant is proven by `34000092714`, same-process daemon death/rebind plus privileged command recovery by `33997372602`, and exact Activity recreation behind the still-open real Shizuku permission dialog followed by grant/READY/scan ordering by `34036827312`.":
+              "- [x] Instrument binder-late, deny -> grant, Activity recreation and Shizuku restart/service-death recovery: deterministic API-36 bridge coverage proves the state permutations; real official-Shizuku first-run grant is proven by `34000092714`, same-process daemon death/rebind plus privileged command recovery by `33997372602`, and exact Activity recreation behind the still-open real Shizuku permission dialog followed by grant/READY/scan ordering by `34036827312`. Android 17/API 37 run `34316502181` independently repeats the real manager-dialog authorization and reaches `SHIZUKU_READY` before privileged mutations execute.",
+              "- Representative real command families are also exercised in run `34005682619` against a disposable target: AppOps RUN_IN_BACKGROUND ignore/default, standby RARE/ACTIVE, DeviceIdle whitelist add/remove, suspend/unsuspend, disable-user/enable, force-stop and explicit component broadcast all passed with reversible rollback checks. Root-specific execution and deliberately destructive families such as uninstall remain separate evidence.":
+              "- Representative real command families are exercised on both API 36 (`34005682619`) and Android 17/API 37 (`34316502181`) against disposable targets: AppOps RUN_IN_BACKGROUND ignore/default, standby RARE/ACTIVE, DeviceIdle whitelist add/remove, suspend/unsuspend, disable-user/enable, force-stop and explicit component broadcast pass through real Shizuku. The API-37 lane also externally verifies the reversible package/whitelist state is clean after instrumentation rollback. Root-specific execution and deliberately destructive families such as uninstall remain separate evidence.",
+              "- API 36 remains the broad repeatable Android-runtime baseline for Shizuku/reboot/process-state scenarios. Android 17/API 37 is now separately proven for the committed target-37 build, installation, 41-test instrumentation and launcher smoke in `34276106536`. Remaining release-diversity gaps are physical/OEM variation, final installed-release/signing identity + rollback evidence and root-specific execution.":
+              "- API 36 remains the broad repeatable Android-runtime baseline for Shizuku/reboot/process-state scenarios. Android 17/API 37 is separately proven for the committed target-37 build, installation, 41-test instrumentation and launcher smoke in `34276106536`, and real Shizuku manager authorization plus representative typed privileged mutations/rollback in `34316502181`. Remaining release-diversity gaps are physical/OEM variation, final installed-release/signing identity + rollback evidence and root-specific execution.",
+          }
+          for old, new in changes.items():
+              assert s.count(old) == 1, old[:80]
+              s = s.replace(old, new, 1)
+          needle = "- External API-37 abuse run `34308440409` used a separate unprivileged attacker APK/UID and proved protected exported entrypoints reject foreign access: Accessibility service, both Quick Tiles, Shizuku provider and protected `BOOT_COMPLETED`; none of the denied probes started `ShappkyService`. OEM/launcher/widget-host diversity remains release evidence.\n"
+          assert s.count(needle) == 1
+          s = s.replace(needle, needle + "- Android 17/API 37 PrivilegedShell run `34316502181` started official Shizuku, used the real manager authorization dialog, reached `SHIZUKU_READY`, executed the representative typed mutation families through the real UserService and verified rollback on the disposable target. Root-specific execution and deliberately destructive families remain separate release/security evidence.\n", 1)
+          p.write_text(s)
+          PY
+          git diff --check
+          git diff --stat
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/CHECK_MATRIX.md docs/ROADMAP.md
+          git commit -m 'Document API 37 real Shizuku privileged-shell evidence'
+          git push origin HEAD:roadmap/document-api37-privileged-shell
