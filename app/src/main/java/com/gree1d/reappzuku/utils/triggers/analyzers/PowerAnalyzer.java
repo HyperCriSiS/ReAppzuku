@@ -5,6 +5,7 @@ import android.os.Build;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -485,7 +486,7 @@ public class PowerAnalyzer {
 
         StringBuilder detail = new StringBuilder();
         if (powerMah >= 0)
-            detail.append(String.format("%.2f mAh", powerMah));
+            detail.append(String.format(Locale.getDefault(), "%.2f mAh", powerMah));
         if (wlCnt  > 0) { if(detail.length()>0) detail.append(", ");
             detail.append(analyzer.getContext().getString(R.string.triggers_batterystats_wakelock, wlCnt, analyzer.formatDuration(wlMs))); }
         if (alarms > 0) { if(detail.length()>0) detail.append(", ");

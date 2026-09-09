@@ -21,6 +21,7 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 
 import com.gree1d.reappzuku.utils.PresetModel;
@@ -183,8 +184,8 @@ public class PresetManager {
     private void logPresetSaved(PresetModel model, String mode) {
         AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: savePreset #" + model.presetNumber
                 + " mode=" + mode + " name=" + model.name + " enabled=" + model.enabled
-                + " start=" + model.startHour + ":" + String.format("%02d", model.startMinute)
-                + " end=" + model.endHour + ":" + String.format("%02d", model.endMinute));
+                + " start=" + model.startHour + ":" + String.format(Locale.ROOT, "%02d", model.startMinute)
+                + " end=" + model.endHour + ":" + String.format(Locale.ROOT, "%02d", model.endMinute));
     }
 
     public PresetModel loadPreset(int presetNumber) {
@@ -222,8 +223,8 @@ public class PresetManager {
         model.endMinute = p.getInt(P_END_MINUTE, 0);
         AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: loadPreset #" + presetNumber + " OK | name=" + model.name
                 + " enabled=" + model.enabled
-                + " start=" + model.startHour + ":" + String.format("%02d", model.startMinute)
-                + " end=" + model.endHour + ":" + String.format("%02d", model.endMinute)
+                + " start=" + model.startHour + ":" + String.format(Locale.ROOT, "%02d", model.startMinute)
+                + " end=" + model.endHour + ":" + String.format(Locale.ROOT, "%02d", model.endMinute)
                 + " whitelist=" + model.whitelistedApps.size()
                 + " blacklist=" + model.blacklistedApps.size());
         return model;
@@ -492,8 +493,8 @@ public class PresetManager {
             PresetModel model = PresetModel.fromJson(presetNumber, json);
             AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: importPresetFromJson #" + presetNumber + " OK | name=" + model.name
                     + " enabled=" + model.enabled
-                    + " start=" + model.startHour + ":" + String.format("%02d", model.startMinute)
-                    + " end=" + model.endHour + ":" + String.format("%02d", model.endMinute)
+                    + " start=" + model.startHour + ":" + String.format(Locale.ROOT, "%02d", model.startMinute)
+                    + " end=" + model.endHour + ":" + String.format(Locale.ROOT, "%02d", model.endMinute)
                     + " whitelist=" + model.whitelistedApps.size()
                     + " blacklist=" + model.blacklistedApps.size());
             return model;
@@ -523,9 +524,9 @@ public class PresetManager {
                     "PresetManager: exact alarm permission unavailable; using best-effort timing for preset #" + model.presetNumber);
         }
         AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: scheduleAlarms #" + model.presetNumber
-                + " | activateAt=" + model.startHour + ":" + String.format("%02d", model.startMinute)
+                + " | activateAt=" + model.startHour + ":" + String.format(Locale.ROOT, "%02d", model.startMinute)
                 + " (ms=" + activateTime + ")"
-                + " deactivateAt=" + model.endHour + ":" + String.format("%02d", model.endMinute)
+                + " deactivateAt=" + model.endHour + ":" + String.format(Locale.ROOT, "%02d", model.endMinute)
                 + " (ms=" + deactivateTime + ")");
     }
 
@@ -543,7 +544,7 @@ public class PresetManager {
                     "PresetManager: rescheduleNextAlarm using best-effort timing for preset #" + presetNumber + " action=" + action);
         }
         AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: rescheduleNextAlarm #" + presetNumber + " action=" + action
-                + " nextAt=" + hour + ":" + String.format("%02d", minute)
+                + " nextAt=" + hour + ":" + String.format(Locale.ROOT, "%02d", minute)
                 + " ms=" + next);
     }
 
@@ -587,9 +588,9 @@ public class PresetManager {
             active = nowMinutes >= startMinutes && nowMinutes < endMinutes;
         }
         AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: isCurrentlyActive #" + model.presetNumber
-                + " | now=" + (nowMinutes / 60) + ":" + String.format("%02d", nowMinutes % 60)
-                + " range=" + model.startHour + ":" + String.format("%02d", model.startMinute)
-                + "–" + model.endHour + ":" + String.format("%02d", model.endMinute)
+                + " | now=" + (nowMinutes / 60) + ":" + String.format(Locale.ROOT, "%02d", nowMinutes % 60)
+                + " range=" + model.startHour + ":" + String.format(Locale.ROOT, "%02d", model.startMinute)
+                + "–" + model.endHour + ":" + String.format(Locale.ROOT, "%02d", model.endMinute)
                 + " crossesMidnight=" + (endMinutes <= startMinutes)
                 + " → active=" + active);
         return active;
