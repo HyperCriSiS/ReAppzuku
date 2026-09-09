@@ -1352,60 +1352,10 @@
             column="30"/>
     </issue>
 
-    <issue
-        id="TypographyDashes"
-        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
-        errorLine1="    &lt;string name=&quot;ram_usage_unavailable&quot;>ОЗУ: --&lt;/string>"
-        errorLine2="                                         ~~~~~~~">
-        <location
-            file="src/main/res/values-ru/strings.xml"
-            line="166"
-            column="42"/>
-    </issue>
 
-    <issue
-        id="TypographyDashes"
-        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
-        errorLine1="    &lt;string name=&quot;ram_usage_unavailable&quot;>ОЗП: --&lt;/string>"
-        errorLine2="                                         ~~~~~~~">
-        <location
-            file="src/main/res/values-uk/strings.xml"
-            line="166"
-            column="42"/>
-    </issue>
 
-    <issue
-        id="TypographyDashes"
-        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
-        errorLine1="    &lt;string name=&quot;ram_usage_unavailable&quot;>RAM：--&lt;/string>"
-        errorLine2="                                         ~~~~~~">
-        <location
-            file="src/main/res/values-zh-rCN/strings.xml"
-            line="171"
-            column="42"/>
-    </issue>
 
-    <issue
-        id="TypographyDashes"
-        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
-        errorLine1="    &lt;string name=&quot;ram_usage_unavailable&quot;>RAM: --&lt;/string>"
-        errorLine2="                                         ~~~~~~~">
-        <location
-            file="src/main/res/values-es/strings.xml"
-            line="172"
-            column="42"/>
-    </issue>
 
-    <issue
-        id="TypographyDashes"
-        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
-        errorLine1="    &lt;string name=&quot;ram_usage_unavailable&quot;>RAM: --&lt;/string>"
-        errorLine2="                                         ~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="185"
-            column="42"/>
-    </issue>
 
     <issue
         id="IconDuplicatesConfig"
