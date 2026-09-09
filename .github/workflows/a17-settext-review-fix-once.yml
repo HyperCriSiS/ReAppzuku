@@ -25,69 +25,32 @@ jobs:
           p = Path('app/src/main/res/values/strings.xml')
           s = p.read_text()
           needle = '    <string name="ui_label_with_indicator" translatable="false">%1$s %2$s</string>\n'
-          addition = (
-              needle
-              + '    <string name="ui_sort_indicator_open" translatable="false">▲</string>\n'
-              + '    <string name="ui_sort_indicator_closed" translatable="false">▼</string>\n'
-              + '    <string name="ui_sort_label_with_indicator" translatable="false">%1$s  %2$s</string>\n'
-          )
+          addition = needle + '    <string name="ui_sort_indicator_open" translatable="false">▲</string>\n' + '    <string name="ui_sort_indicator_closed" translatable="false">▼</string>\n' + '    <string name="ui_sort_label_with_indicator" translatable="false">%1$s  %2$s</string>\n'
           assert s.count(needle) == 1
           assert 'name="ui_sort_indicator_open"' not in s
           p.write_text(s.replace(needle, addition, 1))
 
           p = Path('app/src/main/java/com/gree1d/reappzuku/ui/PresetSettingsActivity.java')
           s = p.read_text()
-          time_pat = re.compile(
-              r'\s*binding\.textPresetTimeRange\.setText\(getString\(\s*'
-              r'R\.string\.ui_time_range_value,\s*'
-              r'formatTime\(workingModel\.startHour, workingModel\.startMinute, use24h\),\s*'
-              r'formatTime\(workingModel\.endHour, workingModel\.endMinute, use24h\)\)\);')
-          time_repl = '''
-        binding.textPresetTimeRange.setText(getString(
-                R.string.ui_time_range_value,
-                formatTime(workingModel.startHour, workingModel.startMinute, use24h),
-                formatTime(workingModel.endHour, workingModel.endMinute, use24h)));'''
-          s, count = time_pat.subn(time_repl, s, count=1)
+          time_pat = re.compile(r'\s*binding\.textPresetTimeRange\.setText\(getString\(\s*R\.string\.ui_time_range_value,\s*formatTime\(workingModel\.startHour, workingModel\.startMinute, use24h\),\s*formatTime\(workingModel\.endHour, workingModel\.endMinute, use24h\)\)\);')
+          time_repl = '\n        binding.textPresetTimeRange.setText(getString(\n                R.string.ui_time_range_value,\n                formatTime(workingModel.startHour, workingModel.startMinute, use24h),\n                formatTime(workingModel.endHour, workingModel.endMinute, use24h)));'
+          s, count = time_pat.subn(lambda _: time_repl, s, count=1)
           assert count == 1, f'time block replacements={count}'
-
-          sort_pat = re.compile(
-              r'\s*btn\.setText\(getString\(\s*'
-              r'R\.string\.ui_label_with_indicator,\s*'
-              r'getString\(R\.string\.filter_sort_button\),\s*'
-              r'getString\(open \? R\.string\.ui_indicator_expanded : R\.string\.ui_indicator_collapsed\)\)\);')
-          sort_repl = '''
-        btn.setText(getString(
-                R.string.ui_sort_label_with_indicator,
-                getString(R.string.filter_sort_button),
-                getString(open ? R.string.ui_sort_indicator_open : R.string.ui_sort_indicator_closed)));'''
-          s, count = sort_pat.subn(sort_repl, s, count=1)
+          sort_pat = re.compile(r'\s*btn\.setText\(getString\(\s*R\.string\.ui_label_with_indicator,\s*getString\(R\.string\.filter_sort_button\),\s*getString\(open \? R\.string\.ui_indicator_expanded : R\.string\.ui_indicator_collapsed\)\)\);')
+          sort_repl = '\n        btn.setText(getString(\n                R.string.ui_sort_label_with_indicator,\n                getString(R.string.filter_sort_button),\n                getString(open ? R.string.ui_sort_indicator_open : R.string.ui_sort_indicator_closed)));'
+          s, count = sort_pat.subn(lambda _: sort_repl, s, count=1)
           assert count == 1, f'sort block replacements={count}'
           p.write_text(s)
 
           p = Path('app/src/main/java/com/gree1d/reappzuku/ui/ScanResultAdapter.java')
           s = p.read_text()
           patterns = [
-              (re.compile(r'\s*holder\.appName\.setText\(context\.getString\(\s*R\.string\.ui_label_with_indicator,\s*context\.getString\(expanded \? R\.string\.ui_indicator_expanded : R\.string\.ui_indicator_collapsed\),\s*load\.appName\)\);'),
-               '''
-        holder.appName.setText(context.getString(
-                R.string.ui_label_with_indicator,
-                context.getString(expanded ? R.string.ui_indicator_expanded : R.string.ui_indicator_collapsed),
-                load.appName));'''),
-              (re.compile(r'\s*holder\.appName\.setText\(context\.getString\(\s*R\.string\.ui_label_with_indicator,\s*context\.getString\(R\.string\.ui_indicator_collapsed\),\s*load\.appName\)\);'),
-               '''
-                holder.appName.setText(context.getString(
-                        R.string.ui_label_with_indicator,
-                        context.getString(R.string.ui_indicator_collapsed),
-                        load.appName));'''),
-              (re.compile(r'\s*holder\.appName\.setText\(context\.getString\(\s*R\.string\.ui_label_with_indicator,\s*context\.getString\(R\.string\.ui_indicator_expanded\),\s*load\.appName\)\);'),
-               '''
-                holder.appName.setText(context.getString(
-                        R.string.ui_label_with_indicator,
-                        context.getString(R.string.ui_indicator_expanded),
-                        load.appName));'''),
+              (re.compile(r'\s*holder\.appName\.setText\(context\.getString\(\s*R\.string\.ui_label_with_indicator,\s*context\.getString\(expanded \? R\.string\.ui_indicator_expanded : R\.string\.ui_indicator_collapsed\),\s*load\.appName\)\);'), '\n        holder.appName.setText(context.getString(\n                R.string.ui_label_with_indicator,\n                context.getString(expanded ? R.string.ui_indicator_expanded : R.string.ui_indicator_collapsed),\n                load.appName));'),
+              (re.compile(r'\s*holder\.appName\.setText\(context\.getString\(\s*R\.string\.ui_label_with_indicator,\s*context\.getString\(R\.string\.ui_indicator_collapsed\),\s*load\.appName\)\);'), '\n                holder.appName.setText(context.getString(\n                        R.string.ui_label_with_indicator,\n                        context.getString(R.string.ui_indicator_collapsed),\n                        load.appName));'),
+              (re.compile(r'\s*holder\.appName\.setText\(context\.getString\(\s*R\.string\.ui_label_with_indicator,\s*context\.getString\(R\.string\.ui_indicator_expanded\),\s*load\.appName\)\);'), '\n                holder.appName.setText(context.getString(\n                        R.string.ui_label_with_indicator,\n                        context.getString(R.string.ui_indicator_expanded),\n                        load.appName));'),
           ]
           for pat, repl in patterns:
-              s, count = pat.subn(repl, s, count=1)
+              s, count = pat.subn(lambda _, r=repl: r, s, count=1)
               assert count == 1, f'scan block replacements={count}'
           p.write_text(s)
           PY
