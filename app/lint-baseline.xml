@@ -1,159 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <issues format="6" by="lint 8.10.0" type="baseline" client="gradle" dependencies="false" name="AGP (8.10.0)" variant="all" version="8.10.0">
 
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
-        errorLine1="            app.setCpuUsage(String.format(&quot;CPU: %.1f%%&quot;, cpu), cpu);"
-        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/manager/CpuMonitor.java"
-            line="167"
-            column="29"/>
-    </issue>
 
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
-        errorLine1="            detail.append(String.format(&quot;%.2f mAh&quot;, powerMah));"
-        errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/PowerAnalyzer.java"
-            line="488"
-            column="27"/>
-    </issue>
 
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
-        errorLine1="                + &quot; start=&quot; + model.startHour + &quot;:&quot; + String.format(&quot;%02d&quot;, model.startMinute)"
-        errorLine2="                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/manager/PresetManager.java"
-            line="177"
-            column="55"/>
-    </issue>
 
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
-        errorLine1="                + &quot; end=&quot; + model.endHour + &quot;:&quot; + String.format(&quot;%02d&quot;, model.endMinute));"
-        errorLine2="                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/manager/PresetManager.java"
-            line="178"
-            column="51"/>
-    </issue>
 
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
-        errorLine1="                + &quot; start=&quot; + model.startHour + &quot;:&quot; + String.format(&quot;%02d&quot;, model.startMinute)"
-        errorLine2="                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/manager/PresetManager.java"
-            line="216"
-            column="55"/>
-    </issue>
 
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
-        errorLine1="                + &quot; end=&quot; + model.endHour + &quot;:&quot; + String.format(&quot;%02d&quot;, model.endMinute)"
-        errorLine2="                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/manager/PresetManager.java"
-            line="217"
-            column="51"/>
-    </issue>
 
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
-        errorLine1="                    + &quot; start=&quot; + model.startHour + &quot;:&quot; + String.format(&quot;%02d&quot;, model.startMinute)"
-        errorLine2="                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/manager/PresetManager.java"
-            line="492"
-            column="59"/>
-    </issue>
 
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
-        errorLine1="                    + &quot; end=&quot; + model.endHour + &quot;:&quot; + String.format(&quot;%02d&quot;, model.endMinute)"
-        errorLine2="                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/manager/PresetManager.java"
-            line="493"
-            column="55"/>
-    </issue>
 
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
-        errorLine1="                + &quot; | activateAt=&quot; + model.startHour + &quot;:&quot; + String.format(&quot;%02d&quot;, model.startMinute)"
-        errorLine2="                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/manager/PresetManager.java"
-            line="524"
-            column="62"/>
-    </issue>
 
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
-        errorLine1="                + &quot; deactivateAt=&quot; + model.endHour + &quot;:&quot; + String.format(&quot;%02d&quot;, model.endMinute)"
-        errorLine2="                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/manager/PresetManager.java"
-            line="526"
-            column="60"/>
-    </issue>
 
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
-        errorLine1="                + &quot; nextAt=&quot; + hour + &quot;:&quot; + String.format(&quot;%02d&quot;, minute)"
-        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/manager/PresetManager.java"
-            line="552"
-            column="45"/>
-    </issue>
 
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
-        errorLine1="                + &quot; | now=&quot; + now.get(Calendar.HOUR_OF_DAY) + &quot;:&quot; + String.format(&quot;%02d&quot;, now.get(Calendar.MINUTE))"
-        errorLine2="                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/manager/PresetManager.java"
-            line="605"
-            column="69"/>
-    </issue>
 
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
-        errorLine1="                + &quot; range=&quot; + model.startHour + &quot;:&quot; + String.format(&quot;%02d&quot;, model.startMinute)"
-        errorLine2="                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/manager/PresetManager.java"
-            line="606"
-            column="55"/>
-    </issue>
 
-    <issue
-        id="DefaultLocale"
-        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
-        errorLine1="                + &quot;–&quot; + model.endHour + &quot;:&quot; + String.format(&quot;%02d&quot;, model.endMinute)"
-        errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/manager/PresetManager.java"
-            line="607"
-            column="47"/>
-    </issue>
 
 
     <issue

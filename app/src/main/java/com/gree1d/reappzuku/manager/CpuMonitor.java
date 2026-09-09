@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 
 import com.gree1d.reappzuku.core.AppDebugManager;
@@ -164,7 +165,7 @@ public class CpuMonitor {
             if (cpu < 0) cpu = 0;
             if (cpu > 100) cpu = 100;
 
-            app.setCpuUsage(String.format("CPU: %.1f%%", cpu), cpu);
+            app.setCpuUsage(String.format(Locale.getDefault(), "CPU: %.1f%%", cpu), cpu);
         }
 
         prevTotalCpu = totalCpu;
