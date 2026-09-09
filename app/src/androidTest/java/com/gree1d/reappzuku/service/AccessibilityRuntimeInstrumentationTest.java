@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 public class AccessibilityRuntimeInstrumentationTest {
     private static final long SERVICE_TIMEOUT_MS = 15_000L;
     private static final long EVENT_TIMEOUT_MS = 15_000L;
-    private static final String OP_BIND_ACCESSIBILITY_SERVICE = "BIND_ACCESSIBILITY_SERVICE";
+    private static final long ECM_SETTLE_TIMEOUT_MS = 15_000L;
     private static final String OP_ACCESS_RESTRICTED_SETTINGS = "ACCESS_RESTRICTED_SETTINGS";
 
     private Instrumentation instrumentation;
@@ -48,7 +48,6 @@ public class AccessibilityRuntimeInstrumentationTest {
 
     private String originalEnabledServices;
     private String originalAccessibilityEnabled;
-    private String originalBindAccessibilityMode;
     private String originalRestrictedSettingsMode;
 
     private boolean hadTriggerEnabled;
@@ -73,7 +72,13 @@ public class AccessibilityRuntimeInstrumentationTest {
 
         originalEnabledServices = shell("settings get secure enabled_accessibility_services");
         originalAccessibilityEnabled = shell("settings get secure accessibility_enabled");
-        originalBindAccessibilityMode = readAppOpMode(OP_BIND_ACCESSIBILITY_SERVICE);
+
+        // Enhanced Confirmation Mode initializes its package AppOp asynchronously after
+        // installation. Wait for the fresh sideloaded package to reach MODE_DEFAULT before
+        // snapshotting or clearing the restriction, otherwise the late initializer can race
+        // and overwrite MODE_ALLOWED after this test has already enabled the service.
+        waitUntil(ECM_SETTLE_TIMEOUT_MS, () ->
+                "default".equals(readAppOpMode(OP_ACCESS_RESTRICTED_SETTINGS)));
         originalRestrictedSettingsMode = readAppOpMode(OP_ACCESS_RESTRICTED_SETTINGS);
 
         hadTriggerEnabled = prefs.contains(PreferenceKeys.KEY_APP_LAUNCH_TRIGGER_ENABLED);
@@ -111,7 +116,6 @@ public class AccessibilityRuntimeInstrumentationTest {
     public void tearDown() throws Exception {
         restoreSecureSetting("enabled_accessibility_services", originalEnabledServices);
         restoreSecureSetting("accessibility_enabled", originalAccessibilityEnabled);
-        restoreAppOp(OP_BIND_ACCESSIBILITY_SERVICE, originalBindAccessibilityMode);
         restoreAppOp(OP_ACCESS_RESTRICTED_SETTINGS, originalRestrictedSettingsMode);
 
         SharedPreferences.Editor editor = prefs.edit();
@@ -147,12 +151,13 @@ public class AccessibilityRuntimeInstrumentationTest {
         String packageName = targetContext.getPackageName();
 
         // adb-installed debug APKs are treated as sideloaded apps on current Android releases.
-        // Simulate the state after the user has explicitly allowed the restricted Accessibility
-        // capability; this test is about service runtime behavior, not the Settings confirmation UI.
-        shell("appops set --user 0 " + packageName + " "
-                + OP_BIND_ACCESSIBILITY_SERVICE + " allow");
+        // MODE_ALLOWED is the ECM state after the user explicitly chooses "Allow restricted
+        // settings". The MODE_DEFAULT wait above ensures Android has finished its asynchronous
+        // post-install initialization before we model that user decision.
         shell("appops set --user 0 " + packageName + " "
                 + OP_ACCESS_RESTRICTED_SETTINGS + " allow");
+        assertEquals("Restricted-settings AppOp did not settle to allow", "allow",
+                readAppOpMode(OP_ACCESS_RESTRICTED_SETTINGS));
 
         String currentServices = normalizeSettingValue(originalEnabledServices);
         String enabledServices = containsComponent(currentServices, flattened)
