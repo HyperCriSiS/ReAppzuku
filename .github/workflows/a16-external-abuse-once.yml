@@ -24,6 +24,25 @@ jobs:
           distribution: temurin
           cache: gradle
 
+      - name: Prepare Android 17 toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          CLT_ZIP=/tmp/commandlinetools-linux-15859902_latest.zip
+          CLT_HOME="$SDK_ROOT/cmdline-tools/reappzuku-15859902"
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 \
+            'https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip' \
+            -o "$CLT_ZIP"
+          echo '4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  /tmp/commandlinetools-linux-15859902_latest.zip' | sha256sum -c -
+          rm -rf /tmp/android-clt "$CLT_HOME"
+          mkdir -p /tmp/android-clt "$CLT_HOME"
+          unzip -q "$CLT_ZIP" -d /tmp/android-clt
+          cp -a /tmp/android-clt/cmdline-tools/. "$CLT_HOME/"
+          echo "$CLT_HOME/bin" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/emulator" >> "$GITHUB_PATH"
+
       - name: Generate unprivileged attacker APK
         shell: bash
         run: |
@@ -142,28 +161,10 @@ jobs:
           }
           EOF
           git diff --check
+          chmod +x gradlew
           ./gradlew :app:assembleDebug :abuseProbe:assembleDebug
           test -s app/build/outputs/apk/debug/app-debug.apk
           test -s abuseProbe/build/outputs/apk/debug/abuseProbe-debug.apk
-
-      - name: Prepare Android 17 toolchain
-        shell: bash
-        run: |
-          set -euo pipefail
-          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
-          CLT_ZIP=/tmp/commandlinetools-linux-15859902_latest.zip
-          CLT_HOME="$SDK_ROOT/cmdline-tools/reappzuku-15859902"
-          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 \
-            'https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip' \
-            -o "$CLT_ZIP"
-          echo '4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  /tmp/commandlinetools-linux-15859902_latest.zip' | sha256sum -c -
-          rm -rf /tmp/android-clt "$CLT_HOME"
-          mkdir -p /tmp/android-clt "$CLT_HOME"
-          unzip -q "$CLT_ZIP" -d /tmp/android-clt
-          cp -a /tmp/android-clt/cmdline-tools/. "$CLT_HOME/"
-          echo "$CLT_HOME/bin" >> "$GITHUB_PATH"
-          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
-          echo "$SDK_ROOT/emulator" >> "$GITHUB_PATH"
 
       - name: Install and boot API 37
         shell: bash
