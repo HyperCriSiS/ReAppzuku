@@ -110,7 +110,7 @@ jobs:
           adb install -r -t "$TEST_APK" | tee /tmp/install-test.txt
           adb install -r /tmp/reappzuku-probe-target.apk | tee /tmp/install-target.txt
           adb shell pm clear com.gree1d.reappzuku
-          adb shell pm grant com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23
+          adb shell pm revoke com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23 2>/dev/null || true
           adb shell pm path com.gree1d.reappzuku.probetarget | grep -q '^package:'
           adb shell dumpsys package com.gree1d.reappzuku | grep -F 'targetSdk=37'
 
@@ -134,6 +134,66 @@ jobs:
           done
           test "$ready" = true
           echo "shizuku-server-pid=$(adb shell pidof shizuku_server | tr -d '\r')" | tee /tmp/shizuku-api37-pid.txt
+
+      - name: Grant ReAppzuku through the real Shizuku manager flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          adb shell am start -W -n moe.shizuku.privileged.api/moe.shizuku.manager.MainActivity \
+            | tee /tmp/shizuku-manager-init.log
+          manager_ready=false
+          for i in $(seq 1 40); do
+            if [ -n "$(adb shell pidof moe.shizuku.privileged.api 2>/dev/null | tr -d '\r' || true)" ]; then
+              manager_ready=true
+              break
+            fi
+            sleep 0.25
+          done
+          test "$manager_ready" = true
+          sleep 2
+
+          adb shell pm revoke com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23 2>/dev/null || true
+          adb shell am start -W -n com.gree1d.reappzuku/.ui.MainActivity | tee /tmp/shizuku-api37-app-start.log
+
+          dialog=false
+          for i in $(seq 1 120); do
+            if adb shell dumpsys activity activities 2>/dev/null | \
+                grep -q 'moe.shizuku.manager.authorization.RequestPermissionActivity'; then
+              dialog=true
+              break
+            fi
+            sleep 0.25
+          done
+          test "$dialog" = true
+
+          adb shell uiautomator dump /sdcard/reappzuku-privshell37.xml >/dev/null
+          adb shell cat /sdcard/reappzuku-privshell37.xml > /tmp/reappzuku-privshell37.xml
+          python3 - <<'PY' > /tmp/shizuku-allow-coordinates
+          import re
+          xml = open('/tmp/reappzuku-privshell37.xml', encoding='utf-8').read()
+          match = re.search(r'resource-id="android:id/button1"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', xml)
+          if not match:
+              raise SystemExit('Shizuku always-allow button not found in UI hierarchy')
+          x1, y1, x2, y2 = map(int, match.groups())
+          print((x1 + x2) // 2, (y1 + y2) // 2)
+          PY
+          read -r ALLOW_X ALLOW_Y < /tmp/shizuku-allow-coordinates
+          adb shell input tap "$ALLOW_X" "$ALLOW_Y"
+
+          granted=false
+          for i in $(seq 1 120); do
+            if adb shell dumpsys package com.gree1d.reappzuku | \
+                grep -A20 'runtime permissions:' | \
+                grep -q 'moe.shizuku.manager.permission.API_V23: granted=true'; then
+              granted=true
+              break
+            fi
+            sleep 0.25
+          done
+          test "$granted" = true
+          adb shell dumpsys package com.gree1d.reappzuku | \
+            grep -A20 'runtime permissions:' | tee /tmp/shizuku-api37-runtime-permissions.txt
+          adb shell am force-stop com.gree1d.reappzuku || true
 
       - name: Exercise representative typed command families through real Shizuku
         shell: bash
@@ -166,7 +226,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p privshell37-evidence
-          for f in /tmp/privshell37-emulator.log /tmp/install-shizuku.txt /tmp/install-app.txt /tmp/install-test.txt /tmp/install-target.txt /tmp/shizuku-api37-start.log /tmp/shizuku-api37-pid.txt /tmp/privshell37-instrumentation.txt /tmp/probe-target-badging /tmp/app-badging; do
+          for f in /tmp/privshell37-emulator.log /tmp/install-shizuku.txt /tmp/install-app.txt /tmp/install-test.txt /tmp/install-target.txt /tmp/shizuku-api37-start.log /tmp/shizuku-api37-pid.txt /tmp/shizuku-manager-init.log /tmp/shizuku-api37-app-start.log /tmp/reappzuku-privshell37.xml /tmp/shizuku-api37-runtime-permissions.txt /tmp/privshell37-instrumentation.txt /tmp/probe-target-badging /tmp/app-badging; do
             [ ! -f "$f" ] || cp "$f" privshell37-evidence/
           done
           adb shell getprop ro.build.version.release > privshell37-evidence/android-release.txt 2>/dev/null || true
