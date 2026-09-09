@@ -1,0 +1,54 @@
+name: One-time A16 external abuse evidence docs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: roadmap/close-a16-entrypoint-abuse
+      - name: Record A16 foreign-principal runtime evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          cm = Path('docs/CHECK_MATRIX.md')
+          text = cm.read_text(encoding='utf-8')
+          old = '| A16 | Exported surfaces: shortcuts / tiles / receivers / widget | DECIDED | Shortcut confused-deputy routing now has an explicit principal policy (`f3145bb0`, `34154664082`), the explicit-intent abuse step passed in `33986395874`, and manifest/documentation parity plus platform permissions are regression-tested (`34138775145`). `ManifestCapabilityPolicyTest` additionally prevents silent package-visibility/usage-stats/Leanback capability drift (`677cd2ac`, `34163432363`); broader entrypoint runtime abuse coverage remains separate. |'
+          new = '| A16 | Exported surfaces: shortcuts / tiles / receivers / widget | DECIDED | Shortcut confused-deputy routing has an explicit principal policy (`f3145bb0`, `34154664082`), the explicit-intent abuse step passed in `33986395874`, and manifest/documentation parity plus platform permissions are regression-tested (`34138775145`). External API-37 run `34308440409` additionally used a separate unprivileged attacker APK/UID (`10232` vs ReAppzuku `10231`) and proved denial of direct access to the Accessibility service, both Quick Tile services, the Shizuku provider and protected `BOOT_COMPLETED`, with no `ShappkyService` bootstrap. OEM/launcher/widget-host diversity remains release evidence. |'
+          if text.count(old) != 1:
+              raise SystemExit(f'A16 summary anchor count={text.count(old)}')
+          text = text.replace(old, new)
+          old_row = '| A16 Exported entrypoints | D | R | R | R | R | D | D | - | D | D | R | R | **P** | R | - | D | R | D |'
+          new_row = '| A16 Exported entrypoints | D | R | R | R | R | D | D | - | D | D | R | R | **P** | R | - | D | R | **P** |'
+          if text.count(old_row) != 1:
+              raise SystemExit(f'A16 lens anchor count={text.count(old_row)}')
+          text = text.replace(old_row, new_row)
+          anchor = '- workflow run `34138775145`: full normal validation passed after adding exported-component documentation parity and platform-permission regression coverage;'
+          evidence = '- workflow run `34308440409`: external API-37 foreign-principal abuse probe installed a separate unprivileged attacker APK (`uid=10232`, ReAppzuku `uid=10231`), verified Accessibility/Quick Tile/Shizuku-provider/BOOT_COMPLETED entrypoints were denied, and proved no rejected probe bootstrapped `ShappkyService`;\n'
+          if text.count(anchor) != 1:
+              raise SystemExit(f'A16 evidence anchor count={text.count(anchor)}')
+          cm.write_text(text.replace(anchor, evidence + anchor), encoding='utf-8')
+
+          roadmap = Path('docs/ROADMAP.md')
+          r = roadmap.read_text(encoding='utf-8')
+          anchor = '- Exported shortcut routing is now an explicit principal contract (`f3145bb0`): only authenticated secure actions can reach direct RAM-kill execution, while legacy/unknown public routes remain confirmation-bound; run `34154664082` passed.'
+          evidence = '- External API-37 abuse run `34308440409` used a separate unprivileged attacker APK/UID and proved protected exported entrypoints reject foreign access: Accessibility service, both Quick Tiles, Shizuku provider and protected `BOOT_COMPLETED`; none of the denied probes started `ShappkyService`. OEM/launcher/widget-host diversity remains release evidence.'
+          if r.count(anchor) != 1:
+              raise SystemExit(f'roadmap A16 anchor count={r.count(anchor)}')
+          roadmap.write_text(r.replace(anchor, anchor + '\n' + evidence), encoding='utf-8')
+          PY
+          git diff --check
+          git diff -- docs/CHECK_MATRIX.md docs/ROADMAP.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/CHECK_MATRIX.md docs/ROADMAP.md
+          git commit -m 'Close A16 external entrypoint abuse evidence'
+          git push origin HEAD:roadmap/close-a16-entrypoint-abuse
