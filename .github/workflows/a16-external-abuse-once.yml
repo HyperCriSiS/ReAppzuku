@@ -199,8 +199,8 @@ jobs:
           adb shell dumpsys package "$PRODUCT" | grep -F 'targetSdk=37'
           adb shell dumpsys package "$ATTACKER" | grep -F 'targetSdk=37'
 
-          PRODUCT_UID="$(adb shell dumpsys package "$PRODUCT" | sed -n 's/^[[:space:]]*userId=//p' | head -n 1 | tr -d '\r')"
-          ATTACKER_UID="$(adb shell dumpsys package "$ATTACKER" | sed -n 's/^[[:space:]]*userId=//p' | head -n 1 | tr -d '\r')"
+          PRODUCT_UID="$(adb shell pm list packages -U | tr -d '\r' | sed -n "s/^package:${PRODUCT} uid://p")"
+          ATTACKER_UID="$(adb shell pm list packages -U | tr -d '\r' | sed -n "s/^package:${ATTACKER} uid://p")"
           test -n "$PRODUCT_UID"
           test -n "$ATTACKER_UID"
           test "$PRODUCT_UID" != "$ATTACKER_UID"
