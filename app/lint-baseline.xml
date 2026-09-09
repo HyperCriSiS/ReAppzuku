@@ -1470,104 +1470,14 @@
             column="9"/>
     </issue>
 
-    <issue
-        id="SetTextI18n"
-        message="String literal in `setText` can not be translated. Use Android resources instead."
-        errorLine1="        timerSuspendBtn.setText(&quot;pm suspend&quot;);"
-        errorLine2="                                ~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/FilterAppsAdapter.java"
-            line="550"
-            column="33"/>
-    </issue>
 
-    <issue
-        id="SetTextI18n"
-        message="String literal in `setText` can not be translated. Use Android resources instead."
-        errorLine1="        timerDisableBtn.setText(&quot;pm disable&quot;);"
-        errorLine2="                                ~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/FilterAppsAdapter.java"
-            line="556"
-            column="33"/>
-    </issue>
 
-    <issue
-        id="SetTextI18n"
-        message="String literal in `setText` can not be translated. Use Android resources instead."
-        errorLine1="        permanentSuspendBtn.setText(&quot;pm suspend&quot;);"
-        errorLine2="                                    ~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/FilterAppsAdapter.java"
-            line="580"
-            column="37"/>
-    </issue>
 
-    <issue
-        id="SetTextI18n"
-        message="String literal in `setText` can not be translated. Use Android resources instead."
-        errorLine1="        permanentDisableBtn.setText(&quot;pm disable&quot;);"
-        errorLine2="                                    ~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/FilterAppsAdapter.java"
-            line="586"
-            column="37"/>
-    </issue>
 
-    <issue
-        id="SetTextI18n"
-        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
-        errorLine1="                formatTime(workingModel.startHour, workingModel.startMinute, use24h)"
-        errorLine2="                ^">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/PresetSettingsActivity.java"
-            line="921"
-            column="17"/>
-    </issue>
 
-    <issue
-        id="SetTextI18n"
-        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
-        errorLine1="        btn.setText(getString(R.string.filter_sort_button) + (open ? &quot;  ▲&quot; : &quot;  ▼&quot;));"
-        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/PresetSettingsActivity.java"
-            line="1020"
-            column="21"/>
-    </issue>
 
-    <issue
-        id="SetTextI18n"
-        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
-        errorLine1="        holder.appName.setText((expanded ? &quot;▼ &quot; : &quot;▶ &quot;) + load.appName);"
-        errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/ScanResultAdapter.java"
-            line="54"
-            column="32"/>
-    </issue>
 
-    <issue
-        id="SetTextI18n"
-        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
-        errorLine1="                holder.appName.setText(&quot;▶ &quot; + load.appName);"
-        errorLine2="                                       ~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/ScanResultAdapter.java"
-            line="73"
-            column="40"/>
-    </issue>
 
-    <issue
-        id="SetTextI18n"
-        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
-        errorLine1="                holder.appName.setText(&quot;▼ &quot; + load.appName);"
-        errorLine2="                                       ~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/gree1d/reappzuku/ui/ScanResultAdapter.java"
-            line="77"
-            column="40"/>
-    </issue>
 
     <issue
         id="HardcodedText"
