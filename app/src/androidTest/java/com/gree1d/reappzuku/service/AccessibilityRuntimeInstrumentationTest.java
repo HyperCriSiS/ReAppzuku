@@ -143,10 +143,6 @@ public class AccessibilityRuntimeInstrumentationTest {
             editor.remove(backgroundSinceKey);
         }
         assertTrue(editor.commit());
-        if (uiAutomation != null) {
-            uiAutomation.destroy();
-            uiAutomation = null;
-        }
     }
 
     @Test
