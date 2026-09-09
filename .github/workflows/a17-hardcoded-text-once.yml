@@ -114,7 +114,7 @@ jobs:
           PY
 
           git diff --check
-          test "$(git diff --name-only | wc -l)" -eq 14
+          test "$(git diff --name-only | wc -l)" -eq 13
           ! grep -Fq 'id="HardcodedText"' app/lint-baseline.xml
           git diff --stat
 
