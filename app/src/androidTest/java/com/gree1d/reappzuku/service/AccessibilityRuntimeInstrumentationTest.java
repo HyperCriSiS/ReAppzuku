@@ -43,6 +43,7 @@ public class AccessibilityRuntimeInstrumentationTest {
     private static final String OP_ACCESS_RESTRICTED_SETTINGS = "ACCESS_RESTRICTED_SETTINGS";
 
     private Instrumentation instrumentation;
+    private UiAutomation uiAutomation;
     private Context targetContext;
     private SharedPreferences prefs;
 
@@ -66,6 +67,8 @@ public class AccessibilityRuntimeInstrumentationTest {
     @Before
     public void setUp() throws Exception {
         instrumentation = InstrumentationRegistry.getInstrumentation();
+        uiAutomation = instrumentation.getUiAutomation(
+                UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
         targetContext = instrumentation.getTargetContext();
         prefs = targetContext.getSharedPreferences(
                 PreferenceKeys.PREFERENCES_NAME, Context.MODE_PRIVATE);
@@ -140,6 +143,10 @@ public class AccessibilityRuntimeInstrumentationTest {
             editor.remove(backgroundSinceKey);
         }
         assertTrue(editor.commit());
+        if (uiAutomation != null) {
+            uiAutomation.destroy();
+            uiAutomation = null;
+        }
     }
 
     @Test
@@ -286,8 +293,8 @@ public class AccessibilityRuntimeInstrumentationTest {
     }
 
     private String shell(String command) throws Exception {
-        UiAutomation automation = instrumentation.getUiAutomation();
-        ParcelFileDescriptor descriptor = automation.executeShellCommand(command);
+        assertNotNull("UiAutomation must not suppress accessibility services", uiAutomation);
+        ParcelFileDescriptor descriptor = uiAutomation.executeShellCommand(command);
         try (InputStream input = new ParcelFileDescriptor.AutoCloseInputStream(descriptor);
              ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             byte[] buffer = new byte[4096];
