@@ -18,8 +18,7 @@ jobs:
         run: |
           set -euo pipefail
           FILE=.github/workflows/privileged-shell-api37-once.yml
-          test "$(grep -Fc 'adb shell pm grant com.gree1d.reappzuku android.permission.POST_NOTIFICATIONS' "$FILE")" -eq 0
-          sed -i '/adb shell pm revoke com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23/a\          adb shell pm grant com.gree1d.reappzuku android.permission.POST_NOTIFICATIONS 2>/dev/null || true' "$FILE"
+          python3 -c 'from pathlib import Path; p=Path(".github/workflows/privileged-shell-api37-once.yml"); t=p.read_text(); grant="          adb shell pm grant com.gree1d.reappzuku android.permission.POST_NOTIFICATIONS 2>/dev/null || true"; revoke="          adb shell pm revoke com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23 2>/dev/null || true"; assert t.count(grant)==0; assert t.count(revoke)==2; p.write_text(t.replace(revoke, revoke+"\n"+grant, 1))'
           test "$(grep -Fc 'adb shell pm grant com.gree1d.reappzuku android.permission.POST_NOTIFICATIONS' "$FILE")" -eq 1
           git diff --check
           git diff -- "$FILE"
