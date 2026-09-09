@@ -90,7 +90,9 @@ jobs:
           PACKAGE='com.gree1d.reappzuku'
           COMPONENT='com.gree1d.reappzuku/com.gree1d.reappzuku.service.AppLaunchAccessibilityService'
 
-          # Keep every mutation path disabled. The probe only observes the production event path.
+          # Force-stop only while replacing the test preferences, then explicitly launch the app
+          # again. A force-stopped package is in Android's stopped state and is not a valid model
+          # for the real user flow that enables Accessibility from a running/previously-launched app.
           adb shell am force-stop "$PACKAGE"
           PREFS_XML='<?xml version="1.0" encoding="utf-8" standalone="yes" ?><map><boolean name="autoKillEnabled" value="false" /><boolean name="app_launch_trigger_enabled" value="false" /></map>'
           DATA_DIR="$(adb shell dumpsys package "$PACKAGE" | sed -n 's/^[[:space:]]*dataDir=//p' | head -n 1 | tr -d '\r')"
@@ -105,6 +107,18 @@ jobs:
           adb shell run-as "$PACKAGE" cat "$DATA_DIR/shared_prefs/AppPreferences.xml" | tee /tmp/prefs-before.xml
           grep -Fq 'name="autoKillEnabled" value="false"' /tmp/prefs-before.xml
           grep -Fq 'name="app_launch_trigger_enabled" value="false"' /tmp/prefs-before.xml
+
+          # Clear FLAG_STOPPED and initialize the real application process exactly as a user
+          # would before leaving ReAppzuku for Android's Accessibility settings.
+          adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 >/tmp/reappzuku-launch.txt 2>&1
+          for i in $(seq 1 15); do
+            [ -n "$(adb shell pidof "$PACKAGE" | tr -d '\r')" ] && break
+            sleep 1
+          done
+          test -n "$(adb shell pidof "$PACKAGE" | tr -d '\r')"
+          adb shell input keyevent HOME
+          sleep 1
+          adb logcat -c || true
 
           # Android 17 ECM protects Accessibility under the bind-accessibility-service setting,
           # while its package guard state is stored in ACCESS_RESTRICTED_SETTINGS.
@@ -124,14 +138,18 @@ jobs:
           bound=false
           for i in $(seq 1 25); do
             adb shell dumpsys accessibility > /tmp/accessibility.txt
-            if grep -Fq 'AppLaunchAccessibilityService' /tmp/accessibility.txt; then
+            PID="$(adb shell pidof "$PACKAGE" | tr -d '\r')"
+            if grep -Fq 'AppLaunchAccessibilityService' /tmp/accessibility.txt && [ -n "$PID" ]; then
               bound=true
+              echo "ReAppzuku process alive during Accessibility binding: $PID"
               break
             fi
             sleep 1
           done
+          adb shell dumpsys accessibility | grep -C 4 -F 'AppLaunchAccessibilityService' | tee /tmp/accessibility-focus.txt || true
+          adb logcat -d | grep -E 'AppLaunchAccessibilityService|AndroidRuntime|FATAL EXCEPTION|AccessibilityManagerService' | tail -300 | tee /tmp/accessibility-logcat-before.txt || true
           test "$bound" = true
-          echo 'Accessibility service present in system dumpsys state'
+          echo 'Accessibility service present in system dumpsys state with live app process'
 
           SETTINGS_COMPONENT="$(adb shell cmd package resolve-activity -a android.settings.SETTINGS --brief | tr -d '\r' | tail -n 1)"
           SETTINGS_PACKAGE="${SETTINGS_COMPONENT%%/*}"
@@ -153,6 +171,7 @@ jobs:
             fi
             sleep 1
           done
+          adb logcat -d | grep -E 'AppLaunchAccessibilityService|AndroidRuntime|FATAL EXCEPTION|AccessibilityManagerService' | tail -400 | tee /tmp/accessibility-logcat-after.txt || true
           test "$observed" = true
 
           grep -Fq 'name="autoKillEnabled" value="false"' /tmp/prefs-after.xml
@@ -164,7 +183,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p accessibility-evidence
-          for f in /tmp/accessibility-emulator.log /tmp/install-app.txt /tmp/prefs-before.xml /tmp/prefs-after.xml /tmp/appop-bind.txt /tmp/appop-restricted.txt /tmp/enabled-services.txt /tmp/accessibility.txt /tmp/settings-launch.txt; do
+          for f in /tmp/accessibility-emulator.log /tmp/install-app.txt /tmp/reappzuku-launch.txt /tmp/prefs-before.xml /tmp/prefs-after.xml /tmp/appop-bind.txt /tmp/appop-restricted.txt /tmp/enabled-services.txt /tmp/accessibility.txt /tmp/accessibility-focus.txt /tmp/accessibility-logcat-before.txt /tmp/accessibility-logcat-after.txt /tmp/settings-launch.txt; do
             [ ! -f "$f" ] || cp "$f" accessibility-evidence/
           done
           adb shell getprop ro.build.version.release > accessibility-evidence/android-release.txt 2>/dev/null || true
