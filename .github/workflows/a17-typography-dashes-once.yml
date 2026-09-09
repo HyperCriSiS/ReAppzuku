@@ -1,0 +1,62 @@
+name: One-time A17 TypographyDashes cleanup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout A17 typography branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: roadmap/a17-typography-dashes
+          fetch-depth: 1
+
+      - name: Replace double hyphen placeholders with em dash
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          replacements = {
+              'app/src/main/res/values/strings.xml': ('<string name="ram_usage_unavailable">RAM: --</string>', '<string name="ram_usage_unavailable">RAM: —</string>'),
+              'app/src/main/res/values-es/strings.xml': ('<string name="ram_usage_unavailable">RAM: --</string>', '<string name="ram_usage_unavailable">RAM: —</string>'),
+              'app/src/main/res/values-ru/strings.xml': ('<string name="ram_usage_unavailable">ОЗУ: --</string>', '<string name="ram_usage_unavailable">ОЗУ: —</string>'),
+              'app/src/main/res/values-uk/strings.xml': ('<string name="ram_usage_unavailable">ОЗП: --</string>', '<string name="ram_usage_unavailable">ОЗП: —</string>'),
+              'app/src/main/res/values-zh-rCN/strings.xml': ('<string name="ram_usage_unavailable">RAM：--</string>', '<string name="ram_usage_unavailable">RAM：—</string>'),
+          }
+          for path, (old, new) in replacements.items():
+              p = Path(path)
+              text = p.read_text()
+              if text.count(old) != 1:
+                  raise SystemExit(f'{path}: expected one RAM placeholder')
+              p.write_text(text.replace(old, new))
+
+          p = Path('app/lint-baseline.xml')
+          text = p.read_text()
+          before = text.count('id="TypographyDashes"')
+          if before != 5:
+              raise SystemExit(f'expected 5 TypographyDashes baseline entries, got {before}')
+          pattern = re.compile(r'\n    <issue\n        id="TypographyDashes".*?\n    </issue>\n', re.S)
+          text, removed = pattern.subn('\n', text)
+          if removed != 5 or 'id="TypographyDashes"' in text:
+              raise SystemExit(f'TypographyDashes baseline removal mismatch: {removed}')
+          p.write_text(text)
+          PY
+
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 6
+          ! grep -Fq 'id="TypographyDashes"' app/lint-baseline.xml
+          git diff --stat
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/lint-baseline.xml app/src/main/res/values/strings.xml app/src/main/res/values-es/strings.xml app/src/main/res/values-ru/strings.xml app/src/main/res/values-uk/strings.xml app/src/main/res/values-zh-rCN/strings.xml
+          git commit -m 'Use typographic dash for unavailable RAM values'
+          git push origin HEAD:roadmap/a17-typography-dashes
