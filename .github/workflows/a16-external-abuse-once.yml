@@ -105,21 +105,31 @@ jobs:
                   super.onCreate(state);
                   SharedPreferences.Editor out = getSharedPreferences("results", MODE_PRIVATE).edit().clear();
                   out.putString("probe_uid_package", getPackageName());
-                  out.putBoolean("accessibility_denied", bindDenied(
-                          "com.gree1d.reappzuku.service.AppLaunchAccessibilityService"));
-                  out.putBoolean("quick_tile_denied", bindDenied(
-                          "com.gree1d.reappzuku.utils.ShappkyQuickTile"));
-                  out.putBoolean("background_tile_denied", bindDenied(
-                          "com.gree1d.reappzuku.utils.ShappkyBackgroundKillTile"));
-                  out.putBoolean("shizuku_provider_denied", providerDenied());
-                  out.putBoolean("boot_broadcast_denied", bootBroadcastDenied());
+                  String accessibility = bindResult(
+                          "com.gree1d.reappzuku.service.AppLaunchAccessibilityService");
+                  String quickTile = bindResult(
+                          "com.gree1d.reappzuku.utils.ShappkyQuickTile");
+                  String backgroundTile = bindResult(
+                          "com.gree1d.reappzuku.utils.ShappkyBackgroundKillTile");
+                  String provider = providerResult();
+                  String boot = bootBroadcastResult();
+                  out.putString("accessibility_result", accessibility);
+                  out.putBoolean("accessibility_denied", accessibility.startsWith("DENIED_"));
+                  out.putString("quick_tile_result", quickTile);
+                  out.putBoolean("quick_tile_denied", quickTile.startsWith("DENIED_"));
+                  out.putString("background_tile_result", backgroundTile);
+                  out.putBoolean("background_tile_denied", backgroundTile.startsWith("DENIED_"));
+                  out.putString("shizuku_provider_result", provider);
+                  out.putBoolean("shizuku_provider_denied", provider.startsWith("DENIED_"));
+                  out.putString("boot_broadcast_result", boot);
+                  out.putBoolean("boot_broadcast_denied", boot.startsWith("DENIED_"));
                   if (!out.commit()) {
                       throw new IllegalStateException("Could not persist probe results");
                   }
                   finish();
               }
 
-              private boolean bindDenied(String className) {
+              private String bindResult(String className) {
                   Intent intent = new Intent().setComponent(new ComponentName(PRODUCT, className));
                   ServiceConnection connection = new ServiceConnection() {
                       @Override public void onServiceConnected(ComponentName name, IBinder service) {}
@@ -127,35 +137,38 @@ jobs:
                   };
                   try {
                       boolean bound = bindService(intent, connection, Context.BIND_AUTO_CREATE);
-                      if (bound) unbindService(connection);
-                      return false;
+                      if (bound) {
+                          unbindService(connection);
+                          return "BOUND";
+                      }
+                      return "DENIED_FALSE";
                   } catch (SecurityException expected) {
-                      return true;
+                      return "DENIED_SECURITY";
                   }
               }
 
-              private boolean providerDenied() {
+              private String providerResult() {
                   ContentProviderClient client = null;
                   try {
                       client = getContentResolver().acquireUnstableContentProviderClient(
                               Uri.parse("content://com.gree1d.reappzuku.shizuku"));
-                      return false;
+                      return client == null ? "DENIED_NULL" : "ACQUIRED";
                   } catch (SecurityException expected) {
-                      return true;
+                      return "DENIED_SECURITY";
                   } finally {
                       if (client != null) client.close();
                   }
               }
 
-              private boolean bootBroadcastDenied() {
+              private String bootBroadcastResult() {
                   try {
                       Intent intent = new Intent(Intent.ACTION_BOOT_COMPLETED)
                               .setComponent(new ComponentName(
                                       PRODUCT, "com.gree1d.reappzuku.core.BootReceiver"));
                       sendBroadcast(intent);
-                      return false;
+                      return "SENT";
                   } catch (SecurityException expected) {
-                      return true;
+                      return "DENIED_SECURITY";
                   }
               }
           }
