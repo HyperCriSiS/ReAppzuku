@@ -1,0 +1,72 @@
+name: One-time A10 Accessibility evidence docs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout docs branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: roadmap/close-accessibility-runtime
+
+      - name: Record API 37 Accessibility runtime evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          matrix = Path('docs/CHECK_MATRIX.md')
+          text = matrix.read_text()
+          old = ('| A10 | Accessibility / app-launch tracking | DECIDED | Service configuration and unnecessary view-tree scope were corrected; '
+                 '`AppLaunchTriggerPolicy` JVM-tests exact target eligibility/5-second duplicate suppression (`34153818522`), and '
+                 '`AccessibilityServicePolicyTest` locks the minimal `TYPE_WINDOW_STATE_CHANGED`-only service contract (`34156391150`). '
+                 'Android accessibility runtime evidence remains pending. |')
+          new = ('| A10 | Accessibility / app-launch tracking | DECIDED | Service configuration and unnecessary view-tree scope were corrected; '
+                 '`AppLaunchTriggerPolicy` JVM-tests exact target eligibility/5-second duplicate suppression (`34153818522`), and '
+                 '`AccessibilityServicePolicyTest` locks the minimal `TYPE_WINDOW_STATE_CHANGED`-only service contract (`34156391150`). '
+                 'External API-37 run `34302578767` additionally proves Android 17 ECM-approved service enable/binding, a live ReAppzuku process and a real Settings window-state event reaching production code via `smart_last_foreground_com.android.settings`, while AutoKill and the app-launch mutation trigger remain disabled. Physical/OEM Accessibility diversity remains release evidence. |')
+          assert text.count(old) == 1, 'A10 narrative anchor changed'
+          text = text.replace(old, new)
+
+          old_row = '| A10 Accessibility | D | R | R | D | D | **R** | - | - | **R** | D | R | D | **P** | **R** | R | R | - | **R** |'
+          new_row = '| A10 Accessibility | D | R | R | D | D | **R** | - | - | **P** | D | R | D | **P** | **R** | R | R | - | **R** |'
+          assert text.count(old_row) == 1, 'A10 coverage row anchor changed'
+          text = text.replace(old_row, new_row)
+
+          old_cm = '- **CM-P1-09:** accessibility service settings path/scope are corrected; `AccessibilityServicePolicyTest` locks the minimal window-state-only contract and normal run `34156391150` passed.'
+          new_cm = ('- **CM-P1-09:** accessibility service settings path/scope are corrected; `AccessibilityServicePolicyTest` locks the minimal window-state-only contract and normal run `34156391150` passed. '
+                    'External Android 17/API 37 run `34302578767` then modeled explicit ECM approval, observed the production service enabled/binding with a live app process, launched real System Settings and proved the production foreground event by `smart_last_foreground_com.android.settings`; both AutoKill and the app-launch mutation trigger remained disabled. Physical/OEM diversity remains separate release evidence.')
+          assert text.count(old_cm) == 1, 'CM-P1-09 anchor changed'
+          matrix.write_text(text.replace(old_cm, new_cm))
+
+          roadmap = Path('docs/ROADMAP.md')
+          text = roadmap.read_text()
+          anchor = ('- [x] Fork update provenance on a real installed test build: API-36 run `34037508198` built and installed the current test APK, pulled the installed `base.apk` back from `/data/app`, proved exact SHA-256 identity (`b57c694dc75705f23f5de0b7ef7988811fb350276aa11063b4077af224089dd8`), then scanned every `classes*.dex` and verified the fork-owned stable-release API/page endpoints are embedded while both the upstream API endpoint and obsolete fork `/releases/latest` endpoint are absent.\n')
+          addition = ('- [x] Accessibility runtime on Android 17/API 37: external run `34302578767` installed the unchanged `ondemand-shizuku` product APK, modeled the explicit ECM-approved state (`BIND_ACCESSIBILITY_SERVICE=allow`, `ACCESS_RESTRICTED_SETTINGS=allow`), proved the ReAppzuku process remained alive while the production Accessibility service was enabled/binding with no crashed service, launched real System Settings and observed `smart_last_foreground_com.android.settings` from the production event path. `autoKillEnabled=false` and `app_launch_trigger_enabled=false` remained enforced throughout. Physical/OEM Accessibility diversity remains release evidence.\n')
+          assert text.count(anchor) == 1, 'Roadmap live-evidence anchor changed'
+          text = text.replace(anchor, anchor + addition)
+
+          old_assurance = '- Accessibility scope is now locked to the minimum window-state contract by `AccessibilityServicePolicyTest`; run `34156391150` passed.'
+          new_assurance = ('- Accessibility scope is locked to the minimum window-state contract by `AccessibilityServicePolicyTest`; run `34156391150` passed. '
+                           'External API-37 run `34302578767` additionally proves the real Android 17 ECM-approved service path and a production Settings foreground event without enabling any AutoKill mutation path.')
+          assert text.count(old_assurance) == 1, 'Roadmap assurance anchor changed'
+          roadmap.write_text(text.replace(old_assurance, new_assurance))
+          PY
+
+          git diff --check
+          git diff -- docs/CHECK_MATRIX.md docs/ROADMAP.md
+          test "$(git diff --name-only | sort)" = $'docs/CHECK_MATRIX.md\ndocs/ROADMAP.md'
+
+          git config user.name 'HyperCriSiS'
+          git config user.email 'dev.github@w3b.world'
+          git add docs/CHECK_MATRIX.md docs/ROADMAP.md
+          git commit -m 'Close Android 17 Accessibility runtime evidence'
+          git push origin HEAD:roadmap/close-accessibility-runtime
