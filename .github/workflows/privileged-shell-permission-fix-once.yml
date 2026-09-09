@@ -1,0 +1,116 @@
+name: One-time patch real Shizuku permission flow
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: main
+      - name: Patch API 37 PrivilegedShell permission setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/privileged-shell-api37-once.yml')
+          text = path.read_text(encoding='utf-8')
+          old = '''          adb shell pm clear com.gree1d.reappzuku
+          adb shell pm grant com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23
+'''
+          new = '''          adb shell pm clear com.gree1d.reappzuku
+          adb shell pm revoke com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23 2>/dev/null || true
+'''
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one legacy pm-grant block, found {text.count(old)}')
+          text = text.replace(old, new)
+          marker = '''          echo "shizuku-server-pid=$(adb shell pidof shizuku_server | tr -d '\\r')" | tee /tmp/shizuku-api37-pid.txt
+
+      - name: Exercise representative typed command families through real Shizuku
+'''
+          replacement = '''          echo "shizuku-server-pid=$(adb shell pidof shizuku_server | tr -d '\\r')" | tee /tmp/shizuku-api37-pid.txt
+
+      - name: Grant ReAppzuku through the real Shizuku manager flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          adb shell am start -W -n moe.shizuku.privileged.api/moe.shizuku.manager.MainActivity \\
+            | tee /tmp/shizuku-manager-init.log
+          manager_ready=false
+          for i in $(seq 1 40); do
+            if [ -n "$(adb shell pidof moe.shizuku.privileged.api 2>/dev/null | tr -d '\\r' || true)" ]; then
+              manager_ready=true
+              break
+            fi
+            sleep 0.25
+          done
+          test "$manager_ready" = true
+          sleep 2
+
+          adb shell pm revoke com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23 2>/dev/null || true
+          adb shell am start -W -n com.gree1d.reappzuku/.ui.MainActivity | tee /tmp/shizuku-api37-app-start.log
+
+          dialog=false
+          for i in $(seq 1 120); do
+            if adb shell dumpsys activity activities 2>/dev/null | \\
+                grep -q 'moe.shizuku.manager.authorization.RequestPermissionActivity'; then
+              dialog=true
+              break
+            fi
+            sleep 0.25
+          done
+          test "$dialog" = true
+
+          adb shell uiautomator dump /sdcard/reappzuku-privshell37.xml >/dev/null
+          adb shell cat /sdcard/reappzuku-privshell37.xml > /tmp/reappzuku-privshell37.xml
+          python3 - <<'PY2' > /tmp/shizuku-allow-coordinates
+          import re
+          xml = open('/tmp/reappzuku-privshell37.xml', encoding='utf-8').read()
+          match = re.search(r'resource-id="android:id/button1"[^>]*bounds="\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]"', xml)
+          if not match:
+              raise SystemExit('Shizuku always-allow button not found in UI hierarchy')
+          x1, y1, x2, y2 = map(int, match.groups())
+          print((x1 + x2) // 2, (y1 + y2) // 2)
+          PY2
+          read -r ALLOW_X ALLOW_Y < /tmp/shizuku-allow-coordinates
+          adb shell input tap "$ALLOW_X" "$ALLOW_Y"
+
+          granted=false
+          for i in $(seq 1 120); do
+            if adb shell dumpsys package com.gree1d.reappzuku | \\
+                grep -A20 'runtime permissions:' | \\
+                grep -q 'moe.shizuku.manager.permission.API_V23: granted=true'; then
+              granted=true
+              break
+            fi
+            sleep 0.25
+          done
+          test "$granted" = true
+          adb shell dumpsys package com.gree1d.reappzuku | \\
+            grep -A20 'runtime permissions:' | tee /tmp/shizuku-api37-runtime-permissions.txt
+          adb shell am force-stop com.gree1d.reappzuku || true
+
+      - name: Exercise representative typed command families through real Shizuku
+'''
+          if text.count(marker) != 1:
+              raise SystemExit(f'expected one insertion marker, found {text.count(marker)}')
+          text = text.replace(marker, replacement)
+          old_evidence = '/tmp/shizuku-api37-start.log /tmp/shizuku-api37-pid.txt /tmp/privshell37-instrumentation.txt'
+          new_evidence = '/tmp/shizuku-api37-start.log /tmp/shizuku-api37-pid.txt /tmp/shizuku-manager-init.log /tmp/shizuku-api37-app-start.log /tmp/reappzuku-privshell37.xml /tmp/shizuku-api37-runtime-permissions.txt /tmp/privshell37-instrumentation.txt'
+          if text.count(old_evidence) != 1:
+              raise SystemExit(f'expected one evidence marker, found {text.count(old_evidence)}')
+          path.write_text(text.replace(old_evidence, new_evidence), encoding='utf-8')
+          PY
+          git diff --check
+          grep -F 'Grant ReAppzuku through the real Shizuku manager flow' .github/workflows/privileged-shell-api37-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/privileged-shell-api37-once.yml
+          git commit -m 'Use real Shizuku authorization for API 37 shell probe'
+          git push origin HEAD:main
