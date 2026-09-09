@@ -1,0 +1,43 @@
+name: One-time patch PrivilegedShell notification setup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: main
+      - name: Grant non-Shizuku first-run notification permission in probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/privileged-shell-api37-once.yml')
+          text = path.read_text(encoding='utf-8')
+          old = '''          adb shell pm clear com.gree1d.reappzuku
+          adb shell pm revoke com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23 2>/dev/null || true
+          adb shell pm path com.gree1d.reappzuku.probetarget | grep -q '^package:'
+'''
+          new = '''          adb shell pm clear com.gree1d.reappzuku
+          adb shell pm revoke com.gree1d.reappzuku moe.shizuku.manager.permission.API_V23 2>/dev/null || true
+          adb shell pm grant com.gree1d.reappzuku android.permission.POST_NOTIFICATIONS 2>/dev/null || true
+          adb shell pm path com.gree1d.reappzuku.probetarget | grep -q '^package:'
+'''
+          if text.count(old) != 1:
+              raise SystemExit(f'notification setup anchor count={text.count(old)}')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+          git diff --check
+          git diff -- .github/workflows/privileged-shell-api37-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/privileged-shell-api37-once.yml
+          git commit -m 'Bypass unrelated notification dialog in API 37 shell probe'
+          git push origin HEAD:main
