@@ -1,0 +1,58 @@
+name: Recover roadmap snapshot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out target branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Restore files from upstream snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          upstream="https://raw.githubusercontent.com/gree1d/ReAppzuku/3005f7e020e8c6e67933774a35d94b8d6c5ab4e2"
+          files=(
+            ".github/workflows/ondemand-test-build.yml"
+            ".github/scripts/apply-exit-on-back.py"
+            ".github/scripts/apply-full-exit.py"
+            "app/src/main/AndroidManifest.xml"
+            "app/src/main/java/com/gree1d/reappzuku/core/App.java"
+            "app/src/main/java/com/gree1d/reappzuku/core/PreferenceKeys.java"
+            "app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java"
+            "app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivity.java"
+            "app/src/main/res/layout/activity_settings.xml"
+            "app/src/main/res/values/strings.xml"
+          )
+          for path in "${files[@]}"; do
+            mkdir -p "$(dirname "$path")"
+            curl --fail --location --silent --show-error "$upstream/$path" --output "$path"
+          done
+
+      - name: Commit restored snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/ondemand-test-build.yml \
+                  .github/scripts/apply-exit-on-back.py \
+                  .github/scripts/apply-full-exit.py \
+                  app/src/main/AndroidManifest.xml \
+                  app/src/main/java/com/gree1d/reappzuku/core/App.java \
+                  app/src/main/java/com/gree1d/reappzuku/core/PreferenceKeys.java \
+                  app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java \
+                  app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivity.java \
+                  app/src/main/res/layout/activity_settings.xml \
+                  app/src/main/res/values/strings.xml
+          git diff --cached --quiet && exit 0
+          git commit -m "Restore roadmap snapshot 3005f7e"
+          git push origin "HEAD:${{ github.ref_name }}"
