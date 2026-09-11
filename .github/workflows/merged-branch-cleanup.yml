@@ -1,0 +1,39 @@
+name: Guarded merged branch cleanup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out full main history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Delete only branches already contained in main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
+          mapfile -t branches < <(
+            git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin \
+              | grep -E '^(dev|ondemand-shizuku|consolidate/mainline|restore/roadmap-3005f7e|roadmap/|test/)' \
+              | sort
+          )
+          echo 'Candidate branches:'
+          printf '  %s\n' "${branches[@]}"
+          for branch in "${branches[@]}"; do
+            if git merge-base --is-ancestor "origin/$branch" HEAD; then
+              echo "DELETE merged branch: $branch"
+              git push origin --delete "$branch"
+            else
+              echo "KEEP divergent branch: $branch"
+            fi
+          done
