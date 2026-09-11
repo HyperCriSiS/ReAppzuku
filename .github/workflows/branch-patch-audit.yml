@@ -1,0 +1,42 @@
+name: Divergent branch patch audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out full main history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Report patch-equivalent and unique branch commits
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
+          mapfile -t branches < <(
+            git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin \
+              | grep -Ev '^(main|backup/main-pre-consolidation-20260911)$' \
+              | sort
+          )
+          for branch in "${branches[@]}"; do
+            echo "=== $branch ==="
+            git cherry origin/main "origin/$branch" | tee "/tmp/cherry-${branch//\//_}.txt"
+            plus_count="$(grep -c '^+' "/tmp/cherry-${branch//\//_}.txt" || true)"
+            minus_count="$(grep -c '^-' "/tmp/cherry-${branch//\//_}.txt" || true)"
+            echo "patch_unique=$plus_count patch_equivalent=$minus_count"
+            if [ "$plus_count" -gt 0 ]; then
+              while read -r sign sha; do
+                [ "$sign" = '+' ] || continue
+                git show -s --format='UNIQUE %H %s' "$sha"
+              done < "/tmp/cherry-${branch//\//_}.txt"
+            fi
+          done
