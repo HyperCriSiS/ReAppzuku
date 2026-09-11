@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       source_ref:
-        description: Trusted Git ref to build (main or ondemand-shizuku)
+        description: Trusted Git ref to build (main)
         required: true
         default: main
         type: string
@@ -52,8 +52,8 @@ jobs:
         run: |
           set -euo pipefail
           case "$SOURCE_REF" in
-            main|ondemand-shizuku) ;;
-            *) echo 'source_ref must be main or ondemand-shizuku.' >&2; exit 1 ;;
+            main) ;;
+            *) echo 'source_ref must be main.' >&2; exit 1 ;;
           esac
           if [ "$PUBLISH" = "true" ]; then
             test -n "$RELEASE_TAG" || { echo 'A release tag is required when publish=true.' >&2; exit 1; }
