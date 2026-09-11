@@ -2,7 +2,7 @@
 
 > Adapted from the Voice-platform Architecture Control Matrix.
 >
-> Audit baseline: `ondemand-shizuku`, refreshed 2026-09-08.
+> Audit baseline: `main`, consolidated 2026-09-11 from the fully validated product line.
 
 ## Purpose
 

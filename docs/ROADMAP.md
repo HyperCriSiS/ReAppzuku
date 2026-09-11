@@ -117,7 +117,7 @@ Status convention:
 - [x] Retire the obsolete parallel `android.yml` release/CI path; `main` now keeps only the source-authoritative on-demand validation and hardened `signed-release.yml` workflows after the one-shot cleanup.
 - [x] Split read-only validation from release publishing with job-level least-privilege tokens.
 - [x] Bind stable release tags to source `versionName`, built APK `versionName`, package identity, expected artifact name and signing certificate before publish.
-- [x] Keep `main` and `ondemand-shizuku` permanent validation/release workflow blobs identical so a later branch merge cannot silently roll release policy backward.
+- [x] Keep `main` as the sole permanent product/validation/release branch; use short-lived branches only for isolated work and delete them after integration.
 - [x] Bind updater APK/release links to the validated `HyperCriSiS/ReAppzuku` tag/asset contract instead of trusting arbitrary release metadata URLs or the first `.apk` asset.
 - [x] Run `lintDebug` without `updateLintBaseline`; baseline changes only through reviewed source commits.
 - [x] Pin every external Action in active repository workflows.
