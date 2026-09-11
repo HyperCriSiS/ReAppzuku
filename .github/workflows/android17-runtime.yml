@@ -6,7 +6,7 @@ on:
       product_ref:
         description: Product branch or commit to test
         required: true
-        default: ondemand-shizuku
+        default: main
         type: string
       test_class:
         description: Optional fully qualified instrumentation class or class#method
