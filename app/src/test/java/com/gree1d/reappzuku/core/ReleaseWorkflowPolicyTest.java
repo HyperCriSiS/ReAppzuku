@@ -36,6 +36,21 @@ public class ReleaseWorkflowPolicyTest {
     }
 
     @Test
+    public void permanentReleaseAndApi37SourcesAreMainOnly() throws Exception {
+        String release = readRepositoryFile(".github/workflows/signed-release.yml");
+        String api37 = readRepositoryFile(".github/workflows/android17-runtime.yml");
+
+        assertTrue(release.contains("description: Trusted Git ref to build (main)"));
+        assertTrue(release.contains("default: main"));
+        assertTrue(release.contains("main) ;;"));
+        assertFalse(release.contains("ondemand-shizuku"));
+
+        assertTrue(api37.contains("product_ref:"));
+        assertTrue(api37.contains("default: main"));
+        assertFalse(api37.contains("ondemand-shizuku"));
+    }
+
+    @Test
     public void stableReleaseMustMatchSourceAndBuiltApkVersion() throws Exception {
         String workflow = readRepositoryFile(".github/workflows/signed-release.yml");
 
