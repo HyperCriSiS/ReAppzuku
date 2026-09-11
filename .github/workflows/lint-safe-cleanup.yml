@@ -1,0 +1,102 @@
+name: Low-risk active lint cleanup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+
+      - name: Apply intentional-sync and optional-WiFi lint fixes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          sleep = Path('app/src/main/java/com/gree1d/reappzuku/manager/SleepModeManager.java')
+          text = sleep.read_text()
+          old = 'import android.content.Context;\n'
+          new = 'import android.annotation.SuppressLint;\nimport android.content.Context;\n'
+          if text.count(old) != 1 or 'import android.annotation.SuppressLint;' in text:
+              raise SystemExit('Unexpected SleepModeManager import state')
+          text = text.replace(old, new)
+          old = ('    public void saveSleepModeApps(Set<String> timerPackages, Set<String> permanentPackages,\n'
+                 '            Map<String, FreezeMethod> newMethods, Runnable onComplete) {')
+          new = ('    // These synchronous writes occur only after a physical freeze/unfreeze transition\n'
+                 '    // needs rollback metadata to be durable before this worker continues.\n'
+                 '    @SuppressLint("ApplySharedPref")\n'
+                 '    public void saveSleepModeApps(Set<String> timerPackages, Set<String> permanentPackages,\n'
+                 '            Map<String, FreezeMethod> newMethods, Runnable onComplete) {')
+          if text.count(old) != 1:
+              raise SystemExit('Unexpected saveSleepModeApps signature state')
+          sleep.write_text(text.replace(old, new))
+
+          manifest = Path('app/src/main/AndroidManifest.xml')
+          text = manifest.read_text()
+          marker = ('    <uses-feature\n'
+                    '        android:name="android.hardware.touchscreen"\n'
+                    '        android:required="false" />\n')
+          addition = marker + ('    <uses-feature\n'
+                               '        android:name="android.hardware.wifi"\n'
+                               '        android:required="false" />\n')
+          if text.count(marker) != 1 or 'android.hardware.wifi' in text:
+              raise SystemExit('Unexpected manifest WiFi feature state')
+          manifest.write_text(text.replace(marker, addition))
+
+          test = Path('app/src/test/java/com/gree1d/reappzuku/core/ManifestCapabilityPolicyTest.java')
+          text = test.read_text()
+          marker = ('        assertFeatureOptional(document, "android.software.leanback");\n'
+                    '        assertFeatureOptional(document, "android.hardware.touchscreen");\n')
+          replacement = marker + '        assertFeatureOptional(document, "android.hardware.wifi");\n'
+          if text.count(marker) != 1 or 'assertFeatureOptional(document, "android.hardware.wifi")' in text:
+              raise SystemExit('Unexpected manifest capability test state')
+          test.write_text(text.replace(marker, replacement))
+
+      - name: Validate and require only version-advisory active lint warnings
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          report = ET.parse('app/build/reports/lint-results-debug.xml').getroot()
+          active = [i for i in report.findall('issue') if i.get('id') != 'LintBaseline']
+          ids = [i.get('id') for i in active]
+          print('ACTIVE_LINT_IDS=' + ','.join(ids))
+          forbidden = {'ApplySharedPref', 'LeanbackUsesWifi'}
+          if forbidden.intersection(ids):
+              raise SystemExit('Low-risk lint warnings remain: ' + repr(ids))
+          allowed = {'AndroidGradlePluginVersion', 'NewerVersionAvailable'}
+          unexpected = [i for i in active if i.get('id') not in allowed]
+          if unexpected:
+              raise SystemExit('Unexpected active lint findings: ' + repr([(i.get('id'), i.get('message')) for i in unexpected]))
+          PY
+
+      - name: Commit validated source changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/gree1d/reappzuku/manager/SleepModeManager.java \
+                  app/src/main/AndroidManifest.xml \
+                  app/src/test/java/com/gree1d/reappzuku/core/ManifestCapabilityPolicyTest.java
+          git diff --cached --check
+          git commit -m 'Resolve low-risk active lint warnings'
+          git push origin HEAD:main
