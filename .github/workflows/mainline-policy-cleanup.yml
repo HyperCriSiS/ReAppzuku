@@ -1,0 +1,82 @@
+name: Main-only branch policy cleanup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+
+      - name: Make main the sole permanent product branch
+        shell: python
+        run: |
+          from pathlib import Path
+
+          replacements = {
+              '.github/workflows/android17-runtime.yml': [
+                  ('default: ondemand-shizuku', 'default: main'),
+              ],
+              '.github/workflows/signed-release.yml': [
+                  ('Trusted Git ref to build (main or ondemand-shizuku)', 'Trusted Git ref to build (main)'),
+                  ('main|ondemand-shizuku) ;;', 'main) ;;'),
+                  ("source_ref must be main or ondemand-shizuku.", "source_ref must be main."),
+              ],
+              'docs/ROADMAP.md': [
+                  ('Keep `main` and `ondemand-shizuku` permanent validation/release workflow blobs identical so a later branch merge cannot silently roll release policy backward.',
+                   'Keep `main` as the sole permanent product/validation/release branch; use short-lived branches only for isolated work and delete them after integration.'),
+              ],
+              'docs/CHECK_MATRIX.md': [
+                  ('> Audit baseline: `ondemand-shizuku`, refreshed 2026-09-08.',
+                   '> Audit baseline: `main`, consolidated 2026-09-11 from the fully validated product line.'),
+              ],
+          }
+
+          for name, pairs in replacements.items():
+              path = Path(name)
+              text = path.read_text()
+              for old, new in pairs:
+                  if text.count(old) != 1:
+                      raise SystemExit(f'{name}: expected exactly one occurrence of {old!r}, got {text.count(old)}')
+                  text = text.replace(old, new)
+              path.write_text(text)
+
+      - name: Validate policy cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          grep -A5 'product_ref:' .github/workflows/android17-runtime.yml | grep -F 'default: main'
+          grep -F 'Trusted Git ref to build (main)' .github/workflows/signed-release.yml
+          grep -F 'main) ;;' .github/workflows/signed-release.yml
+          ! grep -Fq 'main|ondemand-shizuku' .github/workflows/signed-release.yml
+          ./gradlew testDebugUnitTest lintDebug
+
+      - name: Commit cleanup and retire one-shot
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/mainline-policy-cleanup.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/android17-runtime.yml \
+                  .github/workflows/signed-release.yml \
+                  docs/ROADMAP.md docs/CHECK_MATRIX.md \
+                  .github/workflows/mainline-policy-cleanup.yml
+          git commit -m 'Make main the sole permanent product branch'
+          git push origin HEAD:main
