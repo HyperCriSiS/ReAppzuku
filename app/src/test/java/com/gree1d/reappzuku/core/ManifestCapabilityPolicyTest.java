@@ -45,6 +45,7 @@ public class ManifestCapabilityPolicyTest {
 
         assertFeatureOptional(document, "android.software.leanback");
         assertFeatureOptional(document, "android.hardware.touchscreen");
+        assertFeatureOptional(document, "android.hardware.wifi");
     }
 
     private static Document parseManifest() throws Exception {

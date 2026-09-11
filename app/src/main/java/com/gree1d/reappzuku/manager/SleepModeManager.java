@@ -1,5 +1,6 @@
 package com.gree1d.reappzuku.manager;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -203,6 +204,9 @@ public class SleepModeManager {
         return ok;
     }
 
+    // These synchronous writes occur only after a physical freeze/unfreeze transition
+    // needs rollback metadata to be durable before this worker continues.
+    @SuppressLint("ApplySharedPref")
     public void saveSleepModeApps(Set<String> timerPackages, Set<String> permanentPackages,
             Map<String, FreezeMethod> newMethods, Runnable onComplete) {
         AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": saveSleepModeApps: timer=" + timerPackages.size()
