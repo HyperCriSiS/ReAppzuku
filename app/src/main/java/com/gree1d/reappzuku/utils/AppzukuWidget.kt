@@ -33,8 +33,9 @@ import com.gree1d.reappzuku.core.AppConstants.STATS_HISTORY_DURATION_MS
 import com.gree1d.reappzuku.core.AppDebugManager
 import com.gree1d.reappzuku.core.AppDebugManager.Category
 import com.gree1d.reappzuku.db.AppDatabase
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.RandomAccessFile
@@ -181,6 +182,10 @@ class AppzukuWidget : GlanceAppWidget() {
     }
 
     companion object {
+        // Java callers have no component-owned scope. This explicit scope intentionally lives
+        // for the application process and isolates independent widget refresh failures.
+        private val widgetUpdateScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
         suspend fun updateAllWidgets(context: Context) {
             AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "AppzukuWidget: updateAllWidgets called")
             val manager = GlanceAppWidgetManager(context)
@@ -192,7 +197,8 @@ class AppzukuWidget : GlanceAppWidget() {
         @JvmStatic
         fun updateAllWidgetsFromJava(context: Context) {
             AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "AppzukuWidget: updateAllWidgetsFromJava called from Java")
-            GlobalScope.launch { updateAllWidgets(context) }
+            val appContext = context.applicationContext
+            widgetUpdateScope.launch { updateAllWidgets(appContext) }
         }
 
         private fun loadData(context: Context): WidgetData {

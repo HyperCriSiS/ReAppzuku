@@ -29,6 +29,8 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
+import com.gree1d.reappzuku.core.ReleaseAssetPolicy;
+import com.gree1d.reappzuku.core.ReleaseVersion;
 import com.gree1d.reappzuku.service.UpdateCheckWorker;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
@@ -54,9 +56,9 @@ public class UpdateChecker {
     private static final String FILE_NAME = "UpdateChecker";
 
     static final String GITHUB_API_URL =
-            "https://api.github.com/repos/gree1d/ReAppzuku/releases/latest";
+            "https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases?per_page=20";
     private static final String RELEASES_URL =
-            "https://github.com/gree1d/ReAppzuku/releases";
+            "https://github.com/HyperCriSiS/ReAppzuku/releases";
 
     private static final String CHANNEL_ID = "reappzuku_updates";
     private static final int    NOTIF_ID   = 9001;
@@ -135,25 +137,46 @@ public class UpdateChecker {
             while ((line = reader.readLine()) != null) sb.append(line);
             reader.close();
 
-            JSONObject json = new JSONObject(sb.toString());
-            String tagName  = json.optString("tag_name", "").replaceFirst("^v", "");
-            String body     = json.optString("body", "");
-            String htmlUrl  = json.optString("html_url", RELEASES_URL);
+            JSONArray releases = new JSONArray(sb.toString());
+            for (int releaseIndex = 0; releaseIndex < releases.length(); releaseIndex++) {
+                JSONObject json = releases.optJSONObject(releaseIndex);
+                if (json == null || json.optBoolean("draft", false)
+                        || json.optBoolean("prerelease", false)) {
+                    continue;
+                }
 
-            String downloadUrl = htmlUrl;
-            JSONArray assets = json.optJSONArray("assets");
-            if (assets != null) {
-                for (int i = 0; i < assets.length(); i++) {
-                    JSONObject asset = assets.getJSONObject(i);
-                    String name = asset.optString("name", "");
-                    if (name.endsWith(".apk")) {
-                        downloadUrl = asset.optString("browser_download_url", htmlUrl);
-                        break;
+                String rawTag = json.optString("tag_name", "");
+                if (!ReleaseVersion.isReleaseVersion(rawTag)) {
+                    continue;
+                }
+
+                String tagName = rawTag.replaceFirst("^[vV]", "");
+                String body = json.optString("body", "");
+                String htmlUrl = ReleaseAssetPolicy.trustedReleasePageUrl(rawTag);
+                String downloadUrl = htmlUrl;
+                JSONArray assets = json.optJSONArray("assets");
+                if (assets != null) {
+                    for (int i = 0; i < assets.length(); i++) {
+                        JSONObject asset = assets.optJSONObject(i);
+                        if (asset == null) continue;
+                        String name = asset.optString("name", "");
+                        String browserDownloadUrl = asset.optString("browser_download_url", "");
+                        if (ReleaseAssetPolicy.isTrustedApkAsset(
+                                rawTag, name, browserDownloadUrl)) {
+                            downloadUrl = browserDownloadUrl;
+                            break;
+                        }
                     }
                 }
+
+                return new ReleaseInfo(tagName, body.trim(), downloadUrl, htmlUrl);
             }
 
-            return new ReleaseInfo(tagName, body.trim(), downloadUrl, htmlUrl);
+            // A repository may intentionally have only rolling/dev releases before the first
+            // production tag exists. That is a successful fetch with "no update", not a
+            // transport failure that should trigger WorkManager backoff/retries.
+            AppDebugManager.d(Category.UTILS, FILE_NAME + ": No stable numeric GitHub release found");
+            return new ReleaseInfo("0.0.0", "", RELEASES_URL, RELEASES_URL);
 
         } catch (UnknownHostException e) {
             AppDebugManager.w(Category.UTILS, FILE_NAME + ": No route to GitHub (DNS failed): " + e.getMessage());
@@ -175,30 +198,7 @@ public class UpdateChecker {
     }
 
     public static boolean isNewer(String remote, String local) {
-        if (remote == null || remote.isEmpty()) return false;
-        try {
-            int[] r = parseVersion(remote.replaceFirst("^v", ""));
-            int[] l = parseVersion(local.replaceFirst("^v", ""));
-            for (int i = 0; i < Math.max(r.length, l.length); i++) {
-                int rv = i < r.length ? r[i] : 0;
-                int lv = i < l.length ? l[i] : 0;
-                if (rv > lv) return true;
-                if (rv < lv) return false;
-            }
-            return false;
-        } catch (Exception e) {
-            AppDebugManager.w(Category.UTILS, FILE_NAME + ": Version parse failed: remote=" + remote + " local=" + local);
-            return false;
-        }
-    }
-
-    private static int[] parseVersion(String v) {
-        String[] parts = v.split("\\.");
-        int[] nums = new int[parts.length];
-        for (int i = 0; i < parts.length; i++) {
-            nums[i] = Integer.parseInt(parts[i].replaceAll("[^0-9]", ""));
-        }
-        return nums;
+        return ReleaseVersion.isNewer(remote, local);
     }
 
     public static String getAppVersion(Context context) {

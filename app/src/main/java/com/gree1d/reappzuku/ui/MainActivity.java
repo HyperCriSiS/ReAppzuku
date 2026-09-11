@@ -22,6 +22,7 @@ import android.text.Spannable;
 import android.text.style.ForegroundColorSpan;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.widget.SearchView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -53,10 +54,13 @@ import rikka.shizuku.Shizuku;
 import com.gree1d.reappzuku.utils.AppModel;
 import com.gree1d.reappzuku.utils.FocusHighlightUtil;
 
+import java.util.Locale;
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.ShellBackendState;
+import com.gree1d.reappzuku.core.BackgroundWorkPolicy;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
@@ -94,6 +98,7 @@ public class MainActivity extends BaseActivity {
     private int currentSortMode = AppConstants.SORT_MODE_DEFAULT;
     private MenuItem selectAllMenuItem;
     private volatile boolean loadInFlight = false;
+    private volatile boolean shellPreparationInFlight = false;
 
     private int appliedAccent;
     private boolean appliedIsAmoled;
@@ -103,17 +108,26 @@ public class MainActivity extends BaseActivity {
     private final Shizuku.OnRequestPermissionResultListener shizukuPermissionListener = (requestCode, grantResult) -> {
         AppDebugManager.d(Category.CORE, "MainActivity: Shizuku permission result=" + grantResult);
         if (grantResult == PackageManager.PERMISSION_GRANTED) {
-            loadBackgroundApps();
+            // Permission is not readiness. Wait for the UserService connection
+            // before any shell-backed app scan starts.
+            prepareShellAndLoadApps();
+        } else {
+            // Keep the list untouched when permission is denied. In particular,
+            // do not leave pull-to-refresh spinning after a manual retry.
+            if (binding != null) {
+                binding.swiperefreshlayout1.setRefreshing(false);
+            }
         }
     };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setupBackButtonBehavior();
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onCreate started");
 
         App app = (App) getApplication();
-        handler = app.getSharedHandler();
+        handler = new Handler(Looper.getMainLooper());
         executor = app.getSharedExecutor();
         shellExecutor = app.getShellExecutor();
         shellManager = app.getShellManager();
@@ -182,17 +196,34 @@ public class MainActivity extends BaseActivity {
 
         loadSettingsAndApplyToManager();
 
-        executor.execute(() -> {
-            shellManager.resolveAnyShellPermissionBlocking();
-            handler.post(() -> {
-                if (binding == null || isFinishing() || isDestroyed()) return;
-                shellManager.checkShellPermissions();
-                loadBackgroundApps();
-            });
-        });
+        prepareShellAndLoadApps();
 
         ramMonitor.startMonitoring();
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onCreate finished");
+    }
+
+    private void setupBackButtonBehavior() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (sharedPreferences.getBoolean(KEY_EXIT_ON_BACK, false)
+                        && BackgroundWorkPolicy.isOnDemandBehaviorAllowed(MainActivity.this)) {
+                    // This is deliberately stronger than Android's normal Back action:
+                    // release the Shizuku user service, remove the task, then terminate
+                    // only ReAppzuku's main process. The isolated :shizuku provider
+                    // process remains available for the next on-demand launch.
+                    shellManager.unbindUserService();
+                    finishAndRemoveTask();
+                    android.os.Process.killProcess(android.os.Process.myPid());
+                    return;
+                }
+
+                // Preserve Android's normal Back behavior when the option is disabled.
+                setEnabled(false);
+                getOnBackPressedDispatcher().onBackPressed();
+                setEnabled(true);
+            }
+        });
     }
 
     @Override
@@ -210,6 +241,11 @@ public class MainActivity extends BaseActivity {
         super.onStart();
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStart");
         shellManager.setShizukuPermissionListener(shizukuPermissionListener);
+        // The Binder can arrive after the first backend probe has already observed
+        // SHIZUKU_UNAVAILABLE. Re-enter preparation when it becomes available so a
+        // first-run permission request cannot be lost in that race. The listener is
+        // sticky, which also covers a Binder that arrived just before onStart().
+        shellManager.setShizukuBinderListeners(this::prepareShellAndLoadApps, null);
     }
 
     @Override
@@ -217,6 +253,7 @@ public class MainActivity extends BaseActivity {
         super.onStop();
         AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: onStop");
         shellManager.removeShizukuPermissionListener(shizukuPermissionListener);
+        shellManager.removeShizukuBinderListeners();
     }
 
     @Override
@@ -862,7 +899,51 @@ public class MainActivity extends BaseActivity {
         return getString(R.string.main_restriction_menu_default);
     }
 
+    private void prepareShellAndLoadApps() {
+        if (shellPreparationInFlight) {
+            AppDebugManager.d(Category.CORE, "MainActivity: shell preparation already in flight; retry queued");
+            // Binder delivery/onResume can race the initial asynchronous probe. A
+            // delayed retry preserves that state change instead of dropping it.
+            handler.postDelayed(this::prepareShellAndLoadApps, 100L);
+            return;
+        }
+        shellPreparationInFlight = true;
+        shellManager.prepareShellBackendAsync(state -> {
+            shellPreparationInFlight = false;
+            if (binding == null || isFinishing() || isDestroyed()) return;
+            AppDebugManager.d(Category.CORE, "MainActivity: shell backend state=" + state);
+            if (state.isReady()) {
+                loadBackgroundApps();
+                return;
+            }
+            binding.swiperefreshlayout1.setRefreshing(false);
+            if (state.needsPermissionRequest()) {
+                AppDebugManager.d(Category.CORE,
+                        "MainActivity: waiting for Shizuku permission before app scan");
+                shellManager.checkShellPermissions();
+                return;
+            }
+            if (state.isWaiting()) {
+                handler.postDelayed(this::prepareShellAndLoadApps, 500L);
+            } else {
+                AppDebugManager.w(Category.CORE,
+                        "MainActivity: shell backend unavailable; app scan deferred, state=" + state);
+            }
+        });
+    }
+
     private void loadBackgroundApps() {
+        // Permission is necessary but not sufficient for Shizuku. Every scan is
+        // gated on an actually executable backend.
+        if (!shellManager.isAnyShellReady()) {
+            ShellBackendState state = shellManager.getBackendState();
+            AppDebugManager.d(Category.MAIN_PAGE,
+                    "MainActivity: app scan deferred until shell backend is ready, state=" + state);
+            if (binding != null) binding.swiperefreshlayout1.setRefreshing(false);
+            prepareShellAndLoadApps();
+            return;
+        }
+
         if (loadInFlight) {
             AppDebugManager.d(Category.MAIN_PAGE, "MainActivity: loadBackgroundApps skipped, already in flight");
             return;
@@ -915,10 +996,12 @@ public class MainActivity extends BaseActivity {
         if (query == null || query.isEmpty()) {
             appsDataList.addAll(fullAppsList);
         } else {
-            String lowerQuery = query.toLowerCase();
+            Locale labelLocale = Locale.getDefault();
+            String labelQuery = query.toLowerCase(labelLocale);
+            String packageQuery = query.toLowerCase(Locale.ROOT);
             for (AppModel app : fullAppsList) {
-                if (app.getAppName().toLowerCase().contains(lowerQuery) ||
-                        app.getPackageName().toLowerCase().contains(lowerQuery)) {
+                if (app.getAppName().toLowerCase(labelLocale).contains(labelQuery) ||
+                        app.getPackageName().toLowerCase(Locale.ROOT).contains(packageQuery)) {
                     appsDataList.add(app);
                 }
             }

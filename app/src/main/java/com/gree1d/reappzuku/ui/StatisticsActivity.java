@@ -43,7 +43,6 @@ public class StatisticsActivity extends BaseActivity {
 
     private static final int[] CHART_PERIODS_HOURS = { 2, 6, 12, 24 };
 
-    private double batteryCapacityMah = 4000.0;
 
     static final int CHART_BATTERY = 0;
     static final int CHART_CPU     = 1;
@@ -105,9 +104,6 @@ public class StatisticsActivity extends BaseActivity {
         setupPeriodTabs();
         setupChartPager();
         setupListeners();
-
-        batteryCapacityMah = collectStatsManager.getBatteryCapacityMah();
-        AppDebugManager.d(Category.STATISTICS_PAGE, FILE + ": battery capacity mAh=" + batteryCapacityMah);
 
         loadCharts(CHART_PERIODS_HOURS[selectedPeriodIdx]);
     }
@@ -470,7 +466,10 @@ public class StatisticsActivity extends BaseActivity {
             row.setLayoutParams(rowLp);
             row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
             row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            row.setBackground(obtainStyledAttributes(new int[]{android.R.attr.selectableItemBackground}).getDrawable(0));
+            android.content.res.TypedArray selectableAttrs =
+                    obtainStyledAttributes(new int[]{android.R.attr.selectableItemBackground});
+            row.setBackground(selectableAttrs.getDrawable(0));
+            selectableAttrs.recycle();
             row.setClickable(true);
             row.setFocusable(true);
             row.setOnClickListener(v -> {

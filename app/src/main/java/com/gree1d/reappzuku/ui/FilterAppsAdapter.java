@@ -28,6 +28,7 @@ import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
+import java.util.Locale;
 
 public class FilterAppsAdapter extends BaseAdapter implements Filterable {
 
@@ -547,13 +548,13 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
 
         android.widget.RadioButton timerSuspendBtn = new android.widget.RadioButton(context);
         timerSuspendBtn.setId(View.generateViewId());
-        timerSuspendBtn.setText("pm suspend");
+        timerSuspendBtn.setText(context.getString(R.string.command_pm_suspend));
         timerSuspendBtn.setPadding(paddingH, 12, paddingH, 12);
         timerMethodGroup.addView(timerSuspendBtn);
 
         android.widget.RadioButton timerDisableBtn = new android.widget.RadioButton(context);
         timerDisableBtn.setId(View.generateViewId());
-        timerDisableBtn.setText("pm disable");
+        timerDisableBtn.setText(context.getString(R.string.command_pm_disable));
         timerDisableBtn.setPadding(paddingH, 12, paddingH, 12);
         timerMethodGroup.addView(timerDisableBtn);
 
@@ -577,13 +578,13 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
 
         android.widget.RadioButton permanentSuspendBtn = new android.widget.RadioButton(context);
         permanentSuspendBtn.setId(View.generateViewId());
-        permanentSuspendBtn.setText("pm suspend");
+        permanentSuspendBtn.setText(context.getString(R.string.command_pm_suspend));
         permanentSuspendBtn.setPadding(paddingH, 12, paddingH, 12);
         permanentMethodGroup.addView(permanentSuspendBtn);
 
         android.widget.RadioButton permanentDisableBtn = new android.widget.RadioButton(context);
         permanentDisableBtn.setId(View.generateViewId());
-        permanentDisableBtn.setText("pm disable");
+        permanentDisableBtn.setText(context.getString(R.string.command_pm_disable));
         permanentDisableBtn.setPadding(paddingH, 12, paddingH, 12);
         permanentMethodGroup.addView(permanentDisableBtn);
 
@@ -946,13 +947,16 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
             AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: performFiltering constraint=\"" + constraint + "\"");
             FilterResults results = new FilterResults();
             List<AppModel> filteredList = new ArrayList<>();
-            String filterString = (constraint != null && constraint.length() > 0)
-                    ? constraint.toString().toLowerCase().trim() : "";
+            String rawFilter = (constraint != null && constraint.length() > 0)
+                    ? constraint.toString().trim() : "";
+            Locale labelLocale = Locale.getDefault();
+            String labelFilter = rawFilter.toLowerCase(labelLocale);
+            String packageFilter = rawFilter.toLowerCase(Locale.ROOT);
             for (AppModel app : allApps) {
                 if (!shouldShow(app)) continue;
-                if (filterString.isEmpty()
-                        || app.getAppName().toLowerCase().contains(filterString)
-                        || app.getPackageName().toLowerCase().contains(filterString)) {
+                if (rawFilter.isEmpty()
+                        || app.getAppName().toLowerCase(labelLocale).contains(labelFilter)
+                        || app.getPackageName().toLowerCase(Locale.ROOT).contains(packageFilter)) {
                     filteredList.add(app);
                 }
             }

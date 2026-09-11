@@ -139,7 +139,15 @@ public class ColorPickerDialog {
                 val = Math.max(0f, Math.min(1f, 1f - event.getY() / getHeight()));
                 invalidate();
                 if (listener != null) listener.onChanged(sat, val);
+            } else if (event.getAction() == MotionEvent.ACTION_UP) {
+                performClick();
             }
+            return true;
+        }
+
+        @Override
+        public boolean performClick() {
+            super.performClick();
             return true;
         }
     }
@@ -195,7 +203,15 @@ public class ColorPickerDialog {
                 hue = Math.max(0f, Math.min(360f, event.getX() / getWidth() * 360f));
                 invalidate();
                 if (listener != null) listener.onHueChanged(hue);
+            } else if (event.getAction() == MotionEvent.ACTION_UP) {
+                performClick();
             }
+            return true;
+        }
+
+        @Override
+        public boolean performClick() {
+            super.performClick();
             return true;
         }
     }

@@ -11,7 +11,7 @@
         android:id="@+id/filter_app_icon"
         android:layout_width="48dp"
         android:layout_height="48dp"
-        android:contentDescription="App Icon" />
+        android:contentDescription="@string/filter_app_icon_content_description" />
 
     <LinearLayout
         android:layout_width="0dp"

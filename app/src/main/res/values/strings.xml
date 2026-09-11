@@ -182,7 +182,7 @@
 
     <!-- RAM Monitor -->
     <string name="ram_usage">RAM: %1$dMB / %2$dMB</string>
-    <string name="ram_usage_unavailable">RAM: --</string>
+    <string name="ram_usage_unavailable">RAM: —</string>
 
     <!-- ══════════════════════════════════════════════
          BACKGROUND SERVICE (ShappkyService)
@@ -407,7 +407,6 @@
     <string name="settings_backup_option_restore">Restore settings</string>
     <string name="settings_backup_create_failed">Failed to create backup data</string>
     <string name="settings_backup_success">Settings saved successfully</string>
-    <string name="settings_backup_write_failed">Failed to write to file</string>
     <string name="settings_backup_export_failed">Export failed: %1$s</string>
     <string name="settings_restore_success">Restored successfully</string>
     <string name="settings_restore_need_permission">Saved settings restored. Grant Shizuku/Root access to re-apply background restrictions.</string>
@@ -1042,4 +1041,39 @@
     <string name="appdebug_backup_restore">Backup &amp; Restore</string>
     <string name="appdebug_utils">Other Utils</string>
     
+    <!-- App behavior -->
+    <string name="settings_section_behavior">App behavior</string>
+    <string name="settings_prevent_shizuku_autostart_title">Prevent automatic start from Shizuku</string>
+    <string name="settings_prevent_shizuku_autostart_subtitle">Keep ReAppzuku on demand when Shizuku starts. Disabled while background automation is active.</string>
+    <string name="settings_app_behavior_blocked">Disable background automation before using this App Behavior option.</string>
+    <string name="settings_exit_on_back_title">Fully exit app with Back button</string>
+    <string name="settings_exit_on_back_subtitle">Stop the ReAppzuku main process from the main screen. Disabled while background automation is active.</string>
+
+
+    <!-- Smart Lifecycle -->
+    <string name="settings_smart_lifecycle_title">Smart Lifecycle</string>
+    <string name="settings_smart_lifecycle_subtitle">Standby first, force-stop later. Protects foreground use, media, foreground services, widgets and critical services.</string>
+    <string name="settings_smart_lifecycle_apps_title">Managed apps</string>
+    <string name="settings_smart_lifecycle_apps_subtitle">Uses the Blacklist. Only apps you explicitly select here are managed.</string>
+    <string name="settings_smart_lifecycle_profile_title">Management profile</string>
+    <string name="settings_smart_lifecycle_profile_gentle">Gentle · boot 10 min · standby 2 h · stop 12 h</string>
+    <string name="settings_smart_lifecycle_profile_balanced">Balanced · boot 5 min · standby 1 h · stop 6 h</string>
+    <string name="settings_smart_lifecycle_profile_aggressive">Aggressive · boot 2 min · standby 30 min · stop 2 h</string>
+    <string name="settings_smart_boot_cleanup_title">Clean up boot-started apps</string>
+    <string name="settings_smart_boot_cleanup_subtitle">After the boot grace period, stop managed apps that started by themselves and were not used since boot.</string>
+    <!-- Language-neutral UI formatting / literal shell command labels. -->
+    <string name="command_pm_suspend" translatable="false">pm suspend</string>
+    <string name="command_pm_disable" translatable="false">pm disable</string>
+    <string name="ui_indicator_expanded" translatable="false">▼</string>
+    <string name="ui_indicator_collapsed" translatable="false">▶</string>
+    <string name="ui_label_with_indicator" translatable="false">%1$s %2$s</string>
+    <string name="ui_sort_indicator_open" translatable="false">▲</string>
+    <string name="ui_sort_indicator_closed" translatable="false">▼</string>
+    <string name="ui_sort_label_with_indicator" translatable="false">%1$s  %2$s</string>
+    <string name="ui_time_range_value" translatable="false">%1$s – %2$s</string>
+
+    <string name="settings_debug_title">Debug</string>
+    <string name="settings_debug_menu_title">Debug menu</string>
+    <string name="badge_persistent">Persistent</string>
+    <string name="filter_app_icon_content_description">App icon</string>
 </resources>

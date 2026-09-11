@@ -2,6 +2,7 @@ package com.gree1d.reappzuku.core.shell;
 
 import android.app.ActivityManager;
 import android.content.Context;
+import android.os.Build;
 import android.os.Debug;
 
 import java.io.BufferedReader;
@@ -88,7 +89,7 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
         } finally {
             closeStreamsQuietly(process);
             if (process != null) {
-                process.destroyForcibly();
+                destroyProcess(process);
             }
         }
     }
@@ -126,7 +127,7 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
         } finally {
             closeStreamsQuietly(process);
             if (process != null) {
-                process.destroyForcibly();
+                destroyProcess(process);
             }
         }
     }
@@ -208,7 +209,7 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
         try {
             return waitFuture.get(COMMAND_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
-            process.destroyForcibly();
+            destroyProcess(process);
             waitFuture.cancel(true);
             readFuture.cancel(true);
             throw new TimeoutException("Process did not exit within " + COMMAND_TIMEOUT_MS + "ms: " + command);
@@ -219,7 +220,7 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
         try {
             readFuture.get(READ_DRAIN_GRACE_MS, TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
-            process.destroyForcibly();
+            destroyProcess(process);
             readFuture.cancel(true);
         } catch (Exception ignored) {
         }
@@ -232,6 +233,15 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
         }
         while ((line = errorReader.readLine()) != null) {
             output.append("ERROR: ").append(line).append("\n");
+        }
+    }
+
+    private void destroyProcess(Process process) {
+        if (process == null) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            process.destroyForcibly();
+        } else {
+            process.destroy();
         }
     }
 

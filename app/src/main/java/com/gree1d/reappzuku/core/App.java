@@ -1,38 +1,119 @@
 package com.gree1d.reappzuku.core;
 
+import android.app.ActivityManager;
 import android.app.Application;
+import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
+import android.os.Build;
 import android.os.Handler;
+import android.os.Process;
 import android.os.Looper;
 import android.util.LruCache;
 import com.google.android.material.color.DynamicColors;
+
+import rikka.shizuku.Shizuku;
+import rikka.shizuku.ShizukuProvider;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class App extends Application {
 
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private final ExecutorService shellExecutor = Executors.newSingleThreadExecutor();
+    private boolean shizukuProviderProcess;
+
+    private Handler handler;
+    private ExecutorService executor;
+    private ExecutorService shellExecutor;
     private ShellManager shellManager;
+    private LruCache<String, Bitmap> iconCache;
 
     private static final int ICON_CACHE_MAX_BYTES = 24 * 1024 * 1024;
-    private final LruCache<String, Bitmap> iconCache = new LruCache<String, Bitmap>(ICON_CACHE_MAX_BYTES) {
-        @Override
-        protected int sizeOf(String key, Bitmap bitmap) {
-            return bitmap.getByteCount();
+
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(base);
+
+        shizukuProviderProcess = ProcessTopology.isShizukuProviderProcess(
+                getPackageName(), getCurrentProcessName(base));
+
+        // The Shizuku provider lives in its own minimal process. Enable the
+        // provider library's built-in binder bridge before providers are created.
+        ShizukuProvider.enableMultiProcessSupport(shizukuProviderProcess);
+    }
+
+    private static String getCurrentProcessName(Context context) {
+        // Prefer the platform's direct process identity API. During the very early
+        // attachBaseContext() phase, some OEM process lists can transiently omit
+        // the just-created process and would otherwise misclassify :shizuku.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            String processName = Application.getProcessName();
+            if (processName != null && !processName.isEmpty()) {
+                return processName;
+            }
         }
-    };
+
+        // API 24-27 fallback.
+        int pid = Process.myPid();
+        ActivityManager activityManager =
+                (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        if (activityManager == null) {
+            return null;
+        }
+        java.util.List<ActivityManager.RunningAppProcessInfo> processes =
+                activityManager.getRunningAppProcesses();
+        if (processes == null) {
+            return null;
+        }
+        for (ActivityManager.RunningAppProcessInfo process : processes) {
+            if (process.pid == pid) {
+                return process.processName;
+            }
+        }
+        return null;
+    }
 
     @Override
     public void onCreate() {
         super.onCreate();
+
+        // Shizuku starts only this provider process while distributing its Binder.
+        // Keep it intentionally minimal so the real ReAppzuku application does
+        // not initialize merely because Shizuku was started.
+        if (shizukuProviderProcess) {
+            // Keep the Shizuku provider process tiny. The normal process stores
+            // the auto-start policy in the enabled state of this non-exported
+            // receiver, avoiding unreliable cross-process SharedPreferences.
+            Shizuku.addBinderReceivedListenerSticky(() ->
+                    sendBroadcast(new Intent(this, ShizukuWakeReceiver.class)));
+            return;
+        }
+
+        // Reconcile App Behavior whenever the normal process starts (including
+        // upgrades from builds that predate the configurable option).
+        BackgroundWorkPolicy.enforceCompatibleBehavior(this);
+
+        handler = new Handler(Looper.getMainLooper());
+        executor = Executors.newSingleThreadExecutor();
+        shellExecutor = Executors.newSingleThreadExecutor();
+        iconCache = new LruCache<String, Bitmap>(ICON_CACHE_MAX_BYTES) {
+            @Override
+            protected int sizeOf(String key, Bitmap bitmap) {
+                return bitmap.getByteCount();
+            }
+        };
+
         AppDebugManager.init(this);
         DynamicColors.applyToActivitiesIfAvailable(this);
 
+        // The Binder is delivered to :shizuku. Pull it into the normal process
+        // only when ReAppzuku itself is actually launched.
+        ShizukuProvider.requestBinderForNonProviderProcess(this);
+
         shellManager = new ShellManager(this, handler, executor);
-        shellManager.bindUserService();
+
+        // ShellManager owns the application-lifetime Binder/permission/UserService
+        // state machine and reacts to Shizuku restarts centrally.
     }
 
     public ShellManager getShellManager() {

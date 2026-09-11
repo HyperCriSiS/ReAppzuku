@@ -14,6 +14,7 @@ import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
+import java.util.Locale;
 
 public class SensorsLocationAnalyzer {
 
@@ -161,7 +162,7 @@ public class SensorsLocationAnalyzer {
 
 // ---- classifySensor ----
     public String classifySensor(String raw) {
-        String n = raw.toLowerCase();
+        String n = raw.toLowerCase(Locale.ROOT);
         if (n.contains("accelero"))                             return "Accelerometer";
         if (n.contains("gyro"))                                 return "Gyroscope";
         if (n.contains("magnet"))                               return "Magnetometer";
@@ -217,7 +218,7 @@ public class SensorsLocationAnalyzer {
                 if (analyzer.apiLevel >= Build.VERSION_CODES.R && analyzer.apiLevel <= Build.VERSION_CODES.TIRAMISU) {
                     Matcher mProv = LOCATION_PROVIDER_PAT.matcher(t);
                     if (mProv.find()) {
-                        String provider = mProv.group(1).toLowerCase();
+                        String provider = mProv.group(1).toLowerCase(Locale.ROOT);
                         if ("gps".equals(provider) && bestAcc == null) bestAcc = "HIGH_ACCURACY";
                     }
                 }
@@ -288,7 +289,7 @@ public class SensorsLocationAnalyzer {
 
 // ---- normalizeAccuracy ----
     public String normalizeAccuracy(String raw) {
-        String n = raw.toUpperCase();
+        String n = raw.toUpperCase(Locale.ROOT);
         if (n.contains("HIGH"))    return "HIGH_ACCURACY";
         if (n.contains("BALANCE")) return "BALANCED";
         if (n.contains("LOW"))     return "LOW_POWER";

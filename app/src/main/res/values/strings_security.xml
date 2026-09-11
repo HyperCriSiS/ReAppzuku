@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_ram_kill_confirm_message">Run the RAM cleanup shortcut now?</string>
+    <string name="shortcut_foreground_kill_confirm_message">Force-stop the current foreground app?</string>
+</resources>

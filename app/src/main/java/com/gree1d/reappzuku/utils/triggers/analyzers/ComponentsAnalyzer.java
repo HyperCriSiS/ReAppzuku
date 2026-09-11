@@ -14,6 +14,7 @@ import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
+import java.util.Locale;
 
 public class ComponentsAnalyzer {
 
@@ -358,7 +359,7 @@ public class ComponentsAnalyzer {
             try {
                 String pkgOut = analyzer.getShellManager().runShellCommandAndGetFullOutput(
                         "dumpsys package " + packageName);
-                if (pkgOut != null && pkgOut.toLowerCase().contains("syncadapter")) {
+                if (pkgOut != null && pkgOut.toLowerCase(Locale.ROOT).contains("syncadapter")) {
                     list.add(new TriggerInfo(TriggerInfo.Group.OTHER,
                             AppTriggersAnalyzer.KEY_CAT_SYNC,
                             analyzer.getContext().getString(R.string.triggers_cat_sync),
@@ -512,7 +513,7 @@ public class ComponentsAnalyzer {
             boolean hasDataMsg = false;
 
             for (String line : pkgOut.split("\n")) {
-                String t = line.toLowerCase();
+                String t = line.toLowerCase(Locale.ROOT);
                 if (t.contains("firebase") || t.contains("fcm") || t.contains("iid"))
                     hasFirebase = true;
                 if (t.contains("firebasemessagingservice")

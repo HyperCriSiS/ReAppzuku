@@ -27,6 +27,7 @@
 
         <ImageView
             android:id="@+id/app_icon"
+            android:contentDescription="@null"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_marginEnd="8dp"
@@ -65,6 +66,7 @@
 
                 <ImageView
                     android:id="@+id/protected_icon"
+                    android:contentDescription="@string/a11y_protected_app"
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:layout_marginStart="4dp"
@@ -79,6 +81,7 @@
 
                 <ImageView
                     android:id="@+id/status_icon"
+                    android:contentDescription="@string/a11y_app_status"
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:layout_marginStart="4dp"
@@ -139,9 +142,9 @@
                     android:paddingEnd="5dp"
                     android:paddingTop="1dp"
                     android:paddingBottom="1dp"
-                    android:text="System"
+                    android:text="@string/filter_system"
                     android:textColor="#1A5276"
-                    android:textSize="10sp"
+                    android:textSize="11sp"
                     android:textStyle="bold"
                     android:visibility="gone"
                     android:focusable="false" />
@@ -156,9 +159,9 @@
                     android:paddingEnd="5dp"
                     android:paddingTop="1dp"
                     android:paddingBottom="1dp"
-                    android:text="Persistent"
+                    android:text="@string/badge_persistent"
                     android:textColor="#6C3483"
-                    android:textSize="10sp"
+                    android:textSize="11sp"
                     android:textStyle="bold"
                     android:visibility="gone"
                     android:focusable="false" />
@@ -177,6 +180,7 @@
 
             <ImageView
                 android:id="@+id/btn_overflow"
+                android:contentDescription="@string/a11y_app_action"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:scaleType="fitCenter"
@@ -196,6 +200,7 @@
 
             <ImageView
                 android:id="@+id/btn_app_action"
+                android:contentDescription="@string/a11y_app_action"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:scaleType="fitCenter"

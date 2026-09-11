@@ -1,5 +1,4 @@
 <resources>
-    <string name="app_name" translatable="false">ReAppzuku</string>
     <string name="special_thanks_title">Особлива подяка</string>
     <string name="special_thanks_desc">Користувачі, які зробили внесок у розвиток ReAppzuku:</string>
 
@@ -164,7 +163,7 @@
 
     <!-- Монітор ОЗП -->
     <string name="ram_usage">ОЗП: %1$dMB / %2$dMB</string>
-    <string name="ram_usage_unavailable">ОЗП: --</string>
+    <string name="ram_usage_unavailable">ОЗП: —</string>
 
     <!-- ══════════════════════════════════════════════
          ФОНОВИЙ СЕРВІС (ShappkyService)
@@ -183,8 +182,6 @@
     <string name="settings_about_section">Про застосунок</string>
 
     <!-- Статус режиму доступу -->
-    <string name="settings_shell_shizuku_ok" translatable="false">Shizuku access ✅</string>
-    <string name="settings_shell_root_ok" translatable="false">Root access ✅</string>
     <string name="settings_shell_no_access">Немає доступу ❌</string>
     <string name="settings_shell_mode_title">Режим роботи</string>
     <string name="settings_requires_privilege">Потрібен Root або Shizuku</string>
@@ -197,7 +194,6 @@
     <string name="settings_theme_light">Світла</string>
     <string name="settings_theme_dark">Темна</string>
     <string name="settings_theme_amoled">AMOLED (чорний)</string>
-    <string name="settings_theme_amoled_short" translatable="false">AMOLED</string>
     <string name="settings_theme_dialog_title">Виберіть тему застосунку</string>
     <string name="settings_accent_title">Колірний акцент</string>
     <string name="settings_accent_subtitle">Основний колір інтерфейсу</string>
@@ -391,7 +387,6 @@
     <string name="settings_backup_option_restore">Відновити налаштування</string>
     <string name="settings_backup_create_failed">Не вдалося створити дані резервної копії</string>
     <string name="settings_backup_success">Налаштування успішно збережено</string>
-    <string name="settings_backup_write_failed">Не вдалося записати файл</string>
     <string name="settings_backup_export_failed">Помилка експорту: %1$s</string>
     <string name="settings_restore_success">Відновлено успішно</string>
     <string name="settings_restore_need_permission">Відновлено збережені налаштування. Надайте Shizuku/Root доступ для повторного застосування фонових обмежень.</string>
@@ -1031,4 +1026,9 @@
     <string name="appdebug_backup_restore">Резервні копії</string>
     <string name="appdebug_utils">Інші утиліти</string>
     
+
+    <string name="settings_debug_title">Налагодження</string>
+    <string name="settings_debug_menu_title">Меню налагодження</string>
+    <string name="badge_persistent">Постійний</string>
+    <string name="filter_app_icon_content_description">Піктограма застосунку</string>
 </resources>

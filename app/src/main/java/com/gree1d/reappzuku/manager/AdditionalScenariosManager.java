@@ -4,7 +4,7 @@ import android.content.Context;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.net.wifi.WifiManager;
-import android.os.Build;
+import androidx.core.content.ContextCompat;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -92,11 +92,8 @@ public class AdditionalScenariosManager {
         if (gps) filter.addAction("android.location.PROVIDERS_CHANGED");
         if (hotspot) filter.addAction("android.net.wifi.WIFI_AP_STATE_CHANGED");
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(hardwareEventReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            context.registerReceiver(hardwareEventReceiver, filter);
-        }
+        ContextCompat.registerReceiver(
+                context, hardwareEventReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
 
         receiverRegistered = true;
         AppDebugManager.d(Category.ADVANCED_CONDITIONS, "AdditionalScenariosManager: HardwareEventReceiver registered");

@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.PrivilegedShell;
 import com.gree1d.reappzuku.utils.SleepModeLogManager;
 import com.gree1d.reappzuku.utils.BackgroundRestrictionLog;
 
@@ -31,6 +32,7 @@ public class RestrictionsWatchdogManager {
     private final Handler handler;
     private final BackgroundAppManager appManager;
     private final ShellManager shellManager;
+    private final PrivilegedShell privilegedShell;
     private final RestrictionsScheduler scheduler;
 
     private SleepModeManager sleepModeManager;
@@ -51,9 +53,10 @@ public class RestrictionsWatchdogManager {
             RestrictionsScheduler scheduler) {
         this.context      = context;
         this.handler      = handler;
-        this.appManager   = appManager;
-        this.shellManager = shellManager;
-        this.scheduler    = scheduler;
+        this.appManager       = appManager;
+        this.shellManager     = shellManager;
+        this.privilegedShell  = new PrivilegedShell(shellManager);
+        this.scheduler        = scheduler;
     }
 
     public void setSleepModeManager(SleepModeManager sleepModeManager) {
@@ -296,8 +299,15 @@ public class RestrictionsWatchdogManager {
 
             AppDebugManager.w(Category.UTILS, FILE_NAME + ": watchdog bucket drift: " + pkg
                     + " current=" + current + " required=" + required);
-            boolean ok = shellManager.runShellCommandForResult(
-                    "am set-standby-bucket " + pkg + " " + required).succeeded();
+            boolean ok;
+            try {
+                ok = privilegedShell.setStandbyBucket(
+                        pkg, PrivilegedShell.StandbyBucket.fromLegacyValue(required)).succeeded();
+            } catch (IllegalArgumentException e) {
+                AppDebugManager.w(Category.UTILS, FILE_NAME
+                        + ": refusing invalid standby bucket " + required + " for " + pkg);
+                ok = false;
+            }
             BackgroundRestrictionLog.log(context, pkg, "watchdog-bucket",
                     ok ? "ok" : "failed",
                     "was=" + current + " set=" + required);

@@ -3,7 +3,6 @@ package com.gree1d.reappzuku.ui;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.LayoutInflater;
@@ -914,8 +913,7 @@ public class LogDetailActivity extends BaseActivity {
     // ---------- Shared helpers ----------
 
     private boolean isFinishingOrDestroyed() {
-        return isFinishing() ||
-                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed());
+        return isFinishing() || isDestroyed();
     }
 
     private void openAppInfo(String packageName) {
@@ -983,7 +981,7 @@ public class LogDetailActivity extends BaseActivity {
 
     private String resolveRestrictionTypeBadge(String action) {
         if (action == null) return "";
-        switch (action.trim().toLowerCase()) {
+        switch (action.trim().toLowerCase(Locale.ROOT)) {
             case "restrict-hard":   case "reapply-hard":   return getString(R.string.restriction_badge_hard);
             case "restrict-medium": case "reapply-medium": return getString(R.string.restriction_badge_medium);
             case "restrict-soft":   case "reapply-soft":   case "restrict": return getString(R.string.restriction_badge_soft);
@@ -995,7 +993,7 @@ public class LogDetailActivity extends BaseActivity {
 
     private String resolveSleepModeLogBadge(String action) {
         if (action == null) return "";
-        switch (action.trim().toLowerCase()) {
+        switch (action.trim().toLowerCase(Locale.ROOT)) {
             case "freeze":   return getString(R.string.log_badge_freeze);
             case "unfreeze": return getString(R.string.log_badge_unfreeze);
             default:         return "";
@@ -1004,7 +1002,7 @@ public class LogDetailActivity extends BaseActivity {
 
     private String resolveSchedulerLogBadge(String action) {
         if (action == null) return "";
-        switch (action.trim().toLowerCase()) {
+        switch (action.trim().toLowerCase(Locale.ROOT)) {
             case "lift":    return getString(R.string.log_badge_lift);
             case "restore": return getString(R.string.log_badge_restore);
             default:        return "";
@@ -1027,7 +1025,7 @@ public class LogDetailActivity extends BaseActivity {
             trimmed = trimmed.substring(0, parenIdx);
         }
         String localized;
-        switch (trimmed.toLowerCase()) {
+        switch (trimmed.toLowerCase(Locale.ROOT)) {
             case "ok":                         localized = getString(R.string.log_outcome_ok);                        break;
             case "verified":                   localized = getString(R.string.log_outcome_verified);                  break;
             case "failed":                     localized = getString(R.string.log_outcome_failed);                    break;

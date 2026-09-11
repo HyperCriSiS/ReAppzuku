@@ -6,8 +6,11 @@ import android.util.Log;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
 
+import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.PresetManager;
 import com.gree1d.reappzuku.utils.PresetModel;
 import com.gree1d.reappzuku.core.AppDebugManager;
@@ -16,18 +19,44 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 
 public class BackupManager {
     private static final String TAG = "BackupManager";
-    private static final String KEY_BACKUP_VERSION = "backup_version";
-    private static final int BACKUP_VERSION = 4;
     private static final String KEY_MANUAL_OPS_MASKS = "manual_ops_masks";
+    private static final String KEY_MANUAL_BUCKETS = "manual_buckets";
+    private static final String KEY_MANUAL_WHITELIST_REMOVALS = "manual_whitelist_removals";
     private static final String KEY_PRESETS = "presets";
     private static final String KEY_PRESET_PREFIX = "preset_";
 
     private final Context context;
     private final SharedPreferences prefs;
+    private final BackupCodec backupCodec;
+    private final RestoreFaultInjector restoreFaultInjector;
+
+    enum RestoreCommitPoint {
+        AFTER_MAIN_COMMIT,
+        AFTER_PRESET_1_COMMIT,
+        AFTER_PRESET_2_COMMIT
+    }
+
+    interface RestoreFaultInjector {
+        RestoreFaultInjector NONE = point -> { };
+
+        void afterCommit(RestoreCommitPoint point);
+    }
 
     public BackupManager(Context context) {
+        this(context, new BackupCodec(), RestoreFaultInjector.NONE);
+    }
+
+    BackupManager(Context context, BackupCodec backupCodec) {
+        this(context, backupCodec, RestoreFaultInjector.NONE);
+    }
+
+    BackupManager(Context context, BackupCodec backupCodec, RestoreFaultInjector restoreFaultInjector) {
+        if (backupCodec == null) throw new IllegalArgumentException("backupCodec == null");
+        if (restoreFaultInjector == null) throw new IllegalArgumentException("restoreFaultInjector == null");
         this.context = context.getApplicationContext();
         this.prefs = context.getSharedPreferences(PreferenceKeys.PREFERENCES_NAME, Context.MODE_PRIVATE);
+        this.backupCodec = backupCodec;
+        this.restoreFaultInjector = restoreFaultInjector;
     }
 
     private boolean getSafeBool(String key, boolean defVal) {
@@ -44,8 +73,7 @@ public class BackupManager {
     public String createBackupJson() {
         AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: start");
         try {
-            JSONObject root = new JSONObject();
-            root.put(KEY_BACKUP_VERSION, BACKUP_VERSION);
+            JSONObject root = backupCodec.newRoot();
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: version written");
 
             putStringSet(root, KEY_HIDDEN_APPS);
@@ -56,8 +84,8 @@ public class BackupManager {
             putStringSet(root, KEY_MANUAL_RESTRICTION_APPS);
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: app lists written");
 
-            putManualOpsMasks(root);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: manual ops masks written");
+            putManualRestrictionDetails(root);
+            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: manual restriction details written");
 
             putStringSet(root, KEY_SLEEP_MODE_APPS);
             putStringSet(root, KEY_SLEEP_MODE_APPS_PERMANENT);
@@ -93,6 +121,13 @@ public class BackupManager {
             root.put(KEY_SLEEP_MODE_DELAY, prefs.getLong(KEY_SLEEP_MODE_DELAY, AppConstants.DEFAULT_SLEEP_MODE_DELAY_MS));
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: sleep mode settings written");
 
+            root.put(KEY_EXIT_ON_BACK, getSafeBool(KEY_EXIT_ON_BACK, false));
+            root.put(KEY_PREVENT_SHIZUKU_AUTOSTART, getSafeBool(KEY_PREVENT_SHIZUKU_AUTOSTART, true));
+            root.put(KEY_SMART_LIFECYCLE_ENABLED, getSafeBool(KEY_SMART_LIFECYCLE_ENABLED, false));
+            root.put(KEY_SMART_BOOT_CLEANUP_ENABLED, getSafeBool(KEY_SMART_BOOT_CLEANUP_ENABLED, true));
+            root.put(KEY_SMART_LIFECYCLE_PROFILE, prefs.getInt(KEY_SMART_LIFECYCLE_PROFILE, 1));
+            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: fork behavior settings written");
+
             root.put(KEY_HW_TRIGGER_HEADSET, getSafeBool(KEY_HW_TRIGGER_HEADSET, false));
             root.put(KEY_HW_TRIGGER_USB, getSafeBool(KEY_HW_TRIGGER_USB, false));
             root.put(KEY_HW_TRIGGER_CHARGER, getSafeBool(KEY_HW_TRIGGER_CHARGER, false));
@@ -107,7 +142,7 @@ public class BackupManager {
             putPresets(root);
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: presets written");
 
-            String result = root.toString(4);
+            String result = backupCodec.encode(root);
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: createBackupJson: success, json length=" + result.length());
             return result;
         } catch (Exception e) {
@@ -117,42 +152,68 @@ public class BackupManager {
     }
 
     public boolean restoreBackupJson(String json) {
-        AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: start, json length=" + (json != null ? json.length() : -1));
+        AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: start, json length="
+                + (json != null ? json.length() : -1));
+        BackupCodec.DecodedBackup decoded;
         try {
-            JSONObject root = new JSONObject(json);
-            int version = root.optInt(KEY_BACKUP_VERSION, -1);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: backup version=" + version);
+            decoded = backupCodec.decode(json);
+        } catch (BackupCodec.DecodeException e) {
+            if (e.reason == BackupCodec.DecodeFailure.PAYLOAD_SIZE) {
+                AppDebugManager.w(Category.BACKUP_RESTORE,
+                        "BackupManager: refusing empty/oversized backup payload");
+            } else if (e.reason == BackupCodec.DecodeFailure.FUTURE_VERSION) {
+                AppDebugManager.w(Category.BACKUP_RESTORE,
+                        "BackupManager: refusing unsupported future backup version=" + e.detectedVersion
+                                + " supported=" + BackupCodec.CURRENT_VERSION);
+            } else {
+                AppDebugManager.e(Category.BACKUP_RESTORE,
+                        "BackupManager: restoreBackupJson: malformed payload", e);
+            }
+            return false;
+        }
+
+        Map<String, ?> mainSnapshot = null;
+        Map<String, ?> preset1Snapshot = null;
+        Map<String, ?> preset2Snapshot = null;
+        PresetManager presetManager = new PresetManager(context);
+        boolean durableWriteStarted = false;
+        try {
+            JSONObject root = decoded.root;
+            if (decoded.legacy) {
+                AppDebugManager.w(Category.BACKUP_RESTORE,
+                        "BackupManager: legacy/unversioned backup detected; validating available fields");
+            }
+
+            // Validate all preset JSON before the first durable write.
+            PresetModel[] restoredPresets = parsePresets(root);
+            boolean containsPresetSection = root.has(KEY_PRESETS);
+
+            // Snapshot every preference file participating in the transaction.
+            mainSnapshot = deepCopyPreferenceMap(prefs.getAll());
+            preset1Snapshot = presetManager.snapshotPresetStorage(PresetModel.PRESET_1);
+            preset2Snapshot = presetManager.snapshotPresetStorage(PresetModel.PRESET_2);
 
             SharedPreferences.Editor editor = prefs.edit();
-
             restoreSet(editor, root, KEY_HIDDEN_APPS);
             restoreSet(editor, root, KEY_WHITELISTED_APPS);
             restoreSet(editor, root, KEY_BLACKLISTED_APPS);
             restoreSet(editor, root, KEY_AUTOSTART_DISABLED_APPS);
             restoreSet(editor, root, KEY_HARD_RESTRICTION_APPS);
             restoreSet(editor, root, KEY_MANUAL_RESTRICTION_APPS);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: app lists restored");
-
-            restoreManualOpsMasks(editor, root);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: manual ops masks restored");
-
+            restoreManualRestrictionDetails(editor, root, decoded.version);
             restoreSet(editor, root, KEY_SLEEP_MODE_APPS);
             restoreSet(editor, root, KEY_SLEEP_MODE_APPS_PERMANENT);
             restoreSet(editor, root, KEY_MEDIUM_RESTRICTION_APPS);
             restoreSet(editor, root, KEY_BATTERY_WHITELIST_REMOVED);
             restoreSet(editor, root, KEY_APP_LAUNCH_TRIGGER_PACKAGES);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: extra sets restored");
 
             restoreInt(editor, root, KEY_KILL_MODE);
             restoreBoolean(editor, root, KEY_AUTO_KILL_ENABLED);
             restoreBoolean(editor, root, KEY_PERIODIC_KILL_ENABLED);
             restoreInt(editor, root, KEY_KILL_INTERVAL);
             restoreBoolean(editor, root, KEY_KILL_ON_SCREEN_OFF);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: kill settings restored");
-
             restoreInt(editor, root, KEY_RAM_THRESHOLD);
             restoreBoolean(editor, root, KEY_RAM_THRESHOLD_ENABLED);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: RAM settings restored");
 
             restoreBoolean(editor, root, KEY_SHOW_SYSTEM_APPS);
             restoreBoolean(editor, root, KEY_SHOW_PERSISTENT_APPS);
@@ -164,11 +225,14 @@ public class BackupManager {
             restoreInt(editor, root, KEY_SORT_MODE);
             restoreInt(editor, root, KEY_NOTIFICATION_MODE);
             restoreInt(editor, root, KEY_AUTO_KILL_TYPE);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: display/UI settings restored");
 
             restoreBoolean(editor, root, KEY_SLEEP_MODE_ENABLED);
             restoreLong(editor, root, KEY_SLEEP_MODE_DELAY);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: sleep mode settings restored");
+            restoreBoolean(editor, root, KEY_EXIT_ON_BACK);
+            restoreBoolean(editor, root, KEY_PREVENT_SHIZUKU_AUTOSTART);
+            restoreBoolean(editor, root, KEY_SMART_LIFECYCLE_ENABLED);
+            restoreBoolean(editor, root, KEY_SMART_BOOT_CLEANUP_ENABLED);
+            restoreInt(editor, root, KEY_SMART_LIFECYCLE_PROFILE);
 
             restoreBoolean(editor, root, KEY_HW_TRIGGER_HEADSET);
             restoreBoolean(editor, root, KEY_HW_TRIGGER_USB);
@@ -179,17 +243,42 @@ public class BackupManager {
             restoreBoolean(editor, root, KEY_HW_TRIGGER_HOTSPOT);
             restoreBoolean(editor, root, KEY_APP_LAUNCH_TRIGGER_ENABLED);
             restoreBoolean(editor, root, KEY_APP_LAUNCH_CLEAR_CACHE);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: hardware triggers restored");
 
-            editor.apply();
+            if (containsPresetSection) {
+                // Active preset state is runtime state, not portable configuration.
+                // The imported main settings become the new base state.
+                editor.remove(KEY_ACTIVE_PRESET);
+                for (String key : prefs.getAll().keySet()) {
+                    if (key.startsWith(PresetManager.KEY_BACKUP_PREFIX)) editor.remove(key);
+                }
+            }
 
-            restorePresets(root);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: presets restored");
+            durableWriteStarted = true;
+            if (!editor.commit()) throw new IllegalStateException("main preferences commit failed");
+            restoreFaultInjector.afterCommit(RestoreCommitPoint.AFTER_MAIN_COMMIT);
 
+            if (containsPresetSection) {
+                if (!writePresetStorage(presetManager, PresetModel.PRESET_1, restoredPresets[0]))
+                    throw new IllegalStateException("preset 1 commit failed");
+                restoreFaultInjector.afterCommit(RestoreCommitPoint.AFTER_PRESET_1_COMMIT);
+                if (!writePresetStorage(presetManager, PresetModel.PRESET_2, restoredPresets[1]))
+                    throw new IllegalStateException("preset 2 commit failed");
+                restoreFaultInjector.afterCommit(RestoreCommitPoint.AFTER_PRESET_2_COMMIT);
+            }
+
+            // Side effects only after all durable state was committed successfully.
+            if (containsPresetSection) presetManager.restoreAfterBoot();
+            BackgroundWorkPolicy.enforceCompatibleBehavior(context);
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: success");
             return true;
         } catch (Exception e) {
             AppDebugManager.e(Category.BACKUP_RESTORE, "BackupManager: restoreBackupJson: FAILED", e);
+            if (durableWriteStarted && mainSnapshot != null) {
+                boolean rollbackOk = rollbackRestore(
+                        presetManager, mainSnapshot, preset1Snapshot, preset2Snapshot);
+                AppDebugManager.w(Category.BACKUP_RESTORE,
+                        "BackupManager: restore rollback result=" + rollbackOk);
+            }
             return false;
         }
     }
@@ -197,9 +286,14 @@ public class BackupManager {
     private void restoreSet(SharedPreferences.Editor editor, JSONObject root, String key) throws Exception {
         if (root.has(key)) {
             JSONArray array = root.getJSONArray(key);
+            BackupCollectionPolicy.requirePackageEntryCount(key, array.length());
             Set<String> set = new HashSet<>();
             for (int i = 0; i < array.length(); i++) {
-                set.add(array.getString(i));
+                String packageName = array.getString(i);
+                if (!PackageNameValidator.isValid(packageName)) {
+                    throw new IllegalArgumentException("Invalid package name in backup: " + key);
+                }
+                set.add(packageName);
             }
             editor.putStringSet(key, set);
             AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreSet: " + key + " -> " + set.size() + " items");
@@ -209,33 +303,165 @@ public class BackupManager {
     private void putStringSet(JSONObject root, String key) throws Exception {
         Set<String> stored = prefs.getStringSet(key, new HashSet<>());
         Set<String> set = stored == null ? new HashSet<>() : new HashSet<>(stored);
+        BackupCollectionPolicy.requirePackageEntryCount(key, set.size());
         root.put(key, new JSONArray(set));
         AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: putStringSet: " + key + " -> " + set.size() + " items");
     }
 
-    private void putManualOpsMasks(JSONObject root) throws Exception {
-        Set<String> manualPackages = prefs.getStringSet(KEY_MANUAL_RESTRICTION_APPS, new java.util.HashSet<>());
-        if (manualPackages == null) manualPackages = new java.util.HashSet<>();
+    private void putManualRestrictionDetails(JSONObject root) throws Exception {
+        Set<String> stored = prefs.getStringSet(KEY_MANUAL_RESTRICTION_APPS, new HashSet<>());
+        Set<String> manualPackages = stored == null ? new HashSet<>() : new HashSet<>(stored);
+        BackupCollectionPolicy.requirePackageEntryCount(KEY_MANUAL_OPS_MASKS, manualPackages.size());
+
         JSONObject masks = new JSONObject();
+        JSONObject buckets = new JSONObject();
+        JSONObject whitelistRemovals = new JSONObject();
         for (String pkg : manualPackages) {
-            int mask = prefs.getInt(KEY_MANUAL_OPS_PREFIX + pkg, 0x01);
+            if (!PackageNameValidator.isValid(pkg)) {
+                throw new IllegalArgumentException("Invalid package name in manual restriction preferences");
+            }
+            int storedMask = prefs.getInt(KEY_MANUAL_OPS_PREFIX + pkg, 0x01);
+            int mask = ManualOpsMaskPolicy.sanitize(storedMask, BackgroundAppManager.ALL_OPS.length);
+            int bucket = ManualRestrictionBackupPolicy.requireBucket(
+                    prefs.getInt(KEY_MANUAL_BUCKET_PREFIX + pkg, ManualRestrictionBackupPolicy.BUCKET_NONE));
+            boolean whitelistRemoval = prefs.getBoolean(KEY_MANUAL_WHITELIST_REMOVAL_PREFIX + pkg, false);
             masks.put(pkg, mask);
+            buckets.put(pkg, bucket);
+            whitelistRemovals.put(pkg, whitelistRemoval);
         }
         root.put(KEY_MANUAL_OPS_MASKS, masks);
-        AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: putManualOpsMasks: " + manualPackages.size() + " packages");
+        root.put(KEY_MANUAL_BUCKETS, buckets);
+        root.put(KEY_MANUAL_WHITELIST_REMOVALS, whitelistRemovals);
+        AppDebugManager.d(Category.BACKUP_RESTORE,
+                "BackupManager: putManualRestrictionDetails: " + manualPackages.size() + " packages");
     }
 
-    private void restoreManualOpsMasks(SharedPreferences.Editor editor, JSONObject root) throws Exception {
-        if (!root.has(KEY_MANUAL_OPS_MASKS)) return;
-        JSONObject masks = root.getJSONObject(KEY_MANUAL_OPS_MASKS);
-        java.util.Iterator<String> keys = masks.keys();
-        int count = 0;
-        while (keys.hasNext()) {
-            String pkg = keys.next();
-            editor.putInt(KEY_MANUAL_OPS_PREFIX + pkg, masks.getInt(pkg));
-            count++;
+    private void restoreManualRestrictionDetails(SharedPreferences.Editor editor,
+                                                 JSONObject root,
+                                                 int backupVersion) throws Exception {
+        boolean hasManualApps = root.has(KEY_MANUAL_RESTRICTION_APPS);
+        boolean hasOps = root.has(KEY_MANUAL_OPS_MASKS);
+        boolean hasBuckets = root.has(KEY_MANUAL_BUCKETS);
+        boolean hasWhitelist = root.has(KEY_MANUAL_WHITELIST_REMOVALS);
+        if (!hasManualApps && !hasOps && !hasBuckets && !hasWhitelist) return;
+        if (!hasManualApps) {
+            throw new IllegalArgumentException("Manual restriction detail maps require manual_restriction_apps");
         }
-        AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restoreManualOpsMasks: " + count + " packages");
+
+        Set<String> manualPackages = readPackageArray(root, KEY_MANUAL_RESTRICTION_APPS);
+        if (backupVersion >= 6 && (!hasOps || !hasBuckets || !hasWhitelist)) {
+            throw new IllegalArgumentException("Backup v6 requires all manual restriction detail maps");
+        }
+
+        JSONObject masks = hasOps
+                ? requireExactManualDetailMap(root, KEY_MANUAL_OPS_MASKS, manualPackages)
+                : null;
+        JSONObject buckets = hasBuckets
+                ? requireExactManualDetailMap(root, KEY_MANUAL_BUCKETS, manualPackages)
+                : null;
+        JSONObject whitelistRemovals = hasWhitelist
+                ? requireExactManualDetailMap(root, KEY_MANUAL_WHITELIST_REMOVALS, manualPackages)
+                : null;
+
+        // Validate every imported value before mutating the pending editor transaction.
+        if (masks != null) {
+            for (String pkg : manualPackages) {
+                ManualOpsMaskPolicy.requireKnownBits(
+                        requireJsonInt(masks, pkg), BackgroundAppManager.ALL_OPS.length);
+            }
+        }
+        if (buckets != null) {
+            for (String pkg : manualPackages) {
+                ManualRestrictionBackupPolicy.requireBucket(requireJsonInt(buckets, pkg));
+            }
+        }
+        if (whitelistRemovals != null) {
+            for (String pkg : manualPackages) {
+                requireJsonBoolean(whitelistRemovals, pkg);
+            }
+        }
+
+        // Snapshot semantics: once a manual-app section is present, all old per-package details
+        // are replaced. V5/legacy backups lacked bucket/whitelist maps, so their defaults are
+        // restored instead of leaking device-local stale values into the imported state.
+        clearPreferencePrefix(editor, KEY_MANUAL_OPS_PREFIX);
+        clearPreferencePrefix(editor, KEY_MANUAL_BUCKET_PREFIX);
+        clearPreferencePrefix(editor, KEY_MANUAL_WHITELIST_REMOVAL_PREFIX);
+
+        for (String pkg : manualPackages) {
+            if (masks != null) {
+                editor.putInt(KEY_MANUAL_OPS_PREFIX + pkg, requireJsonInt(masks, pkg));
+            }
+            if (buckets != null) {
+                editor.putInt(KEY_MANUAL_BUCKET_PREFIX + pkg, requireJsonInt(buckets, pkg));
+            }
+            if (whitelistRemovals != null) {
+                editor.putBoolean(KEY_MANUAL_WHITELIST_REMOVAL_PREFIX + pkg,
+                        requireJsonBoolean(whitelistRemovals, pkg));
+            }
+        }
+        AppDebugManager.d(Category.BACKUP_RESTORE,
+                "BackupManager: restoreManualRestrictionDetails: " + manualPackages.size() + " packages");
+    }
+
+    private Set<String> readPackageArray(JSONObject root, String key) throws Exception {
+        JSONArray array = root.getJSONArray(key);
+        BackupCollectionPolicy.requirePackageEntryCount(key, array.length());
+        Set<String> result = new HashSet<>();
+        for (int i = 0; i < array.length(); i++) {
+            String packageName = array.getString(i);
+            if (!PackageNameValidator.isValid(packageName) || !result.add(packageName)) {
+                throw new IllegalArgumentException("Invalid or duplicate package name in backup: " + key);
+            }
+        }
+        return result;
+    }
+
+    private JSONObject requireExactManualDetailMap(JSONObject root,
+                                                   String key,
+                                                   Set<String> manualPackages) throws Exception {
+        JSONObject map = root.getJSONObject(key);
+        BackupCollectionPolicy.requirePackageEntryCount(key, map.length());
+        Set<String> keys = new HashSet<>();
+        java.util.Iterator<String> iterator = map.keys();
+        while (iterator.hasNext()) {
+            String pkg = iterator.next();
+            if (!PackageNameValidator.isValid(pkg) || !keys.add(pkg)) {
+                throw new IllegalArgumentException("Invalid package name in manual restriction map: " + key);
+            }
+        }
+        if (!keys.equals(manualPackages)) {
+            throw new IllegalArgumentException("Manual restriction map does not match manual app set: " + key);
+        }
+        return map;
+    }
+
+    private int requireJsonInt(JSONObject object, String key) throws Exception {
+        Object raw = object.get(key);
+        if (!(raw instanceof Number)) {
+            throw new IllegalArgumentException("Expected integer for " + key);
+        }
+        Number number = (Number) raw;
+        long value = number.longValue();
+        if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE
+                || number.doubleValue() != (double) value) {
+            throw new IllegalArgumentException("Integer out of range for " + key);
+        }
+        return (int) value;
+    }
+
+    private boolean requireJsonBoolean(JSONObject object, String key) throws Exception {
+        Object raw = object.get(key);
+        if (!(raw instanceof Boolean)) {
+            throw new IllegalArgumentException("Expected boolean for " + key);
+        }
+        return (Boolean) raw;
+    }
+
+    private void clearPreferencePrefix(SharedPreferences.Editor editor, String prefix) {
+        for (String key : prefs.getAll().keySet()) {
+            if (key.startsWith(prefix)) editor.remove(key);
+        }
     }
 
     private void putPresets(JSONObject root) throws Exception {
@@ -253,25 +479,72 @@ public class BackupManager {
         root.put(KEY_PRESETS, presets);
     }
 
-    private void restorePresets(JSONObject root) throws Exception {
-        if (!root.has(KEY_PRESETS)) {
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restorePresets: no presets in backup, skipping");
-            return;
-        }
+    private PresetModel[] parsePresets(JSONObject root) throws Exception {
+        PresetModel[] result = new PresetModel[2];
+        if (!root.has(KEY_PRESETS)) return result;
         JSONObject presets = root.getJSONObject(KEY_PRESETS);
-        PresetManager presetManager = new PresetManager(context);
-        for (int presetNumber : new int[]{ PresetModel.PRESET_1, PresetModel.PRESET_2 }) {
+        for (int presetNumber : new int[]{PresetModel.PRESET_1, PresetModel.PRESET_2}) {
             String key = KEY_PRESET_PREFIX + presetNumber;
-            if (!presets.has(key)) {
-                AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restorePresets: preset #" + presetNumber + " not in backup, skipping");
-                continue;
+            if (presets.has(key)) {
+                result[presetNumber - 1] =
+                        PresetModel.fromJson(presetNumber, presets.getJSONObject(key));
             }
-            PresetModel model = PresetModel.fromJson(presetNumber, presets.getJSONObject(key));
-            presetManager.savePreset(model);
-            presetManager.scheduleAlarms(model);
-            AppDebugManager.d(Category.BACKUP_RESTORE, "BackupManager: restorePresets: preset #" + presetNumber + " restored, name=" + model.name);
         }
-        presetManager.checkAndApplyCurrentPreset();
+        return result;
+    }
+
+    private boolean writePresetStorage(PresetManager manager, int number, PresetModel model) {
+        return model == null
+                ? manager.clearPresetStorageBlocking(number)
+                : manager.savePresetBlocking(model);
+    }
+
+    private boolean rollbackRestore(PresetManager manager,
+                                    Map<String, ?> mainSnapshot,
+                                    Map<String, ?> preset1Snapshot,
+                                    Map<String, ?> preset2Snapshot) {
+        boolean mainOk = restorePreferenceMap(prefs, mainSnapshot);
+        boolean p1Ok = preset1Snapshot != null
+                && manager.restorePresetStorageBlocking(PresetModel.PRESET_1, preset1Snapshot);
+        boolean p2Ok = preset2Snapshot != null
+                && manager.restorePresetStorageBlocking(PresetModel.PRESET_2, preset2Snapshot);
+        try {
+            manager.restoreAfterBoot();
+            BackgroundWorkPolicy.enforceCompatibleBehavior(context);
+        } catch (Exception e) {
+            AppDebugManager.e(Category.BACKUP_RESTORE,
+                    "BackupManager: runtime reconciliation after rollback failed", e);
+            return false;
+        }
+        return mainOk && p1Ok && p2Ok;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, ?> deepCopyPreferenceMap(Map<String, ?> source) {
+        Map<String, Object> copy = new HashMap<>();
+        for (Map.Entry<String, ?> entry : source.entrySet()) {
+            Object value = entry.getValue();
+            if (value instanceof Set) value = new HashSet<>((Set<String>) value);
+            copy.put(entry.getKey(), value);
+        }
+        return copy;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static boolean restorePreferenceMap(SharedPreferences target, Map<String, ?> values) {
+        SharedPreferences.Editor editor = target.edit().clear();
+        for (Map.Entry<String, ?> entry : values.entrySet()) {
+            Object value = entry.getValue();
+            String key = entry.getKey();
+            if (value instanceof String) editor.putString(key, (String) value);
+            else if (value instanceof Boolean) editor.putBoolean(key, (Boolean) value);
+            else if (value instanceof Integer) editor.putInt(key, (Integer) value);
+            else if (value instanceof Long) editor.putLong(key, (Long) value);
+            else if (value instanceof Float) editor.putFloat(key, (Float) value);
+            else if (value instanceof Set) editor.putStringSet(key, new HashSet<>((Set<String>) value));
+            else throw new IllegalArgumentException("Unsupported preference type for " + key);
+        }
+        return editor.commit();
     }
 
     private void restoreBoolean(SharedPreferences.Editor editor, JSONObject root, String key) throws Exception {

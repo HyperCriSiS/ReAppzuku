@@ -4,6 +4,9 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import com.gree1d.reappzuku.core.PackageNameValidator;
+import com.gree1d.reappzuku.core.PresetInputPolicy;
+
 import java.util.HashSet;
 import java.util.Set;
 
@@ -118,28 +121,37 @@ public class PresetModel {
         model.endHour = obj.optInt("endHour", 20);
         model.endMinute = obj.optInt("endMinute", 0);
 
-        JSONArray launchPkgs = obj.optJSONArray("appLaunchTriggerPackages");
-        if (launchPkgs != null) {
-            for (int i = 0; i < launchPkgs.length(); i++) {
-                model.appLaunchTriggerPackages.add(launchPkgs.getString(i));
-            }
-        }
-
-        JSONArray whitelist = obj.optJSONArray("whitelistedApps");
-        if (whitelist != null) {
-            for (int i = 0; i < whitelist.length(); i++) {
-                model.whitelistedApps.add(whitelist.getString(i));
-            }
-        }
-
-        JSONArray blacklist = obj.optJSONArray("blacklistedApps");
-        if (blacklist != null) {
-            for (int i = 0; i < blacklist.length(); i++) {
-                model.blacklistedApps.add(blacklist.getString(i));
-            }
+        try {
+            PresetInputPolicy.requireClockTime("start", model.startHour, model.startMinute);
+            PresetInputPolicy.requireClockTime("end", model.endHour, model.endMinute);
+            addValidatedPackages(
+                    model.appLaunchTriggerPackages,
+                    obj.optJSONArray("appLaunchTriggerPackages"),
+                    "appLaunchTriggerPackages");
+            addValidatedPackages(
+                    model.whitelistedApps,
+                    obj.optJSONArray("whitelistedApps"),
+                    "whitelistedApps");
+            addValidatedPackages(
+                    model.blacklistedApps,
+                    obj.optJSONArray("blacklistedApps"),
+                    "blacklistedApps");
+        } catch (IllegalArgumentException e) {
+            throw new JSONException("Invalid preset input: " + e.getMessage());
         }
 
         return model;
+    }
+
+    private static void addValidatedPackages(
+            Set<String> target,
+            JSONArray packages,
+            String field) throws JSONException {
+        if (packages == null) return;
+        PresetInputPolicy.requirePackageCount(field, packages.length());
+        for (int i = 0; i < packages.length(); i++) {
+            target.add(PackageNameValidator.requireValid(packages.getString(i)));
+        }
     }
 
     public int getStartTotalMinutes() {

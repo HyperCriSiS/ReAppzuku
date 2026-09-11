@@ -25,6 +25,7 @@ import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.AppDebugManager;
 import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.BackupManager;
+import com.gree1d.reappzuku.core.BackgroundWorkPolicy;
 import com.gree1d.reappzuku.manager.AdditionalScenariosManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
@@ -32,8 +33,10 @@ import com.gree1d.reappzuku.manager.PresetManager;
 import com.gree1d.reappzuku.manager.RamKillShortcutManager;
 import com.gree1d.reappzuku.manager.RestrictionsScheduler;
 import com.gree1d.reappzuku.manager.SleepModeManager;
+import com.gree1d.reappzuku.manager.SmartLifecycleManager;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.service.AutoKillWorker;
+import com.gree1d.reappzuku.service.SmartLifecycleWorker;
 import com.gree1d.reappzuku.service.ShappkyService;
 import com.gree1d.reappzuku.manager.UpdateChecker;
 
@@ -162,10 +165,16 @@ public class SettingsActivity extends SettingsActivityDialogs
         binding.switchPeriodicKill.setChecked(periodic);
         binding.switchKillScreenOff.setChecked(screenOff);
         binding.switchRamThreshold.setChecked(ramEnabled);
+        boolean smartEnabled = sharedPreferences.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false);
+        binding.switchSmartLifecycle.setChecked(smartEnabled);
+        binding.switchSmartBootCleanup.setChecked(sharedPreferences.getBoolean(KEY_SMART_BOOT_CLEANUP_ENABLED, true));
+        updateSmartLifecycleProfileText(sharedPreferences.getInt(KEY_SMART_LIFECYCLE_PROFILE, SmartLifecycleManager.PROFILE_BALANCED));
+        updateSmartLifecycleOptionsVisibility(smartEnabled);
         updateAutomationOptionsVisibility(autoKill, periodic);
         applyServiceDependentState(autoKill);
         applyPresetActiveState(isPresetActive());
         updateRamThresholdLimitVisibility(ramEnabled && autoKill);
+        updateAppBehaviorAvailability();
         updateShellModeText();
     }
 
@@ -235,10 +244,23 @@ public class SettingsActivity extends SettingsActivityDialogs
                 binding.layoutWhitelist.setVisibility(mode == 0 ? View.VISIBLE : View.GONE);
                 break;
             }
+            case KEY_SMART_LIFECYCLE_ENABLED: {
+                boolean val = prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false);
+                binding.switchSmartLifecycle.setChecked(val);
+                updateSmartLifecycleOptionsVisibility(val);
+                break;
+            }
+            case KEY_SMART_BOOT_CLEANUP_ENABLED:
+                binding.switchSmartBootCleanup.setChecked(prefs.getBoolean(KEY_SMART_BOOT_CLEANUP_ENABLED, true));
+                break;
+            case KEY_SMART_LIFECYCLE_PROFILE:
+                updateSmartLifecycleProfileText(prefs.getInt(KEY_SMART_LIFECYCLE_PROFILE, SmartLifecycleManager.PROFILE_BALANCED));
+                break;
             case KEY_ACTIVE_PRESET:
                 applyPresetActiveState(isPresetActive());
                 break;
         }
+        updateAppBehaviorAvailability();
     }
 
     private void setupToolbar() {
@@ -276,6 +298,7 @@ public class SettingsActivity extends SettingsActivityDialogs
         int[] titleIds = {
             R.id.section_title_information,
             R.id.section_title_appearance,
+            R.id.section_title_behavior,
             R.id.section_title_stability,
             R.id.section_title_autokill,
             R.id.section_title_advanced,
@@ -294,7 +317,11 @@ public class SettingsActivity extends SettingsActivityDialogs
             R.id.switch_periodic_kill,
             R.id.switch_kill_screen_off,
             R.id.switch_ram_threshold,
-            R.id.switch_sleep_mode
+            R.id.switch_smart_lifecycle,
+            R.id.switch_smart_boot_cleanup,
+            R.id.switch_sleep_mode,
+            R.id.switch_exit_on_back,
+            R.id.switch_prevent_shizuku_autostart
         };
         for (int id : switchIds) {
             MaterialSwitch sw = findViewById(id);
@@ -356,6 +383,12 @@ public class SettingsActivity extends SettingsActivityDialogs
         int notificationMode = sharedPreferences.getInt(KEY_NOTIFICATION_MODE, NOTIFICATION_MODE_ALL);
         updateNotificationModeText(notificationMode);
 
+        BackgroundWorkPolicy.enforceCompatibleBehavior(this);
+        binding.switchPreventShizukuAutostart.setChecked(
+                sharedPreferences.getBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, true));
+        binding.switchExitOnBack.setChecked(sharedPreferences.getBoolean(KEY_EXIT_ON_BACK, false));
+        updateAppBehaviorAvailability();
+
         boolean serviceEnabled = getAutoKillPref(KEY_AUTO_KILL_ENABLED, false);
         binding.switchAutoKill.setChecked(serviceEnabled);
 
@@ -375,6 +408,12 @@ public class SettingsActivity extends SettingsActivityDialogs
 
         updateAutoKillTypeText(autoKillManager.getAutoKillType());
         updateAutomationOptionsVisibility(serviceEnabled, periodicKillEnabled);
+
+        boolean smartEnabled = sharedPreferences.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false);
+        binding.switchSmartLifecycle.setChecked(smartEnabled);
+        binding.switchSmartBootCleanup.setChecked(sharedPreferences.getBoolean(KEY_SMART_BOOT_CLEANUP_ENABLED, true));
+        updateSmartLifecycleProfileText(sharedPreferences.getInt(KEY_SMART_LIFECYCLE_PROFILE, SmartLifecycleManager.PROFILE_BALANCED));
+        updateSmartLifecycleOptionsVisibility(smartEnabled);
 
         binding.switchSleepMode.setChecked(sleepModeManager.isSleepModeEnabled());
         long sleepDelay = sharedPreferences.getLong(KEY_SLEEP_MODE_DELAY, DEFAULT_SLEEP_MODE_DELAY_MS);
@@ -404,6 +443,32 @@ public class SettingsActivity extends SettingsActivityDialogs
 
         binding.layoutAccentOnColor.setOnClickListener(v -> showAccentOnColorDialog());
         binding.layoutNotificationMode.setOnClickListener(v -> showNotificationModeDialog());
+
+        binding.switchPreventShizukuAutostart.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked && !BackgroundWorkPolicy.isOnDemandBehaviorAllowed(this)) {
+                buttonView.setChecked(false);
+                Toast.makeText(this, R.string.settings_app_behavior_blocked, Toast.LENGTH_LONG).show();
+                return;
+            }
+            sharedPreferences.edit().putBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, isChecked).apply();
+        });
+        binding.layoutPreventShizukuAutostart.setOnClickListener(v -> {
+            if (binding.switchPreventShizukuAutostart.isEnabled()) {
+                binding.switchPreventShizukuAutostart.toggle();
+            }
+        });
+
+        binding.switchExitOnBack.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked && !BackgroundWorkPolicy.isOnDemandBehaviorAllowed(this)) {
+                buttonView.setChecked(false);
+                Toast.makeText(this, R.string.settings_app_behavior_blocked, Toast.LENGTH_LONG).show();
+                return;
+            }
+            sharedPreferences.edit().putBoolean(KEY_EXIT_ON_BACK, isChecked).apply();
+        });
+        binding.layoutExitOnBack.setOnClickListener(v -> {
+            if (binding.switchExitOnBack.isEnabled()) binding.switchExitOnBack.toggle();
+        });
 
         binding.switchAutoKill.setOnCheckedChangeListener(autoKillListener);
         binding.switchPeriodicKill.setOnCheckedChangeListener(periodicKillListener);
@@ -443,6 +508,29 @@ public class SettingsActivity extends SettingsActivityDialogs
             if (!isServiceEnabled()) { showServiceRequiredToast(); return; }
             showRestrictionsSchedulerDialog();
         });
+
+        binding.switchSmartLifecycle.setChecked(sharedPreferences.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false));
+        binding.switchSmartLifecycle.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked && !hasPrivilege()) {
+                buttonView.setChecked(false);
+                Toast.makeText(this, getString(R.string.settings_requires_privilege), Toast.LENGTH_LONG).show();
+                return;
+            }
+            sharedPreferences.edit().putBoolean(KEY_SMART_LIFECYCLE_ENABLED, isChecked).apply();
+            updateSmartLifecycleOptionsVisibility(isChecked);
+            if (isChecked) SmartLifecycleWorker.schedulePeriodic(this);
+            else SmartLifecycleWorker.cancel(this);
+        });
+        binding.layoutSmartLifecycleApps.setOnClickListener(v -> {
+            if (!hasPrivilege()) {
+                Toast.makeText(this, getString(R.string.settings_requires_privilege), Toast.LENGTH_LONG).show();
+                return;
+            }
+            showBlacklistDialog();
+        });
+        binding.layoutSmartLifecycleProfile.setOnClickListener(v -> showSmartLifecycleProfileDialog());
+        binding.switchSmartBootCleanup.setOnCheckedChangeListener((buttonView, isChecked) ->
+                sharedPreferences.edit().putBoolean(KEY_SMART_BOOT_CLEANUP_ENABLED, isChecked).apply());
 
         binding.switchSleepMode.setChecked(sleepModeManager.isSleepModeEnabled());
         binding.switchSleepMode.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -618,6 +706,103 @@ public class SettingsActivity extends SettingsActivityDialogs
         binding.textNotificationMode.setText(selected.isEmpty()
                 ? getString(R.string.settings_notification_mode_all)
                 : String.join(", ", selected));
+    }
+
+    private void updateAppBehaviorAvailability() {
+        boolean blocked = BackgroundWorkPolicy.enforceCompatibleBehavior(this);
+        Set<BackgroundWorkPolicy.Blocker> blockers = BackgroundWorkPolicy.getActiveBlockers(this);
+        boolean enabled = !blocked;
+        float alpha = enabled ? 1.0f : 0.5f;
+
+        boolean preventAutoStart = sharedPreferences.getBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, true);
+        boolean exitOnBack = sharedPreferences.getBoolean(KEY_EXIT_ON_BACK, false);
+
+        binding.switchPreventShizukuAutostart.setChecked(preventAutoStart);
+        binding.switchExitOnBack.setChecked(exitOnBack);
+        binding.switchPreventShizukuAutostart.setEnabled(enabled);
+        binding.switchExitOnBack.setEnabled(enabled);
+        binding.layoutPreventShizukuAutostart.setEnabled(enabled);
+        binding.layoutExitOnBack.setEnabled(enabled);
+        binding.layoutPreventShizukuAutostart.setAlpha(alpha);
+        binding.layoutExitOnBack.setAlpha(alpha);
+
+        if (blocked && !blockers.isEmpty()) {
+            binding.textAppBehaviorBlocked.setText(getString(
+                    R.string.settings_app_behavior_blocked_by,
+                    formatAppBehaviorBlockers(blockers)));
+            binding.textAppBehaviorBlocked.setVisibility(View.VISIBLE);
+        } else {
+            binding.textAppBehaviorBlocked.setVisibility(View.GONE);
+        }
+    }
+
+    private String formatAppBehaviorBlockers(Set<BackgroundWorkPolicy.Blocker> blockers) {
+        List<String> labels = new ArrayList<>();
+        for (BackgroundWorkPolicy.Blocker blocker : blockers) {
+            switch (blocker) {
+                case AUTO_KILL:
+                    labels.add(getString(R.string.settings_section_kill_rules));
+                    break;
+                case SMART_LIFECYCLE:
+                    labels.add(getString(R.string.settings_smart_lifecycle_title));
+                    break;
+                case SLEEP_MODE:
+                    labels.add(getString(R.string.settings_sleep_mode_title));
+                    break;
+                case ACTIVE_PRESET:
+                    labels.add(getString(R.string.settings_presets_title));
+                    break;
+                case RESTRICTIONS_SCHEDULE:
+                    labels.add(getString(R.string.settings_restrictions_scheduler_title));
+                    break;
+            }
+        }
+        StringBuilder joined = new StringBuilder();
+        for (String label : labels) {
+            if (joined.length() > 0) joined.append(", ");
+            joined.append(label);
+        }
+        return joined.toString();
+    }
+
+    private void updateSmartLifecycleOptionsVisibility(boolean enabled) {
+        float alpha = enabled ? 1.0f : 0.5f;
+        binding.layoutSmartLifecycleApps.setAlpha(alpha);
+        binding.layoutSmartLifecycleApps.setClickable(enabled);
+        binding.layoutSmartLifecycleProfile.setAlpha(alpha);
+        binding.layoutSmartLifecycleProfile.setClickable(enabled);
+        binding.layoutSmartBootCleanup.setAlpha(alpha);
+        binding.switchSmartBootCleanup.setEnabled(enabled);
+    }
+
+    private void updateSmartLifecycleProfileText(int profile) {
+        if (profile == SmartLifecycleManager.PROFILE_GENTLE) {
+            binding.textSmartLifecycleProfile.setText(R.string.settings_smart_lifecycle_profile_gentle);
+        } else if (profile == SmartLifecycleManager.PROFILE_AGGRESSIVE) {
+            binding.textSmartLifecycleProfile.setText(R.string.settings_smart_lifecycle_profile_aggressive);
+        } else {
+            binding.textSmartLifecycleProfile.setText(R.string.settings_smart_lifecycle_profile_balanced);
+        }
+    }
+
+    private void showSmartLifecycleProfileDialog() {
+        if (!sharedPreferences.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false)) return;
+        String[] items = {
+                getString(R.string.settings_smart_lifecycle_profile_gentle),
+                getString(R.string.settings_smart_lifecycle_profile_balanced),
+                getString(R.string.settings_smart_lifecycle_profile_aggressive)
+        };
+        int current = sharedPreferences.getInt(KEY_SMART_LIFECYCLE_PROFILE, SmartLifecycleManager.PROFILE_BALANCED);
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.settings_smart_lifecycle_profile_title)
+                .setSingleChoiceItems(items, current, (dialog, which) -> {
+                    sharedPreferences.edit().putInt(KEY_SMART_LIFECYCLE_PROFILE, which).apply();
+                    updateSmartLifecycleProfileText(which);
+                    SmartLifecycleWorker.schedulePeriodic(this);
+                    dialog.dismiss();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     @Override

@@ -1,5 +1,4 @@
 <resources>
-    <string name="app_name" translatable="false">ReAppzuku</string>
     <string name="special_thanks_title">特别鸣谢</string>
     <string name="special_thanks_desc">为 ReAppzuku 开发做出贡献的用户：</string>
 
@@ -169,7 +168,7 @@
 
     <!-- RAM Monitor -->
     <string name="ram_usage">RAM：%1$dMB / %2$dMB</string>
-    <string name="ram_usage_unavailable">RAM：--</string>
+    <string name="ram_usage_unavailable">RAM：—</string>
 
     <!-- ══════════════════════════════════════════════
          BACKGROUND SERVICE (ShappkyService)
@@ -188,8 +187,6 @@
     <string name="settings_about_section">关于</string>
 
     <!-- Shell / access mode status -->
-    <string name="settings_shell_shizuku_ok" translatable="false">Shizuku access ✅</string>
-    <string name="settings_shell_root_ok" translatable="false">Root access ✅</string>
     <string name="settings_shell_no_access">无权限 ❌</string>
     <string name="settings_shell_mode_title">访问模式</string>
     <string name="settings_requires_privilege">需要 Root 或 Shizuku</string>
@@ -202,7 +199,6 @@
     <string name="settings_theme_light">浅色</string>
     <string name="settings_theme_dark">深色</string>
     <string name="settings_theme_amoled">AMOLED（纯黑）</string>
-    <string name="settings_theme_amoled_short" translatable="false">AMOLED</string>
     <string name="settings_theme_dialog_title">选择主题</string>
     <string name="settings_accent_title">强调色</string>
     <string name="settings_accent_subtitle">主界面颜色</string>
@@ -394,7 +390,6 @@
     <string name="settings_backup_option_restore">恢复设置</string>
     <string name="settings_backup_create_failed">创建备份数据失败</string>
     <string name="settings_backup_success">设置保存成功</string>
-    <string name="settings_backup_write_failed">写入文件失败</string>
     <string name="settings_backup_export_failed">导出失败：%1$s</string>
     <string name="settings_restore_success">恢复成功</string>
     <string name="settings_restore_need_permission">已保存的设置已恢复。请授予 Shizuku/Root 权限以重新应用后台限制。</string>
@@ -1029,4 +1024,9 @@
     <string name="appdebug_backup_restore">备份与恢复</string>
     <string name="appdebug_utils">其他工具</string>
     
+
+    <string name="settings_debug_title">调试</string>
+    <string name="settings_debug_menu_title">调试菜单</string>
+    <string name="badge_persistent">常驻</string>
+    <string name="filter_app_icon_content_description">应用图标</string>
 </resources>

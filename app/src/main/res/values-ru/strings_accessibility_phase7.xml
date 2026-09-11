@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="a11y_protected_app">Защищенное приложение</string>
+    <string name="a11y_app_status">Статус приложения</string>
+    <string name="a11y_sleep_mode_app">Приложение управляется режимом сна</string>
+    <string name="a11y_whitelisted_app">Приложение в белом списке</string>
+    <string name="a11y_app_action">Действие приложения</string>
+    <string name="a11y_select_app">Выбрать приложение</string>
+    <string name="a11y_deselect_app">Снять выбор приложения</string>
+    <string name="a11y_force_stop_app">Принудительно остановить приложение</string>
+    <string name="a11y_select_all">Выбрать все приложения</string>
+    <string name="a11y_unselect_all">Очистить выбор приложений</string>
+</resources>
