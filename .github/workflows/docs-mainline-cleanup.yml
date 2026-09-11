@@ -1,0 +1,62 @@
+name: Mainline documentation cleanup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Update active branch-policy documentation
+        shell: python
+        run: |
+          from pathlib import Path
+
+          replacements = {
+              'docs/ROADMAP.md': [(
+                  'Keep `main` and `ondemand-shizuku` permanent validation/release workflow blobs identical so a later branch merge cannot silently roll release policy backward.',
+                  'Keep `main` as the sole permanent product/validation/release branch; use short-lived branches only for isolated work and delete them after integration.'
+              )],
+              'docs/CHECK_MATRIX.md': [(
+                  'Audit baseline: `ondemand-shizuku`, refreshed 2026-09-08.',
+                  'Audit baseline: `main`, consolidated 2026-09-11 from the fully validated product line.'
+              )],
+          }
+
+          for name, pairs in replacements.items():
+              path = Path(name)
+              text = path.read_text()
+              for old, new in pairs:
+                  count = text.count(old)
+                  if count != 1:
+                      raise SystemExit(f'{name}: expected exactly one occurrence, got {count}: {old}')
+                  text = text.replace(old, new)
+              path.write_text(text)
+
+      - name: Guard intended diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git diff --exit-code -- . ':!docs/ROADMAP.md' ':!docs/CHECK_MATRIX.md'
+          grep -Fq 'Keep `main` as the sole permanent product/validation/release branch' docs/ROADMAP.md
+          grep -Fq 'Audit baseline: `main`, consolidated 2026-09-11' docs/CHECK_MATRIX.md
+
+      - name: Commit documentation cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/ROADMAP.md docs/CHECK_MATRIX.md
+          git commit -m 'Document main-only product branch policy'
+          git push origin HEAD:main
