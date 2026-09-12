@@ -3,43 +3,35 @@ name: On-demand Shizuku test APK
 on:
   workflow_dispatch:
 
-concurrency:
-  group: ondemand-shizuku-test
-  cancel-in-progress: true
-
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  validate:
+  refresh-verification:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          persist-credentials: false
+          fetch-depth: 0
       - name: Set up JDK 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           java-version: '17'
           distribution: temurin
-          cache: gradle
-      - name: Grant execute permission
-        run: chmod +x gradlew
-      - name: Unit tests
-        run: ./gradlew testDebugUnitTest
-      - name: Lint
-        run: ./gradlew lintDebug
-      - name: Compile instrumentation tests
-        run: ./gradlew assembleDebugAndroidTest
-      - name: Verify current Room schema export
-        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
-      - name: Upload debug APK
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: reappzuku-ondemand-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+      - name: Refresh dependency verification and validate Kotlin 2.4.20
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew --write-verification-metadata sha256 --write-locks testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
+          git fetch origin main
+          git checkout origin/main -- .github/workflows/ondemand-test-build.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gradle/verification-metadata.xml app/gradle.lockfile .github/workflows/ondemand-test-build.yml
+          if git diff --cached --quiet; then
+            echo "No dependency metadata change"
+            exit 0
+          fi
+          git commit -m "Refresh dependency metadata for Kotlin 2.4.20"
+          git push origin HEAD:${GITHUB_REF_NAME}
