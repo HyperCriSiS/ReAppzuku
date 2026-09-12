@@ -49,7 +49,10 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x gradlew
-          ./gradlew :app:assembleDebug :securityProbe:assembleDebug --no-daemon
+          # CodeQL manual mode must observe real compiler invocations; cached task outputs
+          # can otherwise produce a successful Gradle build with no extracted source.
+          ./gradlew clean :app:assembleDebug :securityProbe:assembleDebug \
+            --no-daemon --no-build-cache --rerun-tasks
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
