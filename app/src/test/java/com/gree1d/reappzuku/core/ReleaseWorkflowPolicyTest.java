@@ -51,6 +51,16 @@ public class ReleaseWorkflowPolicyTest {
     }
 
     @Test
+    public void signedReleaseBuildsOnlyTheProductModule() throws Exception {
+        String workflow = readRepositoryFile(".github/workflows/signed-release.yml");
+
+        assertTrue(workflow.contains(
+                "./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleRelease"));
+        assertFalse(workflow.contains("./gradlew testDebugUnitTest lintDebug assembleRelease"));
+        assertFalse(workflow.contains(":securityProbe:"));
+    }
+
+    @Test
     public void stableReleaseMustMatchSourceAndBuiltApkVersion() throws Exception {
         String workflow = readRepositoryFile(".github/workflows/signed-release.yml");
 
