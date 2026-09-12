@@ -29,6 +29,8 @@ Purpose: every `android:exported="true"` component must have an explicit princip
 - `ShortcutAuthTest` covers valid/invalid token comparison for dynamic privileged shortcuts.
 - Unit/build gates compile all exported entry points.
 - Android platform contracts protect Accessibility and Quick Settings services via their required binding permissions.
+- The permanent API-37 security lane builds a separate `com.reappzuku.securityprobe` APK with no requested permissions or shared UID, verifies its UID differs from ReAppzuku, and requires that it receives no Binder from the Accessibility service or either Quick Tile. Run `34668594681` passed this external-principal probe.
+- The same external probe requires a foreign explicit `BOOT_COMPLETED` injection to be rejected; run `34668594681` passed.
 - `BootReceiver` ignores null/non-`BOOT_COMPLETED` actions.
 - `AppzukuWidgetReceiver` delegates only to the read-only Glance widget data path.
 
