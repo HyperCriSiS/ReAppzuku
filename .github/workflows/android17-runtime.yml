@@ -129,15 +129,16 @@ jobs:
           test "$consecutive_ready" -ge 3
           echo "Android $(adb shell getprop ro.build.version.release | tr -d '\r') / API 37 ready"
 
-      - name: Build app and instrumentation APKs
+      - name: Build app, instrumentation and external security probe APKs
         shell: bash
         run: |
           set -euo pipefail
           grep -F 'compileSdk = 37' app/build.gradle
           grep -F 'targetSdk = 37' app/build.gradle
-          ./gradlew assembleDebug assembleDebugAndroidTest
+          grep -F 'include(":securityProbe")' settings.gradle
+          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :securityProbe:assembleDebug
 
-      - name: Install targetSdk 37 app and instrumentation
+      - name: Install targetSdk 37 app, instrumentation and external probe
         shell: bash
         run: |
           set -euo pipefail
@@ -158,13 +159,24 @@ jobs:
           }
           APP_APK='app/build/outputs/apk/debug/app-debug.apk'
           TEST_APK="$(find app/build/outputs/apk/androidTest -type f -name '*.apk' | head -n 1)"
+          PROBE_APK="$(find securityProbe/build/outputs/apk/debug -type f -name '*.apk' | head -n 1)"
           test -f "$APP_APK"
           test -f "$TEST_APK"
+          test -f "$PROBE_APK"
           install_with_retry "$APP_APK" app
           install_with_retry "$TEST_APK" androidTest
+          install_with_retry "$PROBE_APK" securityProbe
           dump="$(adb shell dumpsys package com.gree1d.reappzuku | tr -d '\r')"
           grep -Fq 'targetSdk=37' <<<"$dump"
           grep -Fq 'versionName=1.8.7' <<<"$dump"
+          probe_dump="$(adb shell dumpsys package com.reappzuku.securityprobe | tr -d '\r')"
+          grep -Fq 'targetSdk=37' <<<"$probe_dump"
+          app_uid="$(sed -n 's/.*userId=\([0-9][0-9]*\).*/\1/p' <<<"$dump" | head -n 1)"
+          probe_uid="$(sed -n 's/.*userId=\([0-9][0-9]*\).*/\1/p' <<<"$probe_dump" | head -n 1)"
+          test -n "$app_uid"
+          test -n "$probe_uid"
+          test "$app_uid" != "$probe_uid"
+          printf 'product uid=%s; external security probe uid=%s\n' "$app_uid" "$probe_uid" | tee /tmp/api37-security-probe-uids.txt
 
       - name: Run Android instrumentation on API 37
         shell: bash
@@ -186,6 +198,34 @@ jobs:
           adb shell am instrument -w -r "${args[@]}" "$INSTRUMENTATION" | tee /tmp/api37-instrumentation.txt
           grep -Eq 'OK \([0-9]+ tests?\)' /tmp/api37-instrumentation.txt
           ! grep -Fq 'FAILURES!!!' /tmp/api37-instrumentation.txt
+
+      - name: Run external component abuse probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          adb logcat -c
+          adb shell am force-stop com.reappzuku.securityprobe
+          adb shell am start -W -n com.reappzuku.securityprobe/.ProbeActivity \
+            > /tmp/api37-security-probe-start.txt 2>&1
+          passed=0
+          for i in $(seq 1 20); do
+            adb logcat -d -s ReAppzukuSecurityProbe:I '*:S' \
+              > /tmp/api37-security-probe.txt 2>&1 || true
+            if grep -Fq 'RESULT=FAIL' /tmp/api37-security-probe.txt; then
+              cat /tmp/api37-security-probe.txt
+              exit 1
+            fi
+            if grep -Fq 'RESULT=PASS' /tmp/api37-security-probe.txt; then
+              passed=1
+              break
+            fi
+            sleep 1
+          done
+          cat /tmp/api37-security-probe-start.txt
+          cat /tmp/api37-security-probe.txt
+          test "$passed" -eq 1
+          ! grep -Fq 'BINDER_EXPOSED=' /tmp/api37-security-probe.txt
+          grep -Fq 'BOOT_BROADCAST_DENIED' /tmp/api37-security-probe.txt
 
       - name: Launcher smoke test on targetSdk 37
         shell: bash
@@ -212,7 +252,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p api37-evidence
-          for file in /tmp/api37-emulator.log /tmp/api37-instrumentation.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt /tmp/install-*.log; do
+          for file in /tmp/api37-emulator.log /tmp/api37-instrumentation.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt /tmp/api37-security-probe*.txt /tmp/install-*.log; do
             if [ -f "$file" ]; then
               cp "$file" api37-evidence/
             fi
@@ -220,6 +260,7 @@ jobs:
           adb shell getprop ro.build.version.release > api37-evidence/android-release.txt 2>/dev/null || true
           adb shell getprop ro.build.version.sdk > api37-evidence/android-api.txt 2>/dev/null || true
           adb shell dumpsys package com.gree1d.reappzuku > api37-evidence/reappzuku-package.txt 2>/dev/null || true
+          adb shell dumpsys package com.reappzuku.securityprobe > api37-evidence/security-probe-package.txt 2>/dev/null || true
 
       - name: Upload API 37 evidence
         if: always()
