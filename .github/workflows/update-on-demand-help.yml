@@ -24,115 +24,24 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import base64
 
-          entries = {
-              "docs/HELP.md": {
-                  "heading": "### ⚙️ App stability",
-                  "marker": "**On-demand mode**",
-                  "block": """**On-demand mode**\\
-          Convenience master switch for occasional/on-demand use. When enabled, the ReAppzuku main process is not automatically woken when Shizuku starts or restarts, and Back on the main screen fully exits the main process. The master controls the two individual options below; changing either one automatically makes the master reflect the custom state.
-
-          **Prevent automatic start from Shizuku**\\
-          Keeps the main process dormant when Shizuku starts or restarts. The separate `:shizuku` provider remains available so ReAppzuku can reconnect on the next manual launch.
-
-          **Fully exit app with Back button**\\
-          On the main screen, Back unbinds the Shizuku UserService, removes ReAppzuku from Recents, and terminates the main process.
-
-          **Compatibility with background automation**\\
-          On-demand behavior is unavailable while Auto-Kill, Smart Lifecycle, Sleep Mode, an active preset, or a restriction schedule requires background continuity. The settings screen lists the active blocker instead of silently disabling the controls.
-""",
-              },
-              "docs/HELP_DE.md": {
-                  "heading": "### ⚙️ App Stabilität",
-                  "marker": "**On-demand-Modus**",
-                  "block": """**On-demand-Modus**\\
-          Komfortschalter für die Nutzung nur bei Bedarf. Wenn aktiviert, wird der ReAppzuku-Hauptprozess beim Start oder Neustart von Shizuku nicht automatisch aufgeweckt, und Zurück auf dem Hauptbildschirm beendet den Hauptprozess vollständig. Der Master steuert die beiden Einzeloptionen darunter; ändern Sie eine davon, zeigt der Master automatisch den individuellen Zustand.
-
-          **Automatischen Start durch Shizuku verhindern**\\
-          Hält den Hauptprozess inaktiv, wenn Shizuku startet oder neu startet. Der separate `:shizuku`-Provider bleibt verfügbar, damit ReAppzuku beim nächsten manuellen Start wieder verbinden kann.
-
-          **App mit Zurück vollständig beenden**\\
-          Auf dem Hauptbildschirm trennt Zurück den Shizuku UserService, entfernt ReAppzuku aus den letzten Apps und beendet den Hauptprozess.
-
-          **Kompatibilität mit Hintergrundautomatisierung**\\
-          Das On-demand-Verhalten ist nicht verfügbar, solange Auto-Kill, Smart Lifecycle, Schlafmodus, eine aktive Voreinstellung oder ein Beschränkungszeitplan einen laufenden Hintergrundprozess benötigt. Die Einstellungen zeigen den aktiven Blocker direkt an, statt die Optionen stillschweigend zu deaktivieren.
-""",
-              },
-              "docs/HELP_ES.md": {
-                  "heading": "### ⚙️ Estabilidad de la app",
-                  "marker": "**Modo bajo demanda**",
-                  "block": """**Modo bajo demanda**\\
-          Interruptor maestro para usar ReAppzuku solo cuando lo necesites. Al activarlo, el proceso principal no se inicia automáticamente cuando Shizuku arranca o se reinicia, y Atrás en la pantalla principal finaliza por completo el proceso principal. El maestro controla las dos opciones individuales siguientes; si cambias una de ellas, el maestro refleja automáticamente la configuración personalizada.
-
-          **Evitar el inicio automático desde Shizuku**\\
-          Mantiene inactivo el proceso principal cuando Shizuku arranca o se reinicia. El proveedor separado `:shizuku` permanece disponible para que ReAppzuku pueda volver a conectarse en el siguiente inicio manual.
-
-          **Salir completamente con el botón Atrás**\\
-          En la pantalla principal, Atrás desconecta el UserService de Shizuku, elimina ReAppzuku de Recientes y finaliza el proceso principal.
-
-          **Compatibilidad con la automatización en segundo plano**\\
-          El comportamiento bajo demanda no está disponible mientras Auto-Kill, Smart Lifecycle, el modo de suspensión, un preset activo o una programación de restricciones necesite continuidad en segundo plano. La pantalla de ajustes muestra el bloqueo activo en lugar de desactivar las opciones sin explicación.
-""",
-              },
-              "docs/HELP_RU.md": {
-                  "heading": "### ⚙️ Стабильность приложения",
-                  "marker": "**Режим по запросу**",
-                  "block": """**Режим по запросу**\\
-          Главный переключатель для использования ReAppzuku только при необходимости. После включения основной процесс не запускается автоматически при запуске или перезапуске Shizuku, а кнопка «Назад» на главном экране полностью завершает основной процесс. Переключатель управляет двумя отдельными параметрами ниже; изменение любого из них автоматически переводит главный переключатель в соответствующее пользовательское состояние.
-
-          **Запретить автоматический запуск из Shizuku**\\
-          Не запускает основной процесс при запуске или перезапуске Shizuku. Отдельный провайдер `:shizuku` остаётся доступным, чтобы ReAppzuku мог снова подключиться при следующем ручном запуске.
-
-          **Полностью завершать приложение кнопкой «Назад»**\\
-          На главном экране кнопка «Назад» отключает Shizuku UserService, удаляет ReAppzuku из списка недавних приложений и завершает основной процесс.
-
-          **Совместимость с фоновой автоматизацией**\\
-          Режим по запросу недоступен, пока Auto-Kill, Smart Lifecycle, спящий режим, активный пресет или расписание ограничений требуют непрерывной фоновой работы. Экран настроек показывает активную причину блокировки вместо скрытого отключения параметров.
-""",
-              },
-              "docs/HELP_UK.md": {
-                  "heading": "### ⚙️ Стабільність застосунку",
-                  "marker": "**Режим на вимогу**",
-                  "block": """**Режим на вимогу**\\
-          Головний перемикач для використання ReAppzuku лише за потреби. Після ввімкнення основний процес не запускається автоматично під час запуску або перезапуску Shizuku, а кнопка «Назад» на головному екрані повністю завершує основний процес. Перемикач керує двома окремими параметрами нижче; зміна будь-якого з них автоматично відображається в стані головного перемикача.
-
-          **Заборонити автоматичний запуск із Shizuku**\\
-          Не запускає основний процес під час запуску або перезапуску Shizuku. Окремий провайдер `:shizuku` залишається доступним, щоб ReAppzuku міг знову підключитися під час наступного ручного запуску.
-
-          **Повністю завершувати застосунок кнопкою «Назад»**\\
-          На головному екрані кнопка «Назад» від'єднує Shizuku UserService, прибирає ReAppzuku зі списку нещодавніх застосунків і завершує основний процес.
-
-          **Сумісність із фоновою автоматизацією**\\
-          Режим на вимогу недоступний, доки Auto-Kill, Smart Lifecycle, режим сну, активний пресет або розклад обмежень потребують безперервної фонової роботи. Екран налаштувань показує активну причину блокування замість непомітного вимкнення параметрів.
-""",
-              },
-              "docs/HELP_ZH.md": {
-                  "heading": "### ⚙️ 应用稳定性 <a id=\"应用稳定性\"></a>",
-                  "marker": "**按需模式**",
-                  "block": """**按需模式**\\
-          用于仅在需要时运行 ReAppzuku 的主开关。启用后，Shizuku 启动或重启时不会自动唤醒 ReAppzuku 主进程，并且在主界面按“返回”会完全结束主进程。该主开关控制下面两个独立选项；如果单独修改其中一个，主开关会自动反映自定义状态。
-
-          **阻止 Shizuku 自动启动主进程**\\
-          Shizuku 启动或重启时保持主进程休眠。独立的 `:shizuku` provider 仍然可用，以便 ReAppzuku 下次手动启动时重新连接。
-
-          **按“返回”完全退出应用**\\
-          在主界面按“返回”会解绑 Shizuku UserService、从最近任务中移除 ReAppzuku，并结束主进程。
-
-          **与后台自动化的兼容性**\\
-          当 Auto-Kill、Smart Lifecycle、睡眠模式、活动预设或限制计划需要持续后台运行时，按需模式不可用。设置界面会直接显示当前阻止该模式的功能，而不是无提示地禁用选项。
-""",
-              },
-          }
+          entries = [
+              ("docs/HELP.md", "### ⚙️ App stability", "**On-demand mode**", "KipPbi1kZW1hbmQgbW9kZSoqXApDb252ZW5pZW5jZSBtYXN0ZXIgc3dpdGNoIGZvciBvY2Nhc2lvbmFsL29uLWRlbWFuZCB1c2UuIFdoZW4gZW5hYmxlZCwgdGhlIFJlQXBwenVrdSBtYWluIHByb2Nlc3MgaXMgbm90IGF1dG9tYXRpY2FsbHkgd29rZW4gd2hlbiBTaGl6dWt1IHN0YXJ0cyBvciByZXN0YXJ0cywgYW5kIEJhY2sgb24gdGhlIG1haW4gc2NyZWVuIGZ1bGx5IGV4aXRzIHRoZSBtYWluIHByb2Nlc3MuIFRoZSBtYXN0ZXIgY29udHJvbHMgdGhlIHR3byBpbmRpdmlkdWFsIG9wdGlvbnMgYmVsb3c7IGNoYW5naW5nIGVpdGhlciBvbmUgYXV0b21hdGljYWxseSBtYWtlcyB0aGUgbWFzdGVyIHJlZmxlY3QgdGhlIGN1c3RvbSBzdGF0ZS4KCioqUHJldmVudCBhdXRvbWF0aWMgc3RhcnQgZnJvbSBTaGl6dWt1KipcCktlZXBzIHRoZSBtYWluIHByb2Nlc3MgZG9ybWFudCB3aGVuIFNoaXp1a3Ugc3RhcnRzIG9yIHJlc3RhcnRzLiBUaGUgc2VwYXJhdGUgYDpzaGl6dWt1YCBwcm92aWRlciByZW1haW5zIGF2YWlsYWJsZSBzbyBSZUFwcHp1a3UgY2FuIHJlY29ubmVjdCBvbiB0aGUgbmV4dCBtYW51YWwgbGF1bmNoLgoKKipGdWxseSBleGl0IGFwcCB3aXRoIEJhY2sgYnV0dG9uKipcCk9uIHRoZSBtYWluIHNjcmVlbiwgQmFjayB1bmJpbmRzIHRoZSBTaGl6dWt1IFVzZXJTZXJ2aWNlLCByZW1vdmVzIFJlQXBwenVrdSBmcm9tIFJlY2VudHMsIGFuZCB0ZXJtaW5hdGVzIHRoZSBtYWluIHByb2Nlc3MuCgoqKkNvbXBhdGliaWxpdHkgd2l0aCBiYWNrZ3JvdW5kIGF1dG9tYXRpb24qKlwKT24tZGVtYW5kIGJlaGF2aW9yIGlzIHVuYXZhaWxhYmxlIHdoaWxlIEF1dG8tS2lsbCwgU21hcnQgTGlmZWN5Y2xlLCBTbGVlcCBNb2RlLCBhbiBhY3RpdmUgcHJlc2V0LCBvciBhIHJlc3RyaWN0aW9uIHNjaGVkdWxlIHJlcXVpcmVzIGJhY2tncm91bmQgY29udGludWl0eS4gVGhlIHNldHRpbmdzIHNjcmVlbiBsaXN0cyB0aGUgYWN0aXZlIGJsb2NrZXIgaW5zdGVhZCBvZiBzaWxlbnRseSBkaXNhYmxpbmcgdGhlIGNvbnRyb2xzLgo="),
+              ("docs/HELP_DE.md", "### ⚙️ App Stabilität", "**On-demand-Modus**", "KipPbi1kZW1hbmQtTW9kdXMqKlwKS29tZm9ydHNjaGFsdGVyIGbDvHIgZGllIE51dHp1bmcgbnVyIGJlaSBCZWRhcmYuIFdlbm4gYWt0aXZpZXJ0LCB3aXJkIGRlciBSZUFwcHp1a3UtSGF1cHRwcm96ZXNzIGJlaW0gU3RhcnQgb2RlciBOZXVzdGFydCB2b24gU2hpenVrdSBuaWNodCBhdXRvbWF0aXNjaCBhdWZnZXdlY2t0LCB1bmQgWnVyw7xjayBhdWYgZGVtIEhhdXB0YmlsZHNjaGlybSBiZWVuZGV0IGRlbiBIYXVwdHByb3plc3Mgdm9sbHN0w6RuZGlnLiBEZXIgTWFzdGVyIHN0ZXVlcnQgZGllIGJlaWRlbiBFaW56ZWxvcHRpb25lbiBkYXJ1bnRlcjsgw6RuZGVybiBTaWUgZWluZSBkYXZvbiwgemVpZ3QgZGVyIE1hc3RlciBhdXRvbWF0aXNjaCBkZW4gaW5kaXZpZHVlbGxlbiBadXN0YW5kLgoKKipBdXRvbWF0aXNjaGVuIFN0YXJ0IGR1cmNoIFNoaXp1a3UgdmVyaGluZGVybioqXApIw6RsdCBkZW4gSGF1cHRwcm96ZXNzIGluYWt0aXYsIHdlbm4gU2hpenVrdSBzdGFydGV0IG9kZXIgbmV1IHN0YXJ0ZXQuIERlciBzZXBhcmF0ZSBgOnNoaXp1a3VgLVByb3ZpZGVyIGJsZWlidCB2ZXJmw7xnYmFyLCBkYW1pdCBSZUFwcHp1a3UgYmVpbSBuw6RjaHN0ZW4gbWFudWVsbGVuIFN0YXJ0IHdpZWRlciB2ZXJiaW5kZW4ga2Fubi4KCioqQXBwIG1pdCBadXLDvGNrIHZvbGxzdMOkbmRpZyBiZWVuZGVuKipcCkF1ZiBkZW0gSGF1cHRiaWxkc2NoaXJtIHRyZW5udCBadXLDvGNrIGRlbiBTaGl6dWt1IFVzZXJTZXJ2aWNlLCBlbnRmZXJudCBSZUFwcHp1a3UgYXVzIGRlbiBsZXR6dGVuIEFwcHMgdW5kIGJlZW5kZXQgZGVuIEhhdXB0cHJvemVzcy4KCioqS29tcGF0aWJpbGl0w6R0IG1pdCBIaW50ZXJncnVuZGF1dG9tYXRpc2llcnVuZyoqXApEYXMgT24tZGVtYW5kLVZlcmhhbHRlbiBpc3QgbmljaHQgdmVyZsO8Z2Jhciwgc29sYW5nZSBBdXRvLUtpbGwsIFNtYXJ0IExpZmVjeWNsZSwgU2NobGFmbW9kdXMsIGVpbmUgYWt0aXZlIFZvcmVpbnN0ZWxsdW5nIG9kZXIgZWluIEJlc2NocsOkbmt1bmdzemVpdHBsYW4gZWluZW4gbGF1ZmVuZGVuIEhpbnRlcmdydW5kcHJvemVzcyBiZW7DtnRpZ3QuIERpZSBFaW5zdGVsbHVuZ2VuIHplaWdlbiBkZW4gYWt0aXZlbiBCbG9ja2VyIGRpcmVrdCBhbiwgc3RhdHQgZGllIE9wdGlvbmVuIHN0aWxsc2Nod2VpZ2VuZCB6dSBkZWFrdGl2aWVyZW4uCg=="),
+              ("docs/HELP_ES.md", "### ⚙️ Estabilidad de la app", "**Modo bajo demanda**", "KipNb2RvIGJham8gZGVtYW5kYSoqXApJbnRlcnJ1cHRvciBtYWVzdHJvIHBhcmEgdXNhciBSZUFwcHp1a3Ugc29sbyBjdWFuZG8gbG8gbmVjZXNpdGVzLiBBbCBhY3RpdmFybG8sIGVsIHByb2Nlc28gcHJpbmNpcGFsIG5vIHNlIGluaWNpYSBhdXRvbcOhdGljYW1lbnRlIGN1YW5kbyBTaGl6dWt1IGFycmFuY2EgbyBzZSByZWluaWNpYSwgeSBBdHLDoXMgZW4gbGEgcGFudGFsbGEgcHJpbmNpcGFsIGZpbmFsaXphIHBvciBjb21wbGV0byBlbCBwcm9jZXNvIHByaW5jaXBhbC4gRWwgbWFlc3RybyBjb250cm9sYSBsYXMgZG9zIG9wY2lvbmVzIGluZGl2aWR1YWxlcyBzaWd1aWVudGVzOyBzaSBjYW1iaWFzIHVuYSBkZSBlbGxhcywgZWwgbWFlc3RybyByZWZsZWphIGF1dG9tw6F0aWNhbWVudGUgbGEgY29uZmlndXJhY2nDs24gcGVyc29uYWxpemFkYS4KCioqRXZpdGFyIGVsIGluaWNpbyBhdXRvbcOhdGljbyBkZXNkZSBTaGl6dWt1KipcCk1hbnRpZW5lIGluYWN0aXZvIGVsIHByb2Nlc28gcHJpbmNpcGFsIGN1YW5kbyBTaGl6dWt1IGFycmFuY2EgbyBzZSByZWluaWNpYS4gRWwgcHJvdmVlZG9yIHNlcGFyYWRvIGA6c2hpenVrdWAgcGVybWFuZWNlIGRpc3BvbmlibGUgcGFyYSBxdWUgUmVBcHB6dWt1IHB1ZWRhIHZvbHZlciBhIGNvbmVjdGFyc2UgZW4gZWwgc2lndWllbnRlIGluaWNpbyBtYW51YWwuCgoqKlNhbGlyIGNvbXBsZXRhbWVudGUgY29uIGVsIGJvdMOzbiBBdHLDoXMqKlwKRW4gbGEgcGFudGFsbGEgcHJpbmNpcGFsLCBBdHLDoXMgZGVzY29uZWN0YSBlbCBVc2VyU2VydmljZSBkZSBTaGl6dWt1LCBlbGltaW5hIFJlQXBwenVrdSBkZSBSZWNpZW50ZXMgeSBmaW5hbGl6YSBlbCBwcm9jZXNvIHByaW5jaXBhbC4KCioqQ29tcGF0aWJpbGlkYWQgY29uIGxhIGF1dG9tYXRpemFjacOzbiBlbiBzZWd1bmRvIHBsYW5vKipcCkVsIGNvbXBvcnRhbWllbnRvIGJham8gZGVtYW5kYSBubyBlc3TDoSBkaXNwb25pYmxlIG1pZW50cmFzIEF1dG8tS2lsbCwgU21hcnQgTGlmZWN5Y2xlLCBlbCBtb2RvIGRlIHN1c3BlbnNpw7NuLCB1biBwcmVzZXQgYWN0aXZvIG8gdW5hIHByb2dyYW1hY2nDs24gZGUgcmVzdHJpY2Npb25lcyBuZWNlc2l0ZSBjb250aW51aWRhZCBlbiBzZWd1bmRvIHBsYW5vLiBMYSBwYW50YWxsYSBkZSBhanVzdGVzIG11ZXN0cmEgZWwgYmxvcXVlbyBhY3Rpdm8gZW4gbHVnYXIgZGUgZGVzYWN0aXZhciBsYXMgb3BjaW9uZXMgc2luIGV4cGxpY2FjacOzbi4K"),
+              ("docs/HELP_RU.md", "### ⚙️ Стабильность приложения", "**Режим по запросу**", "KirQoNC10LbQuNC8INC/0L4g0LfQsNC/0YDQvtGB0YMqKlwK0JPQu9Cw0LLQvdGL0Lkg0L/QtdGA0LXQutC70Y7Rh9Cw0YLQtdC70Ywg0LTQu9GPINC40YHQv9C+0LvRjNC30L7QstCw0L3QuNGPIFJlQXBwenVrdSDRgtC+0LvRjNC60L4g0L/RgNC4INC90LXQvtCx0YXQvtC00LjQvNC+0YHRgtC4LiDQn9C+0YHQu9C1INCy0LrQu9GO0YfQtdC90LjRjyDQvtGB0L3QvtCy0L3QvtC5INC/0YDQvtGG0LXRgdGBINC90LUg0LfQsNC/0YPRgdC60LDQtdGC0YHRjyDQsNCy0YLQvtC80LDRgtC40YfQtdGB0LrQuCDQv9GA0Lgg0LfQsNC/0YPRgdC60LUg0LjQu9C4INC/0LXRgNC10LfQsNC/0YPRgdC60LUgU2hpenVrdSwg0LAg0LrQvdC+0L/QutCwIMKr0J3QsNC30LDQtMK7INC90LAg0LPQu9Cw0LLQvdC+0Lwg0Y3QutGA0LDQvdC1INC/0L7Qu9C90L7RgdGC0YzRjiDQt9Cw0LLQtdGA0YjQsNC10YIg0L7RgdC90L7QstC90L7QuSDQv9GA0L7RhtC10YHRgS4g0J/QtdGA0LXQutC70Y7Rh9Cw0YLQtdC70Ywg0YPQv9GA0LDQstC70Y/QtdGCINC00LLRg9C80Y8g0L7RgtC00LXQu9GM0L3Ri9C80Lgg0L/QsNGA0LDQvNC10YLRgNCw0LzQuCDQvdC40LbQtTsg0LjQt9C80LXQvdC10L3QuNC1INC70Y7QsdC+0LPQviDQuNC3INC90LjRhSDQsNCy0YLQvtC80LDRgtC40YfQtdGB0LrQuCDQv9C10YDQtdCy0L7QtNC40YIg0LPQu9Cw0LLQvdGL0Lkg0L/QtdGA0LXQutC70Y7Rh9Cw0YLQtdC70Ywg0LIg0YHQvtC+0YLQstC10YLRgdGC0LLRg9GO0YnQtdC1INC/0L7Qu9GM0LfQvtCy0LDRgtC10LvRjNGB0LrQvtC1INGB0L7RgdGC0L7Rj9C90LjQtS4KCioq0JfQsNC/0YDQtdGC0LjRgtGMINCw0LLRgtC+0LzQsNGC0LjRh9C10YHQutC40Lkg0LfQsNC/0YPRgdC6INC40LcgU2hpenVrdSoqXArQndC1INC30LDQv9GD0YHQutCw0LXRgiDQvtGB0L3QvtCy0L3QvtC5INC/0YDQvtGG0LXRgdGBINC/0YDQuCDQt9Cw0L/Rg9GB0LrQtSDQuNC70Lgg0L/QtdGA0LXQt9Cw0L/Rg9GB0LrQtSBTaGl6dWt1LiDQntGC0LTQtdC70YzQvdGL0Lkg0L/RgNC+0LLQsNC50LTQtdGAIGA6c2hpenVrdWAg0L7RgdGC0LDRkdGC0YHRjyDQtNC+0YHRgtGDQv9C90YvQvSwINGH0YLQvtCx0YsgUmVBcHB6dWt1INC80L7QsyDRgdC90L7QstCwINC/0L7QtNC60LvRjtGH0LjRgtGM0YHRjyDQv9GA0Lgg0YHQu9C10LTRg9GO0YnQtdC8INGA0YPRh9C90L7QvCDQt9Cw0L/Rg9GB0LrQtS4KCioq0J/QvtC70L3QvtGB0YLRjNGOINC30LDQstC10YDRiNCw0YLRjCDQv9GA0LjQu9C+0LbQtdC90LjQtSDQutC90L7Qv9C60L7QuSDCq9Cd0LDQt9Cw0LTCuyoqXArQndCwINCz0LvQsNCy0L3QvtC8INGN0LrRgNCw0L3QtSDQutC90L7Qv9C60LAgwqvQndCw0LfQsNC0wrsg0L7RgtC60LvRjtGH0LDQtdGCIFNoaXp1a3UgVXNlclNlcnZpY2UsINGD0LTQsNC70Y/QtdGCIFJlQXBwenVrdSDQuNC3INGB0L/QuNGB0LrQsCDQvdC10LTQsNCy0L3QuNGFINC/0YDQuNC70L7QttC10L3QuNC5INC4INC30LDQstC10YDRiNCw0LXRgiDQvtGB0L3QvtCy0L3QvtC5INC/0YDQvtGG0LXRgdGBLgoKKirQodC+0LLQvNC10YHRgtC40LzQvtGB0YLRjCDRgSDRhNC+0L3QvtCy0L7QuSDQsNCy0YLQvtC80LDRgtC40LfQsNGG0LjQtdC5KipcCtCg0LXQttC40Lwg0L/QviDQt9Cw0L/RgNC+0YHRgyDQvdC10LTQvtGB0YLRg9C/0LXQvSwg0L/QvtC60LAgQXV0by1LaWxsLCBTbWFydCBMaWZlY3ljbGUsINGB0L/Rj9GJ0LjQuSDRgNC10LbQuNC8LCDQsNC60YLQuNCy0L3Ri9C5INC/0YDQtdGB0LXRgiDQuNC70Lgg0YDQsNGB0L/QuNGB0LDQvdC40LUg0L7Qs9GA0LDQvdC40YfQtdC90LjQuSDRgtGA0LXQsdGD0Y7RgiDQvdC10L/RgNC10YDRi9Cy0L3QvtC5INGE0L7QvdC+0LLQvtC5INGA0LDQsdC+0YLRiy4g0K3QutGA0LDQvSDQvdCw0YHRgtGA0L7QtdC6INC/0L7QutCw0LfRi9Cy0LDQtdGCINCw0LrRgtC40LLQvdGD0Y4g0L/RgNC40YfQuNC90YMg0LHQu9C+0LrQuNGA0L7QstC60Lgg0LLQvNC10YHRgtC+INGB0LrRgNGL0YLQvtCz0L4g0L7RgtC60LvRjtGH0LXQvdC40Y8g0L/QsNGA0LDQvNC10YLRgNC+0LIuCg=="),
+              ("docs/HELP_UK.md", "### ⚙️ Стабільність застосунку", "**Режим на вимогу**", "KirQoNC10LbQuNC8INC90LAg0LLQuNC80L7Qs9GDKipcCtCT0L7Qu9C+0LLQvdC40Lkg0L/QtdGA0LXQvNC40LrQsNGHINC00LvRjyDQstC40LrQvtGA0LjRgdGC0LDQvdC90Y8gUmVBcHB6dWt1INC70LjRiNC1INC30LAg0L/QvtGC0YDQtdCx0LguINCf0ZbRgdC70Y8g0LLQstGW0LzQutC90LXQvdC90Y8g0L7RgdC90L7QstC90LjQuSDQv9GA0L7RhtC10YEg0L3QtSDQt9Cw0L/Rg9GB0LrQsNGU0YLRjNGB0Y8g0LDQstGC0L7QvNCw0YLQuNGH0L3QviDQv9GW0LQg0YfQsNGBINC30LDQv9GD0YHQutGDINCw0LHQviDQv9C10YDQtdC30LDQv9GD0YHQutGDIFNoaXp1a3UsINCwINC60L3QvtC/0LrQsCDCq9Cd0LDQt9Cw0LTCuyDQvdCwINCz0L7Qu9C+0LLQvdC+0LzRgyDQtdC60YDQsNC90ZYg0L/QvtCy0L3RltGB0YLRjiDQt9Cw0LLQtdGA0YjRg9GUINC+0YHQvdC+0LLQvdC40Lkg0L/RgNC+0YbQtdGBLiDQn9C10YDQtdC80LjQutCw0Ycg0LrQtdGA0YPRlCDQtNCy0L7QvNCwINC+0LrRgNC10LzQuNC80Lgg0L/QsNGA0LDQvNC10YLRgNCw0LzQuCDQvdC40LbRh9C1OyDQt9C80ZbQvdCwINCx0YPQtNGMLdGP0LrQvtCz0L4g0Lcg0L3QuNGFINCw0LLRgtC+0LzQsNGC0LjRh9C90L4g0LLRltC00L7QsdGA0LDQttCw0ZTRgtGM0YHRjyDQsiDRgdGC0LDQvdGWINCz0L7Qu9C+0LLQvdC+0LPQviDQv9C10YDQtdC80LjQutCw0YfQsC4KCioq0JfQsNCx0L7RgNC+0L3QuNGC0Lgg0LDQstGC0L7QvNCw0YLQuNGH0L3QuNC5INC30LDQv9GD0YHQuiDRltC3IFNoaXp1a3UqKlwK0J3QtSDQt9Cw0L/Rg9GB0LrQsNGUINC+0YHQvdC+0LLQvdC40Lkg0L/RgNC+0YbQtdGBINC/0ZbQtCDRh9Cw0YEg0LfQsNC/0YPRgdC60YMg0LDQsdC+INC/0LXRgNC10LfQsNC/0YPRgdC60YMgU2hpenVrdS4g0J7QutGA0LXQvNC40Lkg0L/RgNC+0LLQsNC50LTQtdGAIGA6c2hpenVrdWAg0LfQsNC70LjRiNCw0ZTRgtGM0YHRjyDQtNC+0YHRgtGDQv9C40LwsINGJ0L7QsSBSZUFwcHp1a3Ug0LzRltCzINC30L3QvtCy0YMg0L/RltC00LrQu9GO0YfQuNGC0LjRgdGPINC/0ZbQtCDRh9Cw0YEg0L3QsNGB0YLRg9C/0L3QvtCz0L4g0YDRg9GH0L3QvtCz0L4g0LfQsNC/0YPRgdC60YMuCgoqKtCf0L7QstC90ZbRgdGC0Y4g0LfQsNCy0LXRgNGI0YPQstCw0YLQuCDQt9Cw0YHRgtC+0YHRg9C90L7QuiDQutC90L7Qv9C60L7RjiDCq9Cd0LDQt9Cw0LTCuyoqXArQndCwINCz0L7Qu9C+0LLQvdC+0LzRgyDQtdC60YDQsNC90ZYg0LrQvdC+0L/QutCwIMKr0J3QsNC30LDQtMK7INCy0ZbQtCfRlNC00L3Rg9GUIFNoaXp1a3UgVXNlclNlcnZpY2UsINC/0YDQuNCx0LjRgNCw0ZQgUmVBcHB6dWt1INC30ZYg0YHQv9C40YHQutGDINC90LXRidC+0LTQsNCy0L3RltGFINC30LDRgdGC0L7RgdGD0L3QutGW0LIg0ZYg0LfQsNCy0LXRgNGI0YPRlCDQvtGB0L3QvtCy0L3QuNC5INC/0YDQvtGG0LXRgS4KCioq0KHRg9C80ZbRgdC90ZbRgdGC0Ywg0ZbQtyDRhNC+0L3QvtCy0L7RjiDQsNCy0YLQvtC80LDRgtC40LfQsNGG0ZbRlNGOKipcCtCg0LXQttC40Lwg0L3QsCDQstC40LzQvtCz0YMg0L3QtdC00L7RgdGC0YPQv9C90LjQuSwg0LTQvtC60LggQXV0by1LaWxsLCBTbWFydCBMaWZlY3ljbGUsINGA0LXQttC40Lwg0YHQvdGDLCDQsNC60YLQuNCy0L3QuNC5INC/0YDQtdGB0LXRgiDQsNCx0L4g0YDQvtC30LrQu9Cw0LQg0L7QsdC80LXQttC10L3RjCDQv9C+0YLRgNC10LHRg9GO0YLRjCDQsdC10LfQv9C10YDQtdGA0LLQvdC+0Zcg0YTQvtC90L7QstC+0Zcg0YDQvtCx0L7RgtC4LiDQldC60YDQsNC9INC90LDQu9Cw0YjRgtGD0LLQsNC90Ywg0L/QvtC60LDQt9GD0ZQg0LDQutGC0LjQstC90YMg0L/RgNC40YfQuNC90YMg0LHQu9C+0LrRg9Cy0LDQvdC90Y8g0LfQsNC80ZbRgdGC0Ywg0L3QtdC/0L7QvNGW0YLQvdC+0LPQviDQstC40LzQutC90LXQvdC90Y8g0L/QsNGA0LDQvNC10YLRgNGW0LIuCg=="),
+              ("docs/HELP_ZH.md", "### ⚙️ 应用稳定性 <a id=\"应用稳定性\"></a>", "**按需模式**", "KirmjInpnIDmqKHlvI8qKlwK55So5LqO5LuF5Zyo6ZyA6KaB5pe26L+Q6KGMIFJlQXBwenVrdSDnmoTkuLvlvIDlhbPjgILlkK/nlKjlkI7vvIxTaGl6dWt1IOWQr+WKqOaIlumHjeWQr+aXtuS4jeS8muiHquWKqOWUpOmGkiBSZUFwcHp1a3Ug5Li76L+b56iL77yM5bm25LiU5Zyo5Li755WM6Z2i5oyJ4oCc6L+U5Zue4oCd5Lya5a6M5YWo57uT5p2f5Li76L+b56iL44CC6K+l5Li75byA5YWz5o6n5Yi25LiL6Z2i5Lik5Liq54us56uL6YCJ6aG577yb5aaC5p6c5Y2V54us5L+u5pS55YW25Lit5LiA5Liq77yM5Li75byA5YWz5Lya6Ieq5Yqo5Y+N5pig6Ieq5a6a5LmJ54q25oCB44CCCgoqKumYu+atoiBTaGl6dWt1IOiHquWKqOWQr+WKqOS4u+i/m+eoiyoqXApTaGl6dWt1IOWQr+WKqOaIlumHjeWQr+aXtuS/neaMgeS4u+i/m+eoi+S8keecoOOAgueLrOeri+eahCBgOnNoaXp1a3VgIHByb3ZpZGVyIOS7jeeEtuWPr+eUqO+8jOS7peS+vyBSZUFwcHp1a3Ug5LiL5qyh5omL5Yqo5ZCv5Yqo5pe26YeN5paw6L+e5o6l44CCCgoqKuaMieKAnOi/lOWbnuKAneWujOWFqOmAgOWHuuW6lOeUqCoqXArlnKjkuLvnlYzpnaLmjInigJzov5Tlm57igJ3kvJrop6Pnu5EgU2hpenVrdSBVc2VyU2VydmljZeOAgeS7juacgOi/keS7u+WKoeS4reenu+mZpCBSZUFwcHp1a3XvvIzlubbnu5PmnZ/kuLvov5vnqIvjgIIKCioq5LiO5ZCO5Y+w6Ieq5Yqo5YyW55qE5YW85a655oCnKipcCuW9kyBBdXRvLUtpbGzjgIFTbWFydCBMaWZlY3ljbGXjgIHnnaHnnKDmqKHlvI/jgIHmtLvliqjpooTorr7miJbpmZDliLborqHliJLpnIDopoHmjIHnu63lkI7lj7Dov5DooYzml7bvvIzmjInpnIDmqKHlvI/kuI3lj6/nlKjjgILorr7nva7nlYzpnaLkvJrnm7TmjqXmmL7npLrlvZPliY3pmLvmraLor6XmqKHlvI/nmoTlip/og73vvIzogIzkuI3mmK/ml6Dmj5DnpLrlnLDnpoHnlKjpgInpobnjgIIK")
+          ]
 
           changed = []
-          for filename, spec in entries.items():
+          for filename, heading, marker, encoded in entries:
               path = Path(filename)
-              raw = path.read_bytes()
-              text = raw.decode("utf-8")
-              if spec["marker"] in text:
+              text = path.read_bytes().decode("utf-8")
+              if marker in text:
                   continue
               newline = "\r\n" if "\r\n" in text else "\n"
-              heading = spec["heading"]
               start = text.find(heading)
               if start < 0:
                   raise RuntimeError(f"Heading not found in {filename}: {heading}")
@@ -140,7 +49,7 @@ jobs:
               pos = text.find(separator, start)
               if pos < 0:
                   raise RuntimeError(f"Section separator not found in {filename}")
-              block = spec["block"].replace("\n", newline)
+              block = base64.b64decode(encoded).decode("utf-8").replace("\n", newline)
               text = text[:pos] + newline + block + text[pos:]
               path.write_bytes(text.encode("utf-8"))
               changed.append(filename)
