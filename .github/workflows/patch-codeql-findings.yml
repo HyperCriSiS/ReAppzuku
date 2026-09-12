@@ -1,0 +1,57 @@
+name: Patch safe CodeQL findings
+
+on:
+  push:
+    branches: [roadmap/codeql-findings]
+    paths:
+      - '.github/workflows/patch-codeql-findings.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out finding branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: roadmap/codeql-findings
+          fetch-depth: 0
+
+      - name: Apply bounded parser and absolute Shizuku shell fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          doze = Path('app/src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/DozeOpsAnalyzer.java')
+          text = doze.read_text()
+          old = '                    "time=\\\\+([\\\\d]+[\\\\dhms]+(?:\\\\s*[\\\\dhms]+)*)\\\\s+ago", Pattern.CASE_INSENSITIVE);'
+          new = '                    "time=\\\\+([0-9dhms]+(?:\\\\s+[0-9dhms]+)*)\\\\s+ago", Pattern.CASE_INSENSITIVE);'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one vulnerable time regex, found {text.count(old)}')
+          doze.write_text(text.replace(old, new, 1))
+
+          shizuku = Path('app/src/main/java/com/gree1d/reappzuku/core/shell/ShizukuUserServiceImpl.java')
+          text = shizuku.read_text()
+          old = 'new String[] { "sh", "-c", command }'
+          new = 'new String[] { "/system/bin/sh", "-c", command }'
+          if text.count(old) != 2:
+              raise SystemExit(f'expected two relative sh launches, found {text.count(old)}')
+          shizuku.write_text(text.replace(old, new))
+          PY
+
+          git diff --check
+          grep -F 'time=\\+([0-9dhms]+(?:\\s+[0-9dhms]+)*)\\s+ago' app/src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/DozeOpsAnalyzer.java
+          test "$(grep -Fc 'new String[] { "/system/bin/sh", "-c", command }' app/src/main/java/com/gree1d/reappzuku/core/shell/ShizukuUserServiceImpl.java)" -eq 2
+          ! grep -Fq 'new String[] { "sh", "-c", command }' app/src/main/java/com/gree1d/reappzuku/core/shell/ShizukuUserServiceImpl.java
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/DozeOpsAnalyzer.java \
+                  app/src/main/java/com/gree1d/reappzuku/core/shell/ShizukuUserServiceImpl.java
+          git diff --cached --quiet && { echo 'No remediation changes produced'; exit 1; }
+          git commit -m 'Fix CodeQL ReDoS and Shizuku shell path findings'
+          git push origin HEAD:roadmap/codeql-findings
