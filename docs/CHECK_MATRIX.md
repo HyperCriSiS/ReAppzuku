@@ -2,7 +2,7 @@
 
 > Adapted from the Voice-platform Architecture Control Matrix.
 >
-> Audit baseline: `main`, consolidated 2026-09-11 from the fully validated product line.
+> Audit baseline: `main`, refreshed 2026-09-12 against the current validated product line.
 
 ## Purpose
 
@@ -39,9 +39,9 @@ Only **PROVEN** is fully closed.
 | A13 | Backup / restore | DECIDED | API-36 instrumentation passes transactional rollback fault injection, legacy/future/malformed bounds and active-preset reconciliation. Backup v6 now round-trips exact manual AppOps/bucket/whitelist detail snapshots with stale-key replacement and v5-default compatibility; focused API-36 run `34259632923` passed all 12 `BackupManagerRestoreTest` cases. `34000092714` passes a real MediaStore `content://` round-trip; physical/OEM provider UI remains release-diversity evidence. |
 | A14 | Room DB / statistics / logs | DECIDED | Supported v2→v11 migration executes successfully on API 36 with `app_stats` preservation and final-schema validation; SQL debug bind values are redacted (`34065691224`). Unavailable upstream schema history 1/3–10 cannot be fabricated. |
 | A15 | Update channel / release / rollback | DECIDED | Fork-owned update resolution enumerates stable numeric releases, direct APK/release links are derived only from validated fork metadata, and the release workflow binds stable tag ↔ source `versionName` ↔ built APK `versionName`. Run `34037508198` proves installed-byte identity and fork-only endpoints. Stable signing/rollback identity remains incomplete. |
-| A16 | Exported surfaces: shortcuts / tiles / receivers / widget | DECIDED | Shortcut confused-deputy routing has an explicit principal policy (`f3145bb0`, `34154664082`), the explicit-intent abuse step passed in `33986395874`, and manifest/documentation parity plus platform permissions are regression-tested (`34138775145`). External API-37 run `34308440409` additionally used a separate unprivileged attacker APK/UID (`10232` vs ReAppzuku `10231`) and proved denial of direct access to the Accessibility service, both Quick Tile services, the Shizuku provider and protected `BOOT_COMPLETED`, with no `ShappkyService` bootstrap. OEM/launcher/widget-host diversity remains release evidence. |
+| A16 | Exported surfaces: shortcuts / tiles / receivers / widget | DECIDED | Shortcut confused-deputy routing has an explicit principal policy (`f3145bb0`, `34154664082`) and manifest/documentation parity plus platform permissions are regression-tested (`34138775145`). The former one-shot external attacker check is now a permanent API-37 regression: `securityProbe` is a no-permission APK under a UID distinct from ReAppzuku; branch run `34668594681` and final branch run `34670073539` proved no Binder exposure from Accessibility/Quick Tiles and denial of explicit foreign `BOOT_COMPLETED`. The same lane is integrated into `main`; OEM/launcher/widget-host diversity remains release evidence. |
 | A17 | UI / error recovery / accessibility / i18n | DECIDED | Fork translations/accessibility fixes are covered, `NavigationManifestPolicyTest` prevents recursive activity-parent routing, machine token normalization is locale-independent (`34259194668`), and app-label search/sorting vs package matching now uses explicit user-locale/`Locale.ROOT` semantics (`34259963846`). The manifest-parent regression remains locked by `f426b55c`/`34163189731`; broader runtime/UX evidence remains pending. |
-| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action pins, zero-error lint, dependency locking/SHA-256 verification and stable tag/source/APK version binding are enforced. Platform API lint debt was reduced while correcting the API-34 `SPECIAL_USE` FGS boundary (`34168563677`). Target-37 source validation `34274940182` and branch-exact Android 17/API 37 runtime + launcher smoke `34276106536` now close the former preview-runtime blocker. |
+| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action SHA pins, zero-error lint, dependency locking/verification and stable tag/source/APK version binding are enforced. Gradle is now 9.7.1 with the binary distribution SHA-256 pinned; branch normal/API-37 validation passed in `34668406587` / `34667821759`, and main normal revalidation passed in `34668611855`. The signed-release task graph is explicitly scoped to `:app:` so the permanent `securityProbe` test module cannot enter release builds. Physical release signing/rollback evidence remains open. |
 
 ## Axis B — independent lenses
 
@@ -200,197 +200,47 @@ Latest assurance evidence:
 
 # High-priority findings
 
-## P0 — correctness / user intent
-
-### CM-P0-01 — Intentional stop can be undone by service self-restart
-
-**Surface:** A06/A11  
-**Lenses:** L01, L02, L04, L08, L23, L26
-
-`ShappkyService.onDestroy()` unconditionally schedules `RestartReceiver` after three seconds.
-The receiver restarts the service whenever `isRunning()` is false, without re-checking whether
-AutoKill/background service is still enabled.
-
-**Hazard:** user disables background behavior -> service stops -> `onDestroy()` schedules restart ->
-service returns despite explicit user intent.
-
-**Required invariant:** an intentional disable must dominate crash-recovery logic.
-
-**Fix direction:**
-1. restart only if the persisted desired state still requires the service;
-2. cancel pending restart intents when the user disables AutoKill/background mode;
-3. test process death with enabled/disabled desired state.
-
-### CM-P0-02 — Update checker still points at upstream fork provenance
-
-**Surface:** A15  
-**Lenses:** L09, L11, L14, L17, L25, L26
-
-`UpdateChecker` queries `gree1d/ReAppzuku` and then downloads assets from the returned release.
-The installed fork is `HyperCriSiS/ReAppzuku` with behavior and possibly signing identity that may
-not match upstream.
-
-**Hazard:** a fork can offer the wrong APK to itself.
-
-**Required invariant:** update provenance must match the installed distribution channel.
-
-**Fix direction:** make update channel a build-time constant owned by the fork; verify package/signing
-identity and expose release channel/version provenance to the user.
-
-### CM-P0-03 — No regression evidence for the Shizuku permission/UserService state machine
-
-**Surface:** A01/A02/A03/A04  
-**Lenses:** L02, L03, L04, L08, L18
-
-The recent first-run bug was caused by treating `PERMISSION_GRANTED` and `UserService ready` as the
-same state. The code is now improved, but the same class of regression can return.
-
-**Required invariant:** no privileged operation runs until the selected backend is ready.
-
-**Required evidence matrix:**
-- Shizuku absent;
-- binder arrives late;
-- permission denied;
-- permission pending;
-- permission granted, service bind delayed;
-- service dies during command;
-- Shizuku restarts while app is open;
-- activity stops/recreates during permission dialog;
-- root backend available / unavailable.
-
----
-
-# P1 findings
-
-### CM-P1-01 — Preset alarms are not restored after reboot
-
-`BootReceiver` restores Restrictions Scheduler and Smart Lifecycle, but does not rebuild
-`PresetManager` AlarmManager entries. Exact alarms do not survive reboot.
-
-**Fix direction:** after normal boot, reload enabled presets, validate exact-alarm capability,
-schedule alarms and call `checkAndApplyCurrentPreset()`.
-
-### CM-P1-02 — Exact-alarm permission model is inconsistent
-
-The manifest declares both `SCHEDULE_EXACT_ALARM` and `USE_EXACT_ALARM`, while preset and
-restriction scheduling call exact-alarm APIs without a central `canScheduleExactAlarms()` gate.
-
-Android documents `USE_EXACT_ALARM` as restricted/core-functionality use and says only one of
-`USE_EXACT_ALARM` or `SCHEDULE_EXACT_ALARM` should be requested on a device. ReAppzuku's exact
-scheduling is an optional feature, so `SCHEDULE_EXACT_ALARM` is the safer default architecture.
-
-**Fix direction:** keep one permission, add a central ExactAlarmCapability facade, recovery UI,
-and reschedule on permission grant/revocation events.
-
-### CM-P1-03 — Backup restore is non-transactional and incomplete
-
-Current restore:
-1. parses JSON;
-2. writes main SharedPreferences with `apply()`;
-3. restores presets afterward.
-
-If preset restore fails, the method returns false after main state has already changed.
-
-The backup format currently omits fork-owned durable settings including:
-- `KEY_EXIT_ON_BACK`
-- `KEY_PREVENT_SHIZUKU_AUTOSTART`
-- `KEY_SMART_LIFECYCLE_ENABLED`
-- `KEY_SMART_BOOT_CLEANUP_ENABLED`
-- `KEY_SMART_LIFECYCLE_PROFILE`
-
-The read version is logged but future/incompatible versions are not rejected.
-
-**Required invariant:** restore is validate-first, commit-once, recoverable, versioned, and applies
-runtime side effects only after durable state is consistent.
-
-### CM-P1-04 — Room can silently destroy data
-
-`AppDatabase` declares migrations but also calls `fallbackToDestructiveMigration()`.
-If a migration path is missed, statistics/log data may be recreated rather than failing safely.
-
-Only an old Room schema snapshot is currently committed while DB version is much newer.
-
-**Fix direction:** remove destructive fallback for release, commit every schema, and add
-`MigrationTestHelper` coverage for supported upgrade paths.
-
-### CM-P1-05 — CI can hide lint regressions
-
-The release workflow runs `./gradlew updateLintBaseline` before the release build.
-That mutates the acceptance baseline rather than checking against it.
-
-**Required invariant:** validation jobs never rewrite their own quality threshold.
-
-**Fix direction:** baseline changes only in reviewed commits; CI runs lint and fails on new findings.
-
-### CM-P1-06 — Test/build workflow mutates source
-
-`ondemand-test-build.yml` runs patch scripts, commits generated source back to the branch and then
-builds/releases from that modified state.
-
-**Hazards:** source/binary provenance becomes harder to reason about; pushes trigger more builds;
-validation requires write token; a patch script can accidentally overwrite human changes.
-
-**Fix direction:** make checked-in source authoritative. CI is read-only for validation.
-Publishing is a separate explicitly writable job.
-
-### CM-P1-07 — GitHub Actions are tag-pinned instead of immutable-SHA pinned
-
-Current workflows use references such as `actions/checkout@v6`, `actions/setup-java@v5`,
-`actions/upload-artifact@v7`.
-
-Voice-platform quality gates require external Actions to be pinned to immutable full commit SHAs.
-
-### CM-P1-08 — No automated test tree — RESOLVED 2026-09-07
-
-Historical finding: the repository originally lacked meaningful `app/src/test` / `app/src/androidTest`
-coverage despite large stateful managers and privileged flows.
-
-Current state: the branch now contains a broad JVM suite for policy, parser, manifest, backup,
-release, shell and lifecycle contracts plus Android instrumentation for transactional restore,
-migration, boot/restart, Shizuku permission/death/rebind, process topology/process death, shortcut
-abuse and representative real privileged commands. Remaining RISK/DECIDED cells are therefore
-surface-specific runtime/diversity gaps, not a blanket absence of automated tests.
-
-### CM-P1-09 — Accessibility service configuration has a stale settings activity
-
-`accessibility_service_config.xml` references:
-
-`com.gree1d.reappzuku.SettingsActivity`
-
-while the activity lives under:
-
-`com.gree1d.reappzuku.ui.SettingsActivity`
-
-It also requests `flagIncludeNotImportantViews`, although the current foreground-tracking use only
-needs package/window-state information.
-
-**Fix direction:** correct settings activity and remove unnecessary accessibility surface unless a
-tested feature requires it.
-
-### CM-P1-10 — Exported privileged shortcut surface needs principal review — RESOLVED AT SOURCE/TEST LEVEL 2026-09-07
-
-Historical finding: `KillShortcutActivity` is exported and ultimately reaches privileged kill behavior,
-while the caller/principal boundary was not explicit.
-
-Current state: `ShortcutEntryPolicy` makes the routing contract explicit and exhaustively tests secure,
-legacy, unknown and null actions; unauthenticated secure actions are rejected and non-secure public
-routes require confirmation. `ShortcutAuth` still authenticates time-bounded secure intents, explicit
-third-party intent abuse has Android evidence, and exported-principal drift is separately locked by
-`ExportedComponentsParityTest`. Broader OEM/launcher behavior remains A16 release-diversity evidence.
-
-### CM-P1-11 — Automatic Android backup is not explicitly reconciled with ReAppzuku backup — RESOLVED 2026-09-07
-
-Historical finding: platform Auto Backup and ReAppzuku's structured backup could have created
-competing restore contracts.
-
-Current state: `android:allowBackup="false"` is enforced, legacy Full Backup excludes all domains,
-and Android 12+ Cloud Backup plus Device Transfer exclude root state. `PlatformBackupPolicyTest`
-locks all three decisions; ReAppzuku's bounded/versioned application backup is the sole supported
-configuration-transfer contract.
-
-### CM-P1-12 — Android 17 / API 37 compatibility lane
-
-**Status: resolved for emulator target-37 evidence.** The project now compiles and targets API 37 on AGP 9.4.0 / Gradle 9.6.0. Normal branch-exact validation `34274940182` passed on commit `5cb32994`, and Android 17/API 37 runtime run `34276106536` built the committed APKs, installed both on the first attempt, verified installed `targetSdk=37`, passed all 41 instrumentation tests and passed launcher crash smoke. The earlier preview `Broken pipe (32)` PackageManager result remains historical evidence only; current physical/OEM diversity is tracked separately.
+## Closure status — 2026-09-12
+
+All original P0 and P1 **source/CI findings** below are resolved on the current product line and are
+kept here as historical audit records. They no longer represent open defects in `main`.
+
+This does **not** make every release surface `PROVEN`: root-backend execution, physical/OEM/launcher/
+document-provider diversity, natural foreground `ServiceRecord` runtime evidence, and final stable
+release signing identity + rollback remain external release-evidence gaps and are tracked separately.
+
+### P0 — resolved correctness / user-intent findings
+
+| ID | Status | Closure evidence |
+|---|---|---|
+| CM-P0-01 | **RESOLVED** | Desired AutoKill service state is persisted separately from observed process state. Stale restart logic is guarded by desired state; normal validation `33974469090` passed, and API-36 run `34004843634` proved disabled state survives a real external `am force-stop` / process restart with PID change. |
+| CM-P0-02 | **RESOLVED** | Update provenance is fork-owned and bounded by release/tag/asset policy. API-36 run `34037508198` proved the installed test APK contains fork endpoints and not the upstream/obsolete endpoints; release policy also binds stable tag ↔ source version ↔ APK version. Final stable signing/rollback identity remains release evidence, not an updater-source P0. |
+| CM-P0-03 | **RESOLVED for Shizuku; root diversity remains external** | Permission, Binder, UserService-ready and recovery states are distinct and regression-tested. Real official-Shizuku evidence covers first grant (`34000092714`), daemon death/rebind (`33997372602`), permission-dialog Activity recreation (`34036827312`) and Android 17/API-37 authorization plus privileged execution (`34316502181`). Privileged work is gated on `ROOT_READY`/`SHIZUKU_READY` (`69750c7`, `34065892554`). |
+
+### P1 — resolved source / CI findings
+
+| ID | Status | Closure evidence |
+|---|---|---|
+| CM-P1-01 Preset alarms after reboot | **RESOLVED** | Boot recovery reconstructs scheduler/preset alarms; real OS reboot run `33985971887` passed. |
+| CM-P1-02 Exact-alarm permission/capability | **RESOLVED** | Manifest keeps only `SCHEDULE_EXACT_ALARM`; central `ExactAlarmCapability` selects exact vs best-effort scheduling and API-36 instrumentation covers exact-alarm denial fallback (`33974637281`). |
+| CM-P1-03 Transactional/versioned backup restore | **RESOLVED** | Restore validates before commit, supports rollback fault injection, rejects future/oversized payloads, reconciles presets, and backup v6 round-trips manual restriction detail. API-36 restore coverage passed in `33974637281` and focused 12-case run `34259632923`. |
+| CM-P1-04 Room destructive migration | **RESOLVED** | `fallbackToDestructiveMigration()` is absent; schema export is enabled, v1→v11 migrations are registered, and supported v2→v11 migration with data preservation passed API-36 instrumentation (`33974637281`). |
+| CM-P1-05 CI lint-baseline mutation | **RESOLVED** | Validation runs `lintDebug` without `updateLintBaseline`; baseline changes are source-reviewed. Strict lint cleanup/validation passed `34000313640`. |
+| CM-P1-06 Validation workflow mutates source | **RESOLVED** | `ondemand-test-build.yml` is read-only validation: no patch/generator, `git add`, `git commit` or `git push` step remains. Publishing is separated from validation. |
+| CM-P1-07 Mutable GitHub Action tags | **RESOLVED** | Permanent workflows use immutable full Action commit SHAs (human-readable version tags remain comments only). |
+| CM-P1-08 Automated test tree | **RESOLVED** | Broad JVM policy/parser/security coverage plus Android instrumentation now covers restore/migration, boot/restart, Shizuku state/recovery, process topology/death, exported-surface abuse and representative privileged commands. |
+| CM-P1-09 Accessibility settings/scope | **RESOLVED** | Metadata points to `com.gree1d.reappzuku.ui.SettingsActivity`, service scope is locked to `TYPE_WINDOW_STATE_CHANGED`, and unnecessary view-tree reporting is absent. Policy run `34156391150` and external API-37 runtime run `34302578767` passed. |
+| CM-P1-10 Exported privileged shortcut principal | **RESOLVED at source/test level** | `ShortcutEntryPolicy` and `ShortcutAuth` make authenticated vs confirmation-bound routes explicit; exported-principal drift is regression-tested. Permanent external API-37 attacker coverage is now integrated for protected service/broadcast boundaries. |
+| CM-P1-11 Platform Auto Backup contract | **RESOLVED** | `allowBackup=false` plus legacy/cloud/device-transfer exclusions are locked by `PlatformBackupPolicyTest`; run `34155781163` passed. |
+| CM-P1-12 Android 17 / API 37 compatibility | **RESOLVED for emulator target-37 evidence** | Target-37 source/runtime compatibility passed `34274940182` / `34276106536`; official-Shizuku API-37 mutation/rollback evidence passed `34316502181`. The permanent external attacker lane passed `34668594681` and final branch `34670073539`. Current Gradle 9.7.1 branch validation passed normal/API-37 runs `34668406587` / `34667821759`. Physical/OEM diversity remains external release evidence. |
+
+## Remaining release-evidence gaps — not open P0/P1 source defects
+
+- **Root backend:** repeat representative privileged command/recovery coverage through the root backend.
+- **Physical/OEM diversity:** reboot/process-management, Accessibility, launcher/widget host, alarms/Doze and document-provider UI on representative real devices.
+- **Runtime process diversity:** obtain a natural foreground/physical-device `ServiceRecord` source; do not reintroduce the platform-blocked synthetic background-service harness.
+- **Stable release identity:** record final production signing identity, installed-release byte/signature verification and a tested rollback path.
+- **Release UX:** continue broader runtime accessibility/i18n/error-recovery checks beyond deterministic source/policy gates.
 
 ---
 
