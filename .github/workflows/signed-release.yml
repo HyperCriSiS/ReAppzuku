@@ -148,7 +148,7 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x gradlew
-          ./gradlew testDebugUnitTest lintDebug assembleRelease
+          ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
           mapfile -t apks < <(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | sort)
           test "${#apks[@]}" -eq 1 || { printf 'Expected exactly one release APK, found %s\n' "${#apks[@]}" >&2; printf '%s\n' "${apks[@]}" >&2; exit 1; }
           printf '%s\n' "${apks[0]}" > /tmp/release-apk-path
