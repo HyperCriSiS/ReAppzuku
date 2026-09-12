@@ -1,0 +1,46 @@
+name: Format On-demand mode source
+
+on:
+  push:
+    branches: [roadmap/on-demand-mode]
+    paths:
+      - '.github/workflows/format-on-demand-mode.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: roadmap/on-demand-mode
+      - name: Restore method indentation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivity.java')
+          text = p.read_text()
+          start_marker = '\nbinding.switchOnDemandMode.setOnCheckedChangeListener'
+          end_marker = '\n        binding.switchPreventShizukuAutostart.setOnCheckedChangeListener'
+          start = text.find(start_marker)
+          end = text.find(end_marker, start + 1)
+          if start < 0:
+              if '\n        binding.switchOnDemandMode.setOnCheckedChangeListener' in text:
+                  print('On-demand listener already formatted')
+                  raise SystemExit(0)
+              raise RuntimeError('On-demand listener block not found')
+          if end < 0:
+              raise RuntimeError('On-demand listener block end not found')
+          block = text[start + 1:end]
+          formatted = '\n'.join(('        ' + line if line else line) for line in block.split('\n'))
+          p.write_text(text[:start + 1] + formatted + text[end:])
+          PY
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivity.java
+          git commit -m "Format On-demand mode settings listener"
+          git push origin HEAD:roadmap/on-demand-mode
