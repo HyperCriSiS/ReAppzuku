@@ -1,0 +1,162 @@
+name: Update localized On-demand help
+
+on:
+  push:
+    branches:
+      - roadmap/on-demand-help
+
+permissions:
+  contents: write
+
+jobs:
+  update-help:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: roadmap/on-demand-help
+          fetch-depth: 0
+
+      - name: Add On-demand mode help to all supported guides
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          entries = {
+              "docs/HELP.md": {
+                  "heading": "### ⚙️ App stability",
+                  "marker": "**On-demand mode**",
+                  "block": """**On-demand mode**\\
+          Convenience master switch for occasional/on-demand use. When enabled, the ReAppzuku main process is not automatically woken when Shizuku starts or restarts, and Back on the main screen fully exits the main process. The master controls the two individual options below; changing either one automatically makes the master reflect the custom state.
+
+          **Prevent automatic start from Shizuku**\\
+          Keeps the main process dormant when Shizuku starts or restarts. The separate `:shizuku` provider remains available so ReAppzuku can reconnect on the next manual launch.
+
+          **Fully exit app with Back button**\\
+          On the main screen, Back unbinds the Shizuku UserService, removes ReAppzuku from Recents, and terminates the main process.
+
+          **Compatibility with background automation**\\
+          On-demand behavior is unavailable while Auto-Kill, Smart Lifecycle, Sleep Mode, an active preset, or a restriction schedule requires background continuity. The settings screen lists the active blocker instead of silently disabling the controls.
+""",
+              },
+              "docs/HELP_DE.md": {
+                  "heading": "### ⚙️ App Stabilität",
+                  "marker": "**On-demand-Modus**",
+                  "block": """**On-demand-Modus**\\
+          Komfortschalter für die Nutzung nur bei Bedarf. Wenn aktiviert, wird der ReAppzuku-Hauptprozess beim Start oder Neustart von Shizuku nicht automatisch aufgeweckt, und Zurück auf dem Hauptbildschirm beendet den Hauptprozess vollständig. Der Master steuert die beiden Einzeloptionen darunter; ändern Sie eine davon, zeigt der Master automatisch den individuellen Zustand.
+
+          **Automatischen Start durch Shizuku verhindern**\\
+          Hält den Hauptprozess inaktiv, wenn Shizuku startet oder neu startet. Der separate `:shizuku`-Provider bleibt verfügbar, damit ReAppzuku beim nächsten manuellen Start wieder verbinden kann.
+
+          **App mit Zurück vollständig beenden**\\
+          Auf dem Hauptbildschirm trennt Zurück den Shizuku UserService, entfernt ReAppzuku aus den letzten Apps und beendet den Hauptprozess.
+
+          **Kompatibilität mit Hintergrundautomatisierung**\\
+          Das On-demand-Verhalten ist nicht verfügbar, solange Auto-Kill, Smart Lifecycle, Schlafmodus, eine aktive Voreinstellung oder ein Beschränkungszeitplan einen laufenden Hintergrundprozess benötigt. Die Einstellungen zeigen den aktiven Blocker direkt an, statt die Optionen stillschweigend zu deaktivieren.
+""",
+              },
+              "docs/HELP_ES.md": {
+                  "heading": "### ⚙️ Estabilidad de la app",
+                  "marker": "**Modo bajo demanda**",
+                  "block": """**Modo bajo demanda**\\
+          Interruptor maestro para usar ReAppzuku solo cuando lo necesites. Al activarlo, el proceso principal no se inicia automáticamente cuando Shizuku arranca o se reinicia, y Atrás en la pantalla principal finaliza por completo el proceso principal. El maestro controla las dos opciones individuales siguientes; si cambias una de ellas, el maestro refleja automáticamente la configuración personalizada.
+
+          **Evitar el inicio automático desde Shizuku**\\
+          Mantiene inactivo el proceso principal cuando Shizuku arranca o se reinicia. El proveedor separado `:shizuku` permanece disponible para que ReAppzuku pueda volver a conectarse en el siguiente inicio manual.
+
+          **Salir completamente con el botón Atrás**\\
+          En la pantalla principal, Atrás desconecta el UserService de Shizuku, elimina ReAppzuku de Recientes y finaliza el proceso principal.
+
+          **Compatibilidad con la automatización en segundo plano**\\
+          El comportamiento bajo demanda no está disponible mientras Auto-Kill, Smart Lifecycle, el modo de suspensión, un preset activo o una programación de restricciones necesite continuidad en segundo plano. La pantalla de ajustes muestra el bloqueo activo en lugar de desactivar las opciones sin explicación.
+""",
+              },
+              "docs/HELP_RU.md": {
+                  "heading": "### ⚙️ Стабильность приложения",
+                  "marker": "**Режим по запросу**",
+                  "block": """**Режим по запросу**\\
+          Главный переключатель для использования ReAppzuku только при необходимости. После включения основной процесс не запускается автоматически при запуске или перезапуске Shizuku, а кнопка «Назад» на главном экране полностью завершает основной процесс. Переключатель управляет двумя отдельными параметрами ниже; изменение любого из них автоматически переводит главный переключатель в соответствующее пользовательское состояние.
+
+          **Запретить автоматический запуск из Shizuku**\\
+          Не запускает основной процесс при запуске или перезапуске Shizuku. Отдельный провайдер `:shizuku` остаётся доступным, чтобы ReAppzuku мог снова подключиться при следующем ручном запуске.
+
+          **Полностью завершать приложение кнопкой «Назад»**\\
+          На главном экране кнопка «Назад» отключает Shizuku UserService, удаляет ReAppzuku из списка недавних приложений и завершает основной процесс.
+
+          **Совместимость с фоновой автоматизацией**\\
+          Режим по запросу недоступен, пока Auto-Kill, Smart Lifecycle, спящий режим, активный пресет или расписание ограничений требуют непрерывной фоновой работы. Экран настроек показывает активную причину блокировки вместо скрытого отключения параметров.
+""",
+              },
+              "docs/HELP_UK.md": {
+                  "heading": "### ⚙️ Стабільність застосунку",
+                  "marker": "**Режим на вимогу**",
+                  "block": """**Режим на вимогу**\\
+          Головний перемикач для використання ReAppzuku лише за потреби. Після ввімкнення основний процес не запускається автоматично під час запуску або перезапуску Shizuku, а кнопка «Назад» на головному екрані повністю завершує основний процес. Перемикач керує двома окремими параметрами нижче; зміна будь-якого з них автоматично відображається в стані головного перемикача.
+
+          **Заборонити автоматичний запуск із Shizuku**\\
+          Не запускає основний процес під час запуску або перезапуску Shizuku. Окремий провайдер `:shizuku` залишається доступним, щоб ReAppzuku міг знову підключитися під час наступного ручного запуску.
+
+          **Повністю завершувати застосунок кнопкою «Назад»**\\
+          На головному екрані кнопка «Назад» від'єднує Shizuku UserService, прибирає ReAppzuku зі списку нещодавніх застосунків і завершує основний процес.
+
+          **Сумісність із фоновою автоматизацією**\\
+          Режим на вимогу недоступний, доки Auto-Kill, Smart Lifecycle, режим сну, активний пресет або розклад обмежень потребують безперервної фонової роботи. Екран налаштувань показує активну причину блокування замість непомітного вимкнення параметрів.
+""",
+              },
+              "docs/HELP_ZH.md": {
+                  "heading": "### ⚙️ 应用稳定性 <a id=\"应用稳定性\"></a>",
+                  "marker": "**按需模式**",
+                  "block": """**按需模式**\\
+          用于仅在需要时运行 ReAppzuku 的主开关。启用后，Shizuku 启动或重启时不会自动唤醒 ReAppzuku 主进程，并且在主界面按“返回”会完全结束主进程。该主开关控制下面两个独立选项；如果单独修改其中一个，主开关会自动反映自定义状态。
+
+          **阻止 Shizuku 自动启动主进程**\\
+          Shizuku 启动或重启时保持主进程休眠。独立的 `:shizuku` provider 仍然可用，以便 ReAppzuku 下次手动启动时重新连接。
+
+          **按“返回”完全退出应用**\\
+          在主界面按“返回”会解绑 Shizuku UserService、从最近任务中移除 ReAppzuku，并结束主进程。
+
+          **与后台自动化的兼容性**\\
+          当 Auto-Kill、Smart Lifecycle、睡眠模式、活动预设或限制计划需要持续后台运行时，按需模式不可用。设置界面会直接显示当前阻止该模式的功能，而不是无提示地禁用选项。
+""",
+              },
+          }
+
+          changed = []
+          for filename, spec in entries.items():
+              path = Path(filename)
+              raw = path.read_bytes()
+              text = raw.decode("utf-8")
+              if spec["marker"] in text:
+                  continue
+              newline = "\r\n" if "\r\n" in text else "\n"
+              heading = spec["heading"]
+              start = text.find(heading)
+              if start < 0:
+                  raise RuntimeError(f"Heading not found in {filename}: {heading}")
+              separator = newline + "---" + newline
+              pos = text.find(separator, start)
+              if pos < 0:
+                  raise RuntimeError(f"Section separator not found in {filename}")
+              block = spec["block"].replace("\n", newline)
+              text = text[:pos] + newline + block + text[pos:]
+              path.write_bytes(text.encode("utf-8"))
+              changed.append(filename)
+
+          print("Updated:", ", ".join(changed) if changed else "already current")
+          PY
+
+      - name: Commit localized help update
+        shell: bash
+        run: |
+          if git diff --quiet -- docs/HELP.md docs/HELP_DE.md docs/HELP_ES.md docs/HELP_RU.md docs/HELP_UK.md docs/HELP_ZH.md; then
+            echo "No documentation changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/HELP.md docs/HELP_DE.md docs/HELP_ES.md docs/HELP_RU.md docs/HELP_UK.md docs/HELP_ZH.md
+          git commit -m "Document On-demand mode across help locales"
+          git push origin HEAD:roadmap/on-demand-help
