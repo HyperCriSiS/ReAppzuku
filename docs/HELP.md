@@ -620,6 +620,18 @@ Configure notification behavior. Critical notifications cover background service
 **Background Service**\
 Main automation toggle. Starts persistent ReAppzuku background process. Required for most of app's features to work, including collecting statistics.
 
+**On-demand mode**\
+Convenience master switch for occasional/on-demand use. When enabled, the ReAppzuku main process is not automatically woken when Shizuku starts or restarts, and Back on the main screen fully exits the main process. The master controls the two individual options below; changing either one automatically makes the master reflect the custom state.
+
+**Prevent automatic start from Shizuku**\
+Keeps the main process dormant when Shizuku starts or restarts. The separate `:shizuku` provider remains available so ReAppzuku can reconnect on the next manual launch.
+
+**Fully exit app with Back button**\
+On the main screen, Back unbinds the Shizuku UserService, removes ReAppzuku from Recents, and terminates the main process.
+
+**Compatibility with background automation**\
+On-demand behavior is unavailable while Auto-Kill, Smart Lifecycle, Sleep Mode, an active preset, or a restriction schedule requires background continuity. The settings screen lists the active blocker instead of silently disabling the controls.
+
 ---
 
 ### 🎯 Auto-Kill Settings
