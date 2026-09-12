@@ -170,13 +170,23 @@ jobs:
           grep -Fq 'targetSdk=37' <<<"$dump"
           grep -Fq 'versionName=1.8.7' <<<"$dump"
           probe_dump="$(adb shell dumpsys package com.reappzuku.securityprobe | tr -d '\r')"
-          grep -Fq 'targetSdk=37' <<<"$probe_dump"
-          app_uid="$(sed -n 's/.*userId=\([0-9][0-9]*\).*/\1/p' <<<"$dump" | head -n 1)"
-          probe_uid="$(sed -n 's/.*userId=\([0-9][0-9]*\).*/\1/p' <<<"$probe_dump" | head -n 1)"
+          probe_target="$(sed -n -E 's/.*targetSdk=([0-9]+).*/\1/p' <<<"$probe_dump" | head -n 1)"
+          test "$probe_target" = '37'
+          package_uids="$(adb shell pm list packages -U | tr -d '\r')"
+          app_uid_line="$(grep -F 'package:com.gree1d.reappzuku uid:' <<<"$package_uids" | head -n 1)"
+          probe_uid_line="$(grep -F 'package:com.reappzuku.securityprobe uid:' <<<"$package_uids" | head -n 1)"
+          test -n "$app_uid_line"
+          test -n "$probe_uid_line"
+          app_uid="${app_uid_line##*uid:}"
+          probe_uid="${probe_uid_line##*uid:}"
           test -n "$app_uid"
           test -n "$probe_uid"
           test "$app_uid" != "$probe_uid"
-          printf 'product uid=%s; external security probe uid=%s\n' "$app_uid" "$probe_uid" | tee /tmp/api37-security-probe-uids.txt
+          {
+            printf 'probe targetSdk=%s\n' "$probe_target"
+            printf 'product %s\n' "$app_uid_line"
+            printf 'external probe %s\n' "$probe_uid_line"
+          } | tee /tmp/api37-security-probe-uids.txt
 
       - name: Run Android instrumentation on API 37
         shell: bash
