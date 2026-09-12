@@ -1,0 +1,51 @@
+name: Guarded roadmap branch cleanup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cleanup-roadmap-branches.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 1
+
+      - name: Verify exact heads before deleting temporary branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          branches=(
+            'roadmap/accessibility-runtime-evidence:03283c67a5fdf8658c0f1ad95ac1d20fe74ab95a'
+            'roadmap/check-matrix-refresh:cb9cabbbec6a9eab902da142d150fcd44a9258a7'
+            'roadmap/codeql-analysis:40700614e706f8f2b024552140645c9e04f0a4c3'
+            'roadmap/codeql-findings:90c57f9b741f9e413e6f304e900fc22579d88e98'
+            'roadmap/exported-entrypoint-regression:7ffe4b0557c9b1a36e6c8d3c218852e7c963d0a3'
+            'roadmap/exported-entrypoint-runtime-abuse:6048ddda92a672a0ff10a45f12ac31c6af53a88a'
+            'roadmap/fix-dependabot-config:34ce96df378938451a81c79e2a7cec99cdcbacc2'
+            'roadmap/gradle-9.7.1:6d016a2c40333d0d90c2d409aa80cd95936699d4'
+            'roadmap/remove-hidden-api-bypass:6c84db20ad2e24c14a6e03a8c0cec019d0541b2b'
+            'roadmap/security-runtime-regressions:0b42a9f4d63a932df22c6346db208ee4e08e1e3d'
+          )
+
+          for entry in "${branches[@]}"; do
+            branch="${entry%%:*}"
+            expected="${entry##*:}"
+            actual="$(git ls-remote --heads origin "refs/heads/${branch}" | awk '{print $1}')"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "Refusing cleanup: ${branch} expected ${expected}, got ${actual:-MISSING}" >&2
+              exit 1
+            fi
+          done
+
+          for entry in "${branches[@]}"; do
+            branch="${entry%%:*}"
+            git push origin --delete "$branch"
+          done
