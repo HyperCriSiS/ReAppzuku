@@ -447,28 +447,28 @@ public class SettingsActivity extends SettingsActivityDialogs
         binding.layoutAccentOnColor.setOnClickListener(v -> showAccentOnColorDialog());
         binding.layoutNotificationMode.setOnClickListener(v -> showNotificationModeDialog());
 
-binding.switchOnDemandMode.setOnCheckedChangeListener((buttonView, isChecked) -> {
-    if (updatingOnDemandModeSwitch) return;
-    if (isChecked && !BackgroundWorkPolicy.isOnDemandBehaviorAllowed(this)) {
-        updatingOnDemandModeSwitch = true;
-        buttonView.setChecked(false);
-        updatingOnDemandModeSwitch = false;
-        Toast.makeText(this, R.string.settings_app_behavior_blocked, Toast.LENGTH_LONG).show();
-        return;
-    }
+        binding.switchOnDemandMode.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (updatingOnDemandModeSwitch) return;
+            if (isChecked && !BackgroundWorkPolicy.isOnDemandBehaviorAllowed(this)) {
+                updatingOnDemandModeSwitch = true;
+                buttonView.setChecked(false);
+                updatingOnDemandModeSwitch = false;
+                Toast.makeText(this, R.string.settings_app_behavior_blocked, Toast.LENGTH_LONG).show();
+                return;
+            }
 
-    sharedPreferences.edit()
-            .putBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, isChecked)
-            .putBoolean(KEY_EXIT_ON_BACK, isChecked)
-            .apply();
-    BackgroundWorkPolicy.syncShizukuWakeComponent(this);
-    updateAppBehaviorAvailability();
-});
-binding.layoutOnDemandMode.setOnClickListener(v -> {
-    if (binding.switchOnDemandMode.isEnabled()) {
-        binding.switchOnDemandMode.toggle();
-    }
-});
+            sharedPreferences.edit()
+                    .putBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, isChecked)
+                    .putBoolean(KEY_EXIT_ON_BACK, isChecked)
+                    .apply();
+            BackgroundWorkPolicy.syncShizukuWakeComponent(this);
+            updateAppBehaviorAvailability();
+        });
+        binding.layoutOnDemandMode.setOnClickListener(v -> {
+            if (binding.switchOnDemandMode.isEnabled()) {
+                binding.switchOnDemandMode.toggle();
+            }
+        });
 
         binding.switchPreventShizukuAutostart.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked && !BackgroundWorkPolicy.isOnDemandBehaviorAllowed(this)) {
