@@ -68,7 +68,7 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
         Process process = null;
         StringBuilder output = new StringBuilder();
         try {
-            process = Runtime.getRuntime().exec(new String[] { "sh", "-c", command });
+            process = Runtime.getRuntime().exec(new String[] { "/system/bin/sh", "-c", command });
             final Process finalProcess = process;
 
             Future<Void> readFuture = watchdog.submit(() -> {
@@ -98,7 +98,7 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
     public void executeWithCallback(String command, IShellCallback callback) {
         Process process = null;
         try {
-            process = Runtime.getRuntime().exec(new String[] { "sh", "-c", command });
+            process = Runtime.getRuntime().exec(new String[] { "/system/bin/sh", "-c", command });
             final Process finalProcess = process;
 
             Future<Void> readFuture = watchdog.submit(() -> {

@@ -333,7 +333,7 @@ public class DozeOpsAnalyzer {
 
 
             Pattern timePat = Pattern.compile(
-                    "time=\\+([\\d]+[\\dhms]+(?:\\s*[\\dhms]+)*)\\s+ago", Pattern.CASE_INSENSITIVE);
+                    "time=\\+([0-9dhms]+(?:\\s+[0-9dhms]+)*)\\s+ago", Pattern.CASE_INSENSITIVE);
 
             for (String line : out.split("\n")) {
                 String t = line.trim();
