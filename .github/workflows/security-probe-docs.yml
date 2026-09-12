@@ -1,0 +1,48 @@
+name: Security probe evidence documentation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out security probe branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: roadmap/exported-entrypoint-regression
+          fetch-depth: 0
+      - name: Record permanent external probe evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          roadmap = Path('docs/ROADMAP.md')
+          text = roadmap.read_text()
+          old = "- External API-37 abuse run `34308440409` used a separate unprivileged attacker APK/UID and proved protected exported entrypoints reject foreign access: Accessibility service, both Quick Tiles, Shizuku provider and protected `BOOT_COMPLETED`; none of the denied probes started `ShappkyService`. OEM/launcher/widget-host diversity remains release evidence."
+          new = "- External API-37 abuse run `34308440409` first used a separate unprivileged attacker APK/UID and proved protected exported entrypoints reject foreign access. This is now a permanent regression in `android17-runtime.yml`: run `34668594681` built and installed a dedicated no-permission `securityProbe` APK under a UID distinct from ReAppzuku, passed the full 43-test instrumentation suite, proved no Binder exposure from the Accessibility service or either Quick Tile, proved protected `BOOT_COMPLETED` injection is denied, and then passed the launcher smoke test. OEM/launcher/widget-host diversity remains release evidence."
+          if old not in text:
+              raise SystemExit('ROADMAP evidence line not found exactly')
+          roadmap.write_text(text.replace(old, new, 1))
+
+          exported = Path('docs/EXPORTED_COMPONENTS.md')
+          text = exported.read_text()
+          anchor = "- Android platform contracts protect Accessibility and Quick Settings services via their required binding permissions.\n- `BootReceiver` ignores null/non-`BOOT_COMPLETED` actions."
+          replacement = "- Android platform contracts protect Accessibility and Quick Settings services via their required binding permissions.\n- The permanent API-37 security lane builds a separate `com.reappzuku.securityprobe` APK with no requested permissions or shared UID, verifies its UID differs from ReAppzuku, and requires that it receives no Binder from the Accessibility service or either Quick Tile. Run `34668594681` passed this external-principal probe.\n- The same external probe requires a foreign explicit `BOOT_COMPLETED` injection to be rejected; run `34668594681` passed.\n- `BootReceiver` ignores null/non-`BOOT_COMPLETED` actions."
+          if anchor not in text:
+              raise SystemExit('EXPORTED_COMPONENTS evidence anchor not found exactly')
+          exported.write_text(text.replace(anchor, replacement, 1))
+          PY
+          git diff --check
+          git diff -- docs/ROADMAP.md docs/EXPORTED_COMPONENTS.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/ROADMAP.md docs/EXPORTED_COMPONENTS.md
+          git diff --cached --quiet && { echo 'No documentation changes'; exit 1; }
+          git commit -m 'Document permanent external API 37 security probe'
+          git push origin HEAD:roadmap/exported-entrypoint-regression
