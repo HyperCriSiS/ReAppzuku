@@ -1,6 +1,11 @@
 name: Remove unused HiddenApiBypass
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/remove-hidden-api-bypass.yml
   workflow_dispatch:
 
 permissions:
