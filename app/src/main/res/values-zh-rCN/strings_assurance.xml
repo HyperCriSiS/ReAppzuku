@@ -21,4 +21,6 @@
     <string name="settings_smart_boot_cleanup_subtitle">开机宽限期结束后，停止自行启动且自开机以来未使用过的受管理应用。</string>
     <string name="shortcut_ram_kill_confirm_message">现在运行内存清理快捷方式吗？</string>
     <string name="shortcut_foreground_kill_confirm_message">强制停止当前前台应用吗？</string>
-    <string name="settings_app_behavior_blocked_by">以下功能启用时不可用：%1$s</string>\n</resources>
+    <string name="settings_app_behavior_blocked_by">以下功能启用时不可用：%1$s</string>\n    <string name="settings_on_demand_mode_title">按需模式</string>
+    <string name="settings_on_demand_mode_subtitle">仅在你主动打开时运行 ReAppzuku，并在按“返回”时完全结束主进程。</string>
+</resources>

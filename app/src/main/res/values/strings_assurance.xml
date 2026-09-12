@@ -3,4 +3,6 @@
     <string name="filter_label">Filter</string>
     <string name="action_previous">Previous</string>
     <string name="action_next">Next</string>
-    <string name="settings_app_behavior_blocked_by">Unavailable while active: %1$s</string>\n</resources>
+    <string name="settings_app_behavior_blocked_by">Unavailable while active: %1$s</string>\n    <string name="settings_on_demand_mode_title">On-demand mode</string>
+    <string name="settings_on_demand_mode_subtitle">Keep ReAppzuku dormant until you open it, and fully exit the main process with Back.</string>
+</resources>
