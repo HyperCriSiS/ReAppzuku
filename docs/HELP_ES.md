@@ -620,6 +620,18 @@ Configura el comportamiento de las notificaciones. Las notificaciones críticas 
 **Servicio de segundo plano**\
 Interruptor principal de automatización. Inicia el proceso persistente en segundo plano de ReAppzuku. Se requiere para que funcionen la mayoría de las características de la app, incluida la recopilación de estadísticas.
 
+**Modo bajo demanda**\
+Interruptor maestro para usar ReAppzuku solo cuando lo necesites. Al activarlo, el proceso principal no se inicia automáticamente cuando Shizuku arranca o se reinicia, y Atrás en la pantalla principal finaliza por completo el proceso principal. El maestro controla las dos opciones individuales siguientes; si cambias una de ellas, el maestro refleja automáticamente la configuración personalizada.
+
+**Evitar el inicio automático desde Shizuku**\
+Mantiene inactivo el proceso principal cuando Shizuku arranca o se reinicia. El proveedor separado `:shizuku` permanece disponible para que ReAppzuku pueda volver a conectarse en el siguiente inicio manual.
+
+**Salir completamente con el botón Atrás**\
+En la pantalla principal, Atrás desconecta el UserService de Shizuku, elimina ReAppzuku de Recientes y finaliza el proceso principal.
+
+**Compatibilidad con la automatización en segundo plano**\
+El comportamiento bajo demanda no está disponible mientras Auto-Kill, Smart Lifecycle, el modo de suspensión, un preset activo o una programación de restricciones necesite continuidad en segundo plano. La pantalla de ajustes muestra el bloqueo activo en lugar de desactivar las opciones sin explicación.
+
 ---
 
 ### 🎯 Ajustes de Auto-Kill
