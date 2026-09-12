@@ -200,11 +200,13 @@ Status convention:
 - [x] Propagate fork-specific Smart Lifecycle/App Behavior/security strings to supported locales.
 - [x] Explain blocking automation directly beside disabled App Behavior controls, listing the active AutoKill/Smart Lifecycle/Sleep/Preset/Scheduler blockers from the central policy.
 - [x] Split large managers behind testable facades: `PrivilegedShell`, `PackageStateSource`, `AlarmScheduler`, `Clock`/`ScheduleTime`, `BackupCodec` and central protection/background/parser policy boundaries now isolate the named high-risk seams.
-- [~] Keep `CHECK_MATRIX.md` status/evidence current after every high-impact change (refreshed through 2026-09-08; ongoing discipline).
+- [~] Keep `CHECK_MATRIX.md` status/evidence current after every high-impact change (refreshed through 2026-09-12; ongoing discipline).
 
 
-### Maintainability evidence — 2026-09-05 to 2026-09-08
+### Maintainability evidence — 2026-09-05 to 2026-09-12
 
+- Pinned Java/Kotlin CodeQL is now part of the permanent assurance line. Initial normal/CodeQL validation passed in `34672629853` / `34672626846`; actionable findings were then fixed without breaking root compatibility, with repaired-head normal `34673771828`, CodeQL `34673776649` / PR `34673964881`, and API-37 `34673781807` all passing.
+- The unified user-facing On-demand mode is integrated and derives from the existing prevent-Shizuku-autostart + full-exit-on-Back controls rather than introducing a third lifecycle state. Normal `34674754810`, CodeQL PR `34700033242` and Android 17/API-37 runtime `34700010704` passed; Help documentation was propagated across EN/DE/ES/RU/UK/ZH.
 - Scheduling facade gate `33946729221` passed unit tests, lint, AndroidTest compilation and debug APK build before integrating `Clock`/`ScheduleTime` and `AlarmScheduler`.
 - BackupCodec gate `33946888672` compiles the focused Android codec tests and passes the same application validation before integration.
 
