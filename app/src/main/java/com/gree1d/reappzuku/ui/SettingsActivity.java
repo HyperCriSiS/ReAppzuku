@@ -125,6 +125,8 @@ public class SettingsActivity extends SettingsActivityDialogs
     @Override protected ActivityResultLauncher<String>   getCreateBackupLauncher()  { return createBackupLauncher; }
     @Override protected ActivityResultLauncher<String[]> getRestoreBackupLauncher() { return restoreBackupLauncher; }
 
+    private boolean updatingOnDemandModeSwitch;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -321,6 +323,7 @@ public class SettingsActivity extends SettingsActivityDialogs
             R.id.switch_smart_boot_cleanup,
             R.id.switch_sleep_mode,
             R.id.switch_exit_on_back,
+            R.id.switch_on_demand_mode,
             R.id.switch_prevent_shizuku_autostart
         };
         for (int id : switchIds) {
@@ -443,6 +446,29 @@ public class SettingsActivity extends SettingsActivityDialogs
 
         binding.layoutAccentOnColor.setOnClickListener(v -> showAccentOnColorDialog());
         binding.layoutNotificationMode.setOnClickListener(v -> showNotificationModeDialog());
+
+binding.switchOnDemandMode.setOnCheckedChangeListener((buttonView, isChecked) -> {
+    if (updatingOnDemandModeSwitch) return;
+    if (isChecked && !BackgroundWorkPolicy.isOnDemandBehaviorAllowed(this)) {
+        updatingOnDemandModeSwitch = true;
+        buttonView.setChecked(false);
+        updatingOnDemandModeSwitch = false;
+        Toast.makeText(this, R.string.settings_app_behavior_blocked, Toast.LENGTH_LONG).show();
+        return;
+    }
+
+    sharedPreferences.edit()
+            .putBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, isChecked)
+            .putBoolean(KEY_EXIT_ON_BACK, isChecked)
+            .apply();
+    BackgroundWorkPolicy.syncShizukuWakeComponent(this);
+    updateAppBehaviorAvailability();
+});
+binding.layoutOnDemandMode.setOnClickListener(v -> {
+    if (binding.switchOnDemandMode.isEnabled()) {
+        binding.switchOnDemandMode.toggle();
+    }
+});
 
         binding.switchPreventShizukuAutostart.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked && !BackgroundWorkPolicy.isOnDemandBehaviorAllowed(this)) {
@@ -716,13 +742,20 @@ public class SettingsActivity extends SettingsActivityDialogs
 
         boolean preventAutoStart = sharedPreferences.getBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, true);
         boolean exitOnBack = sharedPreferences.getBoolean(KEY_EXIT_ON_BACK, false);
+        boolean onDemandMode = preventAutoStart && exitOnBack;
 
+        updatingOnDemandModeSwitch = true;
+        binding.switchOnDemandMode.setChecked(onDemandMode);
+        updatingOnDemandModeSwitch = false;
         binding.switchPreventShizukuAutostart.setChecked(preventAutoStart);
         binding.switchExitOnBack.setChecked(exitOnBack);
+        binding.switchOnDemandMode.setEnabled(enabled);
         binding.switchPreventShizukuAutostart.setEnabled(enabled);
         binding.switchExitOnBack.setEnabled(enabled);
+        binding.layoutOnDemandMode.setEnabled(enabled);
         binding.layoutPreventShizukuAutostart.setEnabled(enabled);
         binding.layoutExitOnBack.setEnabled(enabled);
+        binding.layoutOnDemandMode.setAlpha(alpha);
         binding.layoutPreventShizukuAutostart.setAlpha(alpha);
         binding.layoutExitOnBack.setAlpha(alpha);
 
