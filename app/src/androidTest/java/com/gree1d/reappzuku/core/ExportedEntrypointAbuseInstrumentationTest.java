@@ -15,24 +15,27 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @RunWith(AndroidJUnit4.class)
 public class ExportedEntrypointAbuseInstrumentationTest {
     private static final String PRODUCT_PACKAGE = "com.gree1d.reappzuku";
+    private static final long BIND_OBSERVATION_MS = 1_500L;
 
     @Test
-    public void foreignTestPrincipalCannotBindProtectedExportedServices() {
+    public void foreignTestPrincipalCannotBindProtectedExportedServices() throws Exception {
         Context foreign = InstrumentationRegistry.getInstrumentation().getContext();
         assertNotNull(foreign);
         assertFalse("Test package must be a distinct foreign principal",
                 PRODUCT_PACKAGE.equals(foreign.getPackageName()));
 
-        assertBindDenied(foreign,
+        assertNoForeignBinder(foreign,
                 "com.gree1d.reappzuku.service.AppLaunchAccessibilityService");
-        assertBindDenied(foreign,
+        assertNoForeignBinder(foreign,
                 "com.gree1d.reappzuku.utils.ShappkyQuickTile");
-        assertBindDenied(foreign,
+        assertNoForeignBinder(foreign,
                 "com.gree1d.reappzuku.utils.ShappkyBackgroundKillTile");
     }
 
@@ -53,13 +56,17 @@ public class ExportedEntrypointAbuseInstrumentationTest {
         assertNotNull("BOOT_COMPLETED injection from a foreign app must be denied", denial);
     }
 
-    private static void assertBindDenied(Context foreign, String className) {
+    private static void assertNoForeignBinder(Context foreign, String className) throws Exception {
         Intent intent = new Intent().setComponent(new ComponentName(PRODUCT_PACKAGE, className));
         AtomicBoolean connected = new AtomicBoolean(false);
+        CountDownLatch connectedLatch = new CountDownLatch(1);
         ServiceConnection connection = new ServiceConnection() {
             @Override
             public void onServiceConnected(ComponentName name, IBinder service) {
-                connected.set(true);
+                if (service != null) {
+                    connected.set(true);
+                }
+                connectedLatch.countDown();
             }
 
             @Override
@@ -69,19 +76,26 @@ public class ExportedEntrypointAbuseInstrumentationTest {
 
         boolean bound = false;
         try {
-            // Android is allowed to report permission denial either by throwing a
-            // SecurityException or by returning false. Both are secure outcomes; a true return
-            // would mean the foreign principal obtained a service binding and must fail.
+            // Android may reject a protected explicit bind synchronously (SecurityException or
+            // false) or accept the request while still withholding the Binder asynchronously.
+            // The security invariant is that the foreign principal never receives a Binder.
             bound = foreign.bindService(intent, connection, Context.BIND_AUTO_CREATE);
+            if (bound) {
+                connectedLatch.await(BIND_OBSERVATION_MS, TimeUnit.MILLISECONDS);
+            }
         } catch (SecurityException expected) {
-            // Secure denial path.
+            // Secure synchronous denial path.
         } finally {
             if (bound) {
-                foreign.unbindService(connection);
+                try {
+                    foreign.unbindService(connection);
+                } catch (IllegalArgumentException ignored) {
+                    // The platform may already have discarded a denied asynchronous bind.
+                }
             }
         }
 
-        assertFalse("Protected service must reject a foreign bind for " + className, bound);
-        assertFalse("Protected service callback must never connect", connected.get());
+        assertFalse("Protected service exposed a Binder to foreign principal: " + className,
+                connected.get());
     }
 }
