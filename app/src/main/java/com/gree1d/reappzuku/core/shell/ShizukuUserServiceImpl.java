@@ -182,10 +182,9 @@ public class ShizukuUserServiceImpl extends IShellService.Stub {
     }
 
     // android.app.ActivityThread is a hidden/internal API not present in the public SDK
-    // android.jar, so it cannot be imported or called directly — same constraint as the
-    // HiddenApiBypass reflection used elsewhere in this project for USS. This UserService
-    // process has no normal Application/Activity lifecycle of its own, so this is the only
-    // way to obtain a Context here for ActivityManager.getSystemService().
+    // android.jar, so it cannot be imported or called directly. This isolated UserService
+    // process has no normal Application/Activity lifecycle of its own, so reflection is used
+    // only to obtain a Context here for ActivityManager.getSystemService().
     private Context currentApplicationViaReflection() {
         try {
             Class<?> activityThreadClass = Class.forName("android.app.ActivityThread");
