@@ -15,7 +15,7 @@ import org.junit.Test;
 
 public class ReleaseWorkflowPolicyTest {
     private static final Pattern IMMUTABLE_ACTION =
-            Pattern.compile("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40}(?:\\s+#.*)?$");
+            Pattern.compile("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*@[0-9a-f]{40}(?:\\s+#.*)?$");
 
     @Test
     public void signedReleaseWorkflowKeepsLeastPrivilegeAndImmutableActions() throws Exception {
