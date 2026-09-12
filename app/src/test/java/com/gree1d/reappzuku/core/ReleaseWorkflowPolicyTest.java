@@ -82,6 +82,35 @@ public class ReleaseWorkflowPolicyTest {
         assertFalse(workflow.contains(".provenance.txt"));
     }
 
+    @Test
+    public void codeQlWorkflowUsesLeastPrivilegePinnedActionsAndRealJavaKotlinBuild() throws Exception {
+        String workflow = readRepositoryFile(".github/workflows/codeql.yml");
+
+        assertTrue(workflow.contains("push:\n    branches: [main]"));
+        assertTrue(workflow.contains("pull_request:\n    branches: [main]"));
+        assertTrue(workflow.contains("security-events: write"));
+        assertTrue(workflow.contains("languages: java-kotlin"));
+        assertTrue(workflow.contains("build-mode: manual"));
+        assertTrue(workflow.contains("queries: security-extended"));
+        assertTrue(workflow.contains(":app:assembleDebug :securityProbe:assembleDebug"));
+        assertTrue(workflow.contains("--no-build-cache --rerun-tasks"));
+        assertFalse(workflow.contains("permissions: write-all"));
+
+        boolean sawInit = false;
+        boolean sawAnalyze = false;
+        for (String line : workflow.split("\\R")) {
+            String trimmed = line.trim();
+            if (!trimmed.startsWith("uses: ")) continue;
+            String action = trimmed.substring("uses: ".length());
+            assertTrue("External action must use immutable full SHA: " + action,
+                    IMMUTABLE_ACTION.matcher(action).matches());
+            sawInit |= action.startsWith("github/codeql-action/init@");
+            sawAnalyze |= action.startsWith("github/codeql-action/analyze@");
+        }
+        assertTrue(sawInit);
+        assertTrue(sawAnalyze);
+    }
+
     private static String readRepositoryFile(String relative) throws IOException {
         List<Path> candidates = Arrays.asList(
                 Paths.get(relative),
