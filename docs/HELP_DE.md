@@ -620,6 +620,18 @@ Konfigurieren Sie das Benachrichtigungsverhalten. Kritische Benachrichtigungen u
 **Hintergrunddienst**\
 Hauptschalter für die Automatisierung. Startet den persistenten ReAppzuku-Hintergrundprozess. Erforderlich für die meisten Funktionen der App, einschließlich der Erfassung von Statistiken.
 
+**On-demand-Modus**\
+Komfortschalter für die Nutzung nur bei Bedarf. Wenn aktiviert, wird der ReAppzuku-Hauptprozess beim Start oder Neustart von Shizuku nicht automatisch aufgeweckt, und Zurück auf dem Hauptbildschirm beendet den Hauptprozess vollständig. Der Master steuert die beiden Einzeloptionen darunter; ändern Sie eine davon, zeigt der Master automatisch den individuellen Zustand.
+
+**Automatischen Start durch Shizuku verhindern**\
+Hält den Hauptprozess inaktiv, wenn Shizuku startet oder neu startet. Der separate `:shizuku`-Provider bleibt verfügbar, damit ReAppzuku beim nächsten manuellen Start wieder verbinden kann.
+
+**App mit Zurück vollständig beenden**\
+Auf dem Hauptbildschirm trennt Zurück den Shizuku UserService, entfernt ReAppzuku aus den letzten Apps und beendet den Hauptprozess.
+
+**Kompatibilität mit Hintergrundautomatisierung**\
+Das On-demand-Verhalten ist nicht verfügbar, solange Auto-Kill, Smart Lifecycle, Schlafmodus, eine aktive Voreinstellung oder ein Beschränkungszeitplan einen laufenden Hintergrundprozess benötigt. Die Einstellungen zeigen den aktiven Blocker direkt an, statt die Optionen stillschweigend zu deaktivieren.
+
 ---
 
 ### 🎯 Auto-Kill Einstellungen
