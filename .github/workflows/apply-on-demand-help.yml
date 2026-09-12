@@ -1,0 +1,63 @@
+name: Apply localized On-demand help
+
+on:
+  push:
+    branches:
+      - roadmap/on-demand-help
+
+permissions:
+  contents: write
+
+jobs:
+  patch-help:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: roadmap/on-demand-help
+          fetch-depth: 0
+
+      - name: Patch help guides from authoritative Git blobs
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          patches = json.loads(Path('.github/on-demand-help-patch.json').read_text(encoding='utf-8'))
+          changed = []
+          for filename, spec in patches.items():
+              raw = subprocess.check_output(['git', 'show', f'HEAD:{filename}'])
+              text = raw.decode('utf-8')
+              if spec['marker'] in text:
+                  continue
+              newline = '\r\n' if '\r\n' in text else '\n'
+              start = text.find(spec['heading'])
+              if start < 0:
+                  raise RuntimeError(f"Heading not found in {filename}: {spec['heading']}")
+              separator = newline + '---' + newline
+              pos = text.find(separator, start)
+              if pos < 0:
+                  raise RuntimeError(f'Section separator not found in {filename}')
+              block = spec['block'].replace('\n', newline)
+              text = text[:pos] + newline + block + text[pos:]
+              Path(filename).write_text(text, encoding='utf-8', newline='')
+              changed.append(filename)
+          print('Updated:', ', '.join(changed) if changed else 'already current')
+          PY
+
+      - name: Commit localized help update
+        shell: bash
+        run: |
+          if git diff --quiet -- docs/HELP.md docs/HELP_DE.md docs/HELP_ES.md docs/HELP_RU.md docs/HELP_UK.md docs/HELP_ZH.md; then
+            echo "No documentation changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/HELP.md docs/HELP_DE.md docs/HELP_ES.md docs/HELP_RU.md docs/HELP_UK.md docs/HELP_ZH.md
+          git commit -m "Document On-demand mode across help locales"
+          git push origin HEAD:roadmap/on-demand-help
