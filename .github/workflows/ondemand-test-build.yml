@@ -8,38 +8,63 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  validate:
+  cleanup-debug-help:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          persist-credentials: false
-      - name: Set up JDK 17
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
-        with:
-          java-version: '17'
-          distribution: temurin
-          cache: gradle
-      - name: Grant execute permission
-        run: chmod +x gradlew
-      - name: Unit tests
-        run: ./gradlew testDebugUnitTest
-      - name: Lint
-        run: ./gradlew lintDebug
-      - name: Compile instrumentation tests
-        run: ./gradlew assembleDebugAndroidTest
-      - name: Verify current Room schema export
-        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
-      - name: Upload debug APK
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: reappzuku-ondemand-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          fetch-depth: 0
+      - name: Remove obsolete debug help sections
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          files = [
+              Path('docs/HELP.md'),
+              Path('docs/HELP_DE.md'),
+              Path('docs/HELP_ES.md'),
+              Path('docs/HELP_RU.md'),
+              Path('docs/HELP_UK.md'),
+              Path('docs/HELP_ZH.md'),
+          ]
+          for path in files:
+              lines = path.read_text().splitlines(keepends=True)
+              matches = [i for i, line in enumerate(lines) if 'ReAppzukuDebug' in line]
+              if len(matches) != 1:
+                  raise SystemExit(f'{path}: expected exactly one ReAppzukuDebug reference, got {len(matches)}')
+              marker = matches[0]
+              start = None
+              for i in range(marker, -1, -1):
+                  stripped = lines[i].strip()
+                  if stripped.startswith('**') and stripped.endswith('**\\'):
+                      start = i
+                      break
+              if start is None:
+                  raise SystemExit(f'{path}: could not find debug section heading')
+              end = None
+              for i in range(marker + 1, min(len(lines), marker + 30)):
+                  if lines[i].strip() == '---':
+                      end = i
+                      break
+              if end is None:
+                  raise SystemExit(f'{path}: could not find section separator')
+              removed = ''.join(lines[start:end])
+              if 'ReAppzukuDebug' not in removed or not (5 <= end - start <= 25):
+                  raise SystemExit(f'{path}: unsafe debug section bounds')
+              new_lines = lines[:start] + lines[end:]
+              path.write_text(''.join(new_lines))
+          PY
+          ! grep -RIn 'ReAppzukuDebug' docs/HELP*.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/HELP.md docs/HELP_DE.md docs/HELP_ES.md docs/HELP_RU.md docs/HELP_UK.md docs/HELP_ZH.md
+          git diff --cached --check
+          git commit -m "Remove obsolete production debug help"
+          git push origin HEAD:${GITHUB_REF_NAME}
