@@ -166,6 +166,26 @@ jobs:
           manager.unlink()
           touched.add(str(manager))
 
+          # Logger removal can leave indentation-only lines. Normalize only those
+          # lines in files already touched by this cleanup, preserving each file's
+          # existing LF/CRLF endings and leaving non-empty lines byte-for-byte intact.
+          for touched_name in sorted(touched):
+              touched_path = Path(touched_name)
+              if not touched_path.exists() or touched_path.suffix not in ('.java', '.kt'):
+                  continue
+              normalized = []
+              for line in touched_path.read_bytes().splitlines(keepends=True):
+                  if line.endswith(b'\r\n'):
+                      body, ending = line[:-2], b'\r\n'
+                  elif line.endswith(b'\n'):
+                      body, ending = line[:-1], b'\n'
+                  else:
+                      body, ending = line, b''
+                  if body and not body.strip(b' \t'):
+                      line = ending
+                  normalized.append(line)
+              touched_path.write_bytes(b''.join(normalized))
+
           leftovers = []
           for suffix in ('*.java', '*.kt'):
               for path in sorted(root.rglob(suffix)):
