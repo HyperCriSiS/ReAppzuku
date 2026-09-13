@@ -35,7 +35,7 @@ jobs:
           if not manager.exists():
               raise SystemExit('AppDebugManager.java missing before cleanup')
 
-          def find_call_end(text, start):
+          def find_call_close(text, start):
               open_paren = text.find('(', start)
               if open_paren < 0:
                   raise ValueError('missing opening parenthesis')
@@ -55,12 +55,7 @@ jobs:
                       elif c == ')':
                           depth -= 1
                           if depth == 0:
-                              j = i + 1
-                              while j < len(text) and text[j] in ' \t\r\n':
-                                  j += 1
-                              if j >= len(text) or text[j] != ';':
-                                  raise ValueError(f'call at {start} not terminated by semicolon')
-                              return j + 1
+                              return i + 1
                   elif state == 'string':
                       if c == '\\': i += 1
                       elif c == '"': state = 'code'
@@ -76,11 +71,11 @@ jobs:
 
           touched = 0
           removed_calls = 0
+          lambda_replacements = 0
           for path in sorted(root.rglob('*.java')):
               if path == manager:
                   continue
-              raw = path.read_bytes()
-              text = raw.decode('utf-8')
+              text = path.read_text(encoding='utf-8', newline='')
               original = text
               text = text.replace('import com.gree1d.reappzuku.core.AppDebugManager;\r\n', '')
               text = text.replace('import com.gree1d.reappzuku.core.AppDebugManager;\n', '')
@@ -93,37 +88,45 @@ jobs:
                       break
                   line_start = text.rfind('\n', 0, start) + 1
                   prefix = text[line_start:start]
-                  nonspace = prefix.rstrip()
-                  if nonspace and not nonspace.endswith(('{', '}', ';')):
-                      raise SystemExit(f'{path}: unsafe prefix before AppDebugManager call: {prefix!r}')
+                  prefix_trim = prefix.rstrip()
                   try:
-                      end = find_call_end(text, start)
+                      close = find_call_close(text, start)
                   except Exception as exc:
+                      raise SystemExit(f'{path}: {exc}')
+                  j = close
+                  while j < len(text) and text[j] in ' \t\r\n':
+                      j += 1
+
+                  if j < len(text) and text[j] == ';':
+                      # Normal standalone logger statement. Same-line prefix may be indentation,
+                      # a block opener/closer, or a previous statement in a compact catch block.
+                      if prefix_trim and not prefix_trim.endswith(('{', '}', ';')):
+                          raise SystemExit(f'{path}: unsafe statement prefix before logger: {prefix!r}')
+                      text = text[:start] + text[j + 1:]
+                      removed_calls += 1
+                  elif j < len(text) and text[j] == ')' and prefix_trim.endswith('->'):
+                      # Expression-bodied lambda whose sole expression is the no-op logger.
+                      # Preserve callback semantics as an empty block lambda.
+                      text = text[:start] + '{}' + text[close:]
+                      removed_calls += 1
+                      lambda_replacements += 1
+                  else:
                       lo = max(0, start - 180)
                       hi = min(len(text), start + 500)
                       context = text[lo:hi].replace('\n', '\\n')
-                      raise SystemExit(f'{path}: {exc}; context={context!r}')
-                  text = text[:start] + text[end:]
-                  removed_calls += 1
+                      raise SystemExit(f'{path}: unsupported logger expression; context={context!r}')
 
-              lines = text.splitlines(keepends=True)
-              text = ''.join(('' if line.strip(' \t\r\n') == '' and line not in ('\n', '\r\n') else line) for line in lines)
               if text != original:
-                  path.write_bytes(text.encode('utf-8'))
+                  path.write_text(text, encoding='utf-8', newline='')
                   touched += 1
 
           manager.unlink()
-
-          leftovers = []
-          for path in sorted(root.rglob('*.java')):
-              data = path.read_text(errors='replace')
-              if 'AppDebugManager' in data:
-                  leftovers.append(str(path))
+          leftovers = [str(p) for p in sorted(root.rglob('*.java')) if 'AppDebugManager' in p.read_text(errors='replace')]
           if leftovers:
               raise SystemExit('Residual AppDebugManager references: ' + ', '.join(leftovers))
           if removed_calls < 800:
               raise SystemExit(f'Unexpectedly low removal count: {removed_calls}')
-          print(f'Removed {removed_calls} AppDebugManager calls across {touched} Java files; facade deleted.')
+          print(f'Removed {removed_calls} AppDebugManager calls across {touched} Java files; lambda replacements={lambda_replacements}; facade deleted.')
           PY
 
           chmod +x gradlew
@@ -131,6 +134,7 @@ jobs:
           git diff --check
           test -z "$(grep -RIl 'AppDebugManager' app/src/main/java || true)"
 
+          # Never leave a write-capable helper in the product branch.
           git show origin/main:.github/workflows/ondemand-test-build.yml > .github/workflows/ondemand-test-build.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
