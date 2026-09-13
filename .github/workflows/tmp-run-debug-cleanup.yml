@@ -1,0 +1,51 @@
+name: Temporary debug cleanup runner
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tmp-debug-cleanup-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+      - name: Execute staged cleanup with runner JDK 17
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${JAVA_HOME_17_X64:?GitHub runner JDK 17 is unavailable}"
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          java -version
+
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path('.github/workflows/ondemand-test-build.yml').read_text().splitlines()
+          marker = '      - name: Remove residual debug-only scaffolding and validate'
+          try:
+              step = source.index(marker)
+          except ValueError:
+              raise SystemExit('cleanup step marker not found')
+          run_line = next(i for i in range(step + 1, len(source)) if source[i].strip() == 'run: |')
+          body = source[run_line + 1:]
+          prefix = '          '
+          out = []
+          for line in body:
+              if line and not line.startswith(prefix):
+                  raise SystemExit(f'unexpected cleanup indentation: {line!r}')
+              out.append(line[len(prefix):] if line else '')
+          Path('/tmp/reappzuku-debug-cleanup.sh').write_text('\n'.join(out) + '\n')
+          PY
+
+          # The extracted script restores the canonical on-demand workflow before committing.
+          # Delete this one-shot runner too, so neither helper can survive into the product commit.
+          rm .github/workflows/tmp-run-debug-cleanup.yml
+          bash /tmp/reappzuku-debug-cleanup.sh
