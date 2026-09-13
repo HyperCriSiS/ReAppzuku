@@ -58,10 +58,41 @@ jobs:
 
           layout_path = Path('app/src/main/res/layout/activity_settings.xml')
           layout = layout_path.read_text()
-          pattern = re.compile(r'''\n\s*<LinearLayout\n\s*android:layout_width="match_parent"\n\s*android:layout_height="wrap_content"\n\s*android:orientation="horizontal"\n\s*android:gravity="center_vertical"\n\s*android:paddingHorizontal="8dp"\n\s*android:paddingVertical="12dp">\n.*?android:text="@string/settings_debug_title".*?</LinearLayout>\n\s*<LinearLayout\n\s*android:id="@\+id/layout_debug_menu"\n.*?android:text="@string/settings_debug_menu_title".*?</LinearLayout>\n''', re.S)
-          layout, count = pattern.subn('\n', layout, count=1)
-          if count != 1:
-              raise SystemExit(f'Expected one debug layout block, removed {count}')
+          original_layout = layout
+
+          def remove_linear_layout_containing(text, needle):
+              pos = text.find(needle)
+              if pos < 0:
+                  raise SystemExit(f'Missing XML marker: {needle}')
+              start = text.rfind('<LinearLayout', 0, pos)
+              if start < 0:
+                  raise SystemExit(f'No containing LinearLayout for {needle}')
+              token_re = re.compile(r'<LinearLayout\b|</LinearLayout\s*>')
+              depth = 0
+              end = None
+              for match in token_re.finditer(text, start):
+                  token = match.group(0)
+                  if token.startswith('</'):
+                      depth -= 1
+                      if depth == 0:
+                          end = match.end()
+                          break
+                  else:
+                      depth += 1
+              if end is None or not (start <= pos < end):
+                  raise SystemExit(f'Could not bound LinearLayout for {needle}')
+              return text[:start] + text[end:]
+
+          layout = remove_linear_layout_containing(layout, 'android:id="@+id/switch_debug_enabled"')
+          layout = remove_linear_layout_containing(layout, 'android:id="@+id/layout_debug_menu"')
+          removed = len(original_layout) - len(layout)
+          if removed <= 0 or removed > 7000:
+              raise SystemExit(f'Unexpected XML removal size: {removed}')
+          for marker in ('layoutPeriodicKill', 'switchPeriodicKill', 'layoutScreenLock', 'switchKillScreenOff',
+                         'layoutRamThresholdToggle', 'switchRamThreshold', 'layoutKillInterval',
+                         'layoutSmartLifecycleApps', 'layoutSmartLifecycleProfile', 'layoutSmartBootCleanup'):
+              if marker not in layout:
+                  raise SystemExit(f'Non-debug settings marker was accidentally removed: {marker}')
           layout_path.write_text(layout)
 
           changed_string_files = 0
