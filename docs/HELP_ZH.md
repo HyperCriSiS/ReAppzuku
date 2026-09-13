@@ -990,19 +990,6 @@ ReAppzuku 的自动化功能，定期检查休眠模式冻结的完整性，如�
 **特别鸣谢**\
 为 ReAppzuku 开发做出贡献的用户的荣誉列表。
 
-**Debug**\
-启用/禁用调试日志。\
-保存日志
-使用以下终端模拟器保存日志：
-- aShell（适用于 Shizuku）
-- Qute Terminal Emulator（适用于 Root）
-
-您也可以使用任何其他方便的终端模拟器。\
-在控制台输出日志请使用命令： `logcat -s ReAppzukuDebug`
-
-**Debug Menu**\
-用于启用/禁用所需日志类别的菜单。
-
 ---
 
 ### 📊 统计与日志
