@@ -1008,27 +1008,8 @@
     <string name="preset_reset_success">Налаштування пресету %d скинуто — натисніть «Зберегти»</string>
     <string name="antichange_settings">Ви не можете змінювати основні налаштування Auto-Kill, коли активний пресет</string>
 
-    <!-- AppDebugManager category names -->
-    <string name="appdebug_main_page">Головна сторінка</string>
-    <string name="appdebug_settings_page">Сторінка налаштувань</string>
-    <string name="appdebug_statistics_page">Сторінка статистики</string>
-    <string name="appdebug_core">Ядро застосунку</string>
-    <string name="appdebug_foreground_service">Фоновий сервіс</string>
-    <string name="appdebug_triggers">Тригери</string>
-    <string name="appdebug_advanced_conditions">Auto-Kill: Додаткові умови</string>
-    <string name="appdebug_scan">Кнопка Скан</string>
-    <string name="appdebug_auto_kill_base">Auto-Kill базовий</string>
-    <string name="appdebug_auto_kill_presets">Auto-Kill: Пресети</string>
-    <string name="appdebug_shortcuts_widgets">Ярлики та віджет</string>
-    <string name="appdebug_background_restrictions">Фонові обмеження</string>
-    <string name="appdebug_restrictions_scheduler">Планувальник обмежень</string>
-    <string name="appdebug_sleep_mode">Режим сну</string>
-    <string name="appdebug_backup_restore">Резервні копії</string>
-    <string name="appdebug_utils">Інші утиліти</string>
     
 
-    <string name="settings_debug_title">Налагодження</string>
-    <string name="settings_debug_menu_title">Меню налагодження</string>
     <string name="badge_persistent">Постійний</string>
     <string name="filter_app_icon_content_description">Піктограма застосунку</string>
 </resources>

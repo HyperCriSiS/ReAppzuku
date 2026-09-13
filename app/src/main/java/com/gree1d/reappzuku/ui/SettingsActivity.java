@@ -596,14 +596,6 @@ public class SettingsActivity extends SettingsActivityDialogs
         binding.layoutTelegram.setOnClickListener(v -> openUrl("https://t.me/AkM0o"));
         binding.layoutSpecialThanks.setOnClickListener(v -> showSpecialThanksDialog());
 
-        binding.switchDebugEnabled.setChecked(AppDebugManager.isEnabled());
-        binding.switchDebugEnabled.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            AppDebugManager.setEnabled(isChecked);
-            binding.layoutDebugMenu.setVisibility(isChecked ? View.VISIBLE : View.GONE);
-        });
-        binding.layoutDebugMenu.setVisibility(AppDebugManager.isEnabled() ? View.VISIBLE : View.GONE);
-        binding.layoutDebugMenu.setOnClickListener(v -> showDebugMenuDialog());
-
         binding.textVersion.setOnClickListener(v -> {
             easterEggClickCount++;
             if (easterEggClickCount == EASTER_EGG_THRESHOLD) {
