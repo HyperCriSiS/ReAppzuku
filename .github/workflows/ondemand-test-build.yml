@@ -69,7 +69,7 @@ jobs:
                   i += 1
               raise RuntimeError('unterminated AppDebugManager call')
 
-          # The repo-wide inventory found exactly one logger-only if/else pair.
+          # Inventory proved exactly one Java logger-only if/else pair.
           sensors_path = root / 'com/gree1d/reappzuku/utils/triggers/analyzers/SensorsLocationAnalyzer.java'
           sensors = sensors_path.read_bytes().decode('utf-8')
           special_lf = (
@@ -117,7 +117,6 @@ jobs:
                       text = text[:start] + text[j + 1:]
                       removed_calls += 1
                   elif j < len(text) and text[j] == ')' and text[:start].rstrip().endswith('->'):
-                      # Sole expression of a callback lambda: preserve the callback as an empty block.
                       text = text[:start] + '{}' + text[close:]
                       removed_calls += 1
                       lambda_replacements += 1
@@ -129,18 +128,51 @@ jobs:
                   path.write_bytes(text.encode('utf-8'))
                   touched.add(str(path))
 
+          # The source tree contains one Kotlin file. Its ten debug calls are all
+          # standalone one-line statements; reject anything else rather than rewrite Kotlin syntax broadly.
+          kotlin_files = sorted(root.rglob('*.kt'))
+          if [str(p.relative_to(root)) for p in kotlin_files] != ['com/gree1d/reappzuku/utils/AppzukuWidget.kt']:
+              raise SystemExit('Unexpected Kotlin source inventory: ' + ', '.join(str(p) for p in kotlin_files))
+          widget = kotlin_files[0]
+          raw = widget.read_bytes()
+          lines = raw.splitlines(keepends=True)
+          new_lines = []
+          kotlin_calls = 0
+          for line in lines:
+              decoded = line.decode('utf-8')
+              stripped = decoded.strip()
+              if stripped in (
+                  'import com.gree1d.reappzuku.core.AppDebugManager',
+                  'import com.gree1d.reappzuku.core.AppDebugManager.Category',
+              ):
+                  continue
+              if 'AppDebugManager.' in decoded:
+                  if not stripped.startswith('AppDebugManager.'):
+                      raise SystemExit(f'{widget}: unsupported Kotlin debug expression: {stripped!r}')
+                  kotlin_calls += 1
+                  continue
+              new_lines.append(line)
+          if kotlin_calls != 10:
+              raise SystemExit(f'Expected 10 standalone Kotlin debug calls, found {kotlin_calls}')
+          widget.write_bytes(b''.join(new_lines))
+          touched.add(str(widget))
+          removed_calls += kotlin_calls
+
           manager.unlink()
           touched.add(str(manager))
 
           leftovers = []
-          for path in sorted(root.rglob('*.java')):
-              if 'AppDebugManager' in path.read_text(errors='replace'):
-                  leftovers.append(str(path))
+          for suffix in ('*.java', '*.kt'):
+              for path in sorted(root.rglob(suffix)):
+                  if 'AppDebugManager' in path.read_text(errors='replace'):
+                      leftovers.append(str(path))
           if leftovers:
               raise SystemExit('Residual AppDebugManager references: ' + ', '.join(leftovers))
-          if removed_calls < 860:
-              raise SystemExit(f'Unexpectedly low removal count: {removed_calls}')
-          print(f'Removed {removed_calls} AppDebugManager calls across {len(touched)} files; lambda replacements={lambda_replacements}; facade deleted.')
+          if removed_calls != 878:
+              raise SystemExit(f'Expected exactly 878 removed calls, got {removed_calls}')
+          if lambda_replacements != 1:
+              raise SystemExit(f'Expected exactly one empty-lambda replacement, got {lambda_replacements}')
+          print(f'Removed {removed_calls} AppDebugManager calls across {len(touched)} files; facade deleted.')
           PY
 
           chmod +x gradlew
