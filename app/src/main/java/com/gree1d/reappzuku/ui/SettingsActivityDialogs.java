@@ -34,7 +34,6 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.materialswitch.MaterialSwitch;
 
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.databinding.ActivitySettingsBinding;
@@ -1787,95 +1786,6 @@ protected void showSpecialThanksDialog() {
                 })
                 .setNegativeButton(getString(R.string.dialog_cancel), null)
                 .show());
-    }
-
-    protected void showDebugMenuDialog() {
-        AppDebugManager.Category[] categories = AppDebugManager.Category.values();
-        int dp8  = (int) (getResources().getDisplayMetrics().density * 8);
-        int dp16 = (int) (getResources().getDisplayMetrics().density * 16);
-        int dp24 = (int) (getResources().getDisplayMetrics().density * 24);
-
-        int accent = getSharedPreferences().getInt(KEY_ACCENT, ACCENT_SYSTEM);
-        boolean isCustomAccent = accent == ACCENT_CUSTOM;
-        int customColor = getSharedPreferences().getInt(KEY_ACCENT_CUSTOM_COLOR, ACCENT_CUSTOM_DEFAULT_COLOR);
-        android.content.res.ColorStateList switchTint = isCustomAccent
-                ? android.content.res.ColorStateList.valueOf(customColor) : null;
-        int onColor = getSharedPreferences().getInt(KEY_ACCENT_ON_COLOR, ACCENT_ON_WHITE);
-        int buttonTextColor = isCustomAccent
-                ? ((onColor == ACCENT_ON_BLACK) ? Color.BLACK : Color.WHITE)
-                : ContextCompat.getColor(this, R.color.dialog_button_text);
-
-        String[] categoryLabels = {
-            getString(R.string.appdebug_main_page),
-            getString(R.string.appdebug_settings_page),
-            getString(R.string.appdebug_statistics_page),
-            getString(R.string.appdebug_core),
-            getString(R.string.appdebug_foreground_service),
-            getString(R.string.appdebug_triggers),
-            getString(R.string.appdebug_advanced_conditions),
-            getString(R.string.appdebug_scan),
-            getString(R.string.appdebug_auto_kill_base),
-            getString(R.string.appdebug_auto_kill_presets),
-            getString(R.string.appdebug_shortcuts_widgets),
-            getString(R.string.appdebug_background_restrictions),
-            getString(R.string.appdebug_restrictions_scheduler),
-            getString(R.string.appdebug_sleep_mode),
-            getString(R.string.appdebug_backup_restore),
-            getString(R.string.appdebug_utils)
-        };
-
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(0, dp8, 0, dp8);
-
-        MaterialSwitch[] switches = new MaterialSwitch[categories.length];
-        for (int i = 0; i < categories.length; i++) {
-            AppDebugManager.Category cat = categories[i];
-
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            row.setPadding(dp24, dp8, dp16, dp8);
-
-            TextView label = new TextView(this);
-            label.setText(categoryLabels[i]);
-            label.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            row.addView(label);
-
-            MaterialSwitch sw = new MaterialSwitch(this);
-            sw.setChecked(AppDebugManager.isCategoryEnabled(cat));
-            if (switchTint != null) {
-                int trackColor = darkenColor(customColor, 0.6f);
-                android.content.res.ColorStateList thumbTint = new android.content.res.ColorStateList(
-                    new int[][] { new int[] { android.R.attr.state_checked }, new int[] {} },
-                    new int[] { customColor, 0xFFAAAAAA });
-                android.content.res.ColorStateList trackTintList = new android.content.res.ColorStateList(
-                    new int[][] { new int[] { android.R.attr.state_checked }, new int[] {} },
-                    new int[] { trackColor, 0xFF555555 });
-                sw.setThumbTintList(thumbTint);
-                sw.setTrackTintList(trackTintList);
-            }
-            switches[i] = sw;
-            row.addView(sw);
-            root.addView(row);
-        }
-
-        ScrollView scrollView = new ScrollView(this);
-        scrollView.addView(root);
-
-        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
-                .setTitle("Debug menu")
-                .setView(scrollView)
-                .create();
-        dialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK", (d, w) -> {
-            for (int i = 0; i < categories.length; i++) {
-                AppDebugManager.setCategory(categories[i], switches[i].isChecked());
-            }
-        });
-        dialog.setButton(AlertDialog.BUTTON_NEGATIVE, getString(R.string.dialog_cancel), (d, w) -> d.dismiss());
-        dialog.show();
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(buttonTextColor);
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(buttonTextColor);
     }
 
     protected void showSingleChoiceDialog(String title, String[] options, int selected,

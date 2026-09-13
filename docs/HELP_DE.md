@@ -988,18 +988,6 @@ Sie können dem ReAppzuku-Entwickler in Telegram schreiben.
 **Besonderer Dank**\
 Eine Ehrenliste von Benutzern, die zur Entwicklung von ReAppZuku beigetragen haben.
 
-**Debug**\
-Aktivieren/deaktivieren Sie Debug-Protokolle.\
-Zum Speichern von Protokollen verwenden Sie:
-- aShell (für Shizuku)
-- Qute Terminal Emulator (für Root)
-
-Oder Sie können jeden anderen Terminal-Emulator verwenden, der für Sie bequem ist.\
-Um Protokolle in der Konsole auszugeben, verwenden Sie: `logcat -s ReAppzukuDebug`
-
-**Debug-Menü**\
-Menü zum Aktivieren/Deaktivieren der erforderlichen Protokollkategorien.
-
 ---
 
 ### 📊 Statistiken & Protokolle

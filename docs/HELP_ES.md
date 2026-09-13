@@ -989,18 +989,6 @@ Puedes escribirle al desarrollador de ReAppzuku en Telegram.
 **Agradecimientos especiales**\
 Una lista honorífica de usuarios que han contribuido al desarrollo de ReAppzuku.
 
-**Depuración (Debug)**\
-Habilita/deshabilita los registros de depuración.\
-Para guardar los registros usa:
-- aShell (para Shizuku)
-- Qute Terminal Emulator (para Root)
-
-O puedes usar cualquier otro emulador de terminal que te sea conveniente.\
-Para mostrar los registros en la consola usa: `logcat -s ReAppzukuDebug`
-
-**Menú de depuración**\
-Menú para habilitar/deshabilitar las categorías de registro requeridas.
-
 ---
 
 ### 📊 Estadísticas y registros

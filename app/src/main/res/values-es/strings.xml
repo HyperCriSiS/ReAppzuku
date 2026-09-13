@@ -1007,27 +1007,8 @@
     <string name="preset_reset_success">Ajustes del preajuste %d restablecidos — toca Guardar para aplicar</string>
     <string name="antichange_settings">No puedes cambiar los ajustes principales de Auto-Kill cuando hay un preajuste activo</string>
 
-    <!-- AppDebugManager category names -->
-    <string name="appdebug_main_page">Página principal</string>
-    <string name="appdebug_settings_page">Página de ajustes</string>
-    <string name="appdebug_statistics_page">Página de estadísticas</string>
-    <string name="appdebug_core">Núcleo de la app</string>
-    <string name="appdebug_foreground_service">Servicio de primer plano</string>
-    <string name="appdebug_triggers">Disparadores</string>
-    <string name="appdebug_advanced_conditions">Auto-Kill: Condiciones avanzadas</string>
-    <string name="appdebug_scan">Botón de escanear</string>
-    <string name="appdebug_auto_kill_base">Base de Auto-Kill</string>
-    <string name="appdebug_auto_kill_presets">Ajustes preestablecidos de Auto-Kill</string>
-    <string name="appdebug_shortcuts_widgets">Accesos directos y Widget</string>
-    <string name="appdebug_background_restrictions">Restricciones de segundo plano</string>
-    <string name="appdebug_restrictions_scheduler">Programador de restricciones</string>
-    <string name="appdebug_sleep_mode">Modo sueño</string>
-    <string name="appdebug_backup_restore">Copia de seguridad y restauración</string>
-    <string name="appdebug_utils">Otras utilidades</string>
     
 
-    <string name="settings_debug_title">Depuración</string>
-    <string name="settings_debug_menu_title">Menú de depuración</string>
     <string name="badge_persistent">Persistente</string>
     <string name="filter_app_icon_content_description">Icono de la aplicación</string>
 </resources>
