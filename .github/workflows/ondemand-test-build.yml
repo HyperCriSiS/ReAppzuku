@@ -35,7 +35,8 @@ jobs:
               Path('docs/HELP_ZH.md'),
           ]
           for path in files:
-              lines = path.read_text().splitlines(keepends=True)
+              raw = path.read_bytes().decode('utf-8')
+              lines = raw.splitlines(keepends=True)
               matches = [i for i, line in enumerate(lines) if 'ReAppzukuDebug' in line]
               if len(matches) != 1:
                   raise SystemExit(f'{path}: expected exactly one ReAppzukuDebug reference, got {len(matches)}')
@@ -58,8 +59,7 @@ jobs:
               removed = ''.join(lines[start:end])
               if 'ReAppzukuDebug' not in removed or not (5 <= end - start <= 25):
                   raise SystemExit(f'{path}: unsafe debug section bounds')
-              new_lines = lines[:start] + lines[end:]
-              path.write_text(''.join(new_lines))
+              path.write_bytes(''.join(lines[:start] + lines[end:]).encode('utf-8'))
           PY
           ! grep -RIn 'ReAppzukuDebug' docs/HELP*.md
           git config user.name "github-actions[bot]"
