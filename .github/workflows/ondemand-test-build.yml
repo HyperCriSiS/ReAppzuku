@@ -54,8 +54,8 @@ jobs:
                   'unfreeze summary block guard',
               ),
               (
-                  "              'wakeupCount', 'normalCount', 'parsedCount',",
-                  "              'parsedCount',",
+                  "    'wakeupCount', 'normalCount', 'parsedCount',",
+                  "    'parsedCount',",
                   'global forbidden-name list',
               ),
           ]
