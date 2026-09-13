@@ -24,13 +24,14 @@ jobs:
         with:
           java-version: '17'
           distribution: temurin
-      - name: Remove production debug controls and validate
+      - name: Remove production debug UI and validate
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
           import re
+          import xml.etree.ElementTree as ET
 
           settings_path = Path('app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivity.java')
           settings = settings_path.read_text()
@@ -41,9 +42,10 @@ jobs:
                   });
                   binding.layoutDebugMenu.setVisibility(AppDebugManager.isEnabled() ? View.VISIBLE : View.GONE);
                   binding.layoutDebugMenu.setOnClickListener(v -> showDebugMenuDialog());
+          
           '''
           if settings.count(block) != 1:
-              raise SystemExit(f'Expected one Settings debug binding block, found {settings.count(block)}')
+              raise SystemExit(f'Expected one Settings debug block, found {settings.count(block)}')
           settings_path.write_text(settings.replace(block, '', 1))
 
           dialogs_path = Path('app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivityDialogs.java')
@@ -58,21 +60,18 @@ jobs:
 
           layout_path = Path('app/src/main/res/layout/activity_settings.xml')
           layout = layout_path.read_text()
-          original_layout = layout
-
-          def remove_linear_layout_containing(text, needle):
-              pos = text.find(needle)
+          def remove_containing_linear(text, marker):
+              pos = text.find(marker)
               if pos < 0:
-                  raise SystemExit(f'Missing XML marker: {needle}')
+                  raise SystemExit(f'Missing XML marker: {marker}')
               start = text.rfind('<LinearLayout', 0, pos)
               if start < 0:
-                  raise SystemExit(f'No containing LinearLayout for {needle}')
+                  raise SystemExit(f'No containing LinearLayout for {marker}')
               token_re = re.compile(r'<LinearLayout\b|</LinearLayout\s*>')
               depth = 0
               end = None
               for match in token_re.finditer(text, start):
-                  token = match.group(0)
-                  if token.startswith('</'):
+                  if match.group(0).startswith('</'):
                       depth -= 1
                       if depth == 0:
                           end = match.end()
@@ -80,51 +79,63 @@ jobs:
                   else:
                       depth += 1
               if end is None or not (start <= pos < end):
-                  raise SystemExit(f'Could not bound LinearLayout for {needle}')
+                  raise SystemExit(f'Could not bound LinearLayout for {marker}')
+              if text[end:end+2] == '\n\n':
+                  end += 1
               return text[:start] + text[end:]
 
-          layout = remove_linear_layout_containing(layout, 'android:id="@+id/switch_debug_enabled"')
-          layout = remove_linear_layout_containing(layout, 'android:id="@+id/layout_debug_menu"')
-          removed = len(original_layout) - len(layout)
-          if removed <= 0 or removed > 7000:
-              raise SystemExit(f'Unexpected XML removal size: {removed}')
-          for marker in ('layoutPeriodicKill', 'switchPeriodicKill', 'layoutScreenLock', 'switchKillScreenOff',
-                         'layoutRamThresholdToggle', 'switchRamThreshold', 'layoutKillInterval',
-                         'layoutSmartLifecycleApps', 'layoutSmartLifecycleProfile', 'layoutSmartBootCleanup'):
+          layout = remove_containing_linear(layout, 'android:id="@+id/switch_debug_enabled"')
+          layout = remove_containing_linear(layout, 'android:id="@+id/layout_debug_menu"')
+          for marker in (
+              'layout_periodic_kill', 'switch_periodic_kill', 'layout_screen_lock',
+              'switch_kill_screen_off', 'layout_ram_threshold_toggle', 'switch_ram_threshold',
+              'layout_kill_interval', 'layout_smart_lifecycle_apps',
+              'layout_smart_lifecycle_profile', 'layout_smart_boot_cleanup'):
               if marker not in layout:
                   raise SystemExit(f'Non-debug settings marker was accidentally removed: {marker}')
           layout_path.write_text(layout)
+          ET.parse(layout_path)
 
           changed_string_files = 0
           for strings_path in Path('app/src/main/res').glob('values*/strings.xml'):
               text = strings_path.read_text()
-              original = text
               kept = []
+              removed_categories = 0
+              removed_titles = 0
               for line in text.splitlines(keepends=True):
                   if '<!-- AppDebugManager category names -->' in line:
                       continue
                   if 'name="appdebug_' in line:
+                      removed_categories += 1
                       continue
                   if 'name="settings_debug_title"' in line or 'name="settings_debug_menu_title"' in line:
+                      removed_titles += 1
                       continue
                   kept.append(line)
-              text = ''.join(kept)
-              if text != original:
-                  strings_path.write_text(text)
+              if removed_categories or removed_titles:
+                  if removed_categories != 16 or removed_titles != 2:
+                      raise SystemExit(f'Unexpected debug string count in {strings_path}: {removed_categories}/{removed_titles}')
+                  strings_path.write_text(''.join(kept))
+                  ET.parse(strings_path)
                   changed_string_files += 1
-          if changed_string_files < 1:
-              raise SystemExit('No debug string resources were removed')
+          if changed_string_files != 5:
+              raise SystemExit(f'Expected 5 localized string files, changed {changed_string_files}')
           PY
 
-          ! grep -RIn -E 'switch_debug_enabled|layout_debug_menu|settings_debug_title|settings_debug_menu_title|appdebug_' app/src/main || exit 1
+          ! grep -RIn -E 'switch_debug_enabled|layout_debug_menu|settings_debug_title|settings_debug_menu_title|appdebug_|showDebugMenuDialog' app/src/main || exit 1
           chmod +x gradlew
           ./gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
 
-          git fetch origin main
-          git checkout origin/main -- .github/workflows/ondemand-test-build.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivity.java app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivityDialogs.java app/src/main/res/layout/activity_settings.xml app/src/main/res/values*/strings.xml .github/workflows/ondemand-test-build.yml
+          git add app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivity.java \
+                  app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivityDialogs.java \
+                  app/src/main/res/layout/activity_settings.xml \
+                  app/src/main/res/values/strings.xml \
+                  app/src/main/res/values-es/strings.xml \
+                  app/src/main/res/values-ru/strings.xml \
+                  app/src/main/res/values-uk/strings.xml \
+                  app/src/main/res/values-zh-rCN/strings.xml
           git diff --cached --check
           git commit -m "Remove production debug settings UI"
           git push origin HEAD:${GITHUB_REF_NAME}
