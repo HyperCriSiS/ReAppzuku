@@ -10,8 +10,6 @@ import java.util.regex.Pattern;
 
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.ShellManager;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
 import java.util.Locale;
@@ -37,12 +35,10 @@ public class SensorsLocationAnalyzer {
 
         List<String> sensors = parseSensorService(packageName);
         if (sensors.isEmpty()) {
-            AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": Sensors/sensorservice - no results, trying batterystats fallback");
+
             sensors = parseSensorsBatteryStats(packageName);
-            if (!sensors.isEmpty()) AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": Sensors/batterystats - OK: " + sensors);
-            else AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": Sensors/batterystats - no results");
         } else {
-            AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": Sensors/sensorservice - OK: " + sensors);
+
         }
         if (sensors.isEmpty()) return list;
 
@@ -236,7 +232,7 @@ public class SensorsLocationAnalyzer {
 
         if (reqCount == 0) return list;
 
-        AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": analyzeLocationRequests: pkg=" + packageName + " reqCount=" + reqCount + " accuracy=" + bestAcc + " hasFg=" + hasFg + " hasBg=" + hasBg);
+
 
         StringBuilder detail = new StringBuilder(
                 analyzer.getContext().getString(R.string.triggers_location_requests, reqCount));
@@ -283,7 +279,7 @@ public class SensorsLocationAnalyzer {
                         analyzer.getContext().getString(R.string.triggers_bg_location_explanation),                        
                         TriggerInfo.Severity.HIGH));
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": bg location perm check failed", e); }
+        } catch (Exception e) {  }
         return list;
     }
 

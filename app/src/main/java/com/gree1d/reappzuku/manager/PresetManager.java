@@ -6,8 +6,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.AlarmScheduler;
 import com.gree1d.reappzuku.core.Clock;
 import com.gree1d.reappzuku.core.BackupFileStore;
@@ -182,16 +180,13 @@ public class PresetManager {
     }
 
     private void logPresetSaved(PresetModel model, String mode) {
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: savePreset #" + model.presetNumber
-                + " mode=" + mode + " name=" + model.name + " enabled=" + model.enabled
-                + " start=" + model.startHour + ":" + String.format(Locale.ROOT, "%02d", model.startMinute)
-                + " end=" + model.endHour + ":" + String.format(Locale.ROOT, "%02d", model.endMinute));
+
     }
 
     public PresetModel loadPreset(int presetNumber) {
         SharedPreferences p = presetPrefs(presetNumber);
         if (!p.contains(P_NAME)) {
-            AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: loadPreset #" + presetNumber + " — not found");
+
             return null;
         }
         PresetModel model = new PresetModel(presetNumber);
@@ -221,17 +216,12 @@ public class PresetManager {
         model.startMinute = p.getInt(P_START_MINUTE, 0);
         model.endHour = p.getInt(P_END_HOUR, 20);
         model.endMinute = p.getInt(P_END_MINUTE, 0);
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: loadPreset #" + presetNumber + " OK | name=" + model.name
-                + " enabled=" + model.enabled
-                + " start=" + model.startHour + ":" + String.format(Locale.ROOT, "%02d", model.startMinute)
-                + " end=" + model.endHour + ":" + String.format(Locale.ROOT, "%02d", model.endMinute)
-                + " whitelist=" + model.whitelistedApps.size()
-                + " blacklist=" + model.blacklistedApps.size());
+
         return model;
     }
 
     public void deletePreset(int presetNumber) {
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: deletePreset #" + presetNumber + " wasActive=" + (getActivePresetNumber() == presetNumber));
+
         presetPrefs(presetNumber).edit().clear().apply();
         cancelAlarms(presetNumber);
         if (getActivePresetNumber() == presetNumber) {
@@ -261,69 +251,57 @@ public class PresetManager {
     }
 
     public void activatePreset(int presetNumber) {
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: activatePreset #" + presetNumber + " | currentActive=" + getActivePresetNumber());
+
         PresetModel model = loadPreset(presetNumber);
         if (model == null) {
-            AppDebugManager.w(Category.AUTO_KILL_PRESETS, "PresetManager: activatePreset #" + presetNumber + " ABORTED — not found");
+
             return;
         }
         if (!model.enabled) {
-            AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: activatePreset #" + presetNumber + " SKIPPED — preset is disabled");
+
             return;
         }
 
         int currentActive = getActivePresetNumber();
         if (currentActive == 0) {
-            AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: activatePreset: no preset active — saving backup of current settings");
+
             saveBackup();
         } else if (currentActive != presetNumber) {
-            AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: activatePreset: switching from preset #" + currentActive + " — original backup preserved");
+
         }
 
         applyPreset(model);
         setActivePresetNumber(presetNumber);
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: activatePreset #" + presetNumber + " DONE");
+
     }
 
     public void deactivatePreset(int presetNumber) {
         int currentActive = getActivePresetNumber();
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: deactivatePreset #" + presetNumber + " | currentActive=" + currentActive);
+
         if (currentActive != presetNumber) {
-            AppDebugManager.w(Category.AUTO_KILL_PRESETS, "PresetManager: deactivatePreset #" + presetNumber + " SKIPPED — not the active preset");
+
             return;
         }
         PresetModel model = loadPreset(presetNumber);
         if (model != null && isCurrentlyActive(model)) {
-            AppDebugManager.w(Category.AUTO_KILL_PRESETS, "PresetManager: deactivatePreset #" + presetNumber + " SKIPPED — still inside time window (alarm drift)");
+
             return;
         }
         restoreBackup();
         clearActivePreset();
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: deactivatePreset #" + presetNumber + " DONE");
+
     }
 
     public void forceDeactivateIfActive(int presetNumber) {
         if (getActivePresetNumber() == presetNumber) {
             restoreBackup();
             clearActivePreset();
-            AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: forceDeactivateIfActive #" + presetNumber + " DONE");
+
         }
     }
 
     private void applyPreset(PresetModel model) {
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: applyPreset #" + model.presetNumber
-                + " | autoKill=" + model.autoKillEnabled
-                + " periodic=" + model.periodicKillEnabled
-                + " interval=" + model.killInterval
-                + " screenOff=" + model.killOnScreenOff
-                + " killMode=" + model.killMode + " killType=" + model.autoKillType
-                + " ramEnabled=" + model.ramThresholdEnabled + " ramThreshold=" + model.ramThreshold
-                + " headset=" + model.hwTriggerHeadset + " usb=" + model.hwTriggerUsb
-                + " charger=" + model.hwTriggerCharger + " wifi=" + model.hwTriggerWifi
-                + " bt=" + model.hwTriggerBluetooth + " gps=" + model.hwTriggerGps
-                + " hotspot=" + model.hwTriggerHotspot
-                + " appLaunch=" + model.appLaunchTriggerEnabled
-                + " whitelist=" + model.whitelistedApps + " blacklist=" + model.blacklistedApps);
+
 
         SharedPreferences.Editor editor = mainPrefs.edit();
         editor.putBoolean(KEY_AUTO_KILL_ENABLED, model.autoKillEnabled);
@@ -348,7 +326,7 @@ public class PresetManager {
         editor.putStringSet(KEY_BLACKLISTED_APPS, new HashSet<>(model.blacklistedApps));
         editor.apply();
 
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: applyPreset #" + model.presetNumber + " prefs written — rescheduling worker");
+
         notifyServiceUpdateHwReceivers();
         rescheduleWorker();
     }
@@ -379,12 +357,12 @@ public class PresetManager {
         Set<String> blacklist = mainPrefs.getStringSet(KEY_BLACKLISTED_APPS, new HashSet<>());
         e.putStringSet(KEY_BACKUP_PREFIX + KEY_BLACKLISTED_APPS, new HashSet<>(blacklist));
         e.apply();
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: saveBackup DONE");
+
     }
 
     private void restoreBackup() {
         boolean hasBackup = mainPrefs.contains(KEY_BACKUP_PREFIX + KEY_AUTO_KILL_ENABLED);
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: restoreBackup | hasBackup=" + hasBackup);
+
         if (!hasBackup) return;
 
         SharedPreferences.Editor e = mainPrefs.edit();
@@ -434,7 +412,7 @@ public class PresetManager {
         e.remove(KEY_BACKUP_PREFIX + KEY_BLACKLISTED_APPS);
         e.apply();
 
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: restoreBackup DONE — rescheduling worker");
+
         notifyServiceUpdateHwReceivers();
         rescheduleWorker();
     }
@@ -451,8 +429,7 @@ public class PresetManager {
         boolean autoKillEnabled = mainPrefs.getBoolean(KEY_AUTO_KILL_ENABLED, false);
         boolean periodicEnabled = mainPrefs.getBoolean(KEY_PERIODIC_KILL_ENABLED, false);
         int interval = mainPrefs.getInt(KEY_KILL_INTERVAL, 15);
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: rescheduleWorker | autoKill=" + autoKillEnabled
-                + " periodic=" + periodicEnabled + " interval=" + interval);
+
         boolean presetActive = mainPrefs.getInt(KEY_ACTIVE_PRESET, 0) != 0;
         AutoKillWorker.cancel(context);
         if ((autoKillEnabled || presetActive) && periodicEnabled) {
@@ -465,41 +442,36 @@ public class PresetManager {
                 source = "Periodic Kill";
             }
             AutoKillWorker.schedule(context, source);
-            AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: rescheduleWorker — scheduled with interval=" + interval + " source=" + source);
+
         } else {
-            AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: rescheduleWorker — worker cancelled");
+
         }
     }
 
     public void exportPresetToJson(PresetModel model, Uri uri) {
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: exportPresetToJson #" + model.presetNumber + " uri=" + uri);
+
         try {
             JSONObject json = model.toJson();
             try (OutputStream os = context.getContentResolver().openOutputStream(uri)) {
                 if (os == null) throw new IOException("OutputStream is null for uri: " + uri);
                 os.write(json.toString(2).getBytes("UTF-8"));
-                AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: exportPresetToJson #" + model.presetNumber + " OK");
+
             }
         } catch (IOException | JSONException e) {
-            AppDebugManager.e(Category.AUTO_KILL_PRESETS, "PresetManager: exportPresetToJson #" + model.presetNumber + " FAILED", e);
+
         }
     }
 
     public PresetModel importPresetFromJson(int presetNumber, Uri uri) {
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: importPresetFromJson #" + presetNumber + " uri=" + uri);
+
         try {
             String payload = new BackupFileStore(context.getContentResolver()).read(uri);
             JSONObject json = new JSONObject(payload);
             PresetModel model = PresetModel.fromJson(presetNumber, json);
-            AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: importPresetFromJson #" + presetNumber + " OK | name=" + model.name
-                    + " enabled=" + model.enabled
-                    + " start=" + model.startHour + ":" + String.format(Locale.ROOT, "%02d", model.startMinute)
-                    + " end=" + model.endHour + ":" + String.format(Locale.ROOT, "%02d", model.endMinute)
-                    + " whitelist=" + model.whitelistedApps.size()
-                    + " blacklist=" + model.blacklistedApps.size());
+
             return model;
         } catch (IOException | JSONException e) {
-            AppDebugManager.e(Category.AUTO_KILL_PRESETS, "PresetManager: importPresetFromJson #" + presetNumber + " FAILED", e);
+
             return null;
         }
     }
@@ -508,8 +480,7 @@ public class PresetManager {
     public void scheduleAlarms(PresetModel model) {
         cancelAlarms(model.presetNumber);
         if (!alarmScheduler.isAvailable()) {
-            AppDebugManager.e(Category.AUTO_KILL_PRESETS,
-                    "PresetManager: scheduleAlarms #" + model.presetNumber + " — AlarmManager is unavailable");
+
             return;
         }
         long activateTime = nextAlarmTime(model.startHour, model.startMinute);
@@ -520,14 +491,9 @@ public class PresetManager {
                 deactivateTime, buildPendingIntent(model.presetNumber, ACTION_PRESET_DEACTIVATE), true);
         if (activateResult != AlarmScheduler.ScheduleResult.EXACT
                 || deactivateResult != AlarmScheduler.ScheduleResult.EXACT) {
-            AppDebugManager.w(Category.AUTO_KILL_PRESETS,
-                    "PresetManager: exact alarm permission unavailable; using best-effort timing for preset #" + model.presetNumber);
+
         }
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: scheduleAlarms #" + model.presetNumber
-                + " | activateAt=" + model.startHour + ":" + String.format(Locale.ROOT, "%02d", model.startMinute)
-                + " (ms=" + activateTime + ")"
-                + " deactivateAt=" + model.endHour + ":" + String.format(Locale.ROOT, "%02d", model.endMinute)
-                + " (ms=" + deactivateTime + ")");
+
     }
 
     public void rescheduleNextAlarm(int presetNumber, String action) {
@@ -540,23 +506,19 @@ public class PresetManager {
         AlarmScheduler.ScheduleResult result = alarmScheduler.scheduleRtcWakeup(
                 next, buildPendingIntent(presetNumber, action), true);
         if (result != AlarmScheduler.ScheduleResult.EXACT) {
-            AppDebugManager.w(Category.AUTO_KILL_PRESETS,
-                    "PresetManager: rescheduleNextAlarm using best-effort timing for preset #" + presetNumber + " action=" + action);
+
         }
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: rescheduleNextAlarm #" + presetNumber + " action=" + action
-                + " nextAt=" + hour + ":" + String.format(Locale.ROOT, "%02d", minute)
-                + " ms=" + next);
+
     }
 
     public void cancelAlarms(int presetNumber) {
         if (!alarmScheduler.isAvailable()) {
-            AppDebugManager.e(Category.AUTO_KILL_PRESETS,
-                    "PresetManager: cancelAlarms #" + presetNumber + " — AlarmManager is unavailable");
+
             return;
         }
         alarmScheduler.cancel(buildPendingIntent(presetNumber, ACTION_PRESET_ACTIVATE));
         alarmScheduler.cancel(buildPendingIntent(presetNumber, ACTION_PRESET_DEACTIVATE));
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: cancelAlarms #" + presetNumber + " DONE");
+
     }
 
     private PendingIntent buildPendingIntent(int presetNumber, String action) {
@@ -587,17 +549,12 @@ public class PresetManager {
         } else {
             active = nowMinutes >= startMinutes && nowMinutes < endMinutes;
         }
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: isCurrentlyActive #" + model.presetNumber
-                + " | now=" + (nowMinutes / 60) + ":" + String.format(Locale.ROOT, "%02d", nowMinutes % 60)
-                + " range=" + model.startHour + ":" + String.format(Locale.ROOT, "%02d", model.startMinute)
-                + "–" + model.endHour + ":" + String.format(Locale.ROOT, "%02d", model.endMinute)
-                + " crossesMidnight=" + (endMinutes <= startMinutes)
-                + " → active=" + active);
+
         return active;
     }
 
     public void restoreAfterBoot() {
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: restoreAfterBoot: rebuilding preset alarms");
+
         for (int number : new int[]{PresetModel.PRESET_1, PresetModel.PRESET_2}) {
             PresetModel model = loadPreset(number);
             if (model != null && model.enabled) scheduleAlarms(model);
@@ -607,19 +564,19 @@ public class PresetManager {
     }
 
     public void checkAndApplyCurrentPreset() {
-        AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: checkAndApplyCurrentPreset | currentActive=" + getActivePresetNumber());
+
         for (int number : new int[]{PresetModel.PRESET_1, PresetModel.PRESET_2}) {
             PresetModel model = loadPreset(number);
             if (model == null) {
-                AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: checkAndApplyCurrentPreset | preset #" + number + " not found, skipping");
+
                 continue;
             }
             if (!model.enabled) {
-                AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: checkAndApplyCurrentPreset | preset #" + number + " disabled, skipping");
+
                 continue;
             }
             if (isCurrentlyActive(model)) {
-                AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: checkAndApplyCurrentPreset | preset #" + number + " in window — activating");
+
                 activatePreset(number);
                 return;
             }
@@ -628,11 +585,11 @@ public class PresetManager {
         if (currentActive != 0) {
             PresetModel active = loadPreset(currentActive);
             if (active == null || !active.enabled || !isCurrentlyActive(active)) {
-                AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: checkAndApplyCurrentPreset | preset #" + currentActive + " outside window — deactivating");
+
                 deactivatePreset(currentActive);
             }
         } else {
-            AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: checkAndApplyCurrentPreset | no preset active and none in window");
+
         }
     }
 
@@ -640,13 +597,13 @@ public class PresetManager {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent == null || intent.getAction() == null) {
-                AppDebugManager.w(Category.AUTO_KILL_PRESETS, "PresetManager: PresetReceiver: null intent or action");
+
                 return;
             }
             int presetNumber = intent.getIntExtra(EXTRA_PRESET_NUMBER, 0);
-            AppDebugManager.d(Category.AUTO_KILL_PRESETS, "PresetManager: PresetReceiver | action=" + intent.getAction() + " preset=" + presetNumber);
+
             if (presetNumber == 0) {
-                AppDebugManager.w(Category.AUTO_KILL_PRESETS, "PresetManager: PresetReceiver: missing preset_number extra");
+
                 return;
             }
             PresetManager manager = new PresetManager(context);

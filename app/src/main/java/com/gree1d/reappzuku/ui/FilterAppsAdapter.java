@@ -26,8 +26,6 @@ import com.gree1d.reappzuku.utils.AppModel;
 import com.gree1d.reappzuku.manager.SleepModeManager;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.R;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import java.util.Locale;
 
 public class FilterAppsAdapter extends BaseAdapter implements Filterable {
@@ -125,7 +123,7 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
         this.allApps = apps;
         this.filteredApps = new ArrayList<>();
         filterInitialList();
-        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: initialized (sleepMode), total=" + allApps.size() + ", filtered=" + filteredApps.size());
+
     }
 
     public FilterAppsAdapter(Context context, List<AppModel> apps,
@@ -218,7 +216,7 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
         this.allApps = apps;
         this.filteredApps = new ArrayList<>();
         filterInitialList();
-        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: initialized (restrictionMode=" + restrictionMode + ", sleepMode=" + sleepMode + "), total=" + allApps.size() + ", filtered=" + filteredApps.size());
+
     }
 
     public boolean isRestrictionMode() {
@@ -230,13 +228,13 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
     }
 
     public void setRestrictionTypeFilter(Set<BackgroundAppManager.RestrictionType> types) {
-        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: setRestrictionTypeFilter() types=" + types);
+
         this.restrictionTypeFilter = types;
         getFilter().filter(lastConstraint);
     }
 
     public void setFreezeTypeFilter(Set<SleepModeManager.FreezeType> types) {
-        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: setFreezeTypeFilter() types=" + types);
+
         this.freezeTypeFilter = types;
         getFilter().filter(lastConstraint);
     }
@@ -329,7 +327,7 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
     }
 
     public void clearSelection() {
-        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: clearSelection() called");
+
         for (AppModel app : allApps) {
             app.setSelected(false);
         }
@@ -337,7 +335,7 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
     }
 
     public void selectAllVisible() {
-        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: selectAllVisible() called, count=" + filteredApps.size());
+
         for (AppModel app : filteredApps) {
             app.setSelected(true);
         }
@@ -352,7 +350,7 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
     }
 
     public void setFilters(boolean showSystem, boolean showUser, boolean showRunningOnly) {
-        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: setFilters() showSystem=" + showSystem + ", showUser=" + showUser + ", showRunningOnly=" + showRunningOnly);
+
         this.showSystem = showSystem;
         this.showUser = showUser;
         this.showRunningOnly = showRunningOnly;
@@ -444,7 +442,7 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
 
         holder.checkBox.setOnClickListener(v -> {
             app.setSelected(h.checkBox.isChecked());
-            AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: checkbox toggled pkg=" + app.getPackageName() + ", selected=" + app.isSelected());
+
             if (!app.isSelected()) {
                 if (restrictionMode) {
                     restrictionTypeMap.remove(app.getPackageName());
@@ -464,7 +462,7 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
             boolean newState = !h.checkBox.isChecked();
             h.checkBox.setChecked(newState);
             app.setSelected(newState);
-            AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: row clicked pkg=" + app.getPackageName() + ", selected=" + newState);
+
             if (!newState) {
                 if (restrictionMode) {
                     restrictionTypeMap.remove(app.getPackageName());
@@ -525,7 +523,7 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
         SleepModeManager.FreezeMethod currentMethod = freezeMethodMap.getOrDefault(
                 app.getPackageName(), SleepModeManager.FreezeMethod.DISABLE);
         boolean isSystem = app.isSystemApp();
-        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: showFreezeTypeDialog pkg=" + app.getPackageName() + ", current=" + current + ", method=" + currentMethod + ", isSystem=" + isSystem);
+
 
         android.widget.LinearLayout container = new android.widget.LinearLayout(context);
         container.setOrientation(android.widget.LinearLayout.VERTICAL);
@@ -636,7 +634,7 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
                     SleepModeManager.FreezeMethod chosenMethod = (isSystem || suspendChosen)
                             ? SleepModeManager.FreezeMethod.SUSPEND
                             : SleepModeManager.FreezeMethod.DISABLE;
-                    AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: freezeType applied pkg=" + app.getPackageName() + ", type=" + chosenType + ", method=" + chosenMethod);
+
                     freezeTypeMap.put(app.getPackageName(), chosenType);
                     freezeMethodMap.put(app.getPackageName(), chosenMethod);
                     chipView.setText(badgeLabelFreeze(chosenType));
@@ -660,7 +658,7 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
         BackgroundAppManager.RestrictionType current =
                 restrictionTypeMap.getOrDefault(app.getPackageName(),
                         BackgroundAppManager.RestrictionType.SOFT);
-        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: showRestrictionTypeDialog pkg=" + app.getPackageName() + ", current=" + current);
+
 
         android.widget.LinearLayout container = new android.widget.LinearLayout(context);
         container.setOrientation(android.widget.LinearLayout.VERTICAL);
@@ -717,7 +715,7 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
                         restrictionTypeMap.put(app.getPackageName(), chosen);
                         manualOpsMaskMap.remove(app.getPackageName());
                         manualBucketMap.remove(app.getPackageName());
-                        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: restrictionType applied pkg=" + app.getPackageName() + ", type=HARD");
+
                         chipView.setText(badgeLabel(chosen));
                         notifySelectionChanged();
                     } else if (mediumBtn.isChecked()) {
@@ -725,7 +723,7 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
                         restrictionTypeMap.put(app.getPackageName(), chosen);
                         manualOpsMaskMap.remove(app.getPackageName());
                         manualBucketMap.remove(app.getPackageName());
-                        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: restrictionType applied pkg=" + app.getPackageName() + ", type=MEDIUM");
+
                         chipView.setText(badgeLabel(chosen));
                         notifySelectionChanged();
                     } else if (manualBtn.isChecked()) {
@@ -735,14 +733,14 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
                                 app.getPackageName(), 0x01);
                         int existingBucket = manualBucketMap.getOrDefault(
                                 app.getPackageName(), 0);
-                        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: restrictionType=MANUAL, opening ops dialog pkg=" + app.getPackageName() + ", existingMask=0x" + Integer.toHexString(existingMask) + ", existingBucket=" + existingBucket);
+
                         showManualOpsDialog(app, chipView, existingMask, existingBucket);
                     } else {
                         chosen = BackgroundAppManager.RestrictionType.SOFT;
                         restrictionTypeMap.remove(app.getPackageName());
                         manualOpsMaskMap.remove(app.getPackageName());
                         manualBucketMap.remove(app.getPackageName());
-                        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: restrictionType applied pkg=" + app.getPackageName() + ", type=SOFT");
+
                         chipView.setText(badgeLabel(chosen));
                         notifySelectionChanged();
                     }
@@ -760,9 +758,9 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
     }
 
     private void showManualOpsDialog(AppModel app, TextView chipView, int currentMask, int currentBucket) {
-        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: showManualOpsDialog pkg=" + app.getPackageName() + ", currentMask=0x" + Integer.toHexString(currentMask) + ", currentBucket=" + currentBucket);
+
         String[] ops = BackgroundAppManager.ALL_OPS;
-    
+
         String[] labels = {
             context.getString(R.string.manual_op_run_any_in_background),
             context.getString(R.string.manual_op_run_in_background),
@@ -776,20 +774,20 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
             context.getString(R.string.system_exempt_from_suspension),
             context.getString(R.string.run_user_initiated_jobs),
         };
-    
+
         int supportedMask = BackgroundAppManager.supportedOpsMask();
         boolean[] checked = new boolean[ops.length];
         for (int i = 0; i < ops.length; i++) {
             boolean supported = (supportedMask & (1 << i)) != 0;
             checked[i] = supported && (currentMask & (1 << i)) != 0;
         }
-    
+
         android.widget.ScrollView scrollView = new android.widget.ScrollView(context);
         android.widget.LinearLayout listLayout = new android.widget.LinearLayout(context);
         listLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
         int paddingH = (int) (context.getResources().getDisplayMetrics().density * 16);
         int paddingV = (int) (context.getResources().getDisplayMetrics().density * 4);
-    
+
         CheckBox[] boxes = new CheckBox[ops.length];
         for (int i = 0; i < ops.length; i++) {
             final int idx = i;
@@ -803,22 +801,21 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
             } else {
                 cb.setEnabled(false);
                 cb.setAlpha(0.4f);
-                AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: manualOps op unsupported on sdk="
-                        + android.os.Build.VERSION.SDK_INT + " op=" + ops[idx]);
+
             }
             boxes[i] = cb;
             listLayout.addView(cb);
         }
-    
+
         final boolean[] whitelistRemoval = {manualWhitelistRemovalSet.contains(app.getPackageName())};
-    
+
         CheckBox cbWhitelistRemoval = new CheckBox(context);
         cbWhitelistRemoval.setText(context.getString(R.string.manual_whitelist_removal));
         cbWhitelistRemoval.setChecked(whitelistRemoval[0]);
         cbWhitelistRemoval.setPadding(paddingH, paddingV * 3, paddingH, paddingV * 3);
         cbWhitelistRemoval.setOnCheckedChangeListener((btn, isChecked) -> whitelistRemoval[0] = isChecked);
         listLayout.addView(cbWhitelistRemoval);
-        
+
         View divider = new View(context);
         android.widget.LinearLayout.LayoutParams divParams =
                 new android.widget.LinearLayout.LayoutParams(
@@ -827,21 +824,21 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
         divider.setLayoutParams(divParams);
         divider.setBackgroundColor(0x44888888);
         listLayout.addView(divider);
-    
+
         final int[] selectedBucket = {currentBucket};
-    
+
         CheckBox cbRare = new CheckBox(context);
         cbRare.setText(context.getString(R.string.manual_bucket_rare));
         cbRare.setChecked(currentBucket == 40);
         cbRare.setPadding(paddingH, paddingV * 3, paddingH, paddingV * 3);
         listLayout.addView(cbRare);
-    
+
         CheckBox cbRestricted = new CheckBox(context);
         cbRestricted.setText(context.getString(R.string.manual_bucket_restricted));
         cbRestricted.setChecked(currentBucket == 45);
         cbRestricted.setPadding(paddingH, paddingV * 3, paddingH, paddingV * 3);
         listLayout.addView(cbRestricted);
-    
+
         cbRare.setOnCheckedChangeListener((btn, isChecked) -> {
             if (isChecked) {
                 selectedBucket[0] = 40;
@@ -858,17 +855,17 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
                 selectedBucket[0] = 0;
             }
         });
-    
-    
+
+
         scrollView.addView(listLayout);
-    
+
         new MaterialAlertDialogBuilder(context)
                 .setTitle(context.getString(R.string.filter_manual_ops_dialog_title,
                         app.getAppName()))
                 .setView(scrollView)
                 .setNegativeButton(context.getString(R.string.dialog_cancel), (d, w) -> {
                     if (!manualOpsMaskMap.containsKey(app.getPackageName())) {
-                        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: manualOps cancelled, no existing mask — reverting to SOFT pkg=" + app.getPackageName());
+
                         restrictionTypeMap.remove(app.getPackageName());
                         chipView.setText(badgeLabel(BackgroundAppManager.RestrictionType.SOFT));
                         notifySelectionChanged();
@@ -881,7 +878,7 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
                     }
                     mask = BackgroundAppManager.filterSupportedMask(mask);
                     if (mask == 0) {
-                        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: manualOps applied empty mask — reverting to SOFT pkg=" + app.getPackageName());
+
                         restrictionTypeMap.remove(app.getPackageName());
                         manualOpsMaskMap.remove(app.getPackageName());
                         manualBucketMap.remove(app.getPackageName());
@@ -899,13 +896,13 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
                         } else {
                             manualWhitelistRemovalSet.remove(app.getPackageName());
                         }
-                        AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: manualOps saved pkg=" + app.getPackageName() + ", mask=0x" + Integer.toHexString(mask) + ", bucket=" + selectedBucket[0]);
+
                         chipView.setText(badgeLabel(BackgroundAppManager.RestrictionType.MANUAL));
                     }
                     notifySelectionChanged();
                 })
                 .show();
-    
+
         if (hasAccent()) {
             android.content.res.ColorStateList tint =
                     android.content.res.ColorStateList.valueOf(accentColor);
@@ -944,7 +941,7 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
         @Override
         protected FilterResults performFiltering(CharSequence constraint) {
             lastConstraint = constraint;
-            AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: performFiltering constraint=\"" + constraint + "\"");
+
             FilterResults results = new FilterResults();
             List<AppModel> filteredList = new ArrayList<>();
             String rawFilter = (constraint != null && constraint.length() > 0)
@@ -969,7 +966,7 @@ public class FilterAppsAdapter extends BaseAdapter implements Filterable {
         @SuppressWarnings("unchecked")
         protected void publishResults(CharSequence constraint, FilterResults results) {
             filteredApps = (List<AppModel>) results.values;
-            AppDebugManager.d(Category.SETTINGS_PAGE, "FilterAppsAdapter: publishResults count=" + results.count);
+
             notifyDataSetChanged();
         }
     }

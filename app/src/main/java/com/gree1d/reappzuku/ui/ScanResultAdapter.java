@@ -20,8 +20,6 @@ import java.util.Map;
 
 import com.gree1d.reappzuku.manager.ScanSystem;
 import com.gree1d.reappzuku.R;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.utils.FocusHighlightUtil;
 
 public class ScanResultAdapter extends RecyclerView.Adapter<ScanResultAdapter.ViewHolder> {
@@ -47,8 +45,7 @@ public class ScanResultAdapter extends RecyclerView.Adapter<ScanResultAdapter.Vi
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         ScanSystem.AppLoad load = items.get(position);
-        AppDebugManager.d(Category.SCAN, "ScanResultAdapter: onBindViewHolder() pos=" + position
-                + " pkg=" + load.packageName + " findings=" + load.findings.size());
+
 
         boolean expanded = holder.findingsContainer.getVisibility() == View.VISIBLE;
         holder.appName.setText(context.getString(
@@ -60,7 +57,7 @@ public class ScanResultAdapter extends RecyclerView.Adapter<ScanResultAdapter.Vi
             Drawable icon = pm.getApplicationIcon(load.packageName);
             holder.appIcon.setImageDrawable(icon);
         } catch (PackageManager.NameNotFoundException e) {
-            AppDebugManager.w(Category.SCAN, "ScanResultAdapter: onBindViewHolder() — icon not found for " + load.packageName, e);
+
             holder.appIcon.setImageResource(android.R.drawable.sym_def_app_icon);
         }
 
@@ -77,14 +74,14 @@ public class ScanResultAdapter extends RecyclerView.Adapter<ScanResultAdapter.Vi
                         R.string.ui_label_with_indicator,
                         context.getString(R.string.ui_indicator_collapsed),
                         load.appName));
-                AppDebugManager.d(Category.SCAN, "ScanResultAdapter: collapsed " + load.packageName);
+
             } else {
                 holder.findingsContainer.setVisibility(View.VISIBLE);
                 holder.appName.setText(context.getString(
                         R.string.ui_label_with_indicator,
                         context.getString(R.string.ui_indicator_expanded),
                         load.appName));
-                AppDebugManager.d(Category.SCAN, "ScanResultAdapter: expanded " + load.packageName);
+
             }
         });
     }

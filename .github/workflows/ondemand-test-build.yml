@@ -8,208 +8,38 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  remove-debug-dead-code:
+  validate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          fetch-depth: 0
+          persist-credentials: false
       - name: Set up JDK 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           java-version: '17'
           distribution: temurin
           cache: gradle
-      - name: Remove no-op AppDebugManager dead code and validate
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          root = Path('app/src/main/java')
-          manager = root / 'com/gree1d/reappzuku/core/AppDebugManager.java'
-          if not manager.exists():
-              raise SystemExit('AppDebugManager.java missing before cleanup')
-
-          def find_call_close(text, start):
-              op = text.find('(', start)
-              if op < 0:
-                  raise RuntimeError('missing opening parenthesis')
-              depth = 0
-              i = op
-              state = 'code'
-              while i < len(text):
-                  c = text[i]
-                  n = text[i + 1] if i + 1 < len(text) else ''
-                  if state == 'code':
-                      if c == '"': state = 'str'
-                      elif c == "'": state = 'char'
-                      elif c == '/' and n == '/': state = 'line'; i += 1
-                      elif c == '/' and n == '*': state = 'block'; i += 1
-                      elif c == '(':
-                          depth += 1
-                      elif c == ')':
-                          depth -= 1
-                          if depth == 0:
-                              return i + 1
-                  elif state == 'str':
-                      if c == '\\': i += 1
-                      elif c == '"': state = 'code'
-                  elif state == 'char':
-                      if c == '\\': i += 1
-                      elif c == "'": state = 'code'
-                  elif state == 'line':
-                      if c == '\n': state = 'code'
-                  elif state == 'block':
-                      if c == '*' and n == '/': state = 'code'; i += 1
-                  i += 1
-              raise RuntimeError('unterminated AppDebugManager call')
-
-          # Inventory proved exactly one Java logger-only if/else pair.
-          sensors_path = root / 'com/gree1d/reappzuku/utils/triggers/analyzers/SensorsLocationAnalyzer.java'
-          sensors = sensors_path.read_bytes().decode('utf-8')
-          special_lf = (
-              '            if (!sensors.isEmpty()) AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": Sensors/batterystats - OK: " + sensors);\n'
-              '            else AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": Sensors/batterystats - no results");\n'
-          )
-          special_crlf = special_lf.replace('\n', '\r\n')
-          special_count = sensors.count(special_lf) + sensors.count(special_crlf)
-          if special_count != 1:
-              raise SystemExit(f'Expected one logger-only sensor if/else pair, found {special_count}')
-          sensors = sensors.replace(special_crlf, '').replace(special_lf, '')
-          sensors_path.write_bytes(sensors.encode('utf-8'))
-
-          touched = {str(sensors_path)}
-          removed_calls = 2
-          lambda_replacements = 0
-
-          for path in sorted(root.rglob('*.java')):
-              if path == manager:
-                  continue
-              text = path.read_bytes().decode('utf-8')
-              original = text
-              for line in (
-                  'import com.gree1d.reappzuku.core.AppDebugManager;\r\n',
-                  'import com.gree1d.reappzuku.core.AppDebugManager;\n',
-                  'import com.gree1d.reappzuku.core.AppDebugManager.Category;\r\n',
-                  'import com.gree1d.reappzuku.core.AppDebugManager.Category;\n',
-              ):
-                  text = text.replace(line, '')
-
-              while True:
-                  start = text.find('AppDebugManager.')
-                  if start < 0:
-                      break
-                  close = find_call_close(text, start)
-                  j = close
-                  while j < len(text) and text[j] in ' \t\r\n':
-                      j += 1
-
-                  # Inventory run 34786177286 proved exactly two logger-only Java lambdas.
-                  # Handle them before the ordinary semicolon-statement path.
-                  if text[:start].rstrip().endswith('->'):
-                      if j >= len(text) or text[j] not in ';)':
-                          raise SystemExit(f'{path}: logger-only lambda has unexpected suffix {text[j:j+20]!r}')
-                      text = text[:start] + '{}' + text[close:]
-                      removed_calls += 1
-                      lambda_replacements += 1
-                      continue
-
-                  line_start = text.rfind('\n', 0, start) + 1
-                  prefix = text[line_start:start].rstrip()
-                  if j < len(text) and text[j] == ';':
-                      if prefix and not prefix.endswith(('{', '}', ';')):
-                          raise SystemExit(f'{path}: unexpected statement prefix before logger: {prefix!r}')
-                      text = text[:start] + text[j + 1:]
-                      removed_calls += 1
-                  else:
-                      context = text[max(0, start - 160):min(len(text), start + 500)].replace('\n', '\\n')
-                      raise SystemExit(f'{path}: unsupported AppDebugManager expression: {context!r}')
-
-              if text != original:
-                  path.write_bytes(text.encode('utf-8'))
-                  touched.add(str(path))
-
-          # The source tree contains exactly one Kotlin file. Its ten debug calls are all
-          # standalone one-line statements; reject anything else rather than rewrite Kotlin broadly.
-          kotlin_files = sorted(root.rglob('*.kt'))
-          if [str(p.relative_to(root)) for p in kotlin_files] != ['com/gree1d/reappzuku/utils/AppzukuWidget.kt']:
-              raise SystemExit('Unexpected Kotlin source inventory: ' + ', '.join(str(p) for p in kotlin_files))
-          widget = kotlin_files[0]
-          lines = widget.read_bytes().splitlines(keepends=True)
-          new_lines = []
-          kotlin_calls = 0
-          for line in lines:
-              decoded = line.decode('utf-8')
-              stripped = decoded.strip()
-              if stripped in (
-                  'import com.gree1d.reappzuku.core.AppDebugManager',
-                  'import com.gree1d.reappzuku.core.AppDebugManager.Category',
-              ):
-                  continue
-              if 'AppDebugManager.' in decoded:
-                  if not stripped.startswith('AppDebugManager.'):
-                      raise SystemExit(f'{widget}: unsupported Kotlin debug expression: {stripped!r}')
-                  kotlin_calls += 1
-                  continue
-              new_lines.append(line)
-          if kotlin_calls != 10:
-              raise SystemExit(f'Expected 10 standalone Kotlin debug calls, found {kotlin_calls}')
-          widget.write_bytes(b''.join(new_lines))
-          touched.add(str(widget))
-          removed_calls += kotlin_calls
-
-          manager.unlink()
-          touched.add(str(manager))
-
-          # Logger removal can leave indentation-only lines. Normalize only those
-          # lines in files already touched by this cleanup, preserving each file's
-          # existing LF/CRLF endings and leaving non-empty lines byte-for-byte intact.
-          for touched_name in sorted(touched):
-              touched_path = Path(touched_name)
-              if not touched_path.exists() or touched_path.suffix not in ('.java', '.kt'):
-                  continue
-              normalized = []
-              for line in touched_path.read_bytes().splitlines(keepends=True):
-                  if line.endswith(b'\r\n'):
-                      body, ending = line[:-2], b'\r\n'
-                  elif line.endswith(b'\n'):
-                      body, ending = line[:-1], b'\n'
-                  else:
-                      body, ending = line, b''
-                  if body and not body.strip(b' \t'):
-                      line = ending
-                  normalized.append(line)
-              touched_path.write_bytes(b''.join(normalized))
-
-          leftovers = []
-          for suffix in ('*.java', '*.kt'):
-              for path in sorted(root.rglob(suffix)):
-                  if 'AppDebugManager' in path.read_text(errors='replace'):
-                      leftovers.append(str(path))
-          if leftovers:
-              raise SystemExit('Residual AppDebugManager references: ' + ', '.join(leftovers))
-          if removed_calls != 878:
-              raise SystemExit(f'Expected exactly 878 removed calls, got {removed_calls}')
-          if lambda_replacements != 2:
-              raise SystemExit(f'Expected exactly two empty-lambda replacements, got {lambda_replacements}')
-          print(f'Removed {removed_calls} AppDebugManager calls across {len(touched)} files; facade deleted.')
-          PY
-
-          chmod +x gradlew
-          ./gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
-          git diff --check
-          test -z "$(grep -RIl 'AppDebugManager' app/src/main/java || true)"
-
-          # Restore the canonical read-only workflow before the product commit.
-          git show origin/main:.github/workflows/ondemand-test-build.yml > .github/workflows/ondemand-test-build.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --check
-          git commit -m "Remove obsolete AppDebugManager dead code"
-          git push origin HEAD:${GITHUB_REF_NAME}
+      - name: Grant execute permission
+        run: chmod +x gradlew
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+      - name: Lint
+        run: ./gradlew lintDebug
+      - name: Compile instrumentation tests
+        run: ./gradlew assembleDebugAndroidTest
+      - name: Verify current Room schema export
+        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+      - name: Upload debug APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: reappzuku-ondemand-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

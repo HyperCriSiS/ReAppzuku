@@ -11,8 +11,6 @@ import java.util.regex.Pattern;
 
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.ShellManager;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
 
@@ -59,7 +57,7 @@ public class PowerAnalyzer {
                 boolean byTag = line.contains(packageName);
                 if (!byUid && !byTag) continue;
 
-                AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": Wakelocks/dumpsys power - matched line: " + line.trim());
+
 
                 String typeLabel, typeExplain;
                 if      (line.contains("PARTIAL"))      { typeLabel="Partial";   typeExplain=analyzer.getContext().getString(R.string.triggers_wakelock_partial_explain); }
@@ -125,7 +123,7 @@ public class PowerAnalyzer {
         }
 
         if (list.isEmpty()) {
-            AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": Wakelocks/dumpsys power - no matches, trying batterystats fallback");
+
             String bsOut = analyzer.getShellManager().runShellCommandAndGetFullOutput(
                     "dumpsys batterystats " + packageName);
             if (bsOut != null) {
@@ -151,7 +149,7 @@ public class PowerAnalyzer {
         }
 
         if (list.isEmpty() && analyzer.apiLevel >= AppTriggersAnalyzer.API_BAL_PRIVILEGES) {
-            AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": analyzeWakelocks: batterystats empty, trying sysfs fallback");
+
             list.addAll(analyzeWakelocksSysFsFallback(packageName, analyzer.getCachedUid()));
         }
 
@@ -206,7 +204,7 @@ public class PowerAnalyzer {
                                 ? TriggerInfo.Severity.HIGH : TriggerInfo.Severity.MEDIUM));
             }
         } catch (Exception e) {
-            AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": wakelock wakeup_sources fallback failed", e);
+
         }
         return list;
     }
@@ -225,7 +223,7 @@ public class PowerAnalyzer {
                         analyzer.getContext().getString(R.string.triggers_kernel_wakelock_explanation),                        
                         TriggerInfo.Severity.HIGH));
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": kernel wakelock check failed", e); }
+        } catch (Exception e) {  }
         return list;
     }
 
@@ -334,7 +332,7 @@ public class PowerAnalyzer {
                     TriggerInfo.Severity.INFO));
 
         } catch (Exception e) {
-            AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": wakelock history parse failed", e);
+
         }
     }
 
@@ -400,11 +398,11 @@ public class PowerAnalyzer {
                 if ((m=jp.matcher(line)).find()) { jobW  +=Integer.parseInt(m.group(1)); continue; }
                 if ((m=gp.matcher(line)).find()) { gcmW  +=Integer.parseInt(m.group(1)); continue; }
                 if ((m=bp.matcher(line)).find())   bcastW+=Integer.parseInt(m.group(1));
-            } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": analyzeExcessiveWakeups line parse failed", e); }
+            } catch (Exception e) {  }
         }
 
         int total = alarmW + jobW + gcmW + bcastW;
-        AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": analyzeExcessiveWakeups: pkg=" + packageName + " total=" + total + " alarms=" + alarmW + " jobs=" + jobW + " gcm=" + gcmW + " bcast=" + bcastW);
+
         if (total == 0) return list;
 
         StringBuilder detail = new StringBuilder(
@@ -479,10 +477,10 @@ public class PowerAnalyzer {
                 if ((m=ap.matcher(line)).find()) { alarms+=Integer.parseInt(m.group(1)); continue; }
                 if ((m=jp.matcher(line)).find()) { jobs  +=Integer.parseInt(m.group(1)); continue; }
                 if ((m=sp.matcher(line)).find())   syncs +=Integer.parseInt(m.group(1));
-            } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": analyzeBatteryStats line parse failed", e); }
+            } catch (Exception e) {  }
         }
         if (wlCnt==0&&alarms==0&&jobs==0&&syncs==0&&powerMah<0) return list;
-        AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": analyzeBatteryStats: pkg=" + packageName + " powerMah=" + powerMah + " wlCnt=" + wlCnt + " alarms=" + alarms + " jobs=" + jobs + " syncs=" + syncs);
+
 
         StringBuilder detail = new StringBuilder();
         if (powerMah >= 0)

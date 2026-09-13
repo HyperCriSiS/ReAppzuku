@@ -27,8 +27,6 @@ import androidx.work.WorkManager;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import com.gree1d.reappzuku.R;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.ReleaseAssetPolicy;
 import com.gree1d.reappzuku.core.ReleaseVersion;
 import com.gree1d.reappzuku.service.UpdateCheckWorker;
@@ -89,8 +87,7 @@ public class UpdateChecker {
                 ExistingPeriodicWorkPolicy.UPDATE,
                 request);
 
-        AppDebugManager.d(Category.UTILS, FILE_NAME + ": Periodic update check scheduled (interval=" +
-                CHECK_INTERVAL_HOURS + "h, backoff=" + RETRY_BACKOFF_MINS + "m)");
+
     }
 
     public static void checkForUpdatesManual(Context context, SharedPreferences prefs) {
@@ -126,7 +123,7 @@ public class UpdateChecker {
 
             int code = conn.getResponseCode();
             if (code != 200) {
-                AppDebugManager.w(Category.UTILS, FILE_NAME + ": GitHub API returned HTTP " + code);
+
                 return null;
             }
 
@@ -175,20 +172,20 @@ public class UpdateChecker {
             // A repository may intentionally have only rolling/dev releases before the first
             // production tag exists. That is a successful fetch with "no update", not a
             // transport failure that should trigger WorkManager backoff/retries.
-            AppDebugManager.d(Category.UTILS, FILE_NAME + ": No stable numeric GitHub release found");
+
             return new ReleaseInfo("0.0.0", "", RELEASES_URL, RELEASES_URL);
 
         } catch (UnknownHostException e) {
-            AppDebugManager.w(Category.UTILS, FILE_NAME + ": No route to GitHub (DNS failed): " + e.getMessage());
+
             return null;
         } catch (SocketTimeoutException e) {
-            AppDebugManager.w(Category.UTILS, FILE_NAME + ": GitHub API timed out: " + e.getMessage());
+
             return null;
         } catch (IOException e) {
-            AppDebugManager.w(Category.UTILS, FILE_NAME + ": Network I/O error fetching release: " + e.getMessage());
+
             return null;
         } catch (Exception e) {
-            AppDebugManager.e(Category.UTILS, FILE_NAME + ": Unexpected error fetching release info", e);
+
             return null;
         } finally {
             if (conn != null) {
@@ -206,7 +203,7 @@ public class UpdateChecker {
             return context.getPackageManager()
                     .getPackageInfo(context.getPackageName(), 0).versionName;
         } catch (PackageManager.NameNotFoundException e) {
-            AppDebugManager.w(Category.UTILS, FILE_NAME + ": getAppVersion: own package not found, using 0.0.0 fallback", e);
+
             return "0.0.0";
         }
     }
@@ -245,7 +242,7 @@ public class UpdateChecker {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
                     != PackageManager.PERMISSION_GRANTED) {
-                AppDebugManager.w(Category.UTILS, FILE_NAME + ": POST_NOTIFICATIONS not granted, skipping update notification");
+
                 return;
             }
         }
@@ -267,7 +264,7 @@ public class UpdateChecker {
         try {
             markwon.setMarkdown(messageView, bodyMd);
         } catch (Exception e) {
-            AppDebugManager.w(Category.UTILS, FILE_NAME + ": Markwon rendering failed, falling back to plain text", e);
+
             messageView.setText(bodyMd);
         }
 
@@ -290,7 +287,7 @@ public class UpdateChecker {
                         context.startActivity(new Intent(
                                 Intent.ACTION_VIEW, Uri.parse(info.releasePageUrl)));
                     } catch (Exception e) {
-                        AppDebugManager.e(Category.UTILS, FILE_NAME + ": Failed to open release page URL", e);
+
                     }
                 })
                 .setNegativeButton(context.getString(R.string.update_dialog_close), null)

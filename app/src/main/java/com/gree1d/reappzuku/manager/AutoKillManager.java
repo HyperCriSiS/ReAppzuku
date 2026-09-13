@@ -8,8 +8,6 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.SharedPreferences;
 import android.os.Handler;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import android.widget.Toast;
 
 import org.json.JSONException;
@@ -39,7 +37,7 @@ import static com.gree1d.reappzuku.core.AppConstants.*;
 
 public class AutoKillManager {
     private static final String TAG = "AutoKillManager";
-  
+
     private static final int STATS_LIMIT = 15_000;
 
     private final Context context;
@@ -88,16 +86,16 @@ public class AutoKillManager {
             Set<String> blacklistedApps = getBlacklistedApps();
             int killMode = getKillMode();
 
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: === performAutoKill start ===");
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: killMode=" + (killMode == 1 ? "BLACKLIST" : "WHITELIST"));
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: whitelistedApps=" + whitelistedApps);
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: blacklistedApps=" + blacklistedApps);
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: hiddenApps=" + hiddenApps);
+
+
+
+
+
 
             String dumpOutput = shellManager.runShellCommandAndGetFullOutput("dumpsys activity activities");
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: dumpsys output length: " + (dumpOutput == null ? "null" : dumpOutput.length()));
+
             if (dumpOutput == null) {
-                AppDebugManager.w(Category.AUTO_KILL_BASE, "AutoKillManager: dumpsys returned null — aborting kill");
+
                 if (onComplete != null)
                     handler.post(onComplete);
                 return;
@@ -149,8 +147,7 @@ public class AutoKillManager {
                 List<com.gree1d.reappzuku.core.shell.ProcessMemoryInfo> memInfos =
                         shellManager.getProcessMemoryInfo(allPids);
 
-                AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: getProcessMemoryInfo returned " + memInfos.size()
-                        + " entries for " + allPids.length + " pids (took " + (System.currentTimeMillis() - meminfoStart) + "ms)");
+
 
                 if (!memInfos.isEmpty()) {
                     Map<Integer, Long> pssByPid = new HashMap<>();
@@ -182,8 +179,7 @@ public class AutoKillManager {
                                     anyResolved = true;
                                     anyRssFallback = true;
                                     pidToPackage.put(pid, packageName);
-                                    AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: pid " + pid
-                                            + " (" + packageName + ") missing from getProcessMemoryInfo — using ps RSS fallback: " + rss + " KB");
+
                                 }
                             }
                         }
@@ -198,12 +194,11 @@ public class AutoKillManager {
 
             if (runningPackages.isEmpty()) {
                 memorySource = "RSS";
-                AppDebugManager.w(Category.AUTO_KILL_BASE,
-                        "AutoKillManager: getProcessMemoryInfo yielded no packages — falling back to ps/rss");
+
                 String psOutput = shellManager.runShellCommandAndGetFullOutput(
                         "ps -A -o rss,name | grep '\\.'");
                 if (psOutput == null || psOutput.trim().isEmpty()) {
-                    AppDebugManager.w(Category.AUTO_KILL_BASE, "AutoKillManager: ps fallback also empty — aborting kill");
+
                     if (onComplete != null)
                         handler.post(onComplete);
                     return;
@@ -238,8 +233,7 @@ public class AutoKillManager {
             long pssCount = packageMemorySource.values().stream().filter(s -> s.equals("PSS")).count();
             long rssCount = packageMemorySource.values().stream().filter(s -> s.equals("RSS")).count();
             long mixedCount = packageMemorySource.values().stream().filter(s -> s.equals("PSS+RSS")).count();
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: memorySource=" + memorySource
-                    + " for this cycle (per-package: PSS=" + pssCount + ", RSS=" + rssCount + ", PSS+RSS=" + mixedCount + ")");
+
 
             killOrphanShellProcesses(null);
 
@@ -252,47 +246,47 @@ public class AutoKillManager {
                     .filter(pkg -> {
                         try {
                             if (hiddenApps.contains(pkg)) {
-                                AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: SKIP (hidden): " + pkg);
+
                                 return false;
                             }
                             if (ProtectedApps.isProtected(pkg, currentKeyboard, currentLauncher)) {
-                                AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: SKIP (protected): " + pkg);
+
                                 return false;
                             }
                             if (extraWhitelist != null && extraWhitelist.contains(pkg)) {
-                                AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: SKIP (extra whitelist): " + pkg);
+
                                 return false;
                             }
                             if (!presetActive && scheduler != null && scheduler.isProtected(pkg, RestrictionsScheduler.PROTECT_AUTO_KILL)) {
-                                AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: SKIP (temp protected): " + pkg);
+
                                 return false;
                             }
                             if (containsPackage(dumpOutput, pkg)) {
-                                AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: SKIP (foreground): " + pkg);
+
                                 return false;
                             }
                             if (killMode == 1) {
                                 boolean inBlacklist = blacklistedApps.contains(pkg);
-                                AppDebugManager.d(Category.AUTO_KILL_BASE, (inBlacklist ? "AutoKillManager: KILL (blacklist): " : "AutoKillManager: SKIP (not in blacklist): ") + pkg);
+
                                 return inBlacklist;
                             } else {
                                 if (whitelistedApps.contains(pkg)) {
-                                    AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: SKIP (whitelisted): " + pkg);
+
                                     return false;
                                 }
                                 ApplicationInfo appInfo = pm.getApplicationInfo(pkg, 0);
                                 boolean persistent = (appInfo.flags & ApplicationInfo.FLAG_PERSISTENT) != 0;
-                                AppDebugManager.d(Category.AUTO_KILL_BASE, (persistent ? "AutoKillManager: SKIP (persistent): " : "AutoKillManager: KILL (whitelist mode): ") + pkg);
+
                                 return !persistent;
                             }
                         } catch (PackageManager.NameNotFoundException e) {
-                            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: SKIP (not found): " + pkg);
+
                             return false;
                         }
                     })
                     .collect(Collectors.toList());
 
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: toKill list (" + toKill.size() + "): " + toKill);
+
 
             Map<String, Long> pendingRss = loadPendingRss();
             Map<String, Long> confirmedFreedKb = new HashMap<>();
@@ -300,9 +294,9 @@ public class AutoKillManager {
                 String pkg = entry.getKey();
                 if (!psRssMap.containsKey(pkg)) {
                     confirmedFreedKb.put(pkg, entry.getValue());
-                    AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Confirmed freed RAM for " + pkg + ": " + entry.getValue() + " KB [" + memorySource + "]");
+
                 } else {
-                    AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Skipped RAM (relaunched): " + pkg);
+
                 }
             }
             if (!confirmedFreedKb.isEmpty()) {
@@ -317,7 +311,7 @@ public class AutoKillManager {
                     long rssKb = psRssMap.getOrDefault(pkg, 0L);
                     if (rssKb > 0) {
                         newPendingRss.put(pkg, rssKb);
-                        AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Pending " + packageMemorySource.getOrDefault(pkg, memorySource) + " for " + pkg + ": " + rssKb + " KB");
+
                     }
                 }
                 savePendingRss(newPendingRss);
@@ -579,8 +573,7 @@ public class AutoKillManager {
         if (!PackageNameValidator.isValid(packageName)) return;
         PrivilegedShell.KillMode killMode =
                 PrivilegedShell.KillMode.fromAutoKillType(getAutoKillType());
-        AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: killPackageSync: pkg="
-                + packageName + " type=" + killMode + " source=" + source);
+
         privilegedShell.killPackageAndGetFullOutput(packageName, killMode);
 
         long appRamBytes = 0;
@@ -627,8 +620,7 @@ public class AutoKillManager {
         int excess = (currentCount + newEntries) - STATS_LIMIT;
         if (excess > 0) {
             appStatsDao.deleteOldestStats(excess);
-            AppDebugManager.d(Category.AUTO_KILL_BASE,
-                    "AutoKillManager: DB limit reached, deleted " + excess + " oldest records");
+
         }
 
         for (String packageName : uniquePackages) {
@@ -657,9 +649,7 @@ public class AutoKillManager {
 
             appStatsDao.insert(stats);
 
-            AppDebugManager.d(Category.AUTO_KILL_BASE,
-                    "AutoKillManager: Inserted kill record for " + packageName
-                    + " recoveredKb=" + recoveredKb + " source=" + source);
+
         }
     }
 
@@ -669,9 +659,7 @@ public class AutoKillManager {
                 com.gree1d.reappzuku.db.AppDatabase.getInstance(context).appStatsDao();
         for (Map.Entry<String, Long> entry : confirmedFreedKb.entrySet()) {
             appStatsDao.addRecoveredKb(entry.getKey(), entry.getValue());
-            AppDebugManager.d(Category.AUTO_KILL_BASE,
-                    "AutoKillManager: Confirmed RAM added for " + entry.getKey()
-                    + ": " + entry.getValue() + " KB");
+
         }
     }
 
@@ -722,12 +710,12 @@ public class AutoKillManager {
         for (Map.Entry<String, List<String>> entry : orphanCandidatePids.entrySet()) {
             if (!appProcessPids.containsKey(entry.getKey())) {
                 toKill.addAll(entry.getValue());
-                AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Orphan shell PIDs for " + entry.getKey() + ": " + entry.getValue());
+
             }
         }
         if (!toKill.isEmpty()) {
             privilegedShell.killPidsAndGetFullOutput(toKill);
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: Killed orphan shell PIDs: " + toKill);
+
         }
     }
 
@@ -736,7 +724,7 @@ public class AutoKillManager {
 
         int idx = output.indexOf(packageName);
         if (idx == -1) {
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: containsPackage: NOT FOUND in dumpsys: " + packageName);
+
             return false;
         }
 
@@ -749,14 +737,13 @@ public class AutoKillManager {
             if (startOk && endOk) {
                 int from = Math.max(0, idx - 40);
                 int to = Math.min(output.length(), end + 40);
-                AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: containsPackage: FOUND " + packageName
-                        + " | context: [" + output.substring(from, to).replace("\n", "↵") + "]");
+
                 return true;
             }
             idx = output.indexOf(packageName, idx + 1);
         }
 
-        AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillManager: containsPackage: found as substring but boundaries failed: " + packageName);
+
         return false;
     }
 

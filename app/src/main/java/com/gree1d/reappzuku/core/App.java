@@ -103,7 +103,7 @@ public class App extends Application {
             }
         };
 
-        AppDebugManager.init(this);
+
         DynamicColors.applyToActivitiesIfAvailable(this);
 
         // The Binder is delivered to :shizuku. Pull it into the normal process

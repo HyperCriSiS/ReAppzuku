@@ -25,8 +25,6 @@ import androidx.core.content.ContextCompat;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import com.gree1d.reappzuku.R;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.BaseActivity;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.ShellManager;
@@ -96,7 +94,7 @@ public class LogDetailActivity extends BaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_log_detail);
-        AppDebugManager.d(Category.STATISTICS_PAGE, FILE + ": onCreate");
+
 
         logType = (LogType) getIntent().getSerializableExtra(EXTRA_LOG_TYPE);
         if (logType == null) logType = LogType.AUTO_KILL;
@@ -135,7 +133,7 @@ public class LogDetailActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        AppDebugManager.d(Category.STATISTICS_PAGE, FILE + ": onDestroy");
+
     }
 
     android.content.SharedPreferences prefs() {
@@ -227,8 +225,7 @@ public class LogDetailActivity extends BaseActivity {
                     .getInstance(this).appStatsDao();
             List<com.gree1d.reappzuku.db.AppStatsAggregate> statsList =
                     appStatsDao.getAllStatsSince(twelveHoursAgo);
-            AppDebugManager.d(Category.STATISTICS_PAGE, FILE + ": loadAutoKill loaded " + statsList.size()
-                    + " stats rows since 12h ago");
+
 
             List<KillHistoryEntry> historyEntries = new ArrayList<>();
             java.util.Map<String, String> pendingNameUpdates = new java.util.HashMap<>();
@@ -295,7 +292,7 @@ public class LogDetailActivity extends BaseActivity {
     }
 
     private void clearAutoKill() {
-        AppDebugManager.i(Category.STATISTICS_PAGE, FILE + ": kill history stats cleared by user");
+
         long sinceTime = System.currentTimeMillis() - STATS_HISTORY_DURATION_MS;
         executor.execute(() -> {
             com.gree1d.reappzuku.db.AppDatabase.getInstance(this).appStatsDao().deleteStatsSince(sinceTime);
@@ -352,8 +349,7 @@ public class LogDetailActivity extends BaseActivity {
             }
 
             List<TopOffender> offenders = buildTopOffenders(stats, appStatsDao);
-            AppDebugManager.d(Category.STATISTICS_PAGE, FILE + ": loadTopOffenders filter=" + selectedFilterIndex
-                    + " loaded " + offenders.size() + " offenders");
+
 
             int totalKills = 0, totalRelaunches = 0;
             long totalRecoveredKb = 0;
@@ -382,7 +378,7 @@ public class LogDetailActivity extends BaseActivity {
     }
 
     private void clearTopOffenders() {
-        AppDebugManager.i(Category.STATISTICS_PAGE, FILE + ": top offenders stats cleared by user");
+
         int filterIndex = currentTopOffenderFilterIndex[0];
         long windowMs = TOP_OFFENDER_FILTER_WINDOWS_MS[filterIndex];
         long sinceTime = windowMs > 0 ? System.currentTimeMillis() - windowMs : 0L;
@@ -457,7 +453,7 @@ public class LogDetailActivity extends BaseActivity {
     private void loadBackgroundRestrictions() {
         executor.execute(() -> {
             List<BackgroundRestrictionLog.LogEntry> entries = BackgroundRestrictionLog.readEntries(this);
-            AppDebugManager.d(Category.STATISTICS_PAGE, FILE + ": restriction log loaded " + entries.size() + " entries");
+
             List<SettingsSurfaceRow> rows = buildRestrictionLogRows(entries);
             String summary = getString(R.string.settings_restriction_log_summary, rows.size());
             handler.post(() -> {
@@ -475,7 +471,7 @@ public class LogDetailActivity extends BaseActivity {
 
     private void clearBackgroundRestrictions() {
         executor.execute(() -> {
-            AppDebugManager.i(Category.STATISTICS_PAGE, FILE + ": restriction log cleared by user");
+
             appManager.clearBackgroundRestrictionLog();
             handler.post(this::loadBackgroundRestrictions);
         });
@@ -661,7 +657,7 @@ public class LogDetailActivity extends BaseActivity {
     private void loadSleepMode() {
         executor.execute(() -> {
             List<SleepModeLogManager.LogEntry> entries = SleepModeLogManager.readEntries(this);
-            AppDebugManager.d(Category.STATISTICS_PAGE, FILE + ": sleep mode log loaded " + entries.size() + " entries");
+
             List<SettingsSurfaceRow> rows = buildSleepModeLogRows(entries);
             String summary = getString(R.string.settings_restriction_log_summary, rows.size());
             handler.post(() -> {
@@ -677,7 +673,7 @@ public class LogDetailActivity extends BaseActivity {
 
     private void clearSleepMode() {
         executor.execute(() -> {
-            AppDebugManager.i(Category.STATISTICS_PAGE, FILE + ": sleep mode log cleared by user");
+
             SleepModeLogManager.clear(this);
             handler.post(this::loadSleepMode);
         });
@@ -731,7 +727,7 @@ public class LogDetailActivity extends BaseActivity {
         executor.execute(() -> {
             List<RestrictionsScheduler.SchedulerLog.Entry> entries =
                     RestrictionsScheduler.SchedulerLog.readEntries(this);
-            AppDebugManager.d(Category.STATISTICS_PAGE, FILE + ": scheduler log loaded " + entries.size() + " entries");
+
             List<SettingsSurfaceRow> rows = buildSchedulerLogRows(entries);
             String summary = getString(R.string.settings_restriction_log_summary, rows.size());
             handler.post(() -> {
@@ -747,7 +743,7 @@ public class LogDetailActivity extends BaseActivity {
 
     private void clearScheduler() {
         executor.execute(() -> {
-            AppDebugManager.i(Category.STATISTICS_PAGE, FILE + ": scheduler log cleared by user");
+
             RestrictionsScheduler.SchedulerLog.clear(this);
             handler.post(this::loadScheduler);
         });
@@ -922,7 +918,7 @@ public class LogDetailActivity extends BaseActivity {
             intent.setData(Uri.parse("package:" + packageName));
             startActivity(intent);
         } catch (Exception e) {
-            AppDebugManager.e(Category.STATISTICS_PAGE, FILE + ": openAppInfo failed for " + packageName, e);
+
             Toast.makeText(this, getString(R.string.settings_open_app_info_error), Toast.LENGTH_SHORT).show();
         }
     }
@@ -973,8 +969,7 @@ public class LogDetailActivity extends BaseActivity {
                 return name;
             }
         } catch (android.content.pm.PackageManager.NameNotFoundException e) {
-            AppDebugManager.w(Category.STATISTICS_PAGE, FILE + ": resolveAggregateAppName package not found: "
-                    + stats.packageName, e);
+
         }
         return stats.packageName;
     }

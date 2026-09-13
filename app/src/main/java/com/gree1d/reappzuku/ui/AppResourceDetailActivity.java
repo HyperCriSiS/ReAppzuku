@@ -19,8 +19,6 @@ import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
 import com.gree1d.reappzuku.core.PreferenceKeys;
 import com.gree1d.reappzuku.core.AppConstants;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.utils.AppModel;
 import com.gree1d.reappzuku.R;
 
@@ -87,10 +85,9 @@ public class AppResourceDetailActivity extends BaseActivity {
         totalAllAppsCpuPct = getIntent().getDoubleExtra(EXTRA_TOTAL_CPU_PCT, 0);
         totalAllAppsRamMb  = getIntent().getDoubleExtra(EXTRA_TOTAL_RAM_MB, 0);
         selectedPeriodIdx  = getIntent().getIntExtra(EXTRA_PERIOD_IDX, 0);
-        AppDebugManager.d(Category.STATISTICS_PAGE, TAG + ": onCreate package=" + packageName
-                + " appName=" + appName + " periodIdx=" + selectedPeriodIdx);
+
         if (packageName == null) {
-            AppDebugManager.w(Category.STATISTICS_PAGE, TAG + ": onCreate called without EXTRA_PACKAGE_NAME, finishing activity");
+
             finish();
             return;
         }
@@ -112,11 +109,11 @@ public class AppResourceDetailActivity extends BaseActivity {
 
     private void setupAddToListButton() {
         AppModel app = findAppModel(packageName);
-        
+
         if (app == null) {
             Drawable icon;
             boolean isSystem = false;
-            
+
             try {
                 icon = getPackageManager().getApplicationIcon(packageName);
                 int flags = getPackageManager().getApplicationInfo(packageName, 0).flags;
@@ -124,11 +121,11 @@ public class AppResourceDetailActivity extends BaseActivity {
             } catch (PackageManager.NameNotFoundException e) {
                 icon = ContextCompat.getDrawable(this, android.R.drawable.sym_def_app_icon);
             }
-    
+
             boolean isWhitelisted = appManager.getWhitelistedApps().contains(packageName);
             boolean isProtected = com.gree1d.reappzuku.core.ProtectedApps.isProtected(this, packageName);
             String finalAppName = appName != null ? appName : packageName;
-    
+
             app = new AppModel(
                 finalAppName, 
                 packageName, 
@@ -139,22 +136,22 @@ public class AppResourceDetailActivity extends BaseActivity {
                 false, 
                 isProtected  
             );
-            
+
             app.setWhitelisted(isWhitelisted);
-            
+
             if (appManager.getCurrentAppsList() != null) {
                 appManager.getCurrentAppsList().add(app);
             }
         }
-    
+
         if (app.isProtected()) {
-            AppDebugManager.d(Category.STATISTICS_PAGE, TAG + ": setupAddToListButton hidden, protected app pkg=" + packageName);
+
             binding.sheetAddToTitle.setVisibility(View.GONE);
             return;
         }
-    
+
         binding.sheetAddToTitle.setVisibility(View.VISIBLE);
-    
+
         int accent = sharedPreferences.getInt(PreferenceKeys.KEY_ACCENT, AppConstants.ACCENT_SYSTEM);
         int accentColor;
         if (accent == AppConstants.ACCENT_CUSTOM) {
@@ -165,17 +162,17 @@ public class AppResourceDetailActivity extends BaseActivity {
             accentColor = typedValue.data;
         }
         binding.sheetAddToTitle.setTextColor(accentColor);
-        
+
         final AppModel finalApp = app;
         binding.sheetAddToTitle.setOnClickListener(v -> showStatsAppOptionsSheet(finalApp));
     }
 
-    
+
     private AppModel findAppModel(String pkg) {
         if (pkg == null) return null;
         List<AppModel> currentApps = appManager.getCurrentAppsList();
         if (currentApps == null || currentApps.isEmpty()) return null;
-        
+
         for (AppModel app : currentApps) {
             if (pkg.equals(app.getPackageName())) {
                 return app;
@@ -187,10 +184,10 @@ public class AppResourceDetailActivity extends BaseActivity {
 
     private void showStatsAppOptionsSheet(AppModel app) {
         String pkg = app.getPackageName(); 
-    
+
         int accent = sharedPreferences.getInt(PreferenceKeys.KEY_ACCENT, AppConstants.ACCENT_SYSTEM); 
         int accentColor;
-    
+
         if (accent == AppConstants.ACCENT_CUSTOM) { 
             accentColor = sharedPreferences.getInt(PreferenceKeys.KEY_ACCENT_CUSTOM_COLOR, AppConstants.ACCENT_CUSTOM_DEFAULT_COLOR); 
         } else {
@@ -198,7 +195,7 @@ public class AppResourceDetailActivity extends BaseActivity {
             getTheme().resolveAttribute(androidx.appcompat.R.attr.colorPrimary, typedValue, true);
             accentColor = typedValue.data;
         }
-    
+
         StatsAppOptionsBottomSheet sheet = StatsAppOptionsBottomSheet.newInstance(
                 app, 
                 appManager.getWhitelistedApps().contains(pkg), 
@@ -207,39 +204,38 @@ public class AppResourceDetailActivity extends BaseActivity {
                 getBackgroundRestrictionMenuTitle(app), 
                 accentColor 
         );
-    
+
         try { 
             android.graphics.drawable.Drawable icon = getPackageManager().getApplicationIcon(pkg); 
             sheet.setAppIcon(icon); 
         } catch (PackageManager.NameNotFoundException e) { 
-            AppDebugManager.w(Category.STATISTICS_PAGE, TAG + ": showStatsAppOptionsSheet failed to load icon for " + pkg, e); 
+
         }
-    
+
         sheet.setListener(new StatsAppOptionsBottomSheet.Listener() { 
             @Override 
             public void onToggleWhitelist(boolean nowChecked) {
                 toggleListMembership(app, "whitelist"); 
             }
-    
+
             @Override 
             public void onToggleBlacklist(boolean nowChecked) { 
                 toggleListMembership(app, "blacklist"); 
             }
-    
+
             @Override
             public void onToggleBackgroundRestriction(boolean nowChecked) { 
                 toggleBackgroundRestriction(app);
             }
         });
-    
+
         sheet.show(getSupportFragmentManager(), "stats_app_options"); 
     }
 
 
     private void toggleListMembership(AppModel app, String listType) {
         if (app.isProtected()) {
-            AppDebugManager.w(Category.STATISTICS_PAGE, TAG
-                    + ": toggleListMembership blocked, protected app pkg=" + app.getPackageName() + " listType=" + listType);
+
             return;
         }
 
@@ -259,7 +255,7 @@ public class AppResourceDetailActivity extends BaseActivity {
                 removedMsg = getString(R.string.main_removed_from_blacklist);
                 break;
             default:
-                AppDebugManager.w(Category.STATISTICS_PAGE, TAG + ": toggleListMembership unknown listType=" + listType);
+
                 return;
         }
 
@@ -269,8 +265,7 @@ public class AppResourceDetailActivity extends BaseActivity {
         } else {
             currentSet.add(pkg);
         }
-        AppDebugManager.d(Category.STATISTICS_PAGE, TAG + ": toggleListMembership " + listType + " for " + pkg
-                + " nowInList=" + !wasInList);
+
 
         switch (listType) {
             case "whitelist":
@@ -287,13 +282,11 @@ public class AppResourceDetailActivity extends BaseActivity {
 
     private void toggleBackgroundRestriction(AppModel app) {
         if (app.isProtected()) {
-            AppDebugManager.w(Category.STATISTICS_PAGE, TAG
-                    + ": toggleBackgroundRestriction blocked, protected app pkg=" + app.getPackageName());
+
             return;
         }
         boolean enableRestriction = !app.isBackgroundRestrictionDesired();
-        AppDebugManager.i(Category.STATISTICS_PAGE, TAG + ": toggleBackgroundRestriction pkg=" + app.getPackageName()
-                + " enable=" + enableRestriction);
+
         appManager.setBackgroundRestricted(app.getPackageName(), enableRestriction, null);
         app.setBackgroundRestrictionDesired(enableRestriction);
     }
@@ -346,7 +339,7 @@ public class AppResourceDetailActivity extends BaseActivity {
             Drawable icon = getPackageManager().getApplicationIcon(packageName);
             binding.ivAppIcon.setImageDrawable(icon);
         } catch (PackageManager.NameNotFoundException e) {
-            AppDebugManager.e(Category.STATISTICS_PAGE, TAG + ": failed to load app icon for " + packageName, e);
+
             binding.ivAppIcon.setImageResource(android.R.drawable.sym_def_app_icon);
         }
     }
@@ -369,8 +362,7 @@ public class AppResourceDetailActivity extends BaseActivity {
         binding.tabDetailPeriod.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override public void onTabSelected(TabLayout.Tab tab) {
                 selectedPeriodIdx = tab.getPosition();
-                AppDebugManager.d(Category.STATISTICS_PAGE, TAG + ": period tab selected idx="
-                        + selectedPeriodIdx + " hours=" + PERIODS_HOURS[selectedPeriodIdx]);
+
                 loadData(PERIODS_HOURS[selectedPeriodIdx]);
             }
             @Override public void onTabUnselected(TabLayout.Tab tab) {}
@@ -379,7 +371,7 @@ public class AppResourceDetailActivity extends BaseActivity {
     }
 
     private void loadData(int hours) {
-        AppDebugManager.d(Category.STATISTICS_PAGE, TAG + ": loadData started for package=" + packageName + " hours=" + hours);
+
         binding.layoutDetailLoading.setVisibility(View.VISIBLE);
         binding.cardDetailStats.setVisibility(View.GONE);
         binding.cardDetailActivity.setVisibility(View.GONE);
@@ -390,7 +382,7 @@ public class AppResourceDetailActivity extends BaseActivity {
             binding.layoutDetailLoading.setVisibility(View.GONE);
 
             if (result.isPartialData) {
-                AppDebugManager.w(Category.STATISTICS_PAGE, TAG + ": loadData received partial data for package=" + packageName);
+
                 binding.tvDetailPartialWarning.setText(getString(R.string.stats_partial_data_warning));
                 binding.tvDetailPartialWarning.setVisibility(View.VISIBLE);
             } else {
@@ -398,9 +390,7 @@ public class AppResourceDetailActivity extends BaseActivity {
             }
 
             if (result.stats == null || result.slices.isEmpty()) {
-                AppDebugManager.w(Category.STATISTICS_PAGE, TAG + ": loadData has no stats/slices for package="
-                        + packageName + " (stats null=" + (result.stats == null) + ", slices empty="
-                        + (result.slices == null || result.slices.isEmpty()) + ")");
+
                 return;
             }
 
@@ -421,8 +411,7 @@ public class AppResourceDetailActivity extends BaseActivity {
             binding.tvRamAvg.setText(getString(R.string.unit_mbb, s.avgRamMb));
             binding.tvRamMax.setText(getString(R.string.unit_mbb, s.maxRamMb));
 
-            AppDebugManager.d(Category.STATISTICS_PAGE, TAG + ": loadData stats applied for package=" + packageName
-                    + " slices=" + result.slices.size());
+
 
             buildActivityChart(result.slices);
         });
@@ -430,8 +419,7 @@ public class AppResourceDetailActivity extends BaseActivity {
 
 
     private void buildActivityChart(List<CollectStatsManager.ActivitySlice> slices) {
-        AppDebugManager.d(Category.STATISTICS_PAGE, TAG + ": buildActivityChart building chart with "
-                + slices.size() + " slices for hours=" + hours());
+
         int h = hours();
         boolean sparseLabels = h >= 6;
 
@@ -450,8 +438,7 @@ public class AppResourceDetailActivity extends BaseActivity {
                 case HIGH:   y = Y_HIGH;   break;
                 default:
                     if (slice.level != CollectStatsManager.ActivityLevel.NONE) {
-                        AppDebugManager.w(Category.STATISTICS_PAGE, TAG
-                                + ": buildActivityChart encountered unexpected ActivityLevel=" + slice.level);
+
                     }
                     y = Y_NONE;
                     break;
@@ -586,7 +573,7 @@ public class AppResourceDetailActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        AppDebugManager.d(Category.STATISTICS_PAGE, TAG + ": onDestroy package=" + packageName);
+
         binding = null;
     }
 }

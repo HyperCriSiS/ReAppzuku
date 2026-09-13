@@ -6,8 +6,6 @@ import android.os.Handler;
 import android.widget.TextView;
 
 import com.google.android.material.progressindicator.LinearProgressIndicator;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -60,7 +58,7 @@ public class RamMonitor {
             return;
         }
 
-        AppDebugManager.d(Category.UTILS, FILE_NAME + ": startMonitoring");
+
         isMonitoring = true;
         monitorRunnable = new Runnable() {
             @Override
@@ -92,7 +90,7 @@ public class RamMonitor {
                                 applyAccentColor();
                             }
                         } else {
-                            AppDebugManager.d(Category.UTILS, FILE_NAME + ": ram usage unavailable, hiding value");
+
                             ramUsageText.setText(context.getString(R.string.ram_usage_unavailable));
                         }
                     });
@@ -131,9 +129,9 @@ public class RamMonitor {
                 long memUsed = memTotal - memAvailable;
                 return new RamInfo(memUsed / 1024, memTotal / 1024);
             }
-            AppDebugManager.w(Category.UTILS, FILE_NAME + ": readRamUsage: MemTotal not found or zero in /proc/meminfo");
+
         } catch (IOException | NumberFormatException e) {
-            AppDebugManager.w(Category.UTILS, FILE_NAME + ": Failed to read RAM usage", e);
+
         }
         return null;
     }
@@ -147,7 +145,7 @@ public class RamMonitor {
     }
 
     public void stopMonitoring() {
-        AppDebugManager.d(Category.UTILS, FILE_NAME + ": stopMonitoring");
+
         isMonitoring = false;
         if (monitorRunnable != null) {
             handler.removeCallbacks(monitorRunnable);

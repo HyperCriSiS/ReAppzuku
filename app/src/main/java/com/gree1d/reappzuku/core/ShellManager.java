@@ -8,8 +8,6 @@ import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.shell.IShellCallback;
 import com.gree1d.reappzuku.core.shell.IShellService;
 import com.gree1d.reappzuku.core.shell.ProcessMemoryInfo;
@@ -62,8 +60,7 @@ public class ShellManager {
                     return;
                 }
                 shizukuPermissionRequestPending = false;
-                AppDebugManager.d(Category.CORE,
-                        "ShellManager: internal Shizuku permission result=" + grantResult);
+
                 if (grantResult == PackageManager.PERMISSION_GRANTED) {
                     shizukuBinderLost = false;
                     // Permission and UserService readiness are separate states.
@@ -76,11 +73,11 @@ public class ShellManager {
     private final Shizuku.OnBinderReceivedListener internalBinderReceivedListener = () -> {
         shizukuBinderEverSeen = true;
         shizukuBinderLost = false;
-        AppDebugManager.d(Category.CORE, "ShellManager: internal Shizuku binder received");
+
         try {
             if (shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) bindUserService();
         } catch (Exception e) {
-            AppDebugManager.w(Category.CORE, "ShellManager: binder readiness check failed", e);
+
         }
     };
 
@@ -92,13 +89,13 @@ public class ShellManager {
         userServiceBinding = false;
         userServiceReadyLatch.countDown();
         userServiceReadyLatch = new CountDownLatch(1);
-        AppDebugManager.w(Category.CORE, "ShellManager: Shizuku backend lost");
+
     };
 
     private final ServiceConnection userServiceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder binder) {
-            AppDebugManager.d(Category.CORE, "ShellManager: UserService connected");
+
             userService = IShellService.Stub.asInterface(binder);
             shizukuBinderEverSeen = true;
             shizukuBinderLost = false;
@@ -108,7 +105,7 @@ public class ShellManager {
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
-            AppDebugManager.w(Category.CORE, "ShellManager: UserService disconnected");
+
             userService = null;
             userServiceBinding = false;
             userServiceReadyLatch.countDown();
@@ -164,8 +161,7 @@ public class ShellManager {
             if (!connected && userService == null) {
                 // Allow a later caller to retry a bind that never completed.
                 userServiceBinding = false;
-                AppDebugManager.w(Category.CORE,
-                        "ShellManager: timed out waiting for Shizuku UserService bind");
+
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -176,17 +172,16 @@ public class ShellManager {
 
     public void bindUserService() {
         if (userService != null) {
-            AppDebugManager.d(Category.CORE, "ShellManager: bindUserService: already bound, skipping");
+
             return;
         }
         try {
             if (!shizuku.pingBinder()) {
-                AppDebugManager.d(Category.CORE, "ShellManager: bindUserService: Shizuku binder not available yet");
+
                 return;
             }
             if (shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
-                AppDebugManager.d(Category.CORE,
-                        "ShellManager: bindUserService: waiting for Shizuku permission");
+
                 return;
             }
             synchronized (this) {
@@ -202,7 +197,7 @@ public class ShellManager {
         } catch (Exception e) {
             userServiceBinding = false;
             userServiceReadyLatch.countDown();
-            AppDebugManager.w(Category.CORE, "ShellManager: bindUserService failed", e);
+
         }
     }
 
@@ -212,13 +207,13 @@ public class ShellManager {
             try {
                 service.destroy();
             } catch (Exception e) {
-                AppDebugManager.w(Category.CORE, "ShellManager: unbindUserService: remote destroy() failed", e);
+
             }
         }
         try {
             shizuku.unbindUserService(buildUserServiceArgs(), userServiceConnection, true);
         } catch (Exception e) {
-            AppDebugManager.w(Category.CORE, "ShellManager: unbindUserService failed", e);
+
         } finally {
             userService = null;
             userServiceBinding = false;
@@ -242,13 +237,13 @@ public class ShellManager {
         removeShizukuBinderListeners();
 
         shizukuBinderReceivedListener = () -> {
-            AppDebugManager.d(Category.CORE, "ShellManager: Shizuku binder received");
+
             if (onReceived != null) {
                 handler.post(onReceived);
             }
         };
         shizukuBinderDeadListener = () -> {
-            AppDebugManager.w(Category.CORE, "ShellManager: Shizuku binder died");
+
             if (onDead != null) {
                 handler.post(onDead);
             }
@@ -278,7 +273,7 @@ public class ShellManager {
             if (Looper.myLooper() != Looper.getMainLooper()) {
                 hasRoot = checkRootAccessBlocking();
             } else {
-                AppDebugManager.w(Category.CORE, "ShellManager: hasRootAccess: called on main thread before root check completed, returning false");
+
                 return false;
             }
         }
@@ -289,7 +284,7 @@ public class ShellManager {
         try {
             return shizuku.pingBinder() && shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
         } catch (Exception e) {
-            AppDebugManager.w(Category.CORE, "ShellManager: Error checking Shizuku permission", e);
+
             return false;
         }
     }
@@ -305,7 +300,7 @@ public class ShellManager {
                 permissionGranted = shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
             }
         } catch (Exception e) {
-            AppDebugManager.w(Category.CORE, "ShellManager: backend probe failed", e);
+
         }
         return ShellBackendState.resolve(
                 Boolean.TRUE.equals(hasRoot), binderAvailable,
@@ -338,13 +333,12 @@ public class ShellManager {
 
     public void checkShellPermissions() {
         if (hasRoot != null && hasRoot) {
-            AppDebugManager.d(Category.CORE, "ShellManager: Root access available, skipping Shizuku permission request");
+
             return;
         }
         try {
             if (!shizuku.pingBinder()) {
-                AppDebugManager.d(Category.CORE,
-                        "ShellManager: Shizuku binder unavailable; permission request deferred");
+
                 return;
             }
             shizukuBinderEverSeen = true;
@@ -359,8 +353,7 @@ public class ShellManager {
 
             synchronized (this) {
                 if (shizukuPermissionRequestPending) {
-                    AppDebugManager.d(Category.CORE,
-                            "ShellManager: Shizuku permission request already pending");
+
                     return;
                 }
                 shizukuPermissionRequestPending = true;
@@ -372,27 +365,27 @@ public class ShellManager {
                 throw e;
             }
         } catch (Exception e) {
-            AppDebugManager.w(Category.CORE, "ShellManager: Error checking shell permissions", e);
+
         }
     }
 
     public boolean hasAnyShellPermission() {
         if (hasShizukuPermission()) {
-            AppDebugManager.d(Category.CORE, "ShellManager: hasAnyShellPermission: true (Shizuku)");
+
             return true;
         }
         boolean result = hasRoot != null && hasRoot;
-        AppDebugManager.d(Category.CORE, "ShellManager: hasAnyShellPermission: " + result + " (root)");
+
         return result;
     }
 
     public boolean resolveAnyShellPermission() {
         if (hasShizukuPermission()) {
-            AppDebugManager.d(Category.CORE, "ShellManager: resolveAnyShellPermission: true (Shizuku)");
+
             return true;
         }
         boolean result = hasRootAccess();
-        AppDebugManager.d(Category.CORE, "ShellManager: resolveAnyShellPermission: " + result + " (root)");
+
         return result;
     }
 
@@ -401,11 +394,11 @@ public class ShellManager {
             hasRoot = checkRootAccessBlocking();
         }
         if (hasRoot) {
-            AppDebugManager.d(Category.CORE, "ShellManager: resolveAnyShellPermissionBlocking: true (root)");
+
             return true;
         }
         boolean shizuku = hasShizukuPermission();
-        AppDebugManager.d(Category.CORE, "ShellManager: resolveAnyShellPermissionBlocking: " + shizuku + " (Shizuku)");
+
         return shizuku;
     }
 
@@ -448,7 +441,7 @@ public class ShellManager {
         if (rootResult != null) {
             return rootResult;
         }
-        AppDebugManager.w(Category.CORE, "ShellManager: runShellCommandForResult: no Root or Shizuku permission available, command=" + command);
+
         return new ShellResult(false, -1, "No Root or Shizuku permission available");
     }
 
@@ -470,7 +463,7 @@ public class ShellManager {
         } else if (hasShizukuPermission()) {
             return executeShizukuCommandAndGetFullOutput(command);
         }
-        AppDebugManager.w(Category.CORE, "ShellManager: runShellCommandAndGetFullOutput: no Root or Shizuku permission available, command=" + command);
+
         return null;
     }
 
@@ -485,19 +478,19 @@ public class ShellManager {
             return Collections.emptyList();
         }
         if (!hasShizukuPermission()) {
-            AppDebugManager.w(Category.CORE, "ShellManager: getProcessMemoryInfo: Shizuku permission not available");
+
             return Collections.emptyList();
         }
         IShellService service = awaitUserService();
         if (service == null) {
-            AppDebugManager.w(Category.CORE, "ShellManager: getProcessMemoryInfo: UserService not bound");
+
             return Collections.emptyList();
         }
         try {
             ProcessMemoryInfo[] result = service.getProcessMemoryInfo(pids);
             return result == null ? Collections.emptyList() : java.util.Arrays.asList(result);
         } catch (Exception e) {
-            AppDebugManager.e(Category.CORE, "ShellManager: getProcessMemoryInfo failed", e);
+
             return Collections.emptyList();
         }
     }
@@ -510,7 +503,7 @@ public class ShellManager {
         } else if (hasShizukuPermission()) {
             return executeShizukuCommandAndGetFullOutput(command);
         }
-        AppDebugManager.w(Category.CORE, "ShellManager: runCommandAndGetOutput: no Root or Shizuku permission available, command=" + command);
+
         return null;
     }
 
@@ -544,7 +537,7 @@ public class ShellManager {
 
             return "0".equals(output != null ? output.trim() : "");
         } catch (IOException | InterruptedException e) {
-            AppDebugManager.d(Category.CORE, "ShellManager: Root not available: " + e.getMessage());
+
             return false;
         } finally {
             try {
@@ -584,14 +577,14 @@ public class ShellManager {
             }
             int exitCode = process.waitFor();
             if (exitCode != 0) {
-                AppDebugManager.w(Category.CORE, "ShellManager: Root command exited with code " + exitCode + ": " + command);
+
             }
             return exitCode == 0;
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            AppDebugManager.e(Category.CORE, "ShellManager: Root command failed", e);
+
             return false;
         } finally {
             try {
@@ -628,14 +621,14 @@ public class ShellManager {
 
             int exitCode = process.waitFor();
             if (exitCode != 0) {
-                AppDebugManager.w(Category.CORE, "ShellManager: Root command exited with code " + exitCode + ": " + command);
+
             }
             return new ShellResult(exitCode == 0, exitCode, output.toString());
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            AppDebugManager.e(Category.CORE, "ShellManager: Root command failed", e);
+
             return new ShellResult(false, -1, e.getMessage());
         } finally {
             try {
@@ -675,7 +668,7 @@ public class ShellManager {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            AppDebugManager.e(Category.CORE, "ShellManager: Root command get output failed", e);
+
             return null;
         } finally {
             try {
@@ -691,17 +684,17 @@ public class ShellManager {
     private boolean executeShizukuCommand(String command) {
         IShellService service = awaitUserService();
         if (service == null) {
-            AppDebugManager.w(Category.CORE, "ShellManager: executeShizukuCommand: UserService not bound, command=" + command);
+
             return false;
         }
         try {
             ShellExecResult result = service.execute(command);
             if (result.exitCode != 0) {
-                AppDebugManager.w(Category.CORE, "ShellManager: Shizuku command exited with code " + result.exitCode + ": " + command);
+
             }
             return result.succeeded;
         } catch (Exception e) {
-            AppDebugManager.e(Category.CORE, "ShellManager: Shizuku command failed", e);
+
             return false;
         }
     }
@@ -709,13 +702,13 @@ public class ShellManager {
     private boolean executeShizukuCommandWithOutput(String command, Consumer<String> outputProcessor) {
         IShellService service = awaitUserService();
         if (service == null) {
-            AppDebugManager.w(Category.CORE, "ShellManager: executeShizukuCommandWithOutput: UserService not bound, command=" + command);
+
             return false;
         }
         try {
             return executeShizukuCommandWithOutputViaUserService(service, command, outputProcessor);
         } catch (Exception e) {
-            AppDebugManager.e(Category.CORE, "ShellManager: Shizuku command with output failed", e);
+
             return false;
         }
     }
@@ -739,7 +732,7 @@ public class ShellManager {
 
             @Override
             public void onError(String message) {
-                AppDebugManager.w(Category.CORE, "ShellManager: UserService executeWithCallback reported error: " + message);
+
                 errorHolder[0] = true;
                 latch.countDown();
             }
@@ -756,7 +749,7 @@ public class ShellManager {
         }
         int exitCode = exitCodeHolder[0];
         if (exitCode != 0) {
-            AppDebugManager.w(Category.CORE, "ShellManager: Shizuku command with output exited with code " + exitCode + ": " + command);
+
         }
         return exitCode == 0;
     }
@@ -764,13 +757,13 @@ public class ShellManager {
     private String executeShizukuCommandAndGetFullOutput(String command) {
         IShellService service = awaitUserService();
         if (service == null) {
-            AppDebugManager.w(Category.CORE, "ShellManager: executeShizukuCommandAndGetFullOutput: UserService not bound, command=" + command);
+
             return null;
         }
         try {
             return service.execute(command).output;
         } catch (Exception e) {
-            AppDebugManager.e(Category.CORE, "ShellManager: Shizuku command get output failed", e);
+
             return null;
         }
     }
@@ -778,17 +771,17 @@ public class ShellManager {
     private ShellResult executeShizukuCommandForResult(String command) {
         IShellService service = awaitUserService();
         if (service == null) {
-            AppDebugManager.w(Category.CORE, "ShellManager: executeShizukuCommandForResult: UserService not bound, command=" + command);
+
             return new ShellResult(false, -1, "Shizuku UserService not bound");
         }
         try {
             ShellExecResult result = service.execute(command);
             if (result.exitCode != 0) {
-                AppDebugManager.w(Category.CORE, "ShellManager: Shizuku command exited with code " + result.exitCode + ": " + command);
+
             }
             return new ShellResult(result.succeeded, result.exitCode, result.output);
         } catch (Exception e) {
-            AppDebugManager.e(Category.CORE, "ShellManager: Shizuku command failed", e);
+
             return new ShellResult(false, -1, e.getMessage());
         }
     }

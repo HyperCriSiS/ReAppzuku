@@ -6,8 +6,6 @@ import com.gree1d.reappzuku.db.AppDatabase;
 import com.gree1d.reappzuku.db.BgRestrictionLog;
 
 import com.gree1d.reappzuku.R;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -48,9 +46,7 @@ public final class BackgroundRestrictionLog {
                     dao.deleteOldest(count - MAX_ENTRIES);
                 }
             } catch (Exception e) {
-                AppDebugManager.e(Category.BACKGROUND_RESTRICTIONS,
-                        FILE_NAME + ": failed to write log entry pkg=" + entry.packageName
-                                + " action=" + entry.action, e);
+
             }
         });
     }
@@ -73,7 +69,7 @@ public final class BackgroundRestrictionLog {
         try {
             rows = AppDatabase.getInstance(context).bgRestrictionLogDao().getRecent(MAX_ENTRIES);
         } catch (Exception e) {
-            AppDebugManager.e(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": readEntries failed to query log entries", e);
+
             return new ArrayList<>();
         }
         List<LogEntry> result = new ArrayList<>(rows.size());
@@ -95,7 +91,7 @@ public final class BackgroundRestrictionLog {
             try {
                 AppDatabase.getInstance(context).bgRestrictionLogDao().clearAll();
             } catch (Exception e) {
-                AppDebugManager.e(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": clear failed to clear log entries", e);
+
             }
         });
     }

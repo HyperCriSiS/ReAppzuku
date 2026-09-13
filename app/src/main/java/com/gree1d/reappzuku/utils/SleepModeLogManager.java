@@ -15,8 +15,6 @@ import java.util.concurrent.Executors;
 
 import com.gree1d.reappzuku.manager.SleepModeManager;
 import com.gree1d.reappzuku.R;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 
 public final class SleepModeLogManager {
 
@@ -60,7 +58,7 @@ public final class SleepModeLogManager {
                                 SleepModeManager.FreezeMethod method,
                                 SleepModeManager.FreezeType freezeType) {
         if (context == null) {
-            AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME + ": append: context is null, log entry discarded (action=" + action + ", package=" + packageName + ")");
+
             return;
         }
 
@@ -82,7 +80,7 @@ public final class SleepModeLogManager {
                     dao.deleteOldest(count - MAX_ENTRIES);
                 }
             } catch (Exception e) {
-                AppDebugManager.e(Category.SLEEP_MODE, FILE_NAME + ": append: failed to write log entry (action=" + action + ", package=" + entry.packageName + ")", e);
+
             }
         });
     }
@@ -105,7 +103,7 @@ public final class SleepModeLogManager {
         try {
             rows = AppDatabase.getInstance(context).sleepModeLogDao().getRecent(MAX_ENTRIES);
         } catch (Exception e) {
-            AppDebugManager.e(Category.SLEEP_MODE, FILE_NAME + ": readEntries: failed to read log entries", e);
+
             return new ArrayList<>();
         }
         List<LogEntry> result = new ArrayList<>(rows.size());
@@ -124,15 +122,15 @@ public final class SleepModeLogManager {
 
     public static void clear(Context context) {
         if (context == null) {
-            AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME + ": clear: context is null, skipped");
+
             return;
         }
         DB_EXECUTOR.execute(() -> {
             try {
                 AppDatabase.getInstance(context).sleepModeLogDao().clearAll();
-                AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": clear: log cleared");
+
             } catch (Exception e) {
-                AppDebugManager.e(Category.SLEEP_MODE, FILE_NAME + ": clear: failed to clear log", e);
+
             }
         });
     }

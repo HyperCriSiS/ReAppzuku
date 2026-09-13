@@ -18,8 +18,6 @@ import com.gree1d.reappzuku.utils.AppModel;
 import com.gree1d.reappzuku.utils.FocusHighlightUtil;
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.PreferenceKeys;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 
 public class BackgroundAppsRecyclerViewAdapter extends RecyclerView.Adapter<BackgroundAppsRecyclerViewAdapter.ViewHolder> {
 
@@ -47,8 +45,7 @@ public class BackgroundAppsRecyclerViewAdapter extends RecyclerView.Adapter<Back
         items.clear();
         if (list != null) items.addAll(list);
         selectionMode = items.stream().anyMatch(AppModel::isSelected);
-        AppDebugManager.d(Category.MAIN_PAGE, "BackgroundAppsRecyclerViewAdapter: submitList size=" + items.size()
-                + " selectionMode=" + selectionMode);
+
         notifyDataSetChanged();
     }
 
@@ -168,7 +165,7 @@ public class BackgroundAppsRecyclerViewAdapter extends RecyclerView.Adapter<Back
                     if (actionListener != null && pos != RecyclerView.NO_POSITION) {
                         AppModel current = items.get(pos);
                         if (!current.isProtected() && !current.isWhitelisted()) {
-                            AppDebugManager.d(Category.MAIN_PAGE, "BackgroundAppsRecyclerViewAdapter: item clicked (selection mode) pkg=" + current.getPackageName());
+
                             actionListener.onAppClick(current, pos);
                         }
                     }
@@ -179,7 +176,7 @@ public class BackgroundAppsRecyclerViewAdapter extends RecyclerView.Adapter<Back
                     int pos = getAdapterPosition();
                     if (actionListener != null && pos != RecyclerView.NO_POSITION) {
                         AppModel current = items.get(pos);
-                        AppDebugManager.d(Category.MAIN_PAGE, "BackgroundAppsRecyclerViewAdapter: item clicked (overflow) pkg=" + current.getPackageName());
+
                         actionListener.onOverflowClick(current, v);
                     }
                 });
@@ -188,7 +185,7 @@ public class BackgroundAppsRecyclerViewAdapter extends RecyclerView.Adapter<Back
                     if (actionListener != null && pos != RecyclerView.NO_POSITION) {
                         AppModel current = items.get(pos);
                         if (!current.isProtected() && !current.isWhitelisted()) {
-                            AppDebugManager.d(Category.MAIN_PAGE, "BackgroundAppsRecyclerViewAdapter: item long-clicked, entering selection mode pkg=" + current.getPackageName());
+
                             actionListener.onAppClick(current, pos);
                             return true;
                         }
@@ -250,7 +247,7 @@ public class BackgroundAppsRecyclerViewAdapter extends RecyclerView.Adapter<Back
                 binding.btnAppAction.setOnClickListener(v -> {
                     int pos = getAdapterPosition();
                     if (actionListener != null && pos != RecyclerView.NO_POSITION) {
-                        AppDebugManager.i(Category.MAIN_PAGE, "BackgroundAppsRecyclerViewAdapter: kill button clicked pkg=" + items.get(pos).getPackageName());
+
                         actionListener.onKillApp(items.get(pos), pos);
                     }
                 });

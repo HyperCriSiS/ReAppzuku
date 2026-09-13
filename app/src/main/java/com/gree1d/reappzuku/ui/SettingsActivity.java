@@ -22,8 +22,6 @@ import androidx.appcompat.app.AlertDialog;
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.databinding.ActivitySettingsBinding;
 import com.gree1d.reappzuku.core.App;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.BackupManager;
 import com.gree1d.reappzuku.core.BackgroundWorkPolicy;
 import com.gree1d.reappzuku.manager.AdditionalScenariosManager;
@@ -80,11 +78,11 @@ public class SettingsActivity extends SettingsActivityDialogs
         updateAutomationOptionsVisibility(isChecked, periodicEnabled);
         applyServiceDependentState(isChecked);
         if (isChecked) {
-            AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": autoKill enabled, starting service");
+
             startAutomationService();
             AutoKillWorker.schedule(this, "Periodic Kill");
         } else {
-            AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": autoKill disabled, stopping service");
+
             stopService(new Intent(this, ShappkyService.class));
             AutoKillWorker.cancel(this);
         }
@@ -151,7 +149,7 @@ public class SettingsActivity extends SettingsActivityDialogs
         loadSettings();
         setupListeners();
         setupBottomNavigation();
-        AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": onCreate complete");
+
     }
 
     @Override
@@ -189,7 +187,7 @@ public class SettingsActivity extends SettingsActivityDialogs
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": onDestroy");
+
         binding = null;
     }
 
@@ -426,7 +424,7 @@ public class SettingsActivity extends SettingsActivityDialogs
             String versionName = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
             binding.textVersion.setText(getString(R.string.settings_version_label, versionName));
         } catch (Exception e) {
-            AppDebugManager.e(Category.SETTINGS_PAGE, FILE_NAME + ": failed to read package version", e);
+
             binding.textVersion.setText(R.string.app_name);
         }
 
@@ -1055,7 +1053,7 @@ public class SettingsActivity extends SettingsActivityDialogs
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
         } catch (Exception e) {
-            AppDebugManager.e(Category.SETTINGS_PAGE, FILE_NAME + ": failed to open URL: " + url, e);
+
             Toast.makeText(this, R.string.url_open_failed, Toast.LENGTH_SHORT).show();
         }
     }

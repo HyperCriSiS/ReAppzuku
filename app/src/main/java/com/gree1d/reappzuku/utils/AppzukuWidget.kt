@@ -30,8 +30,6 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.gree1d.reappzuku.core.AppConstants.STATS_HISTORY_DURATION_MS
-import com.gree1d.reappzuku.core.AppDebugManager
-import com.gree1d.reappzuku.core.AppDebugManager.Category
 import com.gree1d.reappzuku.db.AppDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -57,7 +55,6 @@ private val AccentRed     = Color(0xFFEF9A9A)
 class AppzukuWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "AppzukuWidget: provideGlance called, glanceId=$id")
         val data = withContext(Dispatchers.IO) { loadData(context) }
         provideContent { WidgetContent(data) }
     }
@@ -187,22 +184,18 @@ class AppzukuWidget : GlanceAppWidget() {
         private val widgetUpdateScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
         suspend fun updateAllWidgets(context: Context) {
-            AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "AppzukuWidget: updateAllWidgets called")
             val manager = GlanceAppWidgetManager(context)
             val ids = manager.getGlanceIds(AppzukuWidget::class.java)
-            AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "AppzukuWidget: updateAllWidgets found ${ids.size} widget instance(s)")
             ids.forEach { AppzukuWidget().update(context, it) }
         }
 
         @JvmStatic
         fun updateAllWidgetsFromJava(context: Context) {
-            AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "AppzukuWidget: updateAllWidgetsFromJava called from Java")
             val appContext = context.applicationContext
             widgetUpdateScope.launch { updateAllWidgets(appContext) }
         }
 
         private fun loadData(context: Context): WidgetData {
-            AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "AppzukuWidget: loadData started")
             var totalRamMb = 0L
             var usedRamMb = 0L
             try {
@@ -213,9 +206,7 @@ class AppzukuWidget : GlanceAppWidget() {
                     totalRamMb = totalKb / 1024
                     usedRamMb = (totalKb - availKb) / 1024
                 }
-                AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "AppzukuWidget: loadData RAM totalRamMb=$totalRamMb, usedRamMb=$usedRamMb")
             } catch (e: Exception) {
-                AppDebugManager.e(Category.SHORTCUTS_WIDGETS, "AppzukuWidget: loadData failed to read /proc/meminfo", e)
             }
 
             val ramProgress = if (totalRamMb > 0) (usedRamMb.toFloat() / totalRamMb) else 0f
@@ -233,16 +224,13 @@ class AppzukuWidget : GlanceAppWidget() {
                     totalRecoveredKb += s.totalRecoveredKb
                     if (s.lastKillTime > lastKillTime) lastKillTime = s.lastKillTime
                 }
-                AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "AppzukuWidget: loadData stats totalKills=$totalKills, totalRecoveredKb=$totalRecoveredKb, lastKillTime=$lastKillTime")
             } catch (e: Exception) {
-                AppDebugManager.e(Category.SHORTCUTS_WIDGETS, "AppzukuWidget: loadData failed to read stats from DB", e)
             }
 
             val lastKillStr = if (lastKillTime > 0)
                 DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(lastKillTime))
             else "—"
 
-            AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "AppzukuWidget: loadData complete, ramProgress=$ramProgress, kills=$totalKills, lastKill=$lastKillStr")
 
             return WidgetData(
                 ramProgress = ramProgress,

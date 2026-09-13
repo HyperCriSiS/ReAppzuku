@@ -6,8 +6,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.PowerManager;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 
@@ -25,7 +23,7 @@ public class KillTriggerReceiver extends BroadcastReceiver {
         if (Intent.ACTION_SCREEN_OFF.equals(action)) {
             SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
             if (prefs.getBoolean(KEY_KILL_ON_SCREEN_OFF, false)) {
-                AppDebugManager.d(Category.AUTO_KILL_BASE, "KillTriggerReceiver: Screen off: acquiring WakeLock and starting kill cycle");
+
                 acquireAutoKillWakeLock(context);
                 Intent serviceIntent = new Intent(context, ShappkyService.class);
                 serviceIntent.setAction("TRIGGER_KILL");
@@ -35,7 +33,7 @@ public class KillTriggerReceiver extends BroadcastReceiver {
                     context.startService(serviceIntent);
                 }
             }
-            
+
             Intent freezeIntent = new Intent(context, ShappkyService.class);
             freezeIntent.setAction("SCREEN_OFF");
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -53,7 +51,7 @@ public class KillTriggerReceiver extends BroadcastReceiver {
                 context.startService(unfreezeIntent);
             }
         } else if (ShappkyService.ACTION_IDLE_FREEZE.equals(action)) {
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "KillTriggerReceiver: Idle freeze alarm received, forwarding to service");
+
             Intent freezeIntent = new Intent(context, ShappkyService.class);
             freezeIntent.setAction("IDLE_FREEZE");
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -62,7 +60,7 @@ public class KillTriggerReceiver extends BroadcastReceiver {
                 context.startService(freezeIntent);
             }
         } else if (ShappkyService.ACTION_HEARTBEAT_CHECK.equals(action)) {
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "KillTriggerReceiver: Heartbeat alarm received, forwarding to service");
+
             Intent heartbeatIntent = new Intent(context, ShappkyService.class);
             heartbeatIntent.setAction("HEARTBEAT_CHECK");
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -81,14 +79,14 @@ public class KillTriggerReceiver extends BroadcastReceiver {
         wl.setReferenceCounted(false);
         wl.acquire(WAKELOCK_TIMEOUT_MS);
         autoKillWakeLock = wl;
-        AppDebugManager.d(Category.AUTO_KILL_BASE, "KillTriggerReceiver: AutoKill WakeLock acquired (timeout 10s)");
+
     }
 
     static void releaseAutoKillWakeLock() {
         PowerManager.WakeLock wl = autoKillWakeLock;
         if (wl != null && wl.isHeld()) {
             wl.release();
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "KillTriggerReceiver: AutoKill WakeLock released");
+
         }
         autoKillWakeLock = null;
     }

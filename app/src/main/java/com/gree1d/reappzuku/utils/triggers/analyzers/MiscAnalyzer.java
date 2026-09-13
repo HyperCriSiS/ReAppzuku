@@ -10,8 +10,6 @@ import java.util.regex.Pattern;
 
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.ShellManager;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
 
@@ -87,7 +85,7 @@ public class MiscAnalyzer {
                     }
                 }
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": chain/processes failed", e); }
+        } catch (Exception e) {  }
 
 
         try {
@@ -127,10 +125,10 @@ public class MiscAnalyzer {
                             TriggerInfo.Severity.MEDIUM));
                 }
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": chain/broadcasts failed", e); }
+        } catch (Exception e) {  }
 
         if (list.isEmpty() && analyzer.apiLevel >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": analyzeChainLaunch: no results from processes/broadcasts, trying logcat fallback");
+
             list.addAll(analyzeChainLaunchLogcatFallback(packageName));
         }
 
@@ -160,7 +158,7 @@ public class MiscAnalyzer {
                 if (list.size() >= 2) break;
             }
         } catch (Exception e) {
-            AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": chain/logcat fallback failed", e);
+
         }
         return list;
     }
@@ -278,7 +276,7 @@ public class MiscAnalyzer {
             int count = processNames.size();
             if (count <= 1) return list;
 
-            AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": analyzeMultipleProcesses: found count=" + count + " processes=" + processNames);
+
 
 
             List<String> subNames = new ArrayList<>();
@@ -301,7 +299,7 @@ public class MiscAnalyzer {
                     analyzer.getContext().getString(R.string.triggers_multiproc_explanation),
                     count > 3 ? TriggerInfo.Severity.HIGH : TriggerInfo.Severity.MEDIUM));
 
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": analyzeMultipleProcesses failed", e); }
+        } catch (Exception e) {  }
         return list;
     }
 
@@ -352,7 +350,7 @@ public class MiscAnalyzer {
                             TriggerInfo.Severity.HIGH));
                 }
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": analyzeAccessibility failed", e); }
+        } catch (Exception e) {  }
 
 
         try {
@@ -383,7 +381,7 @@ public class MiscAnalyzer {
                             TriggerInfo.Severity.HIGH));
                 }
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": analyzeIme failed", e); }
+        } catch (Exception e) {  }
 
         return list;
     }
@@ -440,7 +438,7 @@ public class MiscAnalyzer {
                     analyzer.getContext().getString(R.string.triggers_cat_device_admin),
                     detail, expl, sev));
 
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": analyzeDeviceAdmin failed", e); }
+        } catch (Exception e) {  }
         return list;
     }
 
@@ -480,7 +478,7 @@ public class MiscAnalyzer {
                     if (mT.find() && totalFgMs == -1)
                         totalFgMs = Long.parseLong(mT.group(1));
                 } catch (NumberFormatException e) {
-                    AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": analyzeUsageStats parse failed", e);
+
                 }
 
                 if (lastUsed > 0 && lastFg > 0 && totalFgMs > 0) break;
@@ -523,7 +521,7 @@ public class MiscAnalyzer {
                     analyzer.getContext().getString(R.string.triggers_usagestats_explanation),
                     sinceUsed < 60_000 ? TriggerInfo.Severity.HIGH : TriggerInfo.Severity.MEDIUM));
 
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": analyzeUsageStats failed", e); }
+        } catch (Exception e) {  }
         return list;
     }
 
