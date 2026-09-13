@@ -43,6 +43,12 @@ jobs:
               if line and not line.startswith(prefix):
                   raise SystemExit(f'unexpected cleanup indentation: {line!r}')
               out.append(line[len(prefix):] if line else '')
-          Path('/tmp/reappzuku-debug-cleanup.sh').write_text('\n'.join(out) + '\n')
+          script = '\n'.join(out) + '\n'
+          old = "remove_line(p, '                    failed++;\\n')"
+          new = "remove_line(p, '                    failed++;\\n', expected=2)"
+          if script.count(old) != 1:
+              raise SystemExit(f'expected one sleep failure-counter guard, found {script.count(old)}')
+          script = script.replace(old, new)
+          Path('/tmp/reappzuku-debug-cleanup.sh').write_text(script)
           PY
           bash /tmp/reappzuku-debug-cleanup.sh
