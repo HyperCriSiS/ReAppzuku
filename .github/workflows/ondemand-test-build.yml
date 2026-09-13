@@ -80,7 +80,6 @@ jobs:
               if path == manager:
                   continue
               raw = path.read_bytes()
-              newline = b'\r\n' if b'\r\n' in raw else b'\n'
               text = raw.decode('utf-8')
               original = text
               text = text.replace('import com.gree1d.reappzuku.core.AppDebugManager;\r\n', '')
@@ -97,11 +96,16 @@ jobs:
                   nonspace = prefix.rstrip()
                   if nonspace and not nonspace.endswith(('{', '}', ';')):
                       raise SystemExit(f'{path}: unsafe prefix before AppDebugManager call: {prefix!r}')
-                  end = find_call_end(text, start)
+                  try:
+                      end = find_call_end(text, start)
+                  except Exception as exc:
+                      lo = max(0, start - 180)
+                      hi = min(len(text), start + 500)
+                      context = text[lo:hi].replace('\n', '\\n')
+                      raise SystemExit(f'{path}: {exc}; context={context!r}')
                   text = text[:start] + text[end:]
                   removed_calls += 1
 
-              # Remove whitespace-only lines introduced by deleting multiline calls without normalizing other lines.
               lines = text.splitlines(keepends=True)
               text = ''.join(('' if line.strip(' \t\r\n') == '' and line not in ('\n', '\r\n') else line) for line in lines)
               if text != original:
@@ -127,7 +131,6 @@ jobs:
           git diff --check
           test -z "$(grep -RIl 'AppDebugManager' app/src/main/java || true)"
 
-          # Restore the canonical read-only workflow before committing product changes.
           git show origin/main:.github/workflows/ondemand-test-build.yml > .github/workflows/ondemand-test-build.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
