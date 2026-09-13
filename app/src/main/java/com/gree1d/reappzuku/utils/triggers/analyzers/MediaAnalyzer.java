@@ -16,7 +16,6 @@ import java.util.Locale;
 
 public class MediaAnalyzer {
 
-    private static final String FILE_NAME = "MediaAnalyzer";
 
     private final AppTriggersAnalyzer analyzer;
 

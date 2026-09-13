@@ -16,7 +16,6 @@ import java.util.Locale;
 
 public class SchedulingAnalyzer {
 
-    private static final String FILE_NAME = "SchedulingAnalyzer";
 
     private final AppTriggersAnalyzer analyzer;
     private final DozeOpsAnalyzer dozeOpsAnalyzer;

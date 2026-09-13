@@ -29,7 +29,6 @@ import com.gree1d.reappzuku.R;
 
 public class CollectStatsManager {
 
-    private static final String FILE_NAME = "CollectStatsManager";
 
     private static final long SLOT_MS         = 15 * 60 * 1000L;
     private static final long PROCSTATS_INTERVAL_MS = 60 * 60 * 1000L; 
@@ -560,7 +559,6 @@ public class CollectStatsManager {
 
         String  currentPkg         = null;
         boolean currentIsSubprocess = false;
-        int     parsedCount         = 0;
 
         for (String line : output.split("\n")) {
             Matcher pkgMatcher = PROCSTATS_PKG.matcher(line);
@@ -602,7 +600,6 @@ public class CollectStatsManager {
                             ramOut.put(currentPkg, new double[]{minPss, avgPss, maxPss});
                         }
                     }
-                    parsedCount++;
                 } catch (NumberFormatException ignored) {}
             }
         }
@@ -958,10 +955,4 @@ public class CollectStatsManager {
         }
     }
 
-    private static String formatSlot(long tsMs) {
-        Calendar c = Calendar.getInstance();
-        c.setTimeInMillis(tsMs);
-        return String.format(Locale.ROOT, "%02d:%02d",
-                c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE));
-    }
 }

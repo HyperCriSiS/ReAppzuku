@@ -36,7 +36,6 @@ import static com.gree1d.reappzuku.core.AppConstants.*;
 
 public class StatisticsActivity extends BaseActivity {
 
-    private static final String TAG  = "StatisticsActivity";
     private static final String FILE = "StatisticsActivity";
 
     private static final int[] CHART_PERIODS_HOURS = { 2, 6, 12, 24 };

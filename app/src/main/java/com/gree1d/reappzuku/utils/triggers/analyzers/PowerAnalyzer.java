@@ -16,7 +16,6 @@ import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
 
 public class PowerAnalyzer {
 
-    private static final String FILE_NAME = "PowerAnalyzer";
 
     private final AppTriggersAnalyzer analyzer;
 

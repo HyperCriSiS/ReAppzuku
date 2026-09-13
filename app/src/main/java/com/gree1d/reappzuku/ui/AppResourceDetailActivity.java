@@ -45,7 +45,6 @@ import java.util.concurrent.ExecutorService;
 
 public class AppResourceDetailActivity extends BaseActivity {
 
-    private static final String TAG = "AppResourceDetailActivity";
 
     public static final String EXTRA_PACKAGE_NAME  = "extra_package_name";
     public static final String EXTRA_APP_NAME      = "extra_app_name";
@@ -437,9 +436,6 @@ public class AppResourceDetailActivity extends BaseActivity {
                 case MEDIUM: y = Y_MEDIUM; break;
                 case HIGH:   y = Y_HIGH;   break;
                 default:
-                    if (slice.level != CollectStatsManager.ActivityLevel.NONE) {
-
-                    }
                     y = Y_NONE;
                     break;
             }

@@ -50,7 +50,6 @@ import static com.gree1d.reappzuku.core.AppConstants.*;
 
 public class ShappkyService extends Service {
 
-    private static final String FILE_NAME = "ShappkyService";
     static final String ACTION_IDLE_FREEZE = "com.gree1d.reappzuku.IDLE_FREEZE";
     static final String ACTION_HEARTBEAT_CHECK = "com.gree1d.reappzuku.HEARTBEAT_CHECK";
     public static final String ACTION_SLEEP_MODE_DISABLED = "com.gree1d.reappzuku.SLEEP_MODE_DISABLED";
@@ -314,8 +313,7 @@ public class ShappkyService extends Service {
         scheduleWidgetUpdate();
 
 
-        appManager.reapplySavedBackgroundRestrictions(() ->
-                {});
+        appManager.reapplySavedBackgroundRestrictions(null);
         watchdog.startIfNeeded();
 
         UpdateChecker.schedulePeriodicCheck(getApplicationContext());

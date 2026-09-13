@@ -18,7 +18,6 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 
 public class RamMonitor {
-    private static final String FILE_NAME = "RamMonitor";
 
     private final Context context;
     private final Handler handler;

@@ -16,7 +16,6 @@ import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
 
 public class ProcessAnalyzer {
 
-    private static final String FILE_NAME = "ProcessAnalyzer";
 
     private final AppTriggersAnalyzer analyzer;
 

@@ -64,7 +64,6 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 
 abstract class SettingsActivityDialogs extends BaseActivity {
 
-    private static final String FILE_NAME = "SettingsActivityDialogs";
 
     protected abstract ActivitySettingsBinding getBinding();
     protected abstract BackgroundAppManager getAppManager();

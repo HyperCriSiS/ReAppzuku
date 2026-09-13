@@ -10,7 +10,6 @@ import android.os.PowerManager;
 
 public class CollectStatsReceiver extends BroadcastReceiver {
 
-    private static final String FILE_NAME = "CollectStatsReceiver";
 
     public static final String ACTION_COLLECT_SNAPSHOT =
             "com.gree1d.reappzuku.COLLECT_SNAPSHOT";

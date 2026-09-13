@@ -363,7 +363,7 @@ public class RestrictionsScheduler {
         JSONArray arr = new JSONArray();
         for (ScheduleEntry entry : schedules) {
             try { arr.put(entry.toJson()); }
-            catch (JSONException e) {  }
+            catch (JSONException ignored) { }
         }
         prefs.edit().putString(KEY_SCHEDULES, arr.toString()).apply();
     }
@@ -455,10 +455,6 @@ public class RestrictionsScheduler {
 
             return;
         }
-        if (result != AlarmScheduler.ScheduleResult.EXACT) {
-
-        }
-
 
     }
 
@@ -506,10 +502,6 @@ public class RestrictionsScheduler {
 
             return;
         }
-        if (result != AlarmScheduler.ScheduleResult.EXACT) {
-
-        }
-
     }
 
     private void cancelAlarm() {
@@ -681,14 +673,8 @@ public class RestrictionsScheduler {
                 return;
         }
         try {
-            ShellManager.ShellResult r = privilegedShell.launchComponent(componentName, action);
-            if (r.succeeded()) {
-
-            } else {
-
-            }
-        } catch (IllegalArgumentException e) {
-
+            privilegedShell.launchComponent(componentName, action);
+        } catch (IllegalArgumentException ignored) {
         }
     }
 

@@ -22,7 +22,6 @@ import android.os.Handler;
 
 public class KillShortcutActivity extends Activity {
 
-    private static final String TAG = "KillShortcutActivity";
     private static final String SYSTEM_UI_PACKAGE = "com.android.systemui";
 
     private ShellManager shellManager;

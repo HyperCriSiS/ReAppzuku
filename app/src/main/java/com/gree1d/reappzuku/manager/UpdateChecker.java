@@ -51,7 +51,6 @@ import java.util.concurrent.TimeUnit;
 
 public class UpdateChecker {
 
-    private static final String FILE_NAME = "UpdateChecker";
 
     static final String GITHUB_API_URL =
             "https://api.github.com/repos/HyperCriSiS/ReAppzuku/releases?per_page=20";

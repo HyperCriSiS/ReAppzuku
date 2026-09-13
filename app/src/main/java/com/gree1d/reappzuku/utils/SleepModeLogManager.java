@@ -18,7 +18,6 @@ import com.gree1d.reappzuku.R;
 
 public final class SleepModeLogManager {
 
-    private static final String FILE_NAME = "SleepModeLogManager";
 
     private static final int MAX_ENTRIES    = 200;
     private static final int MAX_DETAIL_LEN = 180;

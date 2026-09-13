@@ -16,7 +16,6 @@ import java.util.Locale;
 
 public class NetworkAnalyzer {
 
-    private static final String FILE_NAME = "NetworkAnalyzer";
 
     private final AppTriggersAnalyzer analyzer;
 

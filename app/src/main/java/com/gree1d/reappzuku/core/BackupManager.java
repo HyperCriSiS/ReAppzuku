@@ -16,7 +16,6 @@ import com.gree1d.reappzuku.utils.PresetModel;
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 
 public class BackupManager {
-    private static final String TAG = "BackupManager";
     private static final String KEY_MANUAL_OPS_MASKS = "manual_ops_masks";
     private static final String KEY_MANUAL_BUCKETS = "manual_buckets";
     private static final String KEY_MANUAL_WHITELIST_REMOVALS = "manual_whitelist_removals";
@@ -154,14 +153,7 @@ public class BackupManager {
         BackupCodec.DecodedBackup decoded;
         try {
             decoded = backupCodec.decode(json);
-        } catch (BackupCodec.DecodeException e) {
-            if (e.reason == BackupCodec.DecodeFailure.PAYLOAD_SIZE) {
-
-            } else if (e.reason == BackupCodec.DecodeFailure.FUTURE_VERSION) {
-
-            } else {
-
-            }
+        } catch (BackupCodec.DecodeException ignored) {
             return false;
         }
 
@@ -172,10 +164,6 @@ public class BackupManager {
         boolean durableWriteStarted = false;
         try {
             JSONObject root = decoded.root;
-            if (decoded.legacy) {
-
-            }
-
             // Validate all preset JSON before the first durable write.
             PresetModel[] restoredPresets = parsePresets(root);
             boolean containsPresetSection = root.has(KEY_PRESETS);
@@ -266,9 +254,7 @@ public class BackupManager {
         } catch (Exception e) {
 
             if (durableWriteStarted && mainSnapshot != null) {
-                boolean rollbackOk = rollbackRestore(
-                        presetManager, mainSnapshot, preset1Snapshot, preset2Snapshot);
-
+                rollbackRestore(presetManager, mainSnapshot, preset1Snapshot, preset2Snapshot);
             }
             return false;
         }

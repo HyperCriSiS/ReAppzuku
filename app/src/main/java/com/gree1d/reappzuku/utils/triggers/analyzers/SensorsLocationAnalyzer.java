@@ -16,7 +16,6 @@ import java.util.Locale;
 
 public class SensorsLocationAnalyzer {
 
-    private static final String FILE_NAME = "SensorsLocationAnalyzer";
 
     private final AppTriggersAnalyzer analyzer;
 

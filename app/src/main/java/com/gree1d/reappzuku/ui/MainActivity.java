@@ -76,7 +76,6 @@ import com.gree1d.reappzuku.service.ShappkyService;
 
 
 public class MainActivity extends BaseActivity {
-    private static final String TAG = "MainActivity";
     private static final int NOTIFICATION_PERMISSION_CODE = 1;
 
     private ActivityMainBinding binding;
@@ -175,10 +174,6 @@ public class MainActivity extends BaseActivity {
                 appManager.sortAppList(appsDataList, currentSortMode);
             }
 
-            for (int i = 0; i < Math.min(4, appsDataList.size()); i++) {
-                AppModel a = appsDataList.get(i);
-
-            }
             listAdapter.updateCpu(appsDataList);
         });
 

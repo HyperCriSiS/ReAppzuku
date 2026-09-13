@@ -36,7 +36,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class RamKillShortcutManager {
-    private static final String TAG = "RamKillShortcutManager";
     private static final String SHORTCUT_ID = "ram_kill_shortcut";
     private static final int ICON_SIZE = 108;
     private static final int CORNER_RADIUS = 24;

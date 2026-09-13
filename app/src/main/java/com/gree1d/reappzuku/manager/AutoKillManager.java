@@ -36,7 +36,6 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 
 public class AutoKillManager {
-    private static final String TAG = "AutoKillManager";
 
     private static final int STATS_LIMIT = 15_000;
 
@@ -101,14 +100,11 @@ public class AutoKillManager {
                 return;
             }
 
-            long meminfoStart = System.currentTimeMillis();
 
             Set<String> runningPackages = new HashSet<>();
             Map<String, Long> psRssMap = new HashMap<>();
             Map<Integer, String> pidToPackage = new HashMap<>();
-            Map<String, String> packageMemorySource = new HashMap<>();
             PackageManager pm = context.getPackageManager();
-            String memorySource = "PSS";
 
             Map<String, List<Integer>> pidsByPackage = new HashMap<>();
             Map<Integer, Long> psRssByPid = new HashMap<>();
@@ -163,21 +159,17 @@ public class AutoKillManager {
                         }
                         long total = 0;
                         boolean anyResolved = false;
-                        boolean anyPss = false;
-                        boolean anyRssFallback = false;
                         for (int pid : entry.getValue()) {
                             Long pss = pssByPid.get(pid);
                             if (pss != null) {
                                 total += pss;
                                 anyResolved = true;
-                                anyPss = true;
                                 pidToPackage.put(pid, packageName);
                             } else {
                                 Long rss = psRssByPid.get(pid);
                                 if (rss != null) {
                                     total += rss;
                                     anyResolved = true;
-                                    anyRssFallback = true;
                                     pidToPackage.put(pid, packageName);
 
                                 }
@@ -186,14 +178,12 @@ public class AutoKillManager {
                         if (anyResolved) {
                             runningPackages.add(packageName);
                             psRssMap.put(packageName, total);
-                            packageMemorySource.put(packageName, anyPss && anyRssFallback ? "PSS+RSS" : anyPss ? "PSS" : "RSS");
                         }
                     }
                 }
             }
 
             if (runningPackages.isEmpty()) {
-                memorySource = "RSS";
 
                 String psOutput = shellManager.runShellCommandAndGetFullOutput(
                         "ps -A -o rss,name | grep '\\.'");
@@ -217,7 +207,6 @@ public class AutoKillManager {
                         try {
                             pm.getApplicationInfo(packageName, 0);
                             runningPackages.add(packageName);
-                            packageMemorySource.put(packageName, "RSS");
                             try {
                                 long rssKb = Long.parseLong(rssStr);
                                 psRssMap.put(packageName, rssKb);
@@ -230,9 +219,6 @@ public class AutoKillManager {
                 }
             }
 
-            long pssCount = packageMemorySource.values().stream().filter(s -> s.equals("PSS")).count();
-            long rssCount = packageMemorySource.values().stream().filter(s -> s.equals("RSS")).count();
-            long mixedCount = packageMemorySource.values().stream().filter(s -> s.equals("PSS+RSS")).count();
 
 
             killOrphanShellProcesses(null);

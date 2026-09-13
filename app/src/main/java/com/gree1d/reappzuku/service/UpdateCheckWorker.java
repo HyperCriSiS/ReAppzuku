@@ -10,7 +10,6 @@ import com.gree1d.reappzuku.manager.UpdateChecker;
 
 public class UpdateCheckWorker extends Worker {
 
-    private static final String FILE_NAME = "UpdateCheckWorker";
 
     public UpdateCheckWorker(@NonNull Context context, @NonNull WorkerParameters params) {
         super(context, params);

@@ -15,7 +15,6 @@ import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
 
 public class MiscAnalyzer {
 
-    private static final String FILE_NAME = "MiscAnalyzer";
 
     private final AppTriggersAnalyzer analyzer;
     private final ComponentsAnalyzer componentsAnalyzer;

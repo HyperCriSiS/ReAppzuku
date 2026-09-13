@@ -24,7 +24,6 @@ import com.gree1d.reappzuku.R;
 
 public class StatsAppOptionsBottomSheet extends BottomSheetDialogFragment {
 
-    private static final String TAG = "StatsAppOptionsBottomSheet";
 
     public interface Listener {
         void onToggleWhitelist(boolean nowChecked);

@@ -50,7 +50,6 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 public class SettingsActivity extends SettingsActivityDialogs
         implements SharedPreferences.OnSharedPreferenceChangeListener {
 
-    private static final String FILE_NAME = "SettingsActivity";
 
     private ActivitySettingsBinding binding;
     private ShellManager shellManager;

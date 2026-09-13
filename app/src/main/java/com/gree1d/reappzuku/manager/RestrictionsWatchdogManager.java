@@ -15,7 +15,6 @@ import com.gree1d.reappzuku.utils.BackgroundRestrictionLog;
 
 public class RestrictionsWatchdogManager {
 
-    private static final String FILE_NAME = "RestrictionsWatchdogManager";
     private static final long WATCHDOG_INTERVAL_MS = 35 * 60 * 1000L; 
 
     private static final Pattern SLEEP_PACKAGES_SECTION =

@@ -50,7 +50,6 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 
 public class BackgroundAppManager {
-    private static final String FILE_NAME = "BackgroundAppManager";
     private static final String BACKGROUND_RESTRICTION_OP = "RUN_ANY_IN_BACKGROUND";
     private static final String BG_RUN_RESTRICTION_OP = "RUN_IN_BACKGROUND";
     private static final String FOREGROUND_RESTRICTION_OP = "START_FOREGROUND";
@@ -427,8 +426,6 @@ public class BackgroundAppManager {
             }
 
             Map<String, long[]> psAggregated = new HashMap<>();
-            Map<String, String> packageMemorySource = new HashMap<>();
-            String memorySource = "PSS";
 
             try {
 
@@ -464,19 +461,15 @@ public class BackgroundAppManager {
                             String packageName = entry.getKey();
                             long total = 0;
                             int firstPid = -1;
-                            boolean anyPss = false;
-                            boolean anyRssFallback = false;
                             for (int pid : entry.getValue()) {
                                 Long pss = pssByPid.get(pid);
                                 if (pss != null) {
                                     total += pss;
-                                    anyPss = true;
                                     if (firstPid == -1) firstPid = pid;
                                 } else {
                                     Long rss = psRssByPid.get(pid);
                                     if (rss != null) {
                                         total += rss;
-                                        anyRssFallback = true;
                                         if (firstPid == -1) firstPid = pid;
 
                                     }
@@ -484,14 +477,12 @@ public class BackgroundAppManager {
                             }
                             if (firstPid != -1) {
                                 psAggregated.put(packageName, new long[]{total, firstPid});
-                                packageMemorySource.put(packageName, anyPss && anyRssFallback ? "PSS+RSS" : anyPss ? "PSS" : "RSS");
                             }
                         }
                     }
                 }
 
                 if (psAggregated.isEmpty()) {
-                    memorySource = "RSS";
 
                     PackageStateSource.Snapshot snapshot = packageStateSource.readRunningProcessesWithRss();
                     if (snapshot.available) {
@@ -501,7 +492,6 @@ public class BackgroundAppManager {
                                 packageManager.getApplicationInfo(packageName, 0);
                                 long[] existing = psAggregated.get(packageName);
                                 if (existing == null) {
-                                    packageMemorySource.put(packageName, "RSS");
                                     psAggregated.put(packageName, new long[]{sample.rssKb, sample.pid});
                                 } else {
                                     existing[0] += sample.rssKb;
@@ -514,10 +504,7 @@ public class BackgroundAppManager {
                         }
                     } else {
                         ShellBackendState state = shellManager.getBackendState();
-                        if (!state.isReady()) {
-
-                        } else {
-
+                        if (state.isReady()) {
                             handler.post(() -> Toast.makeText(context,
                                     context.getString(R.string.toast_failed_get_running_apps),
                                     Toast.LENGTH_SHORT).show());
@@ -627,13 +614,10 @@ public class BackgroundAppManager {
 
     public void loadBackgroundRestrictionApps(Consumer<List<AppModel>> callback) {
         shellExecutor.execute(() -> {
-            long loadStart = System.currentTimeMillis();
             PackageManager pm = context.getPackageManager();
             List<ApplicationInfo> packages = pm.getInstalledApplications(PackageManager.GET_META_DATA);
-            long afterGetInstalled = System.currentTimeMillis();
             Set<String> desiredPackages = getBackgroundRestrictedApps();
             BackgroundRestrictionState state = getBackgroundRestrictionState();
-            long afterState = System.currentTimeMillis();
             List<AppModel> result = new ArrayList<>();
             for (ApplicationInfo appInfo : packages) {
                 String packageName = appInfo.packageName;
@@ -653,10 +637,8 @@ public class BackgroundAppManager {
                 applyBackgroundRestrictionState(model, desiredPackages, state);
                 result.add(model);
             }
-            long afterBuild = System.currentTimeMillis();
 
             Collections.sort(result, (a, b) -> a.getAppName().compareToIgnoreCase(b.getAppName()));
-            long afterSort = System.currentTimeMillis();
 
 
 
@@ -850,7 +832,6 @@ public class BackgroundAppManager {
         existingMedium.retainAll(desiredPackages);
         saveMediumRestrictedApps(existingMedium);
 
-        Set<String> dbgManual = getManualRestrictedApps();
 
 
         if (!supportsBackgroundRestriction()) {
@@ -1184,7 +1165,6 @@ public class BackgroundAppManager {
 
     int[] applyManualOps(String packageName, int opsMask, String mode) {
         int boundedOpsMask = ManualOpsMaskPolicy.sanitize(opsMask, ALL_OPS.length);
-        int selectedCount = Integer.bitCount(boundedOpsMask);
 
 
         int ok = 0, fail = 0;
@@ -1349,7 +1329,6 @@ public class BackgroundAppManager {
             return new BackgroundRestrictionState(fallbackPackages, false);
         }
 
-        List<String> queuedOps = new ArrayList<>();
         StringBuilder batchedCommand = new StringBuilder();
         String mode = "ignore";
         int queryIndex = 0;
@@ -1361,18 +1340,15 @@ public class BackgroundAppManager {
                 batchedCommand.append("echo ").append(marker).append("; ")
                         .append("cmd appops query-op --user current ").append(op).append(" ").append(mode)
                         .append("; ");
-                queuedOps.add(op + " " + mode);
                 queryIndex++;
             }
         }
 
-        if (queuedOps.isEmpty()) {
+        if (queryIndex == 0) {
             return new BackgroundRestrictionState(fallbackPackages, false);
         }
 
-        long batchStart = System.currentTimeMillis();
         String combinedOutput = shellManager.runShellCommandAndGetFullOutput(batchedCommand.toString());
-        long batchElapsedMs = System.currentTimeMillis() - batchStart;
 
         Set<String> restrictedPackages = new HashSet<>();
         boolean querySucceeded = false;
@@ -1380,18 +1356,12 @@ public class BackgroundAppManager {
         if (combinedOutput != null) {
             querySucceeded = true;
             String[] sections = combinedOutput.split("---APPOPS-\\d+---");
-            int successfulSections = 0;
             for (int s = 1; s < sections.length; s++) {
                 String section = sections[s].trim();
                 if (!section.isEmpty()) {
-                    successfulSections++;
                     mergeBackgroundRestrictedPackages(restrictedPackages, section);
                 }
             }
-
-        }
-
-        if (!querySucceeded) {
 
         }
 

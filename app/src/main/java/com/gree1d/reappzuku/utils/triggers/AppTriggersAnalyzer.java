@@ -99,7 +99,6 @@ public class AppTriggersAnalyzer {
         USAGE_STATS
     }
 
-    private static final String FILE_NAME = "AppTriggersAnalyzer";
 
     public static final String KEY_CAT_PROC_STATE      = "proc_state";
     public static final String KEY_CAT_FG_SERVICE      = "fg_service";

@@ -16,7 +16,6 @@ import java.util.Locale;
 
 public class DozeOpsAnalyzer {
 
-    private static final String FILE_NAME = "DozeOpsAnalyzer";
 
     private final AppTriggersAnalyzer analyzer;
 

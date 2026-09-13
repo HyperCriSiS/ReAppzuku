@@ -16,7 +16,6 @@ import java.util.Locale;
 
 public class ComponentsAnalyzer {
 
-    private static final String FILE_NAME = "ComponentsAnalyzer";
 
     private final AppTriggersAnalyzer analyzer;
     private String cachedBroadcastHistory = null;

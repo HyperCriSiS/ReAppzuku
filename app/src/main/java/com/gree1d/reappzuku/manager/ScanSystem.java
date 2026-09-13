@@ -172,10 +172,6 @@ public class ScanSystem {
     private void scanNetwork(Map<String, AppLoad> map, Map<String, String> uidMap) {
 
         String netstats = shellManager.runShellCommandAndGetFullOutput("dumpsys netstats detail");
-        if (netstats == null || netstats.trim().isEmpty()) {
-
-        }
-
         for (Map.Entry<String, AppLoad> entry : map.entrySet()) {
             String pkg = entry.getKey();
             String uid = uidMap.get(pkg);
@@ -318,12 +314,10 @@ public class ScanSystem {
             List<AppTriggersAnalyzer.AlarmEntry> entries = parser.parseEntries(output, pkg);
             if (entries.isEmpty()) continue;
 
-            int wakeupCount = 0, normalCount = 0;
             long minInterval = Long.MAX_VALUE, minTriggerDiff = Long.MAX_VALUE;
             List<String> alarmDetails = new ArrayList<>();
 
             for (AppTriggersAnalyzer.AlarmEntry e : entries) {
-                if (e.isWakeup) wakeupCount++; else normalCount++;
                 if (e.intervalMs > 0 && e.intervalMs < minInterval) minInterval = e.intervalMs;
                 if (e.fireDiffMs != Long.MAX_VALUE && e.fireDiffMs < minTriggerDiff) minTriggerDiff = e.fireDiffMs;
                 if (alarmDetails.size() < 4) alarmDetails.add(buildAlarmLine(e, pkg));

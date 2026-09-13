@@ -26,7 +26,6 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
  * could silently target almost every installed application.
  */
 public final class SmartLifecycleManager {
-    private static final String TAG = "SmartLifecycleManager";
 
     public static final int PROFILE_GENTLE = 0;
     public static final int PROFILE_BALANCED = 1;

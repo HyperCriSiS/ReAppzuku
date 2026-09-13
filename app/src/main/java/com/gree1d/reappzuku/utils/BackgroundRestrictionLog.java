@@ -17,7 +17,6 @@ import java.util.concurrent.Executors;
 
 public final class BackgroundRestrictionLog {
 
-    private static final String FILE_NAME = "BackgroundRestrictionLog";
     private static final int MAX_ENTRIES    = 200;
     private static final int MAX_DETAIL_LEN = 180;
 

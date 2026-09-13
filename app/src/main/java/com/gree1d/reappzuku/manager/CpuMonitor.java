@@ -16,7 +16,6 @@ import com.gree1d.reappzuku.utils.AppModel;
 
 public class CpuMonitor {
 
-    private static final String FILE_NAME = "CpuMonitor";
     private static final long POLL_INTERVAL_MS = 1500;
 
     private final Handler handler;

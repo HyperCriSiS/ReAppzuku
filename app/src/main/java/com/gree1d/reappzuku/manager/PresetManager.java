@@ -19,7 +19,6 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Set;
 
 import com.gree1d.reappzuku.utils.PresetModel;
@@ -29,7 +28,6 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 
 public class PresetManager {
 
-    private static final String TAG = "PresetManager";
 
     private static final String PREFS_PRESET_1 = "preset_1_prefs";
     private static final String PREFS_PRESET_2 = "preset_2_prefs";
@@ -128,14 +126,11 @@ public class PresetManager {
 
     public void savePreset(PresetModel model) {
         presetEditor(model).apply();
-        logPresetSaved(model, "async");
     }
 
     /** Storage-only synchronous write used by transactional backup restore. */
     public boolean savePresetBlocking(PresetModel model) {
-        boolean committed = presetEditor(model).commit();
-        if (committed) logPresetSaved(model, "commit");
-        return committed;
+        return presetEditor(model).commit();
     }
 
     /** Storage-only clear: deliberately does not touch alarms or active-preset state. */
@@ -177,10 +172,6 @@ public class PresetManager {
             else if (value instanceof Set) editor.putStringSet(key, new HashSet<>((Set<String>) value));
             else throw new IllegalArgumentException("Unsupported preference type for " + key);
         }
-    }
-
-    private void logPresetSaved(PresetModel model, String mode) {
-
     }
 
     public PresetModel loadPreset(int presetNumber) {
@@ -485,14 +476,10 @@ public class PresetManager {
         }
         long activateTime = nextAlarmTime(model.startHour, model.startMinute);
         long deactivateTime = nextAlarmTime(model.endHour, model.endMinute);
-        AlarmScheduler.ScheduleResult activateResult = alarmScheduler.scheduleRtcWakeup(
+        alarmScheduler.scheduleRtcWakeup(
                 activateTime, buildPendingIntent(model.presetNumber, ACTION_PRESET_ACTIVATE), true);
-        AlarmScheduler.ScheduleResult deactivateResult = alarmScheduler.scheduleRtcWakeup(
+        alarmScheduler.scheduleRtcWakeup(
                 deactivateTime, buildPendingIntent(model.presetNumber, ACTION_PRESET_DEACTIVATE), true);
-        if (activateResult != AlarmScheduler.ScheduleResult.EXACT
-                || deactivateResult != AlarmScheduler.ScheduleResult.EXACT) {
-
-        }
 
     }
 
@@ -503,11 +490,8 @@ public class PresetManager {
         int hour = isActivate ? model.startHour : model.endHour;
         int minute = isActivate ? model.startMinute : model.endMinute;
         long next = ScheduleTime.nextDailyOccurrence(clock, hour, minute);
-        AlarmScheduler.ScheduleResult result = alarmScheduler.scheduleRtcWakeup(
+        alarmScheduler.scheduleRtcWakeup(
                 next, buildPendingIntent(presetNumber, action), true);
-        if (result != AlarmScheduler.ScheduleResult.EXACT) {
-
-        }
 
     }
 

@@ -576,9 +576,6 @@ public class ShellManager {
                 }
             }
             int exitCode = process.waitFor();
-            if (exitCode != 0) {
-
-            }
             return exitCode == 0;
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
@@ -620,9 +617,6 @@ public class ShellManager {
             }
 
             int exitCode = process.waitFor();
-            if (exitCode != 0) {
-
-            }
             return new ShellResult(exitCode == 0, exitCode, output.toString());
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
@@ -689,9 +683,6 @@ public class ShellManager {
         }
         try {
             ShellExecResult result = service.execute(command);
-            if (result.exitCode != 0) {
-
-            }
             return result.succeeded;
         } catch (Exception e) {
 
@@ -748,9 +739,6 @@ public class ShellManager {
             throw new IOException("UserService executeWithCallback reported an error for: " + command);
         }
         int exitCode = exitCodeHolder[0];
-        if (exitCode != 0) {
-
-        }
         return exitCode == 0;
     }
 
@@ -776,9 +764,6 @@ public class ShellManager {
         }
         try {
             ShellExecResult result = service.execute(command);
-            if (result.exitCode != 0) {
-
-            }
             return new ShellResult(result.succeeded, result.exitCode, result.output);
         } catch (Exception e) {
 
