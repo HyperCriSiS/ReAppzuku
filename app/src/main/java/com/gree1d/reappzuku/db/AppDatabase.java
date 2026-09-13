@@ -10,7 +10,6 @@ import androidx.annotation.NonNull;
 
 import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory;
 
-import com.gree1d.reappzuku.core.App;
 
 @Database(
     entities = {
@@ -168,9 +167,6 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
-    private static final RoomDatabase.QueryCallback LOG_QUERY_CALLBACK = (sqlQuery, bindArgs) ->
-            {};
-
     public abstract AppStatsDao appStatsDao();
     public abstract ResourceSnapshotDao resourceSnapshotDao();
     public abstract BgRestrictionLog.Dao bgRestrictionLogDao();
@@ -179,7 +175,6 @@ public abstract class AppDatabase extends RoomDatabase {
 
     public static synchronized AppDatabase getInstance(Context context) {
         if (instance == null) {
-            App app = (App) context.getApplicationContext();
             instance = Room.databaseBuilder(context.getApplicationContext(),
                     AppDatabase.class, "appzuku_db")
                     .addMigrations(
@@ -196,7 +191,6 @@ public abstract class AppDatabase extends RoomDatabase {
                     )
                     .openHelperFactory(new RequerySQLiteOpenHelperFactory())
                     .addCallback(RAISE_STATEMENT_CACHE_CALLBACK)
-                    .setQueryCallback(LOG_QUERY_CALLBACK, app.getSharedExecutor())
                     .build();
         }
         return instance;
