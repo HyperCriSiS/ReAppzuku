@@ -8,110 +8,38 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  harden-runtime:
+  validate:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          fetch-depth: 0
+          persist-credentials: false
       - name: Set up JDK 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           java-version: '17'
           distribution: temurin
-      - name: Apply runtime hardening and validate
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          shell_path = Path('app/src/main/java/com/gree1d/reappzuku/core/ShellManager.java')
-          shell = shell_path.read_text()
-          old = 'Runtime.getRuntime().exec("su")'
-          if shell.count(old) != 4:
-              raise SystemExit(f'Expected 4 relative su calls, found {shell.count(old)}')
-
-          helper = '''    private Process startRootShell() throws IOException {
-              IOException lastFailure = null;
-              try { return Runtime.getRuntime().exec("/system/bin/su"); } catch (IOException e) { lastFailure = e; }
-              try { return Runtime.getRuntime().exec("/debug_ramdisk/su"); } catch (IOException e) { lastFailure = e; }
-              try { return Runtime.getRuntime().exec("/sbin/su"); } catch (IOException e) { lastFailure = e; }
-              try { return Runtime.getRuntime().exec("/system/xbin/su"); } catch (IOException e) { lastFailure = e; }
-              try { return Runtime.getRuntime().exec("/system/sbin/su"); } catch (IOException e) { lastFailure = e; }
-              try { return Runtime.getRuntime().exec("/su/bin/su"); } catch (IOException e) { lastFailure = e; }
-              try { return Runtime.getRuntime().exec("/su/xbin/su"); } catch (IOException e) { lastFailure = e; }
-              try { return Runtime.getRuntime().exec("/magisk/.core/bin/su"); } catch (IOException e) { lastFailure = e; }
-              throw lastFailure != null ? lastFailure : new IOException("No supported root shell path is available");
-          }
-
-          '''
-          anchor = '    private boolean checkRootAccessBlocking() {\n'
-          if anchor not in shell:
-              raise SystemExit('Root check anchor not found')
-          shell = shell.replace(anchor, helper + anchor, 1)
-          shell = shell.replace(old, 'startRootShell()')
-          shell_path.write_text(shell)
-
-          debug_path = Path('app/src/main/java/com/gree1d/reappzuku/core/AppDebugManager.java')
-          debug_path.write_text('''package com.gree1d.reappzuku.core;
-
-          import android.content.Context;
-
-          /**
-           * Compatibility facade for historical debug call sites.
-           * Production debug logging and persistent debug switches are disabled.
-           */
-          public final class AppDebugManager {
-              private AppDebugManager() {}
-
-              public enum Category {
-                  MAIN_PAGE("Main Page"), SETTINGS_PAGE("Settings Page"), STATISTICS_PAGE("Statistics Page"),
-                  CORE("App Core"), FOREGROUND_SERVICE("Foreground Service"), TRIGGERS("Triggers"),
-                  ADVANCED_CONDITIONS("Advanced Conditions"), SCAN("Scan"), AUTO_KILL_BASE("Auto-Kill Base"),
-                  AUTO_KILL_PRESETS("Auto-Kill Presets"), SHORTCUTS_WIDGETS("Shortcuts & Widget"),
-                  BACKGROUND_RESTRICTIONS("Background Restrictions"), RESTRICTIONS_SCHEDULER("Restrictions Scheduler"),
-                  SLEEP_MODE("SleepMode"), BACKUP_RESTORE("Backup & Restore"), UTILS("Other utils");
-
-                  public final String displayName;
-                  Category(String displayName) { this.displayName = displayName; }
-              }
-
-              public static void init(Context context) {}
-              public static void setEnabled(boolean enabled) {}
-              public static boolean isEnabled() { return false; }
-              public static void setCategory(Category category, boolean enabled) {}
-              public static boolean isCategoryEnabled(Category category) { return false; }
-              public static void enableCategories(Category... categories) {}
-              public static void disableAllCategories() {}
-              public static void v(Category category, String message) {}
-              public static void d(Category category, String message) {}
-              public static void i(Category category, String message) {}
-              public static void w(Category category, String message) {}
-              public static void e(Category category, String message) {}
-              public static void e(Category category, String message, Throwable throwable) {}
-              public static void w(Category category, String message, Throwable throwable) {}
-          }
-          ''')
-          PY
-
-          grep -RIn 'Runtime.getRuntime().exec("su")' app/src/main/java && exit 1 || true
-          grep -q 'Runtime.getRuntime().exec("/system/bin/su")' app/src/main/java/com/gree1d/reappzuku/core/ShellManager.java
-          ! grep -q 'android.util.Log' app/src/main/java/com/gree1d/reappzuku/core/AppDebugManager.java
-
-          chmod +x gradlew
-          ./gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
-
-          git fetch origin main
-          git checkout origin/main -- .github/workflows/ondemand-test-build.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/java/com/gree1d/reappzuku/core/ShellManager.java app/src/main/java/com/gree1d/reappzuku/core/AppDebugManager.java .github/workflows/ondemand-test-build.yml
-          git diff --cached --check
-          git commit -m "Harden root shell resolution and disable production debug logging"
-          git push origin HEAD:${GITHUB_REF_NAME}
+          cache: gradle
+      - name: Grant execute permission
+        run: chmod +x gradlew
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+      - name: Lint
+        run: ./gradlew lintDebug
+      - name: Compile instrumentation tests
+        run: ./gradlew assembleDebugAndroidTest
+      - name: Verify current Room schema export
+        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+      - name: Upload debug APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: reappzuku-ondemand-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
