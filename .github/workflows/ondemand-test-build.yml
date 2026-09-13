@@ -54,9 +54,9 @@ jobs:
                   'unfreeze summary block guard',
               ),
               (
-                  "    raise SystemExit(f'forbidden debug scaffolding remains: {leftovers}')",
-                  "    for _path in sorted(list(ROOT.rglob('*.java')) + list(ROOT.rglob('*.kt'))):\n        _text = _path.read_text(errors='replace')\n        for _needle in leftovers:\n            for _line_no, _line in enumerate(_text.splitlines(), 1):\n                if _needle in _line:\n                    print(f'LEFTOVER {_needle}: {_path}:{_line_no}: {_line.strip()}')\n    raise SystemExit(f'forbidden debug scaffolding remains: {leftovers}')",
-                  'forbidden-scaffold diagnostic guard',
+                  "              'wakeupCount', 'normalCount', 'parsedCount',",
+                  "              'parsedCount',",
+                  'global forbidden-name list',
               ),
           ]
           for old, new, label in patches:
