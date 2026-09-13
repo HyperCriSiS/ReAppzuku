@@ -44,11 +44,19 @@ jobs:
                   raise SystemExit(f'unexpected cleanup indentation: {line!r}')
               out.append(line[len(prefix):] if line else '')
           script = '\n'.join(out) + '\n'
+
           old = "remove_line(p, '                    failed++;\\n')"
           new = "remove_line(p, '                    failed++;\\n', expected=2)"
           if script.count(old) != 1:
               raise SystemExit(f'expected one sleep failure-counter guard, found {script.count(old)}')
           script = script.replace(old, new)
+
+          old2 = "'                if (ok) {\\n                    unfrozenNow++;\\n                } else {\\n                    failed++;\\n                }\\n'"
+          new2 = "'                if (ok) {\\n                    unfrozenNow++;\\n                } else {\\n                }\\n'"
+          if script.count(old2) != 1:
+              raise SystemExit(f'expected one unfreeze summary block guard, found {script.count(old2)}')
+          script = script.replace(old2, new2)
+
           Path('/tmp/reappzuku-debug-cleanup.sh').write_text(script)
           PY
           bash /tmp/reappzuku-debug-cleanup.sh
