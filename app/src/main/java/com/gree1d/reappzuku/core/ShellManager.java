@@ -514,11 +514,24 @@ public class ShellManager {
         return null;
     }
 
+    private Process startRootShell() throws IOException {
+    IOException lastFailure = null;
+    try { return Runtime.getRuntime().exec("/system/bin/su"); } catch (IOException e) { lastFailure = e; }
+    try { return Runtime.getRuntime().exec("/debug_ramdisk/su"); } catch (IOException e) { lastFailure = e; }
+    try { return Runtime.getRuntime().exec("/sbin/su"); } catch (IOException e) { lastFailure = e; }
+    try { return Runtime.getRuntime().exec("/system/xbin/su"); } catch (IOException e) { lastFailure = e; }
+    try { return Runtime.getRuntime().exec("/system/sbin/su"); } catch (IOException e) { lastFailure = e; }
+    try { return Runtime.getRuntime().exec("/su/bin/su"); } catch (IOException e) { lastFailure = e; }
+    try { return Runtime.getRuntime().exec("/su/xbin/su"); } catch (IOException e) { lastFailure = e; }
+    try { return Runtime.getRuntime().exec("/magisk/.core/bin/su"); } catch (IOException e) { lastFailure = e; }
+    throw lastFailure != null ? lastFailure : new IOException("No supported root shell path is available");
+}
+
     private boolean checkRootAccessBlocking() {
         Process process = null;
         DataOutputStream os = null;
         try {
-            process = Runtime.getRuntime().exec("su");
+            process = startRootShell();
             os = new DataOutputStream(process.getOutputStream());
             os.writeBytes("id -u\n");
             os.writeBytes("exit\n");
@@ -548,7 +561,7 @@ public class ShellManager {
         Process process = null;
         DataOutputStream os = null;
         try {
-            process = Runtime.getRuntime().exec("su");
+            process = startRootShell();
             os = new DataOutputStream(process.getOutputStream());
             os.writeBytes(command + "\n");
             os.writeBytes("exit\n");
@@ -596,7 +609,7 @@ public class ShellManager {
         DataOutputStream os = null;
         StringBuilder output = new StringBuilder();
         try {
-            process = Runtime.getRuntime().exec("su");
+            process = startRootShell();
             os = new DataOutputStream(process.getOutputStream());
             os.writeBytes(command + "\n");
             os.writeBytes("exit\n");
@@ -640,7 +653,7 @@ public class ShellManager {
         DataOutputStream os = null;
         StringBuilder output = new StringBuilder();
         try {
-            process = Runtime.getRuntime().exec("su");
+            process = startRootShell();
             os = new DataOutputStream(process.getOutputStream());
             os.writeBytes(command + "\n");
             os.writeBytes("exit\n");
