@@ -107,7 +107,7 @@ dependencies {
     implementation "androidx.work:work-runtime-ktx:$work_version"
 
     // Kotlin
-    implementation "androidx.core:core-ktx:1.16.0"
+    implementation "androidx.core:core-ktx:1.19.0"
 
     // Glance
     implementation "androidx.glance:glance-appwidget:1.1.0"
