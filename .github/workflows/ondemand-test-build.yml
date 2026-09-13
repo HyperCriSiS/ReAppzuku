@@ -75,7 +75,8 @@ jobs:
           for path in sorted(root.rglob('*.java')):
               if path == manager:
                   continue
-              text = path.read_text(encoding='utf-8', newline='')
+              raw = path.read_bytes()
+              text = raw.decode('utf-8')
               original = text
               text = text.replace('import com.gree1d.reappzuku.core.AppDebugManager;\r\n', '')
               text = text.replace('import com.gree1d.reappzuku.core.AppDebugManager;\n', '')
@@ -98,15 +99,11 @@ jobs:
                       j += 1
 
                   if j < len(text) and text[j] == ';':
-                      # Normal standalone logger statement. Same-line prefix may be indentation,
-                      # a block opener/closer, or a previous statement in a compact catch block.
                       if prefix_trim and not prefix_trim.endswith(('{', '}', ';')):
                           raise SystemExit(f'{path}: unsafe statement prefix before logger: {prefix!r}')
                       text = text[:start] + text[j + 1:]
                       removed_calls += 1
                   elif j < len(text) and text[j] == ')' and prefix_trim.endswith('->'):
-                      # Expression-bodied lambda whose sole expression is the no-op logger.
-                      # Preserve callback semantics as an empty block lambda.
                       text = text[:start] + '{}' + text[close:]
                       removed_calls += 1
                       lambda_replacements += 1
@@ -117,7 +114,7 @@ jobs:
                       raise SystemExit(f'{path}: unsupported logger expression; context={context!r}')
 
               if text != original:
-                  path.write_text(text, encoding='utf-8', newline='')
+                  path.write_bytes(text.encode('utf-8'))
                   touched += 1
 
           manager.unlink()
@@ -134,7 +131,6 @@ jobs:
           git diff --check
           test -z "$(grep -RIl 'AppDebugManager' app/src/main/java || true)"
 
-          # Never leave a write-capable helper in the product branch.
           git show origin/main:.github/workflows/ondemand-test-build.yml > .github/workflows/ondemand-test-build.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
