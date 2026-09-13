@@ -31,10 +31,7 @@ jobs:
           from pathlib import Path
           source = Path('/tmp/staged-cleanup.yml').read_text().splitlines()
           marker = '      - name: Remove residual debug-only scaffolding and validate'
-          try:
-              step = source.index(marker)
-          except ValueError:
-              raise SystemExit('cleanup step marker not found')
+          step = source.index(marker)
           run_line = next(i for i in range(step + 1, len(source)) if source[i].strip() == 'run: |')
           body = source[run_line + 1:]
           prefix = '          '
@@ -45,23 +42,27 @@ jobs:
               out.append(line[len(prefix):] if line else '')
           script = '\n'.join(out) + '\n'
 
-          old = "remove_line(p, '                    failed++;\\n')"
-          new = "remove_line(p, '                    failed++;\\n', expected=2)"
-          if script.count(old) != 1:
-              raise SystemExit(f'expected one sleep failure-counter guard, found {script.count(old)}')
-          script = script.replace(old, new)
-
-          old2 = "'                if (ok) {\\n                    unfrozenNow++;\\n                } else {\\n                    failed++;\\n                }\\n'"
-          new2 = "'                if (ok) {\\n                    unfrozenNow++;\\n                } else {\\n                }\\n'"
-          if script.count(old2) != 1:
-              raise SystemExit(f'expected one unfreeze summary block guard, found {script.count(old2)}')
-          script = script.replace(old2, new2)
-
-          old3 = "        raise SystemExit(f'forbidden debug scaffolding remains: {leftovers}')"
-          new3 = "        for _path in sorted(list(ROOT.rglob('*.java')) + list(ROOT.rglob('*.kt'))):\n            _text = _path.read_text(errors='replace')\n            for _needle in leftovers:\n                for _line_no, _line in enumerate(_text.splitlines(), 1):\n                    if _needle in _line:\n                        print(f'LEFTOVER {_needle}: {_path}:{_line_no}: {_line.strip()}')\n        raise SystemExit(f'forbidden debug scaffolding remains: {leftovers}')"
-          if script.count(old3) != 1:
-              raise SystemExit(f'expected one forbidden-scaffold guard, found {script.count(old3)}')
-          script = script.replace(old3, new3)
+          patches = [
+              (
+                  "remove_line(p, '                    failed++;\\n')",
+                  "remove_line(p, '                    failed++;\\n', expected=2)",
+                  'sleep failure-counter guard',
+              ),
+              (
+                  "'                if (ok) {\\n                    unfrozenNow++;\\n                } else {\\n                    failed++;\\n                }\\n'",
+                  "'                if (ok) {\\n                    unfrozenNow++;\\n                } else {\\n                }\\n'",
+                  'unfreeze summary block guard',
+              ),
+              (
+                  "    raise SystemExit(f'forbidden debug scaffolding remains: {leftovers}')",
+                  "    for _path in sorted(list(ROOT.rglob('*.java')) + list(ROOT.rglob('*.kt'))):\n        _text = _path.read_text(errors='replace')\n        for _needle in leftovers:\n            for _line_no, _line in enumerate(_text.splitlines(), 1):\n                if _needle in _line:\n                    print(f'LEFTOVER {_needle}: {_path}:{_line_no}: {_line.strip()}')\n    raise SystemExit(f'forbidden debug scaffolding remains: {leftovers}')",
+                  'forbidden-scaffold diagnostic guard',
+              ),
+          ]
+          for old, new, label in patches:
+              if script.count(old) != 1:
+                  raise SystemExit(f'expected one {label}, found {script.count(old)}')
+              script = script.replace(old, new)
 
           Path('/tmp/reappzuku-debug-cleanup.sh').write_text(script)
           PY
