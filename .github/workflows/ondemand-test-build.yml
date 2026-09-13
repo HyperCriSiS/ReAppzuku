@@ -17,265 +17,32 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           fetch-depth: 0
-      - name: Set up JDK 17
-        uses: actions/setup-java@bcb1ea7a6f61fe8b286133e702232230bc660af9
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
-      - name: Remove residual debug-only scaffolding and validate
+      - name: Execute guarded cleanup with runner JDK 17
         shell: bash
         run: |
           set -euo pipefail
+          : "${JAVA_HOME_17_X64:?GitHub runner JDK 17 is unavailable}"
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          java -version
+
+          git show ff69e36437e23d20b8571bc55895ed31cef18b62:.github/workflows/ondemand-test-build.yml > /tmp/staged-cleanup.yml
           python3 - <<'PY'
           from pathlib import Path
-          import re
-
-          ROOT = Path('app/src/main/java')
-
-          def read(path):
-              return Path(path).read_bytes().decode('utf-8')
-
-          def write(path, text):
-              Path(path).write_bytes(text.encode('utf-8'))
-
-          def replace(path, old, new, expected=1):
-              text = read(path)
-              count = text.count(old)
-              if count != expected:
-                  raise SystemExit(f'{path}: expected {expected} occurrences, found {count}: {old[:100]!r}')
-              write(path, text.replace(old, new))
-
-          def remove_line(path, line, expected=1):
-              replace(path, line, '', expected)
-
-          # Remove private logger labels that became completely unused with AppDebugManager.
-          removed_constants = 0
-          const_re = re.compile(r'(?m)^[ \t]*private static final String (TAG|FILE_NAME)\s*=\s*[^;\r\n]+;\r?\n')
-          for path in sorted(list(ROOT.rglob('*.java')) + list(ROOT.rglob('*.kt'))):
-              text = path.read_bytes().decode('utf-8')
-              matches = []
-              for m in const_re.finditer(text):
-                  name = m.group(1)
-                  if len(re.findall(r'\b' + name + r'\b', text)) == 1:
-                      matches.append(m)
-              if matches:
-                  for m in reversed(matches):
-                      text = text[:m.start()] + text[m.end():]
-                  path.write_bytes(text.encode('utf-8'))
-                  removed_constants += len(matches)
-          if removed_constants != 35:
-              raise SystemExit(f'expected 35 single-use debug constants, removed {removed_constants}')
-
-          # PresetManager: remove no-op save logger and result checks that only fed logging.
-          p = 'app/src/main/java/com/gree1d/reappzuku/manager/PresetManager.java'
-          remove_line(p, 'import java.util.Locale;\n')
-          replace(p,
-              '    public void savePreset(PresetModel model) {\n        presetEditor(model).apply();\n        logPresetSaved(model, "async");\n    }\n',
-              '    public void savePreset(PresetModel model) {\n        presetEditor(model).apply();\n    }\n')
-          replace(p,
-              '    public boolean savePresetBlocking(PresetModel model) {\n        boolean committed = presetEditor(model).commit();\n        if (committed) logPresetSaved(model, "commit");\n        return committed;\n    }\n',
-              '    public boolean savePresetBlocking(PresetModel model) {\n        return presetEditor(model).commit();\n    }\n')
-          replace(p, '    private void logPresetSaved(PresetModel model, String mode) {\n\n    }\n\n', '')
-          replace(p,
-              '        AlarmScheduler.ScheduleResult activateResult = alarmScheduler.scheduleRtcWakeup(\n                activateTime, buildPendingIntent(model.presetNumber, ACTION_PRESET_ACTIVATE), true);\n        AlarmScheduler.ScheduleResult deactivateResult = alarmScheduler.scheduleRtcWakeup(\n                deactivateTime, buildPendingIntent(model.presetNumber, ACTION_PRESET_DEACTIVATE), true);\n        if (activateResult != AlarmScheduler.ScheduleResult.EXACT\n                || deactivateResult != AlarmScheduler.ScheduleResult.EXACT) {\n\n        }\n',
-              '        alarmScheduler.scheduleRtcWakeup(\n                activateTime, buildPendingIntent(model.presetNumber, ACTION_PRESET_ACTIVATE), true);\n        alarmScheduler.scheduleRtcWakeup(\n                deactivateTime, buildPendingIntent(model.presetNumber, ACTION_PRESET_DEACTIVATE), true);\n')
-          replace(p,
-              '        AlarmScheduler.ScheduleResult result = alarmScheduler.scheduleRtcWakeup(\n                next, buildPendingIntent(presetNumber, action), true);\n        if (result != AlarmScheduler.ScheduleResult.EXACT) {\n\n        }\n',
-              '        alarmScheduler.scheduleRtcWakeup(\n                next, buildPendingIntent(presetNumber, action), true);\n')
-
-          # BackupManager: collapse logging-only decode/legacy/rollback branches.
-          p = 'app/src/main/java/com/gree1d/reappzuku/core/BackupManager.java'
-          replace(p,
-              '        } catch (BackupCodec.DecodeException e) {\n            if (e.reason == BackupCodec.DecodeFailure.PAYLOAD_SIZE) {\n\n            } else if (e.reason == BackupCodec.DecodeFailure.FUTURE_VERSION) {\n\n            } else {\n\n            }\n            return false;\n        }\n',
-              '        } catch (BackupCodec.DecodeException ignored) {\n            return false;\n        }\n')
-          replace(p, '            if (decoded.legacy) {\n\n            }\n\n', '')
-          replace(p,
-              '                boolean rollbackOk = rollbackRestore(\n                        presetManager, mainSnapshot, preset1Snapshot, preset2Snapshot);\n\n',
-              '                rollbackRestore(presetManager, mainSnapshot, preset1Snapshot, preset2Snapshot);\n')
-
-          # CollectStatsManager: remove no-longer-consumed debug counters/formatter.
-          p = 'app/src/main/java/com/gree1d/reappzuku/manager/CollectStatsManager.java'
-          remove_line(p, '        int     parsedCount         = 0;\n')
-          remove_line(p, '                    parsedCount++;\n')
-          replace(p,
-              '    private static String formatSlot(long tsMs) {\n        Calendar c = Calendar.getInstance();\n        c.setTimeInMillis(tsMs);\n        return String.format(Locale.ROOT, "%02d:%02d",\n                c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE));\n    }\n',
-              '')
-
-          # MainActivity: remove the former top-four CPU debug-only loop.
-          p = 'app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java'
-          replace(p,
-              '            for (int i = 0; i < Math.min(4, appsDataList.size()); i++) {\n                AppModel a = appsDataList.get(i);\n\n            }\n',
-              '')
-
-          # BackgroundAppManager: remove memory-source classification and timing that only fed logs.
-          p = 'app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java'
-          for line in [
-              '            Map<String, String> packageMemorySource = new HashMap<>();\n',
-              '            String memorySource = "PSS";\n',
-              '                            boolean anyPss = false;\n',
-              '                            boolean anyRssFallback = false;\n',
-              '                                    anyPss = true;\n',
-              '                                        anyRssFallback = true;\n',
-              '                                packageMemorySource.put(packageName, anyPss && anyRssFallback ? "PSS+RSS" : anyPss ? "PSS" : "RSS");\n',
-              '                    memorySource = "RSS";\n',
-              '                                    packageMemorySource.put(packageName, "RSS");\n',
-              '            long loadStart = System.currentTimeMillis();\n',
-              '            long afterGetInstalled = System.currentTimeMillis();\n',
-              '            long afterState = System.currentTimeMillis();\n',
-              '            long afterBuild = System.currentTimeMillis();\n',
-              '            long afterSort = System.currentTimeMillis();\n',
-              '        Set<String> dbgManual = getManualRestrictedApps();\n',
-              '        int selectedCount = Integer.bitCount(boundedOpsMask);\n',
-              '        List<String> queuedOps = new ArrayList<>();\n',
-              '                queuedOps.add(op + " " + mode);\n',
-              '            int successfulSections = 0;\n',
-              '                    successfulSections++;\n',
-          ]:
-              remove_line(p, line)
-          replace(p, '        if (queuedOps.isEmpty()) {\n', '        if (queryIndex == 0) {\n')
-          replace(p,
-              '        long batchStart = System.currentTimeMillis();\n        String combinedOutput = shellManager.runShellCommandAndGetFullOutput(batchedCommand.toString());\n        long batchElapsedMs = System.currentTimeMillis() - batchStart;\n',
-              '        String combinedOutput = shellManager.runShellCommandAndGetFullOutput(batchedCommand.toString());\n')
-          replace(p,
-              '                        if (!state.isReady()) {\n\n                        } else {\n\n                            handler.post(() -> Toast.makeText(context,\n                                    context.getString(R.string.toast_failed_get_running_apps),\n                                    Toast.LENGTH_SHORT).show());\n                        }\n',
-              '                        if (state.isReady()) {\n                            handler.post(() -> Toast.makeText(context,\n                                    context.getString(R.string.toast_failed_get_running_apps),\n                                    Toast.LENGTH_SHORT).show());\n                        }\n')
-          replace(p, '        if (!querySucceeded) {\n\n        }\n\n', '')
-
-          # AutoKillManager: drop memory source diagnostics while preserving all kill/RSS logic.
-          p = 'app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java'
-          for line in [
-              '            long meminfoStart = System.currentTimeMillis();\n',
-              '            Map<String, String> packageMemorySource = new HashMap<>();\n',
-              '            String memorySource = "PSS";\n',
-              '                        boolean anyPss = false;\n',
-              '                        boolean anyRssFallback = false;\n',
-              '                                anyPss = true;\n',
-              '                                    anyRssFallback = true;\n',
-              '                            packageMemorySource.put(packageName, anyPss && anyRssFallback ? "PSS+RSS" : anyPss ? "PSS" : "RSS");\n',
-              '                memorySource = "RSS";\n',
-              '                            packageMemorySource.put(packageName, "RSS");\n',
-              '            long pssCount = packageMemorySource.values().stream().filter(s -> s.equals("PSS")).count();\n',
-              '            long rssCount = packageMemorySource.values().stream().filter(s -> s.equals("RSS")).count();\n',
-              '            long mixedCount = packageMemorySource.values().stream().filter(s -> s.equals("PSS+RSS")).count();\n',
-          ]:
-              remove_line(p, line)
-
-          # SleepModeManager: simplify no-op result branches and remove summary-only counters.
-          p = 'app/src/main/java/com/gree1d/reappzuku/manager/SleepModeManager.java'
-          replace(p,
-              '        boolean committed = sharedpreferences.edit()\n                .putStringSet(KEY_SLEEP_MODE_APPS_FROZEN, frozen)\n                .commit();\n        if (!committed) {\n\n        }\n        return committed;\n',
-              '        return sharedpreferences.edit()\n                .putStringSet(KEY_SLEEP_MODE_APPS_FROZEN, frozen)\n                .commit();\n', expected=2)
-          replace(p,
-              '        boolean ok = privilegedShell.applyPackageStateBlocking(packageName, action);\n        if (ok) {\n\n        } else {\n\n        }\n        return ok;\n',
-              '        return privilegedShell.applyPackageStateBlocking(packageName, action);\n', expected=2)
-          remove_line(p, '            int unfreezeCount = 0;\n')
-          remove_line(p, '            int freezeCount = 0;\n')
-          remove_line(p, '                    unfreezeCount++;\n')
-          remove_line(p, '                    freezeCount++;\n')
-          replace(p,
-              '            int frozenNow = 0;\n            int skippedAlreadyFrozen = 0;\n            int skippedProtected = 0;\n            int failed = 0;\n',
-              '')
-          remove_line(p, '                    skippedAlreadyFrozen++;\n')
-          remove_line(p, '                    skippedProtected++;\n')
-          replace(p,
-              '                    if (markFrozen(packageName)) {\n                        frozenNow++;\n                    } else {\n',
-              '                    if (!markFrozen(packageName)) {\n')
-          remove_line(p, '                        failed++;\n')
-          remove_line(p, '                    failed++;\n')
-          replace(p,
-              '            int unfrozenNow = 0;\n            int failed = 0;\n',
-              '')
-          replace(p,
-              '                if (ok) {\n                    unfrozenNow++;\n                } else {\n                    failed++;\n                }\n',
-              '')
-
-          # ShappkyService: no-op completion lambda can be represented directly as null.
-          p = 'app/src/main/java/com/gree1d/reappzuku/service/ShappkyService.java'
-          replace(p, '        appManager.reapplySavedBackgroundRestrictions(() ->\n                {});\n',
-                     '        appManager.reapplySavedBackgroundRestrictions(null);\n')
-
-          # RestrictionsScheduler: keep UNAVAILABLE handling, remove logger-only exactness/result branches.
-          p = 'app/src/main/java/com/gree1d/reappzuku/manager/RestrictionsScheduler.java'
-          replace(p, '        if (result != AlarmScheduler.ScheduleResult.EXACT) {\n\n        }\n\n', '', expected=2)
-          replace(p,
-              '            ShellManager.ShellResult r = privilegedShell.launchComponent(componentName, action);\n            if (r.succeeded()) {\n\n            } else {\n\n            }\n',
-              '            privilegedShell.launchComponent(componentName, action);\n')
-          replace(p, '        } catch (IllegalArgumentException e) {\n\n        }\n',
-                     '        } catch (IllegalArgumentException ignored) {\n        }\n')
-          replace(p, '            catch (JSONException e) {  }\n', '            catch (JSONException ignored) { }\n')
-
-          # ScanSystem: remove no-op network branch and alarm summary counters used only by debug logs.
-          p = 'app/src/main/java/com/gree1d/reappzuku/manager/ScanSystem.java'
-          replace(p, '        if (netstats == null || netstats.trim().isEmpty()) {\n\n        }\n\n', '')
-          remove_line(p, '            int wakeupCount = 0, normalCount = 0;\n')
-          remove_line(p, '                if (e.isWakeup) wakeupCount++; else normalCount++;\n')
-
-          # Remove five ShellManager logger-only exit-code branches.
-          p = 'app/src/main/java/com/gree1d/reappzuku/core/ShellManager.java'
-          text = read(p)
-          patterns = [
-              re.compile(r'(?m)^[ \t]*if \(exitCode != 0\) \{\s*\}\s*\n'),
-              re.compile(r'(?m)^[ \t]*if \(result\.exitCode != 0\) \{\s*\}\s*\n'),
-          ]
-          removed = 0
-          for pattern in patterns:
-              text, n = pattern.subn('', text)
-              removed += n
-          if removed != 5:
-              raise SystemExit(f'ShellManager: expected 5 empty exit-code branches, removed {removed}')
-          write(p, text)
-
-          # One remaining activity branch existed solely for removed debug output.
-          p = 'app/src/main/java/com/gree1d/reappzuku/ui/AppResourceDetailActivity.java'
-          text = read(p)
-          pattern = re.compile(r'(?m)^[ \t]*if \(slice\.level != CollectStatsManager\.ActivityLevel\.NONE\) \{\s*\}\s*\n')
-          text, n = pattern.subn('', text)
-          if n != 1:
-              raise SystemExit(f'AppResourceDetailActivity: expected 1 empty activity-level branch, removed {n}')
-          write(p, text)
-
-          # Postconditions for the known residual debug scaffolding.
-          all_source = '\n'.join(p.read_text(errors='replace') for p in ROOT.rglob('*') if p.suffix in ('.java', '.kt'))
-          forbidden = [
-              'AppDebugManager', 'logPresetSaved', 'packageMemorySource', 'memorySource = "PSS"',
-              'meminfoStart', 'loadStart', 'afterGetInstalled', 'afterState', 'afterBuild', 'afterSort',
-              'dbgManual', 'selectedCount', 'batchElapsedMs', 'pssCount =', 'rssCount =', 'mixedCount =',
-              'wakeupCount', 'normalCount', 'parsedCount',
-          ]
-          leftovers = [s for s in forbidden if s in all_source]
-          if leftovers:
-              raise SystemExit(f'forbidden debug scaffolding remains: {leftovers}')
-
-          single_use_constants = []
-          for path in sorted(list(ROOT.rglob('*.java')) + list(ROOT.rglob('*.kt'))):
-              text = path.read_text(errors='replace')
-              for name in ('TAG', 'FILE_NAME'):
-                  if len(re.findall(r'\b' + name + r'\b', text)) == 1 and re.search(r'\b' + name + r'\s*=', text):
-                      single_use_constants.append(f'{path}:{name}')
-          if single_use_constants:
-              raise SystemExit(f'single-use debug constants remain: {single_use_constants}')
+          source = Path('/tmp/staged-cleanup.yml').read_text().splitlines()
+          marker = '      - name: Remove residual debug-only scaffolding and validate'
+          try:
+              step = source.index(marker)
+          except ValueError:
+              raise SystemExit('cleanup step marker not found')
+          run_line = next(i for i in range(step + 1, len(source)) if source[i].strip() == 'run: |')
+          body = source[run_line + 1:]
+          prefix = '          '
+          out = []
+          for line in body:
+              if line and not line.startswith(prefix):
+                  raise SystemExit(f'unexpected cleanup indentation: {line!r}')
+              out.append(line[len(prefix):] if line else '')
+          Path('/tmp/reappzuku-debug-cleanup.sh').write_text('\n'.join(out) + '\n')
           PY
-
-          # Restore the wrapper's original non-executable mode; invoke it explicitly via bash.
-          chmod 0644 gradlew
-          bash gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
-          git diff --check
-
-          # Never commit this temporary write-capable workflow.
-          git fetch --depth=1 origin main:refs/remotes/origin/main
-          git checkout origin/main -- .github/workflows/ondemand-test-build.yml
-          chmod 0644 gradlew
-
-          git add -A
-          test "$(git ls-files -s gradlew | awk '{print $1}')" = "100644"
-          if git diff --cached --quiet; then
-            echo 'No cleanup changes produced'
-            exit 1
-          fi
-          git diff --cached --check
-          git status --short
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Remove residual debug-only scaffolding'
-          git push origin HEAD:cleanup-remove-debug-manager
+          bash /tmp/reappzuku-debug-cleanup.sh
