@@ -86,6 +86,7 @@ jobs:
 
           layout = remove_containing_linear(layout, 'android:id="@+id/switch_debug_enabled"')
           layout = remove_containing_linear(layout, 'android:id="@+id/layout_debug_menu"')
+          layout = ''.join(line.rstrip() + ('\n' if line.endswith('\n') else '') for line in layout.splitlines(keepends=True))
           for marker in (
               'layout_periodic_kill', 'switch_periodic_kill', 'layout_screen_lock',
               'switch_kill_screen_off', 'layout_ram_threshold_toggle', 'switch_ram_threshold',
