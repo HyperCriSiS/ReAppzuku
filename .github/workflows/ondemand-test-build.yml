@@ -103,7 +103,7 @@ jobs:
                           raise SystemExit(f'{path}: unsafe statement prefix before logger: {prefix!r}')
                       text = text[:start] + text[j + 1:]
                       removed_calls += 1
-                  elif j < len(text) and text[j] == ')' and prefix_trim.endswith('->'):
+                  elif j < len(text) and text[j] == ')' and text[:start].rstrip().endswith('->'):
                       text = text[:start] + '{}' + text[close:]
                       removed_calls += 1
                       lambda_replacements += 1
