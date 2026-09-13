@@ -8,133 +8,87 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  remove-debug-dead-code:
+  inventory-debug-syntax:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          fetch-depth: 0
-      - name: Set up JDK 17
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
-        with:
-          java-version: '17'
-          distribution: temurin
-          cache: gradle
-      - name: Remove no-op AppDebugManager call sites and validate
+      - name: Classify nontrivial AppDebugManager call sites
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          from collections import Counter
 
           root = Path('app/src/main/java')
-          manager = root / 'com/gree1d/reappzuku/core/AppDebugManager.java'
-          if not manager.exists():
-              raise SystemExit('AppDebugManager.java missing before cleanup')
 
-          def find_call_close(text, start):
-              open_paren = text.find('(', start)
-              if open_paren < 0:
-                  raise ValueError('missing opening parenthesis')
-              depth = 0
-              i = open_paren
-              state = 'code'
+          def find_close(text, start):
+              op = text.find('(', start)
+              if op < 0: raise RuntimeError('missing (')
+              depth = 0; i = op; state = 'code'
               while i < len(text):
-                  c = text[i]
-                  n = text[i + 1] if i + 1 < len(text) else ''
+                  c = text[i]; n = text[i+1] if i+1 < len(text) else ''
                   if state == 'code':
-                      if c == '"': state = 'string'
+                      if c == '"': state = 'str'
                       elif c == "'": state = 'char'
-                      elif c == '/' and n == '/': state = 'line_comment'; i += 1
-                      elif c == '/' and n == '*': state = 'block_comment'; i += 1
-                      elif c == '(':
-                          depth += 1
+                      elif c == '/' and n == '/': state = 'line'; i += 1
+                      elif c == '/' and n == '*': state = 'block'; i += 1
+                      elif c == '(': depth += 1
                       elif c == ')':
                           depth -= 1
-                          if depth == 0:
-                              return i + 1
-                  elif state == 'string':
+                          if depth == 0: return i + 1
+                  elif state == 'str':
                       if c == '\\': i += 1
                       elif c == '"': state = 'code'
                   elif state == 'char':
                       if c == '\\': i += 1
                       elif c == "'": state = 'code'
-                  elif state == 'line_comment':
+                  elif state == 'line':
                       if c == '\n': state = 'code'
-                  elif state == 'block_comment':
+                  elif state == 'block':
                       if c == '*' and n == '/': state = 'code'; i += 1
                   i += 1
-              raise ValueError(f'unterminated call at {start}')
+              raise RuntimeError('unterminated')
 
-          touched = 0
-          removed_calls = 0
-          lambda_replacements = 0
+          kinds = Counter(); examples = {}
+          total = 0
           for path in sorted(root.rglob('*.java')):
-              if path == manager:
-                  continue
-              raw = path.read_bytes()
-              text = raw.decode('utf-8')
-              original = text
-              text = text.replace('import com.gree1d.reappzuku.core.AppDebugManager;\r\n', '')
-              text = text.replace('import com.gree1d.reappzuku.core.AppDebugManager;\n', '')
-              text = text.replace('import com.gree1d.reappzuku.core.AppDebugManager.Category;\r\n', '')
-              text = text.replace('import com.gree1d.reappzuku.core.AppDebugManager.Category;\n', '')
-
+              text = path.read_text(errors='replace')
+              pos = 0
               while True:
-                  start = text.find('AppDebugManager.')
-                  if start < 0:
-                      break
+                  start = text.find('AppDebugManager.', pos)
+                  if start < 0: break
+                  total += 1
+                  close = find_close(text, start)
                   line_start = text.rfind('\n', 0, start) + 1
-                  prefix = text[line_start:start]
-                  prefix_trim = prefix.rstrip()
-                  try:
-                      close = find_call_close(text, start)
-                  except Exception as exc:
-                      raise SystemExit(f'{path}: {exc}')
+                  prefix = text[line_start:start].strip()
+                  before = text[max(0, start-160):start].rstrip()
                   j = close
-                  while j < len(text) and text[j] in ' \t\r\n':
-                      j += 1
-
-                  if j < len(text) and text[j] == ';':
-                      if prefix_trim and not prefix_trim.endswith(('{', '}', ';')):
-                          raise SystemExit(f'{path}: unsafe statement prefix before logger: {prefix!r}')
-                      text = text[:start] + text[j + 1:]
-                      removed_calls += 1
-                  elif j < len(text) and text[j] == ')' and text[:start].rstrip().endswith('->'):
-                      text = text[:start] + '{}' + text[close:]
-                      removed_calls += 1
-                      lambda_replacements += 1
+                  while j < len(text) and text[j] in ' \t\r\n': j += 1
+                  after = text[j:j+16]
+                  if j < len(text) and text[j] == ';' and (not prefix or prefix.endswith(('{','}',';'))):
+                      kind = 'standalone'
+                  elif j < len(text) and text[j] == ')' and before.endswith('->'):
+                      kind = 'lambda-expression'
+                  elif prefix.startswith('if ' ) or prefix.startswith('if(') or prefix.startswith('if ('):
+                      kind = 'single-line-if'
+                  elif prefix.startswith('else ' ):
+                      kind = 'single-line-else'
                   else:
-                      lo = max(0, start - 180)
-                      hi = min(len(text), start + 500)
-                      context = text[lo:hi].replace('\n', '\\n')
-                      raise SystemExit(f'{path}: unsupported logger expression; context={context!r}')
+                      kind = 'other'
+                  kinds[kind] += 1
+                  if kind != 'standalone':
+                      snippet = text[max(0,line_start-100):min(len(text), j+180)].replace('\n','\\n')
+                      examples.setdefault(kind, []).append((str(path), snippet))
+                  pos = close
 
-              if text != original:
-                  path.write_bytes(text.encode('utf-8'))
-                  touched += 1
-
-          manager.unlink()
-          leftovers = [str(p) for p in sorted(root.rglob('*.java')) if 'AppDebugManager' in p.read_text(errors='replace')]
-          if leftovers:
-              raise SystemExit('Residual AppDebugManager references: ' + ', '.join(leftovers))
-          if removed_calls < 800:
-              raise SystemExit(f'Unexpectedly low removal count: {removed_calls}')
-          print(f'Removed {removed_calls} AppDebugManager calls across {touched} Java files; lambda replacements={lambda_replacements}; facade deleted.')
+          print('TOTAL', total)
+          print('KINDS', dict(kinds))
+          for kind, rows in examples.items():
+              print(f'--- {kind} count={len(rows)} ---')
+              for path, snippet in rows[:80]:
+                  print(path + ' :: ' + snippet)
           PY
-
-          chmod +x gradlew
-          ./gradlew testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
-          git diff --check
-          test -z "$(grep -RIl 'AppDebugManager' app/src/main/java || true)"
-
-          git show origin/main:.github/workflows/ondemand-test-build.yml > .github/workflows/ondemand-test-build.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --check
-          git commit -m "Remove obsolete AppDebugManager dead code"
-          git push origin HEAD:${GITHUB_REF_NAME}
