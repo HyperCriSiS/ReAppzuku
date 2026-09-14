@@ -8,116 +8,38 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  refresh-assurance-docs:
+  validate:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          fetch-depth: 0
-      - name: Refresh roadmap and check matrix evidence
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          def replace_once(text, old, new, label):
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'{label}: expected exactly one match, found {count}')
-              return text.replace(old, new)
-
-          roadmap = Path('docs/ROADMAP.md')
-          text = roadmap.read_text()
-          text = replace_once(text,
-              "- SQL debug logging is privacy-bounded: commits `0d55aab8`/`711f8195` redact bind values while retaining SQL shape and bind count; normal validation `34065691224` passed.",
-              "- The earlier SQL-debug privacy boundary (`0d55aab8`/`711f8195`, validation `34065691224`) was later superseded by removing production SQL query debug logging entirely together with `AppDebugManager` and its formatter/test support in `e51873e38944e21726b96009ea23f2678fda6dfd`; final standard `34907347300`, CodeQL `34907355609` and API-37 `34907362534` passed.",
-              'roadmap SQL evidence')
-          text = replace_once(text,
-              "- [~] Keep `CHECK_MATRIX.md` status/evidence current after every high-impact change (refreshed through 2026-09-12; ongoing discipline).",
-              "- [~] Keep `CHECK_MATRIX.md` status/evidence current after every high-impact change (refreshed through 2026-09-15; ongoing discipline).",
-              'roadmap freshness')
-          text = replace_once(text,
-              "### Maintainability evidence — 2026-09-05 to 2026-09-12",
-              "### Maintainability evidence — 2026-09-05 to 2026-09-15",
-              'roadmap maintainability date')
-          text = replace_once(text,
-              "- `SqlQueryLogFormatter` preserves query shape and bind count without logging bind contents, closing the debug SQL metadata leak identified by CM-P2-05 (`34065691224`).",
-              "- CM-P2-05's original SQL-bind redaction (`34065691224`) is now superseded by complete removal of production SQL query debug logging, `SqlQueryLogFormatter`, its formatter-only test and the obsolete `AppDebugManager` path in `e51873e38944e21726b96009ea23f2678fda6dfd`; final standard `34907347300`, CodeQL `34907355609` and API-37 `34907362534` passed.",
-              'roadmap formatter evidence')
-          anchor = "- The unified user-facing On-demand mode is integrated and derives from the existing prevent-Shizuku-autostart + full-exit-on-Back controls rather than introducing a third lifecycle state. Normal `34674754810`, CodeQL PR `34700033242` and Android 17/API-37 runtime `34700010704` passed; Help documentation was propagated across EN/DE/ES/RU/UK/ZH.\n"
-          extra = anchor + (
-              "- Dependency/toolchain maintenance remained strict after the 2026-09-12 assurance refresh: Material 1.14.0 (`b186ed65687752c7dd4a2c5386f11575ab122e75`), AppCompat 1.8.0 (`bb28fbcbe9d6df7f9220427488f8f21deb059064`), Core KTX 1.19.0 (`8875aa7144ad5984430800a340637631b41c899a`) and Kotlin/Compose 2.4.10 (`0724d4ff6d22dd28d6338c7b895b3079b8cba492`) were integrated with locked/verified metadata. Kotlin 2.4.20 was deliberately not accepted while CodeQL 2.27.0 could not analyze it. The final Kotlin 2.4.10 line passed standard `34784329095`, CodeQL `34784307666` and API-37 `34784334462`.\n"
-              "- Root-shell resolution no longer relies on PATH discovery and production debug logging was first disabled in `67ed945e38287eea295d1a84de46235e103c7835`; standard `34738300120`, CodeQL `34738294468` and API-37 `34783416166` passed. The obsolete user-facing Debug settings/help were then removed in `522d175ad86c09d9971ce68e61cae0171af8c1d7`, validated by `34785500319` / `34785475308` / `34785505288`.\n"
-              "- The remaining internal `AppDebugManager`/SQL-debug subsystem and debug-only scaffolding were removed in `e51873e38944e21726b96009ea23f2678fda6dfd`. Final product-head validation passed standard `34907347300`, CodeQL `34907355609` and Android 17/API-37 `34907362534`; the API-37 lane reported `OK (41 tests)`, a passing separate-UID abuse probe (`binderExposed=false`, `bootBroadcastDenied=true`) and a clean launcher smoke test. Functional scheduling counters were explicitly preserved.\n"
-              "- CodeQL alert #9 (`java/android/missing-certificate-pinning`) remains an explicitly accepted medium warning for the credential-free public `api.github.com` release-metadata check. Fixed certificate pins against GitHub's externally managed/rotating certificate infrastructure would add update-availability fragility; standard platform TLS validation remains the deliberate policy unless the update transport changes.\n"
-          )
-          text = replace_once(text, anchor, extra, 'roadmap evidence anchor')
-          roadmap.write_text(text)
-
-          matrix = Path('docs/CHECK_MATRIX.md')
-          text = matrix.read_text()
-          text = replace_once(text,
-              "| A14 | Room DB / statistics / logs | DECIDED | Supported v2→v11 migration executes successfully on API 36 with `app_stats` preservation and final-schema validation; SQL debug bind values are redacted (`34065691224`). Unavailable upstream schema history 1/3–10 cannot be fabricated. |",
-              "| A14 | Room DB / statistics / logs | DECIDED | Supported v2→v11 migration executes successfully on API 36 with `app_stats` preservation and final-schema validation. The historical SQL bind-redaction boundary (`34065691224`) was later superseded by complete removal of production SQL query debug logging and formatter support in `e51873e38944e21726b96009ea23f2678fda6dfd`. Unavailable upstream schema history 1/3–10 cannot be fabricated. |",
-              'matrix A14')
-          text = replace_once(text,
-              "- **CM-P2-05:** SQL debug bind contents are redacted by `SqlQueryLogFormatter`; tests assert sensitive package/state tokens cannot enter the formatted log while retaining SQL shape and bind count. Normal validation `34065691224` passed.",
-              "- **CM-P2-05:** the original SQL bind-value exposure was first bounded by redaction (`34065691224`) and is now structurally eliminated from production: SQL query debug logging, `SqlQueryLogFormatter` and its formatter-only test were removed with the obsolete debug subsystem in `e51873e38944e21726b96009ea23f2678fda6dfd`; final standard `34907347300`, CodeQL `34907355609` and API-37 `34907362534` passed.",
-              'matrix P2-05 summary')
-          text = replace_once(text,
-              "- repository security state checked 2026-09-12: zero open Dependabot alerts, zero open secret-scanning alerts and no remaining actionable CodeQL finding on the validated product line;",
-              "- repository security state checked 2026-09-15: zero open Dependabot alerts and zero open secret-scanning alerts. CodeQL has one intentionally accepted medium warning (#9, `java/android/missing-certificate-pinning`) on the credential-free public `api.github.com` release-metadata request; standard platform TLS validation is retained because fixed pins against GitHub's externally managed/rotating certificates would create update-availability fragility;",
-              'matrix security state')
-          text = replace_once(text,
-              "**Maintainability status:** the named high-risk seams now have explicit `PrivilegedShell`, `PackageStateSource`, `AppLaunchTriggerPolicy`, parser/protection/background policy, `Clock`/`ScheduleTime`, `AlarmScheduler`, `BackupCodec`, manual-restriction backup policies and SQL-log redaction boundaries.",
-              "**Maintainability status:** the named high-risk seams now have explicit `PrivilegedShell`, `PackageStateSource`, `AppLaunchTriggerPolicy`, parser/protection/background policy, `Clock`/`ScheduleTime`, `AlarmScheduler`, `BackupCodec` and manual-restriction backup policies; the former SQL-debug redaction boundary has been removed entirely from production together with the obsolete debug subsystem.",
-              'matrix maintainability')
-          text = replace_once(text,
-              "## Closure status — 2026-09-12",
-              "## Closure status — 2026-09-15",
-              'matrix closure date')
-          text = replace_once(text,
-              "**Status: resolved.** `SqlQueryLogFormatter` logs SQL shape, bind count and a redaction marker but never\nthe bind contents. Tests explicitly use sensitive package/state tokens and assert they are absent.\nCommits `0d55aab8` / `711f8195` are green in normal validation run `34065691224`.",
-              "**Status: resolved and superseded by removal.** The original leak was first closed by redacting bind\ncontents (`0d55aab8` / `711f8195`, normal validation `34065691224`). Production SQL query debug\nlogging, `SqlQueryLogFormatter`, its formatter-only test and the obsolete `AppDebugManager` path were\nthen removed entirely in `e51873e38944e21726b96009ea23f2678fda6dfd`. Final product-head validation\npassed standard `34907347300`, CodeQL `34907355609` and Android 17/API-37 `34907362534`.",
-              'matrix P2-05 detail')
-          anchor = "Latest assurance evidence:\n"
-          extra = anchor + (
-              "- commit `e51873e38944e21726b96009ea23f2678fda6dfd`: obsolete `AppDebugManager`, production Room SQL query debug logging, formatter/test support and residual debug-only scaffolding were removed; final product-head standard `34907347300` and CodeQL `34907355609` passed, while API-37 `34907362534` passed `OK (41 tests)`, separate-UID abuse probing (`binderExposed=false`, `bootBroadcastDenied=true`) and launcher smoke;\n"
-              "- commit `522d175ad86c09d9971ce68e61cae0171af8c1d7`: obsolete production Debug settings UI, category dialog/resources and stale Debug/logcat help were removed; final standard `34785500319`, CodeQL `34785475308` and API-37 `34785505288` passed;\n"
-              "- commit `0724d4ff6d22dd28d6338c7b895b3079b8cba492`: Kotlin Gradle/Compose toolchain moved atomically to CodeQL-compatible 2.4.10 with regenerated strict locks/verification metadata; final standard `34784329095`, CodeQL `34784307666` and API-37 `34784334462` passed. Kotlin 2.4.20 remains intentionally deferred while CodeQL 2.27.0 cannot analyze it;\n"
-              "- commit `8875aa7144ad5984430800a340637631b41c899a`: Core KTX 1.19.0 on AppCompat 1.8.0 retained strict dependency locks/verification; final normal `34783656118`, CodeQL `34783651217` and API-37 `34783663008` passed;\n"
-              "- commit `67ed945e38287eea295d1a84de46235e103c7835`: root shell resolution moved from PATH discovery to explicit absolute candidates and production debug logging was disabled; standard `34738300120`, CodeQL `34738294468` and API-37 `34783416166` passed;\n"
-          )
-          text = replace_once(text, anchor, extra, 'matrix evidence anchor')
-          matrix.write_text(text)
-          PY
-
-          git fetch origin main
-          git checkout origin/main -- .github/workflows/ondemand-test-build.yml
-          git diff --check
-
-          actual="$(git diff --name-only origin/main | sort)"
-          expected="$(printf '%s\n' docs/CHECK_MATRIX.md docs/ROADMAP.md | sort)"
-          if [ "$actual" != "$expected" ]; then
-            echo 'Unexpected final diff:' >&2
-            printf '%s\n' "$actual" >&2
-            exit 1
-          fi
-
-          grep -Fq 'refreshed through 2026-09-15' docs/ROADMAP.md
-          grep -Fq '34907362534' docs/ROADMAP.md
-          grep -Fq 'Closure status — 2026-09-15' docs/CHECK_MATRIX.md
-          grep -Fq 'missing-certificate-pinning' docs/CHECK_MATRIX.md
-          grep -Fq 'resolved and superseded by removal' docs/CHECK_MATRIX.md
-
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/ROADMAP.md docs/CHECK_MATRIX.md .github/workflows/ondemand-test-build.yml
-          git commit -m 'Refresh assurance evidence through 2026-09-15'
-          git push origin HEAD:roadmap/assurance-evidence-20260915
+          persist-credentials: false
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - name: Grant execute permission
+        run: chmod +x gradlew
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+      - name: Lint
+        run: ./gradlew lintDebug
+      - name: Compile instrumentation tests
+        run: ./gradlew assembleDebugAndroidTest
+      - name: Verify current Room schema export
+        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+      - name: Upload debug APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: reappzuku-ondemand-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
