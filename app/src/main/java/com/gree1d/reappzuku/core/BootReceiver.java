@@ -6,8 +6,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import androidx.core.content.ContextCompat;
 
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 
 import com.gree1d.reappzuku.service.ShappkyService;
 import com.gree1d.reappzuku.manager.RestrictionsScheduler;
@@ -23,7 +21,7 @@ public class BootReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
         if (action == null) {
-            AppDebugManager.w(Category.CORE, "BootReceiver: onReceive: action is null, skipping");
+
             return;
         }
 
@@ -38,10 +36,10 @@ public class BootReceiver extends BroadcastReceiver {
                 Intent serviceIntent = new Intent(context, ShappkyService.class);
                 ContextCompat.startForegroundService(context, serviceIntent);
                 AutoKillWorker.schedule(context, "Periodic Kill");
-                AppDebugManager.d(Category.CORE, "BootReceiver: Boot complete (" + action + "): background service started, worker scheduled");
+
             } else {
                 AutoKillWorker.cancel(context);
-                AppDebugManager.d(Category.CORE, "BootReceiver: Boot complete (" + action + "): no background service requested");
+
             }
 
             SmartLifecycleWorker.scheduleAfterBoot(context);

@@ -12,8 +12,6 @@ import java.util.Set;
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.service.HardwareEventReceiver;
 
 public class AdditionalScenariosManager {
@@ -28,7 +26,7 @@ public class AdditionalScenariosManager {
         this.context = context.getApplicationContext();
         this.prefs = this.context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         this.presetManager = new PresetManager(this.context);
-        AppDebugManager.d(Category.ADVANCED_CONDITIONS, "AdditionalScenariosManager: instance created");
+
     }
 
     private boolean getPref(String key) {
@@ -58,16 +56,14 @@ public class AdditionalScenariosManager {
 
         boolean anyEnabled = headset || usb || charger || wifi || bluetooth || gps || hotspot;
 
-        AppDebugManager.d(Category.ADVANCED_CONDITIONS, "AdditionalScenariosManager: updateHardwareReceiverState: headset=" + headset
-                + ", usb=" + usb + ", charger=" + charger + ", wifi=" + wifi + ", bluetooth=" + bluetooth
-                + ", gps=" + gps + ", hotspot=" + hotspot + ", anyEnabled=" + anyEnabled + ", currentlyRegistered=" + receiverRegistered);
+
 
         if (anyEnabled && !receiverRegistered) {
             registerReceiver(headset, usb, charger, wifi, bluetooth, gps, hotspot);
         } else if (!anyEnabled && receiverRegistered) {
             unregisterReceiver();
         } else if (anyEnabled && receiverRegistered) {
-            AppDebugManager.d(Category.ADVANCED_CONDITIONS, "AdditionalScenariosManager: Triggers changed, re-registering receiver");
+
             unregisterReceiver();
             registerReceiver(headset, usb, charger, wifi, bluetooth, gps, hotspot);
         }
@@ -96,16 +92,16 @@ public class AdditionalScenariosManager {
                 context, hardwareEventReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
 
         receiverRegistered = true;
-        AppDebugManager.d(Category.ADVANCED_CONDITIONS, "AdditionalScenariosManager: HardwareEventReceiver registered");
+
     }
 
     private void unregisterReceiver() {
         if (hardwareEventReceiver != null) {
             try {
                 context.unregisterReceiver(hardwareEventReceiver);
-                AppDebugManager.d(Category.ADVANCED_CONDITIONS, "AdditionalScenariosManager: HardwareEventReceiver unregistered");
+
             } catch (IllegalArgumentException e) {
-                AppDebugManager.w(Category.ADVANCED_CONDITIONS, "AdditionalScenariosManager: Receiver was not registered: " + e.getMessage());
+
             }
             hardwareEventReceiver = null;
         }
@@ -113,7 +109,7 @@ public class AdditionalScenariosManager {
     }
 
     public void stop() {
-        AppDebugManager.d(Category.ADVANCED_CONDITIONS, "AdditionalScenariosManager: stop() called");
+
         unregisterReceiver();
     }
 
@@ -147,7 +143,7 @@ public class AdditionalScenariosManager {
     }
 
     public void saveAppLaunchTriggerPackages(Set<String> packages) {
-        AppDebugManager.d(Category.ADVANCED_CONDITIONS, "AdditionalScenariosManager: saveAppLaunchTriggerPackages: " + packages.size() + " package(s)");
+
         SharedPreferences.Editor editor = prefs.edit();
         editor.putStringSet(KEY_APP_LAUNCH_TRIGGER_PACKAGES, new HashSet<>(packages));
         if (presetManager.getActivePresetNumber() != 0) {

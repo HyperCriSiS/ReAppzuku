@@ -7,8 +7,6 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.provider.Settings;
 
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.ProtectedApps;
 import com.gree1d.reappzuku.core.PrivilegedShell;
 import com.gree1d.reappzuku.core.ShellManager;
@@ -28,7 +26,6 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
  * could silently target almost every installed application.
  */
 public final class SmartLifecycleManager {
-    private static final String TAG = "SmartLifecycleManager";
 
     public static final int PROFILE_GENTLE = 0;
     public static final int PROFILE_BALANCED = 1;
@@ -86,13 +83,13 @@ public final class SmartLifecycleManager {
     public boolean runPass(boolean bootPass) {
         if (!prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false)) return true;
         if (!shellManager.resolveAnyShellPermission()) {
-            AppDebugManager.w(Category.AUTO_KILL_BASE, TAG + ": no shell permission, skipping pass");
+
             return false;
         }
 
         Set<String> managed = new HashSet<>(prefs.getStringSet(KEY_BLACKLISTED_APPS, Collections.emptySet()));
         if (managed.isEmpty()) {
-            AppDebugManager.d(Category.AUTO_KILL_BASE, TAG + ": blacklist empty, nothing to manage");
+
             return true;
         }
 
@@ -129,8 +126,7 @@ public final class SmartLifecycleManager {
             String protectionReason = getProtectionReason(pkg, mediaDump, widgetDump, servicesDump,
                     wallpaperDump, devicePolicyDump, connectivityDump);
             if (protectionReason != null) {
-                AppDebugManager.d(Category.AUTO_KILL_BASE,
-                        TAG + ": SKIP " + pkg + " (" + protectionReason + ")");
+
                 clearBackgroundState(pkg);
                 continue;
             }
@@ -139,8 +135,7 @@ public final class SmartLifecycleManager {
                 if (!prefs.getBoolean(KEY_SMART_BOOT_CLEANUP_ENABLED, true)) continue;
                 long lastForeground = prefs.getLong(KEY_SMART_LAST_FOREGROUND_PREFIX + pkg, 0L);
                 if (bootEpoch > 0 && lastForeground >= bootEpoch) {
-                    AppDebugManager.d(Category.AUTO_KILL_BASE,
-                            TAG + ": boot cleanup SKIP " + pkg + " (used since boot)");
+
                     continue;
                 }
                 SmartLifecycleRecoveryPolicy.ForceStopOutcome outcome =
@@ -157,8 +152,7 @@ public final class SmartLifecycleManager {
             long backgroundSince = prefs.getLong(sinceKey, 0L);
             if (backgroundSince <= 0L || backgroundSince > now) {
                 prefs.edit().putLong(sinceKey, now).apply();
-                AppDebugManager.d(Category.AUTO_KILL_BASE,
-                        TAG + ": observing background app " + pkg);
+
                 continue;
             }
 
@@ -239,15 +233,13 @@ public final class SmartLifecycleManager {
     private boolean setStandby(String pkg) {
         boolean ok = privilegedShell.setStandbyBucketBlocking(
                 pkg, PrivilegedShell.StandbyBucket.RARE);
-        AppDebugManager.d(Category.AUTO_KILL_BASE,
-                TAG + ": " + (ok ? "STANDBY " : "STANDBY FAILED ") + pkg);
+
         return ok;
     }
 
     private boolean forceStop(String pkg, String reason) {
         boolean ok = privilegedShell.forceStopPackageBlocking(pkg);
-        AppDebugManager.d(Category.AUTO_KILL_BASE,
-                TAG + ": " + (ok ? "FORCE-STOP " : "FORCE-STOP FAILED ") + pkg + " (" + reason + ")");
+
         return ok;
     }
 

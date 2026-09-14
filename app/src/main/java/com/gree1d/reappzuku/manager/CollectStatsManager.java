@@ -9,8 +9,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.db.AppDatabase;
 import com.gree1d.reappzuku.db.ResourceSnapshot;
 import com.gree1d.reappzuku.db.ResourceSnapshotDao;
@@ -31,7 +29,6 @@ import com.gree1d.reappzuku.R;
 
 public class CollectStatsManager {
 
-    private static final String FILE_NAME = "CollectStatsManager";
 
     private static final long SLOT_MS         = 15 * 60 * 1000L;
     private static final long PROCSTATS_INTERVAL_MS = 60 * 60 * 1000L; 
@@ -94,8 +91,7 @@ public class CollectStatsManager {
 
     private void saveLastSnapshotMs(long timestampMs) {
         getStatsPrefs().edit().putLong(KEY_LAST_SNAPSHOT_MS, timestampMs).apply();
-        AppDebugManager.d(Category.UTILS,
-                FILE_NAME + ": saveLastSnapshotMs: saved " + formatSlot(timestampMs));
+
     }
 
     private long getLastProcstatsMs() {
@@ -104,8 +100,7 @@ public class CollectStatsManager {
 
     private void saveLastProcstatsMs(long timestampMs) {
         getStatsPrefs().edit().putLong(KEY_LAST_PROCSTATS_MS, timestampMs).apply();
-        AppDebugManager.d(Category.UTILS,
-                FILE_NAME + ": saveLastProcstatsMs: saved " + formatSlot(timestampMs));
+
     }
 
     private SharedPreferences getStatsPrefs() {
@@ -116,21 +111,16 @@ public class CollectStatsManager {
     private boolean shouldRunProcstats(long nowMs) {
         long last = getLastProcstatsMs();
         if (last == 0L) {
-            AppDebugManager.d(Category.UTILS,
-                    FILE_NAME + ": shouldRunProcstats: no previous timestamp → run");
+
             return true;
         }
         if (nowMs < last) {
-            AppDebugManager.w(Category.UTILS,
-                    FILE_NAME + ": shouldRunProcstats: clock jumped backwards"
-                    + " (now=" + nowMs + " < last=" + last + ") → run anyway");
+
             return true;
         }
         long elapsed = nowMs - last;
         boolean due = elapsed >= PROCSTATS_INTERVAL_MS;
-        AppDebugManager.d(Category.UTILS,
-                FILE_NAME + ": shouldRunProcstats: elapsed=" + (elapsed / 60_000) + "min"
-                + " → " + (due ? "RUN" : "skip"));
+
         return due;
     }
 
@@ -259,16 +249,14 @@ public class CollectStatsManager {
         long now = System.currentTimeMillis();
 
         try {
-            AppDebugManager.d(Category.UTILS, FILE_NAME + ": Starting snapshot at "
-                    + formatSlot(now));
+
 
             Map<String, Double> batteryMahByPkg = new HashMap<>();
             Map<String, Long>   cpuMsByPkg      = new HashMap<>();
             try {
                 collectCheckinStats(batteryMahByPkg, cpuMsByPkg);
             } catch (Exception e) {
-                AppDebugManager.e(Category.UTILS,
-                        FILE_NAME + ": collectCheckinStats failed, battery/cpu will be empty", e);
+
             }
 
             long[] jiffies = readProcStatJiffies();
@@ -305,23 +293,17 @@ public class CollectStatsManager {
             if (shouldRunProcstats(now)) {
                 long cycleEnd   = now;
                 long cycleStart = cycleEnd - PROCSTATS_INTERVAL_MS;
-                AppDebugManager.d(Category.UTILS, FILE_NAME
-                        + ": Running procstats for ["
-                        + formatSlot(cycleStart) + " – " + formatSlot(cycleEnd) + "]");
+
                 applyProcStatsToCycle(cycleStart, cycleEnd);
                 saveLastProcstatsMs(now);
             }
 
             getDao().deleteOlderThan(now - 24 * 3600_000L);
 
-            AppDebugManager.d(Category.UTILS, FILE_NAME + ": Snapshot saved at "
-                    + formatSlot(now) + ": " + allPkgs.size() + " apps"
-                    + "  battery=" + batteryMahByPkg.size()
-                    + "  cpu=" + cpuMsByPkg.size());
+
 
         } catch (Exception e) {
-            AppDebugManager.e(Category.UTILS,
-                    FILE_NAME + ": takeSnapshotBlocking: unexpected error, snapshot aborted", e);
+
         }
     }
 
@@ -332,10 +314,7 @@ public class CollectStatsManager {
             collectProcStatsRam(1, procStatsRam);
 
             if (procStatsRam.isEmpty()) {
-                AppDebugManager.d(Category.UTILS, FILE_NAME
-                        + ": applyProcStatsToCycle: procstats returned no data, "
-                        + "RAM remains 0 for cycle [" + formatSlot(cycleStart)
-                        + " – " + formatSlot(cycleEnd) + "]");
+
                 return;
             }
 
@@ -347,14 +326,10 @@ public class CollectStatsManager {
                 updated++;
             }
 
-            AppDebugManager.d(Category.UTILS, FILE_NAME
-                    + ": applyProcStatsToCycle: back-filled RAM for " + updated
-                    + " packages in cycle [" + formatSlot(cycleStart)
-                    + " – " + formatSlot(cycleEnd) + "]");
+
 
         } catch (Exception e) {
-            AppDebugManager.e(Category.UTILS,
-                    FILE_NAME + ": applyProcStatsToCycle: failed", e);
+
         }
     }
 
@@ -373,9 +348,7 @@ public class CollectStatsManager {
                     long uah = Long.parseLong(line.trim());
                     if (uah > 100_000) {
                         cachedCapacityMah = uah / 1000.0;
-                        AppDebugManager.d(Category.UTILS, FILE_NAME
-                                + ": Battery capacity from " + path + ": "
-                                + cachedCapacityMah + " mAh");
+
                         return cachedCapacityMah;
                     }
                 }
@@ -392,15 +365,13 @@ public class CollectStatsManager {
                     double cap = parseLocaleDouble(m.group(1));
                     if (cap > 100) {
                         cachedCapacityMah = cap;
-                        AppDebugManager.d(Category.UTILS, FILE_NAME
-                                + ": Battery capacity from dumpsys: " + cachedCapacityMah + " mAh");
+
                         return cachedCapacityMah;
                     }
                 }
             }
         } catch (Exception e) {
-            AppDebugManager.w(Category.UTILS,
-                    FILE_NAME + ": dumpsys batterystats capacity read failed", e);
+
         }
 
         try {
@@ -416,21 +387,17 @@ public class CollectStatsManager {
                         double estimatedCapacity = (chargeUah / 1000.0) / (levelPct / 100.0);
                         if (estimatedCapacity > 500 && estimatedCapacity < 30_000) {
                             cachedCapacityMah = estimatedCapacity;
-                            AppDebugManager.d(Category.UTILS, FILE_NAME
-                                    + ": Battery capacity estimated from BatteryManager: "
-                                    + cachedCapacityMah + " mAh (level=" + levelPct + "%)");
+
                             return cachedCapacityMah;
                         }
                     }
                 }
             }
         } catch (Exception e) {
-            AppDebugManager.w(Category.UTILS,
-                    FILE_NAME + ": BatteryManager capacity read failed", e);
+
         }
 
-        AppDebugManager.w(Category.UTILS,
-                FILE_NAME + ": Could not read battery capacity, using 4000 mAh fallback");
+
         cachedCapacityMah = 4000.0;
         return cachedCapacityMah;
     }
@@ -446,12 +413,11 @@ public class CollectStatsManager {
                 cachedCpuCoreCount = parts.length == 2
                         ? Integer.parseInt(parts[1]) + 1
                         : 1;
-                AppDebugManager.d(Category.UTILS,
-                        FILE_NAME + ": CPU cores: " + cachedCpuCoreCount);
+
                 return cachedCpuCoreCount;
             }
         } catch (Exception e) {
-            AppDebugManager.w(Category.UTILS, FILE_NAME + ": readCpuCoreCount failed", e);
+
         }
         cachedCpuCoreCount = Runtime.getRuntime().availableProcessors();
         return cachedCpuCoreCount;
@@ -467,8 +433,7 @@ public class CollectStatsManager {
                 && (output.contains(",l,pwi,") || output.contains(",l,cpu,"));
 
         if (!hasCheckinData) {
-            AppDebugManager.d(Category.UTILS, FILE_NAME
-                    + ": --checkin returned no usable data, trying human-readable fallback");
+
             collectCheckinStatsFallback(batteryMahOut, cpuMsOut);
             return;
         }
@@ -486,8 +451,7 @@ public class CollectStatsManager {
                     double mah = parseLocaleDouble(parts[5].trim());
                     if (mah > 0) uidToMah.put(uid, mah);
                 } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-                    AppDebugManager.w(Category.UTILS,
-                            FILE_NAME + ": pwi parse error: " + line, e);
+
                 }
             } else if (CPU_UID_LINE.matcher(line).find()) {
                 try {
@@ -500,8 +464,7 @@ public class CollectStatsManager {
                     long total    = userMs + systemMs;
                     if (total > 0) uidToCpuMs.put(uid, total);
                 } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-                    AppDebugManager.w(Category.UTILS,
-                            FILE_NAME + ": cpu parse error: " + line, e);
+
                 }
             }
         }
@@ -519,8 +482,7 @@ public class CollectStatsManager {
                                              @NonNull Map<String, Long> cpuMsOut) {
         String output = shellManager.runCommandAndGetOutput("dumpsys batterystats --charged");
         if (output == null || output.isEmpty()) {
-            AppDebugManager.w(Category.UTILS,
-                    FILE_NAME + ": batterystats fallback also returned empty output");
+
             return;
         }
 
@@ -548,8 +510,7 @@ public class CollectStatsManager {
             }
         }
 
-        AppDebugManager.d(Category.UTILS, FILE_NAME
-                + ": batterystats fallback: parsed cpu for " + uidToCpuMs.size() + " UIDs");
+
         mapUidsToPkgs(new HashMap<>(), uidToCpuMs, batteryMahOut, cpuMsOut);
     }
 
@@ -565,8 +526,7 @@ public class CollectStatsManager {
             try {
                 pkgs = pm.getPackagesForUid(e.getKey());
             } catch (SecurityException ex) {
-                AppDebugManager.d(Category.UTILS, FILE_NAME
-                        + ": getPackagesForUid(" + e.getKey() + ") denied: " + ex.getMessage());
+
                 continue;
             }
             if (pkgs == null || pkgs.length == 0) continue;
@@ -579,8 +539,7 @@ public class CollectStatsManager {
             try {
                 pkgs = pm.getPackagesForUid(e.getKey());
             } catch (SecurityException ex) {
-                AppDebugManager.d(Category.UTILS, FILE_NAME
-                        + ": getPackagesForUid(" + e.getKey() + ") denied: " + ex.getMessage());
+
                 continue;
             }
             if (pkgs == null || pkgs.length == 0) continue;
@@ -594,14 +553,12 @@ public class CollectStatsManager {
         String cmd    = "dumpsys procstats --hours " + hours;
         String output = shellManager.runCommandAndGetOutput(cmd);
         if (output == null || output.isEmpty()) {
-            AppDebugManager.d(Category.UTILS, FILE_NAME
-                    + ": collectProcStatsRam: empty output for --hours " + hours);
+
             return;
         }
 
         String  currentPkg         = null;
         boolean currentIsSubprocess = false;
-        int     parsedCount         = 0;
 
         for (String line : output.split("\n")) {
             Matcher pkgMatcher = PROCSTATS_PKG.matcher(line);
@@ -643,13 +600,10 @@ public class CollectStatsManager {
                             ramOut.put(currentPkg, new double[]{minPss, avgPss, maxPss});
                         }
                     }
-                    parsedCount++;
                 } catch (NumberFormatException ignored) {}
             }
         }
-        AppDebugManager.d(Category.UTILS, FILE_NAME
-                + ": collectProcStatsRam(--hours " + hours + "): parsed "
-                + parsedCount + " TOTAL lines → " + ramOut.size() + " packages");
+
     }
 
     private static double parsePssMb(@Nullable String number, @Nullable String suffix) {
@@ -688,7 +642,7 @@ public class CollectStatsManager {
             long active = total - idle - iowait;
             return new long[]{total, active};
         } catch (Exception e) {
-            AppDebugManager.w(Category.UTILS, FILE_NAME + ": readProcStatJiffies failed", e);
+
             return new long[]{0, 0};
         }
     }
@@ -701,8 +655,7 @@ public class CollectStatsManager {
 
         ResourceSnapshot current = getDao().getLatestSnapshot();
         if (current == null) {
-            AppDebugManager.d(Category.UTILS, FILE_NAME
-                    + ": getStatsForPeriodBlocking(" + hours + "h): no snapshot available");
+
             return new PeriodStats(Collections.emptyList(), false, 0,
                     context.getString(R.string.stats_no_data_hint_no_snapshot), false);
         }
@@ -719,9 +672,7 @@ public class CollectStatsManager {
         }
 
         if (previous == null || previous.timestamp >= current.timestamp) {
-            AppDebugManager.d(Category.UTILS, FILE_NAME
-                    + ": getStatsForPeriodBlocking(" + hours
-                    + "h): no usable history before current snapshot");
+
             return new PeriodStats(Collections.emptyList(), false, 0,
                     context.getString(R.string.stats_no_data_hint_no_history), false);
         }
@@ -1004,10 +955,4 @@ public class CollectStatsManager {
         }
     }
 
-    private static String formatSlot(long tsMs) {
-        Calendar c = Calendar.getInstance();
-        c.setTimeInMillis(tsMs);
-        return String.format(Locale.ROOT, "%02d:%02d",
-                c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE));
-    }
 }

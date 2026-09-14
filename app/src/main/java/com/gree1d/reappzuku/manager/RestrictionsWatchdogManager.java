@@ -8,8 +8,6 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.core.PrivilegedShell;
 import com.gree1d.reappzuku.utils.SleepModeLogManager;
@@ -17,7 +15,6 @@ import com.gree1d.reappzuku.utils.BackgroundRestrictionLog;
 
 public class RestrictionsWatchdogManager {
 
-    private static final String FILE_NAME = "RestrictionsWatchdogManager";
     private static final long WATCHDOG_INTERVAL_MS = 35 * 60 * 1000L; 
 
     private static final Pattern SLEEP_PACKAGES_SECTION =
@@ -73,24 +70,24 @@ public class RestrictionsWatchdogManager {
                 && !sleepModeManager.getPermanentFreezeApps().isEmpty();
 
         if (!hasBackgroundTargets && !hasSleepTargets) {
-            AppDebugManager.d(Category.UTILS, FILE_NAME + ": No restricted apps, watchdog not started");
+
             return;
         }
         running = true;
         handler.postDelayed(watchdogRunnable, WATCHDOG_INTERVAL_MS);
-        AppDebugManager.d(Category.UTILS, FILE_NAME + ": Watchdog started, interval=" + (WATCHDOG_INTERVAL_MS / 60000) + " min");
+
     }
 
     public void stop() {
         running = false;
         handler.removeCallbacks(watchdogRunnable);
-        AppDebugManager.d(Category.UTILS, FILE_NAME + ": Watchdog stopped");
+
     }
 
 
     private void runCheck() {
         if (!shellManager.hasAnyShellPermission()) {
-            AppDebugManager.w(Category.UTILS, FILE_NAME + ": runCheck aborted: shell permission lost");
+
             return;
         }
 
@@ -107,7 +104,7 @@ public class RestrictionsWatchdogManager {
 
         if (!backgroundRestrictionActive && !sleepModeActive) {
             stop();
-            AppDebugManager.d(Category.UTILS, FILE_NAME + ": Watchdog stopped — no more restricted apps");
+
             return;
         }
 
@@ -167,8 +164,7 @@ public class RestrictionsWatchdogManager {
 
         String fullDump = shellManager.runShellCommandAndGetFullOutput("dumpsys package");
         if (fullDump == null || fullDump.trim().isEmpty()) {
-            AppDebugManager.w(Category.UTILS, FILE_NAME
-                    + ": checkAndRepairSleepMode: batched dumpsys package fetch failed, skipping this tick");
+
             return;
         }
 
@@ -179,7 +175,7 @@ public class RestrictionsWatchdogManager {
         for (String pkg : permanent) {
             if (scheduler != null
                     && scheduler.isProtected(pkg, RestrictionsScheduler.PROTECT_SLEEP_MODE)) {
-                AppDebugManager.v(Category.UTILS, FILE_NAME + ": sleep-mode check SKIP (scheduler-protected): " + pkg);
+
                 continue;
             }
 
@@ -208,7 +204,7 @@ public class RestrictionsWatchdogManager {
 
             if (!drifted) continue;
 
-            AppDebugManager.w(Category.UTILS, FILE_NAME + ": watchdog sleep-mode drift: " + pkg + " isSystem=" + isSystem);
+
             boolean ok = sleepModeManager.reapplyPermanentFreeze(pkg);
             SleepModeLogManager.logFreeze(context, pkg, ok, "WatchDog Repair", method, SleepModeManager.FreezeType.PERMANENT);
         }
@@ -231,13 +227,11 @@ public class RestrictionsWatchdogManager {
         }
 
         if (buckets.isEmpty()) {
-            AppDebugManager.w(Category.UTILS, FILE_NAME
-                    + ": fetchAllStandbyBuckets: parsed 0 entries from output, treating as failure");
+
             return null;
         }
 
-        AppDebugManager.d(Category.UTILS, FILE_NAME
-                + ": fetchAllStandbyBuckets: parsed " + buckets.size() + " packages in one call");
+
         return buckets;
     }
 
@@ -248,39 +242,38 @@ public class RestrictionsWatchdogManager {
 
         java.util.Map<String, Integer> currentBuckets = fetchAllStandbyBuckets();
         if (currentBuckets == null) {
-            AppDebugManager.w(Category.UTILS, FILE_NAME
-                    + ": checkAndRepairBuckets: batched bucket fetch failed, skipping this tick");
+
             return;
         }
 
         for (String pkg : desired) {
             if (scheduler != null
                     && scheduler.isProtected(pkg, RestrictionsScheduler.PROTECT_BG_RESTRICTIONS)) {
-                AppDebugManager.v(Category.UTILS, FILE_NAME + ": bucket check SKIP (scheduler-protected): " + pkg);
+
                 continue;
             }
 
             int required;
             if (hardSet.contains(pkg)) {
                 if (isAppForeground(pkg)) {
-                    AppDebugManager.d(Category.UTILS, FILE_NAME + ": watchdog bucket SKIP (foreground, hard): " + pkg);
+
                     continue;
                 }
                 required = 45;
             } else if (mediumSet.contains(pkg)) {
                 if (isAppForeground(pkg) || isAppForegroundService(pkg)) {
-                    AppDebugManager.d(Category.UTILS, FILE_NAME + ": watchdog bucket SKIP (foreground/fgs, medium): " + pkg);
+
                     continue;
                 }
                 required = 40;
             } else if (manualSet.contains(pkg)) {
                 if (isAppForeground(pkg)) {
-                    AppDebugManager.d(Category.UTILS, FILE_NAME + ": watchdog bucket SKIP (foreground, manual): " + pkg);
+
                     continue;
                 }
                 required = appManager.getManualBucket(pkg);
                 if (required == 40 && isMediumLikeManual(pkg) && isAppForegroundService(pkg)) {
-                    AppDebugManager.d(Category.UTILS, FILE_NAME + ": watchdog bucket SKIP (fgs, medium-like manual): " + pkg);
+
                     continue;
                 }
             } else {
@@ -290,22 +283,19 @@ public class RestrictionsWatchdogManager {
 
             Integer current = currentBuckets.get(pkg);
             if (current == null) {
-                AppDebugManager.w(Category.UTILS, FILE_NAME
-                        + ": checkAndRepairBuckets: no bucket data for " + pkg + ", skipping");
+
                 continue;
             }
 
             if (current == required) continue;
 
-            AppDebugManager.w(Category.UTILS, FILE_NAME + ": watchdog bucket drift: " + pkg
-                    + " current=" + current + " required=" + required);
+
             boolean ok;
             try {
                 ok = privilegedShell.setStandbyBucket(
                         pkg, PrivilegedShell.StandbyBucket.fromLegacyValue(required)).succeeded();
             } catch (IllegalArgumentException e) {
-                AppDebugManager.w(Category.UTILS, FILE_NAME
-                        + ": refusing invalid standby bucket " + required + " for " + pkg);
+
                 ok = false;
             }
             BackgroundRestrictionLog.log(context, pkg, "watchdog-bucket",

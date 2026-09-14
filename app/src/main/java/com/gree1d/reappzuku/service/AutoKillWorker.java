@@ -3,8 +3,6 @@ package com.gree1d.reappzuku.service;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Handler;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 
 import androidx.annotation.NonNull;
 import androidx.work.Data;
@@ -94,7 +92,7 @@ public class AutoKillWorker extends Worker {
             }
 
             CountDownLatch latch = new CountDownLatch(1);
-            AppDebugManager.d(Category.AUTO_KILL_BASE, "AutoKillWorker: Triggering performAutoKill from WORKER");
+
 
             String source = getInputData().getString(KEY_SOURCE);
             if (source == null) source = "Periodic Kill";
@@ -102,7 +100,7 @@ public class AutoKillWorker extends Worker {
 
             boolean finished = latch.await(60, TimeUnit.SECONDS);
             if (!finished) {
-                AppDebugManager.w(Category.AUTO_KILL_BASE, "AutoKillWorker: performAutoKill timed out after 60s");
+
                 return Result.retry();
             }
 

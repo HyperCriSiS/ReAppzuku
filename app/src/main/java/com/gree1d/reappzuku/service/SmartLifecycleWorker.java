@@ -15,8 +15,6 @@ import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import com.gree1d.reappzuku.core.App;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.manager.SmartLifecycleManager;
 import com.gree1d.reappzuku.manager.SmartLifecycleRecoveryPolicy;
@@ -84,20 +82,18 @@ public class SmartLifecycleWorker extends Worker {
             ShellManager shellManager = app.getShellManager();
             boolean bootPass = getInputData().getBoolean(INPUT_BOOT_PASS, false);
             if (!shellManager.resolveAnyShellPermission()) {
-                AppDebugManager.w(Category.AUTO_KILL_BASE,
-                        "SmartLifecycleWorker: shell unavailable" + (bootPass ? ", retrying boot cleanup" : ", waiting for next pass"));
+
                 return bootPass ? Result.retry() : Result.success();
             }
             SmartLifecycleManager manager = new SmartLifecycleManager(context, shellManager);
             boolean passCompleted = manager.runPass(bootPass);
             if (SmartLifecycleRecoveryPolicy.shouldRetryWorker(bootPass, passCompleted)) {
-                AppDebugManager.w(Category.AUTO_KILL_BASE,
-                        "SmartLifecycleWorker: boot cleanup had force-stop failures, retrying");
+
                 return Result.retry();
             }
             return Result.success();
         } catch (Throwable t) {
-            AppDebugManager.e(Category.AUTO_KILL_BASE, "SmartLifecycleWorker: pass failed", t);
+
             return Result.retry();
         }
     }

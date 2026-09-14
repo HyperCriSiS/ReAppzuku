@@ -8,8 +8,6 @@ import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Handler;
 
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.AlarmScheduler;
 import com.gree1d.reappzuku.core.Clock;
 import com.gree1d.reappzuku.core.ScheduleTime;
@@ -342,7 +340,7 @@ public class RestrictionsScheduler {
         this.prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         this.clock = clock;
         this.alarmScheduler = alarmScheduler;
-        AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: initialized");
+
     }
 
 
@@ -356,7 +354,7 @@ public class RestrictionsScheduler {
                 list.add(ScheduleEntry.fromJson(arr.getJSONObject(i)));
             }
         } catch (JSONException e) {
-            AppDebugManager.e(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: getSchedules: parse error", e);
+
         }
         return list;
     }
@@ -365,7 +363,7 @@ public class RestrictionsScheduler {
         JSONArray arr = new JSONArray();
         for (ScheduleEntry entry : schedules) {
             try { arr.put(entry.toJson()); }
-            catch (JSONException e) { AppDebugManager.e(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: saveSchedules: " + entry.packageName, e); }
+            catch (JSONException ignored) { }
         }
         prefs.edit().putString(KEY_SCHEDULES, arr.toString()).apply();
     }
@@ -374,7 +372,7 @@ public class RestrictionsScheduler {
     public boolean addSchedule(ScheduleEntry entry) {
         List<ScheduleEntry> list = getSchedules();
         if (list.size() >= MAX_SCHEDULES) {
-            AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: addSchedule: limit reached (" + MAX_SCHEDULES + ")");
+
             return false;
         }
         list.add(entry);
@@ -391,11 +389,11 @@ public class RestrictionsScheduler {
                 list.set(i, updated);
                 saveSchedules(list);
                 scheduleNext();
-                AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: updateSchedule: updated id=" + updated.id + " pkg=" + updated.packageName);
+
                 return true;
             }
         }
-        AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: updateSchedule: id not found " + updated.id);
+
         return false;
     }
 
@@ -405,7 +403,7 @@ public class RestrictionsScheduler {
         list.removeIf(e -> e.id == id);
         saveSchedules(list);
         scheduleNext();
-        AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: removeSchedule: id=" + id);
+
     }
 
 
@@ -454,17 +452,10 @@ public class RestrictionsScheduler {
 
         AlarmScheduler.ScheduleResult result = alarmScheduler.scheduleRtcWakeup(nearest, getAlarmIntent(), true);
         if (result == AlarmScheduler.ScheduleResult.UNAVAILABLE) {
-            AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER,
-                    "RestrictionsScheduler: AlarmManager unavailable");
+
             return;
         }
-        if (result != AlarmScheduler.ScheduleResult.EXACT) {
-            AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER,
-                    "RestrictionsScheduler: exact alarm permission unavailable; using best-effort timing");
-        }
 
-        AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER,
-                "RestrictionsScheduler: scheduleNext: alarm in " + ((nearest - now) / 1000 / 60) + " min");
     }
 
 
@@ -476,7 +467,7 @@ public class RestrictionsScheduler {
         SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         String json = prefs.getString(KEY_SCHEDULES, null);
         if (json == null || json.isEmpty()) {
-            AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: scheduleNextStatic: no schedules stored");
+
             return;
         }
 
@@ -487,7 +478,7 @@ public class RestrictionsScheduler {
                 schedules.add(ScheduleEntry.fromJson(arr.getJSONObject(i)));
             }
         } catch (JSONException e) {
-            AppDebugManager.e(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: scheduleNextStatic: parse error", e);
+
             return;
         }
 
@@ -508,16 +499,9 @@ public class RestrictionsScheduler {
         AlarmScheduler.ScheduleResult result =
                 alarmScheduler.scheduleRtcWakeup(nearest, getAlarmIntent(context), true);
         if (result == AlarmScheduler.ScheduleResult.UNAVAILABLE) {
-            AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER,
-                    "RestrictionsScheduler: scheduleNextStatic: AlarmManager unavailable");
+
             return;
         }
-        if (result != AlarmScheduler.ScheduleResult.EXACT) {
-            AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER,
-                    "RestrictionsScheduler: scheduleNextStatic using best-effort timing");
-        }
-        AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER,
-                "RestrictionsScheduler: scheduleNextStatic: alarm in " + ((nearest - now) / 1000 / 60) + " min");
     }
 
     private void cancelAlarm() {
@@ -549,7 +533,7 @@ public class RestrictionsScheduler {
             List<ScheduleEntry> schedules    = getSchedules();
             Set<String>         wasProtected = getTempProtectedPackages();
 
-            AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: tick: time=" + hour + ":" + minute + " schedules=" + schedules.size());
+
 
             Set<String> shouldBeProtected = new HashSet<>();
             for (ScheduleEntry e : schedules) {
@@ -568,7 +552,7 @@ public class RestrictionsScheduler {
             for (String pkg : newlyActivated) {
                 ScheduleEntry entry = findActiveEntry(schedules, pkg, hour, minute);
                 if (entry == null) continue;
-                AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: tick: activating " + pkg);
+
 
                 if ((entry.protectFlags & PROTECT_BG_RESTRICTIONS) != 0) {
                     String outcome = backgroundAppManager.liftRestrictionsForScheduler(pkg);
@@ -601,7 +585,7 @@ public class RestrictionsScheduler {
             for (String pkg : newlyDeactivated) {
                 ScheduleEntry entry = findEntryForPackage(schedules, pkg);
                 if (entry == null) continue;
-                AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: tick: deactivating " + pkg);
+
 
                 boolean forceStop = isForceStopMode();
 
@@ -626,9 +610,9 @@ public class RestrictionsScheduler {
     private void setAppBucketActive(String packageName) {
         try {
             privilegedShell.setStandbyBucket(packageName, PrivilegedShell.StandbyBucket.ACTIVE);
-            AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: setAppBucketActive: " + packageName);
+
         } catch (Exception e) {
-            AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: setAppBucketActive failed for " + packageName, e);
+
         }
     }
 
@@ -646,16 +630,16 @@ public class RestrictionsScheduler {
                 bucket = backgroundAppManager.getManualBucket(packageName);
                 break;
             default:
-                AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: restoreRestrictionBucket: skip " + packageName + " type=" + type);
+
                 return;
         }
         if (bucket == 0) {
-            AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: restoreRestrictionBucket: bucket=0, skip " + packageName);
+
             return;
         }
         privilegedShell.setStandbyBucket(
                 packageName, PrivilegedShell.StandbyBucket.fromLegacyValue(bucket));
-        AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: restoreRestrictionBucket: " + packageName + " bucket=" + bucket);
+
     }
 
     private void stopApp(String packageName, boolean forceStop) {
@@ -663,8 +647,7 @@ public class RestrictionsScheduler {
                 ? PrivilegedShell.KillMode.FORCE_STOP
                 : PrivilegedShell.KillMode.KILL;
         privilegedShell.stopPackage(packageName, mode);
-        AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER,
-                "RestrictionsScheduler: stopApp: package=" + packageName + " mode=" + mode);
+
     }
 
 
@@ -686,22 +669,12 @@ public class RestrictionsScheduler {
                 action = PrivilegedShell.ComponentAction.BROADCAST;
                 break;
             default:
-                AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER, "RestrictionsScheduler: launchComponent: unknown type " + type);
+
                 return;
         }
         try {
-            ShellManager.ShellResult r = privilegedShell.launchComponent(componentName, action);
-            if (r.succeeded()) {
-                AppDebugManager.d(Category.RESTRICTIONS_SCHEDULER,
-                        "RestrictionsScheduler: launchComponent: ok component=" + componentName + " action=" + action);
-            } else {
-                AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER,
-                        "RestrictionsScheduler: launchComponent: failed (exit=" + r.exitCode()
-                                + ") component=" + componentName + " action=" + action);
-            }
-        } catch (IllegalArgumentException e) {
-            AppDebugManager.w(Category.RESTRICTIONS_SCHEDULER,
-                    "RestrictionsScheduler: launchComponent rejected component=" + componentName, e);
+            privilegedShell.launchComponent(componentName, action);
+        } catch (IllegalArgumentException ignored) {
         }
     }
 

@@ -10,8 +10,6 @@ import android.os.Looper;
 
 import java.util.concurrent.ExecutorService;
 
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
@@ -33,7 +31,7 @@ public class HardwareEventReceiver extends BroadcastReceiver {
         if (intent == null || intent.getAction() == null) return;
 
         String action = intent.getAction();
-        AppDebugManager.d(Category.ADVANCED_CONDITIONS, "HardwareEventReceiver: onReceive: " + action);
+
 
         boolean relevant = false;
         String eventDescription = "";
@@ -107,15 +105,15 @@ public class HardwareEventReceiver extends BroadcastReceiver {
         }
 
         if (!relevant) {
-            AppDebugManager.d(Category.ADVANCED_CONDITIONS, "HardwareEventReceiver: Event ignored (intermediate state): " + action);
+
             return;
         }
 
-        AppDebugManager.i(Category.ADVANCED_CONDITIONS, "HardwareEventReceiver: Hardware event triggered: " + eventDescription);
+
 
         if (pendingKill != null) {
             debounceHandler.removeCallbacks(pendingKill);
-            AppDebugManager.d(Category.ADVANCED_CONDITIONS, "HardwareEventReceiver: Previous Auto-Kill schedule cancelled, rescheduling for: " + eventDescription);
+
         }
 
         final String finalDescription = eventDescription;
@@ -123,7 +121,7 @@ public class HardwareEventReceiver extends BroadcastReceiver {
 
         pendingKill = () -> {
             pendingKill = null;
-            AppDebugManager.i(Category.ADVANCED_CONDITIONS, "HardwareEventReceiver: Executing Auto-Kill triggered by: " + finalDescription);
+
             App app = (App) appContext;
             ExecutorService executor = app.getSharedExecutor();
             ShellManager shellManager = app.getShellManager();
@@ -132,11 +130,11 @@ public class HardwareEventReceiver extends BroadcastReceiver {
                     appManager.getCurrentAppsList());
 
             autoKillManager.performAutoKill(() -> {
-                AppDebugManager.i(Category.ADVANCED_CONDITIONS, "HardwareEventReceiver: Auto-Kill completed for event: " + finalDescription);
+
             }, resolveKillSource(appContext, "Hardware event: " + finalDescription));
         };
 
-        AppDebugManager.i(Category.ADVANCED_CONDITIONS, "HardwareEventReceiver: Scheduling Auto-Kill in " + (TRIGGER_DELAY_MS / 1000) + "s after: " + finalDescription);
+
         debounceHandler.postDelayed(pendingKill, TRIGGER_DELAY_MS);
     }
 

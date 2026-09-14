@@ -10,15 +10,12 @@ import java.util.regex.Pattern;
 
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.ShellManager;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
 import java.util.Locale;
 
 public class ComponentsAnalyzer {
 
-    private static final String FILE_NAME = "ComponentsAnalyzer";
 
     private final AppTriggersAnalyzer analyzer;
     private String cachedBroadcastHistory = null;
@@ -30,11 +27,11 @@ public class ComponentsAnalyzer {
 // ---- getBroadcastHistory ----
     public String getBroadcastHistory() {
         if (cachedBroadcastHistory == null) {
-            AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": getBroadcastHistory: fetching from shell");
+
             cachedBroadcastHistory = analyzer.getShellManager().runShellCommandAndGetFullOutput(
                     "dumpsys activity broadcasts history");
             if (cachedBroadcastHistory == null) cachedBroadcastHistory = "";
-            AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": getBroadcastHistory: fetched len=" + cachedBroadcastHistory.length());
+
         }
         return cachedBroadcastHistory.isEmpty() ? null : cachedBroadcastHistory;
     }
@@ -97,7 +94,7 @@ public class ComponentsAnalyzer {
                     }
                 }
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": dynamic receivers failed", e); }
+        } catch (Exception e) {  }
 
         if (staticActions.isEmpty() && dynamicActions.isEmpty()) return list;
 
@@ -165,13 +162,13 @@ public class ComponentsAnalyzer {
                     "cmd package query-receivers -a android.intent.action.BOOT_COMPLETED");
             if (o1 != null && !o1.contains("Unknown option") && o1.contains(packageName))
                 hasBoot = true;
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": boot query-receivers failed", e); }
+        } catch (Exception e) {  }
         try {
             String o2 = analyzer.getShellManager().runShellCommandAndGetFullOutput(
                     "cmd package query-receivers -a android.intent.action.LOCKED_BOOT_COMPLETED");
             if (o2 != null && !o2.contains("Unknown option") && o2.contains(packageName))
                 hasLocked = true;
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": locked-boot query-receivers failed", e); }
+        } catch (Exception e) {  }
 
         if (!hasBoot && !hasLocked) {
             try {
@@ -197,7 +194,7 @@ public class ComponentsAnalyzer {
                         if (hasBoot && hasLocked) break;
                     }
                 }
-            } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": boot/package fallback failed", e); }
+            } catch (Exception e) {  }
         }
 
         if (!hasBoot && !hasLocked) return list;
@@ -249,7 +246,7 @@ public class ComponentsAnalyzer {
                         TriggerInfo.Severity.HIGH));
             }
         } catch (Exception e) {
-            AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": bootFgsRestriction fallback failed", e);
+
         }
         return list;
     }
@@ -344,7 +341,7 @@ public class ComponentsAnalyzer {
                     analyzer.getContext().getString(R.string.triggers_content_obs_explanation),
                     total > 5 ? TriggerInfo.Severity.HIGH : TriggerInfo.Severity.MEDIUM));
 
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": analyzeContentObservers failed", e); }
+        } catch (Exception e) {  }
         return list;
     }
 
@@ -367,7 +364,7 @@ public class ComponentsAnalyzer {
                             analyzer.getContext().getString(R.string.triggers_sync_explanation),
                             TriggerInfo.Severity.MEDIUM));
                 }
-            } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": sync/package fallback failed", e); }
+            } catch (Exception e) {  }
             return list;
         }
 
@@ -538,7 +535,7 @@ public class ComponentsAnalyzer {
                     analyzer.getContext().getString(R.string.triggers_fcm_explanation),
                     TriggerInfo.Severity.MEDIUM));
 
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": analyzeFcmRegistration failed", e); }
+        } catch (Exception e) {  }
         return list;
     }
 

@@ -8,8 +8,6 @@ import android.os.Bundle;
 import android.os.Build;
 import android.widget.Toast;
 
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
@@ -24,7 +22,6 @@ import android.os.Handler;
 
 public class KillShortcutActivity extends Activity {
 
-    private static final String TAG = "KillShortcutActivity";
     private static final String SYSTEM_UI_PACKAGE = "com.android.systemui";
 
     private ShellManager shellManager;
@@ -36,7 +33,7 @@ public class KillShortcutActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        AppDebugManager.d(Category.SHORTCUTS_WIDGETS, TAG + ": onCreate, action=" + (getIntent() != null ? getIntent().getAction() : "null"));
+
 
         Intent launchIntent = getIntent();
         String action = launchIntent != null ? launchIntent.getAction() : null;
@@ -48,8 +45,7 @@ public class KillShortcutActivity extends Activity {
                 proxyRamKill();
                 return;
             case REJECT:
-                AppDebugManager.w(Category.SHORTCUTS_WIDGETS,
-                        TAG + ": rejected unauthenticated secure shortcut");
+
                 finish();
                 return;
             case CONFIRM_RAM_KILL:
@@ -86,7 +82,7 @@ public class KillShortcutActivity extends Activity {
     }
 
     private void proxyRamKill() {
-        AppDebugManager.d(Category.SHORTCUTS_WIDGETS, TAG + ": authenticated/confirmed RAM kill, proxying to ShappkyService");
+
         Intent service = new Intent(this, com.gree1d.reappzuku.service.ShappkyService.class);
         service.setAction("WIDGET_KILL");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -106,7 +102,7 @@ public class KillShortcutActivity extends Activity {
 
         shellManager.prepareShellBackendAsync(state -> {
             if (!state.isReady()) {
-                AppDebugManager.w(Category.SHORTCUTS_WIDGETS, TAG + ": shell backend not ready, state=" + state);
+
                 Toast.makeText(getApplicationContext(), "Shizuku or Root permission required", Toast.LENGTH_SHORT).show();
                 finish();
                 return;
@@ -115,13 +111,13 @@ public class KillShortcutActivity extends Activity {
             autoKillManager = new AutoKillManager(this, handler, executor, shellManager, new ArrayList<>());
             shellExecutor.execute(() -> {
                 String targetPackage = findKillablePackage();
-                AppDebugManager.d(Category.SHORTCUTS_WIDGETS, TAG + ": findKillablePackage result=" + targetPackage);
+
                 handler.post(() -> {
                     if (targetPackage != null) {
-                        AppDebugManager.d(Category.SHORTCUTS_WIDGETS, TAG + ": killing " + targetPackage);
+
                         autoKillManager.killApp(targetPackage, "Shortcut Kill", () -> finish());
                     } else {
-                        AppDebugManager.w(Category.SHORTCUTS_WIDGETS, TAG + ": no killable foreground app found");
+
                         Toast.makeText(getApplicationContext(), "No killable foreground app found", Toast.LENGTH_SHORT).show();
                         finish();
                     }
@@ -136,7 +132,7 @@ public class KillShortcutActivity extends Activity {
         String recentsOutput = shellManager.runShellCommandAndGetFullOutput("dumpsys activity recents");
         String targetPackage = findKillablePackageFromRecents(recentsOutput, launcherPackages);
         if (targetPackage != null) {
-            AppDebugManager.d(Category.SHORTCUTS_WIDGETS, TAG + ": found target from recents: " + targetPackage);
+
             return targetPackage;
         }
 

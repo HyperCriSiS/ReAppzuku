@@ -21,12 +21,9 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.gree1d.reappzuku.utils.AppModel;
 import com.gree1d.reappzuku.utils.FocusHighlightUtil;
 import com.gree1d.reappzuku.R;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 
 public class StatsAppOptionsBottomSheet extends BottomSheetDialogFragment {
 
-    private static final String TAG = "StatsAppOptionsBottomSheet";
 
     public interface Listener {
         void onToggleWhitelist(boolean nowChecked);
@@ -137,7 +134,7 @@ public class StatsAppOptionsBottomSheet extends BottomSheetDialogFragment {
         String bgLabel          = args.getString(ARG_BG_RESTRICT_LABEL, "");
         int accentColor         = args.getInt(ARG_ACCENT_COLOR);
 
-        AppDebugManager.d(Category.STATISTICS_PAGE, TAG + ": opened for pkg=" + pkg);
+
 
         ColorStateList accentTint = buildCheckboxTint(accentColor);
 
@@ -180,7 +177,7 @@ public class StatsAppOptionsBottomSheet extends BottomSheetDialogFragment {
         itemWhitelist.setOnClickListener(v -> {
             boolean next = !checkWhitelist.isChecked();
             checkWhitelist.setChecked(next);
-            AppDebugManager.d(Category.STATISTICS_PAGE, TAG + ": whitelist toggled for pkg=" + pkg + " next=" + next);
+
 
             updateMutualExclusion(checkWhitelist, itemWhitelist, checkBlacklist, itemBlacklist);
 
@@ -190,7 +187,7 @@ public class StatsAppOptionsBottomSheet extends BottomSheetDialogFragment {
         itemBlacklist.setOnClickListener(v -> {
             boolean next = !checkBlacklist.isChecked();
             checkBlacklist.setChecked(next);
-            AppDebugManager.d(Category.STATISTICS_PAGE, TAG + ": blacklist toggled for pkg=" + pkg + " next=" + next);
+
 
             updateMutualExclusion(checkWhitelist, itemWhitelist, checkBlacklist, itemBlacklist);
 
@@ -200,7 +197,7 @@ public class StatsAppOptionsBottomSheet extends BottomSheetDialogFragment {
         itemBgRestrict.setOnClickListener(v -> {
             boolean next = !checkBgRestrict.isChecked();
             checkBgRestrict.setChecked(next);
-            AppDebugManager.d(Category.STATISTICS_PAGE, TAG + ": background restriction toggled for pkg=" + pkg + " next=" + next);
+
             if (listener != null) listener.onToggleBackgroundRestriction(next);
         });
     }

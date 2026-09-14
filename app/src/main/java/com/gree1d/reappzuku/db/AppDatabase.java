@@ -10,9 +10,6 @@ import androidx.annotation.NonNull;
 
 import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory;
 
-import com.gree1d.reappzuku.core.App;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 
 @Database(
     entities = {
@@ -159,19 +156,16 @@ public abstract class AppDatabase extends RoomDatabase {
         @Override
         public void onCreate(@NonNull SupportSQLiteDatabase db) {
             super.onCreate(db);
-            AppDebugManager.d(Category.CORE, "AppDatabase: appzuku_db created (version " + db.getVersion() + ")");
+
         }
 
         @Override
         public void onOpen(@NonNull SupportSQLiteDatabase db) {
             super.onOpen(db);
             db.setMaxSqlCacheSize(SQL_CACHE_SIZE);
-            AppDebugManager.d(Category.CORE, "AppDatabase: connection opened, cache size set to " + SQL_CACHE_SIZE);
+
         }
     };
-
-    private static final RoomDatabase.QueryCallback LOG_QUERY_CALLBACK = (sqlQuery, bindArgs) ->
-            AppDebugManager.d(Category.CORE, SqlQueryLogFormatter.format(sqlQuery, bindArgs));
 
     public abstract AppStatsDao appStatsDao();
     public abstract ResourceSnapshotDao resourceSnapshotDao();
@@ -181,7 +175,6 @@ public abstract class AppDatabase extends RoomDatabase {
 
     public static synchronized AppDatabase getInstance(Context context) {
         if (instance == null) {
-            App app = (App) context.getApplicationContext();
             instance = Room.databaseBuilder(context.getApplicationContext(),
                     AppDatabase.class, "appzuku_db")
                     .addMigrations(
@@ -198,7 +191,6 @@ public abstract class AppDatabase extends RoomDatabase {
                     )
                     .openHelperFactory(new RequerySQLiteOpenHelperFactory())
                     .addCallback(RAISE_STATEMENT_CACHE_CALLBACK)
-                    .setQueryCallback(LOG_QUERY_CALLBACK, app.getSharedExecutor())
                     .build();
         }
         return instance;

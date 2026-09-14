@@ -10,15 +10,12 @@ import java.util.regex.Pattern;
 
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.ShellManager;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
 import java.util.Locale;
 
 public class MediaAnalyzer {
 
-    private static final String FILE_NAME = "MediaAnalyzer";
 
     private final AppTriggersAnalyzer analyzer;
 
@@ -72,7 +69,7 @@ public class MediaAnalyzer {
                     String detail = focusType
                             + (focusStream != null ? " · stream:" + focusStream : "");
                     boolean isGain = focusType.contains("GAIN");
-                    AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": analyzeAudioFocus: found focusType=" + focusType + " stream=" + focusStream);
+
                     list.add(new TriggerInfo(TriggerInfo.Group.ACTIVE_NOW,
                             AppTriggersAnalyzer.KEY_CAT_AUDIO_FOCUS,
                             analyzer.getContext().getString(R.string.triggers_cat_audio_focus),
@@ -83,7 +80,7 @@ public class MediaAnalyzer {
                             isGain ? TriggerInfo.Severity.HIGH : TriggerInfo.Severity.MEDIUM));
                 }
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": analyzeAudioFocus/audio failed", e); }
+        } catch (Exception e) {  }
 
 
         try {
@@ -118,7 +115,7 @@ public class MediaAnalyzer {
                 if (state != null) {
                     String detail = (sessionTag != null ? sessionTag + " · " : "") + state;
                     boolean isPlaying = "PLAYING".equals(state);
-                    AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": analyzeAudioFocus: media_session state=" + state + " tag=" + sessionTag);
+
 
                     boolean alreadyReported = list.stream()
                             .anyMatch(i -> AppTriggersAnalyzer.KEY_CAT_AUDIO_FOCUS.equals(i.key));
@@ -134,7 +131,7 @@ public class MediaAnalyzer {
                     }
                 }
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": analyzeAudioFocus/media_session failed", e); }
+        } catch (Exception e) {  }
 
         return list;
     }
@@ -236,7 +233,7 @@ public class MediaAnalyzer {
                             + (scanMode != null ? " · mode:" + scanMode : "");
                     boolean isLowLatency = scanMode != null
                             && scanMode.toUpperCase(Locale.ROOT).contains("LOW_LATENCY");
-                    AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": Bluetooth/manager - BLE scan found: count=" + scanCnt + " mode=" + scanMode);
+
                     list.add(new TriggerInfo(TriggerInfo.Group.ACTIVE_NOW,
                             AppTriggersAnalyzer.KEY_CAT_BLE_SCAN,
                             analyzer.getContext().getString(R.string.triggers_cat_ble_scan),
@@ -247,7 +244,7 @@ public class MediaAnalyzer {
                             isLowLatency ? TriggerInfo.Severity.HIGH : TriggerInfo.Severity.MEDIUM));
                 }
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": Bluetooth/manager failed", e); }
+        } catch (Exception e) {  }
 
 
         try {
@@ -274,7 +271,7 @@ public class MediaAnalyzer {
                 }
 
                 if (connCnt > 0) {
-                    AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": Bluetooth/gatt - connections found: count=" + connCnt + " addrs=" + addrs);
+
                     StringBuilder detail = new StringBuilder(
                             analyzer.getContext().getString(R.string.triggers_gatt_conn_count, connCnt));
                     if (!addrs.isEmpty())
@@ -287,7 +284,7 @@ public class MediaAnalyzer {
                             TriggerInfo.Severity.HIGH));
                 }
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": Bluetooth/gatt failed", e); }
+        } catch (Exception e) {  }
 
         if (analyzer.apiLevel >= Build.VERSION_CODES.S && analyzer.apiLevel <= Build.VERSION_CODES.TIRAMISU) {
             list.addAll(analyzeBluetoothPermissions(packageName));
@@ -318,7 +315,7 @@ public class MediaAnalyzer {
                         analyzer.getContext().getString(R.string.triggers_bt_permissions_explanation),                        
                         TriggerInfo.Severity.LOW));
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": bt permissions check failed", e); }
+        } catch (Exception e) {  }
         return list;
     }
 

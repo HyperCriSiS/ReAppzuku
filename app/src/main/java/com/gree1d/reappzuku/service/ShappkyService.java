@@ -42,8 +42,6 @@ import com.gree1d.reappzuku.manager.PresetManager;
 import com.gree1d.reappzuku.manager.UpdateChecker;
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.utils.AppzukuWidget;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.BackgroundWorkPolicy;
 import com.gree1d.reappzuku.core.SleepModeLifecyclePolicy;
 
@@ -52,7 +50,6 @@ import static com.gree1d.reappzuku.core.AppConstants.*;
 
 public class ShappkyService extends Service {
 
-    private static final String FILE_NAME = "ShappkyService";
     static final String ACTION_IDLE_FREEZE = "com.gree1d.reappzuku.IDLE_FREEZE";
     static final String ACTION_HEARTBEAT_CHECK = "com.gree1d.reappzuku.HEARTBEAT_CHECK";
     public static final String ACTION_SLEEP_MODE_DISABLED = "com.gree1d.reappzuku.SLEEP_MODE_DISABLED";
@@ -97,13 +94,13 @@ public class ShappkyService extends Service {
 
     private void startRamMonitorNotification() {
         if (!isRamMonitorNotificationEnabled()) {
-            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": startRamMonitorNotification: skipped, notification mode disabled");
+
             return;
         }
         if (ramNotificationRunnable != null) {
             return;
         }
-        AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": startRamMonitorNotification: starting");
+
         ramNotificationRunnable = new Runnable() {
             @Override
             public void run() {
@@ -175,9 +172,9 @@ public class ShappkyService extends Service {
                 long memUsed = memTotal - memAvailable;
                 return new long[] { memUsed / 1024, memTotal / 1024 };
             }
-            AppDebugManager.w(Category.FOREGROUND_SERVICE, FILE_NAME + ": readRamUsageMb: MemTotal not found or zero");
+
         } catch (IOException | NumberFormatException e) {
-            AppDebugManager.w(Category.FOREGROUND_SERVICE, FILE_NAME + ": readRamUsageMb: failed to read RAM usage", e);
+
         }
         return null;
     }
@@ -211,7 +208,7 @@ public class ShappkyService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onCreate started");
+
 
         createNotificationChannel();
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID_SERVICE)
@@ -225,13 +222,13 @@ public class ShappkyService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(NOTIFICATION_ID_SERVICE, notification,
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": startForeground called (FOREGROUND_SERVICE_TYPE_SPECIAL_USE, API " + Build.VERSION.SDK_INT + ")");
+
         } else {
             startForeground(NOTIFICATION_ID_SERVICE, notification);
-            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": startForeground called (default type, API " + Build.VERSION.SDK_INT + ")");
+
         }
         isRunning = true;
-        AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": Service is now running (isRunning=true)");
+
 
         shellManager = ((App) getApplication()).getShellManager();
 
@@ -254,13 +251,11 @@ public class ShappkyService extends Service {
             ShellBackendState readyState = backendState;
             handler.post(() -> {
                 if (!readyState.isReady()) {
-                    AppDebugManager.w(Category.CORE, FILE_NAME
-                            + ": Shell backend not ready (" + readyState + "), stopping service");
+
                     stopSelf();
                     return;
                 }
-                AppDebugManager.d(Category.CORE, FILE_NAME
-                        + ": Shell backend ready (" + readyState + "), proceeding with service init");
+
                 initializeManagersAndReceivers();
             });
         });
@@ -268,7 +263,7 @@ public class ShappkyService extends Service {
 
     private void initializeManagersAndReceivers() {
         appManager = new BackgroundAppManager(this, handler, executor, shellManager);
-        AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": BackgroundAppManager initialized");
+
         autoKillManager = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());
         sleepModeManager = new SleepModeManager(this, handler, executor, shellManager);
         collectStatsManager = new CollectStatsManager(this, shellManager);
@@ -276,7 +271,7 @@ public class ShappkyService extends Service {
         autoKillManager.setScheduler(scheduler);
         sleepModeManager.setScheduler(scheduler);
         appManager.setScheduler(scheduler);
-        AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": BackgroundAppManager scheduler attached");
+
         watchdog = new RestrictionsWatchdogManager(this, handler, appManager, shellManager, scheduler);
 
         screenOffReceiver = new KillTriggerReceiver();
@@ -292,9 +287,7 @@ public class ShappkyService extends Service {
                 if (data == null) return;
                 String packageName = data.getSchemeSpecificPart();
                 if (packageName == null || appManager == null) return;
-                AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME
-                        + ": packageChangeReceiver invalidating icon cache for " + packageName
-                        + " action=" + intent.getAction());
+
                 appManager.invalidateIconCache(packageName);
             }
         };
@@ -305,7 +298,7 @@ public class ShappkyService extends Service {
         registerReceiver(packageChangeReceiver, packageFilter);
 
         additionalScenariosManager = new AdditionalScenariosManager(this);
-        AppDebugManager.d(Category.ADVANCED_CONDITIONS, FILE_NAME + ": AdditionalScenariosManager initialized");
+
         additionalScenariosManager.updateHardwareReceiverState();
         ramKillShortcutManager = new RamKillShortcutManager(this, shellManager);
 
@@ -313,15 +306,14 @@ public class ShappkyService extends Service {
         scheduler.scheduleNext();
 
         cancelShizukuLostNotification();
-        AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku-lost notification cancelled on service create");
+
         registerShizukuBinderListeners();
         scheduleRootOnlyCheck();
         scheduleSnapshotAlarm();
         scheduleWidgetUpdate();
 
-        AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": reapplySavedBackgroundRestrictions starting on service create");
-        appManager.reapplySavedBackgroundRestrictions(() ->
-                AppDebugManager.d(Category.BACKGROUND_RESTRICTIONS, FILE_NAME + ": reapplySavedBackgroundRestrictions finished"));
+
+        appManager.reapplySavedBackgroundRestrictions(null);
         watchdog.startIfNeeded();
 
         UpdateChecker.schedulePeriodicCheck(getApplicationContext());
@@ -330,20 +322,20 @@ public class ShappkyService extends Service {
         reconcileSleepModeLifecycle("service-init", true);
         managersInitialized = true;
         drainPendingStartIntents();
-        AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onCreate completed; managersInitialized=true");
+
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onStartCommand: action=" + (intent != null ? intent.getAction() : "null"));
+
         if (intent == null) {
-            AppDebugManager.w(Category.FOREGROUND_SERVICE, FILE_NAME + ": onStartCommand: intent is null, returning START_STICKY");
+
             return START_STICKY;
         }
 
         String action = intent.getAction();
         if (action == null) {
-            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onStartCommand: action is null; service startup only");
+
             return START_STICKY;
         }
 
@@ -359,20 +351,16 @@ public class ShappkyService extends Service {
     private void enqueuePendingStartIntent(Intent intent) {
         if (pendingStartIntents.size() >= MAX_PENDING_START_INTENTS) {
             Intent dropped = pendingStartIntents.removeFirst();
-            AppDebugManager.w(Category.FOREGROUND_SERVICE, FILE_NAME
-                    + ": pending start-action queue full; dropping oldest action=" + dropped.getAction());
+
         }
         pendingStartIntents.addLast(new Intent(intent));
-        AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME
-                + ": queued start action until managers are ready: " + intent.getAction()
-                + ", queued=" + pendingStartIntents.size());
+
     }
 
     private void drainPendingStartIntents() {
         while (managersInitialized && !pendingStartIntents.isEmpty()) {
             Intent pending = pendingStartIntents.removeFirst();
-            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME
-                    + ": replaying queued start action=" + pending.getAction());
+
             handleServiceAction(pending);
         }
     }
@@ -389,16 +377,16 @@ public class ShappkyService extends Service {
                     if (ramThresholdEnabled) {
                         int threshold = prefs.getInt(KEY_RAM_THRESHOLD, DEFAULT_RAM_THRESHOLD_PERCENT);
                         int ramPercent = getCurrentRamUsagePercent();
-                        AppDebugManager.d(Category.AUTO_KILL_BASE, FILE_NAME + ": TRIGGER_KILL: RAM threshold check: " + ramPercent + "% / " + threshold + "%");
+
                         if (ramPercent >= threshold) {
-                            AppDebugManager.d(Category.AUTO_KILL_BASE, FILE_NAME + ": TRIGGER_KILL: threshold reached, starting Screen-Off Kill");
+
                             autoKillManager.performAutoKill(() -> KillTriggerReceiver.releaseAutoKillWakeLock(), resolveKillSource("Screen-Off Kill"));
                         } else {
-                            AppDebugManager.d(Category.AUTO_KILL_BASE, FILE_NAME + ": TRIGGER_KILL: RAM below threshold, kill skipped");
+
                             KillTriggerReceiver.releaseAutoKillWakeLock();
                         }
                     } else {
-                        AppDebugManager.d(Category.AUTO_KILL_BASE, FILE_NAME + ": TRIGGER_KILL: no RAM threshold, starting Screen-Off Kill");
+
                         autoKillManager.performAutoKill(() -> KillTriggerReceiver.releaseAutoKillWakeLock(), resolveKillSource("Screen-Off Kill"));
                     }
                 });
@@ -411,10 +399,9 @@ public class ShappkyService extends Service {
                     scheduleIdleFreezeAlarm();
                     long delayMs = getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
                             .getLong(KEY_SLEEP_MODE_DELAY, DEFAULT_SLEEP_MODE_DELAY_MS);
-                    AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Idle freeze alarm scheduled (" + (delayMs / 60000) + " min)");
+
                 } else {
-                    AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
-                            + ": SCREEN_OFF ignored as stale/ineligible; enabled=" + enabled + ", interactive=" + interactive);
+
                 }
                 break;
             }
@@ -423,19 +410,16 @@ public class ShappkyService extends Service {
                 handler.postDelayed(() -> {
                     if (!managersInitialized || sleepModeManager == null) return;
                     if (!isScreenInteractive()) {
-                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
-                                + ": delayed SCREEN_ON became stale because screen is off again");
+
                         return;
                     }
                     cancelIdleFreezeAlarm();
                     cancelHeartbeatAlarm();
                     if (sleepModeManager.hasFrozenTimerApps()) {
-                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
-                                + ": Screen on with owned frozen apps; unfreezing");
+
                         sleepModeManager.unfreezeBackgroundRestrictedApps(null);
                     } else {
-                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
-                                + ": Screen on before/without owned freeze; alarms cancelled");
+
                     }
                 }, 1500);
                 break;
@@ -444,8 +428,7 @@ public class ShappkyService extends Service {
                 boolean enabled = sleepModeManager.isSleepModeEnabled();
                 boolean interactive = isScreenInteractive();
                 if (!SleepModeLifecyclePolicy.shouldExecuteIdleFreeze(enabled, interactive)) {
-                    AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
-                            + ": stale/ineligible idle freeze ignored; enabled=" + enabled + ", interactive=" + interactive);
+
                     cancelHeartbeatAlarm();
                     if (SleepModeLifecyclePolicy.recoveryAction(
                             enabled, interactive, sleepModeManager.hasFrozenTimerApps())
@@ -454,15 +437,13 @@ public class ShappkyService extends Service {
                     }
                     break;
                 }
-                AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Idle threshold reached, freezing background restricted apps");
+
                 sleepModeManager.freezeBackgroundRestrictedApps(() -> {
                     if (sleepModeManager.hasFrozenTimerApps()) {
-                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
-                                + ": owned timer freeze active; scheduling recovery heartbeat");
+
                         scheduleHeartbeatAlarm();
                     } else {
-                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
-                                + ": idle freeze produced no owned frozen apps; heartbeat not needed");
+
                         cancelHeartbeatAlarm();
                     }
                 });
@@ -474,7 +455,7 @@ public class ShappkyService extends Service {
                 break;
 
             case ACTION_SLEEP_MODE_DISABLED:
-                AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Sleep Mode disabled; cancelling alarms and thawing owned apps");
+
                 cancelIdleFreezeAlarm();
                 cancelHeartbeatAlarm();
                 if (sleepModeManager.hasFrozenTimerApps()) {
@@ -493,20 +474,20 @@ public class ShappkyService extends Service {
             case "SHORTCUT_KILL_FOREGROUND":
                 String targetPkg = intent.getStringExtra("target_package");
                 if (targetPkg != null && !targetPkg.isEmpty()) {
-                    AppDebugManager.d(Category.SHORTCUTS_WIDGETS, FILE_NAME + ": SHORTCUT_KILL_FOREGROUND received for " + targetPkg);
+
                     autoKillManager.killApp(targetPkg, null);
                 } else {
-                    AppDebugManager.w(Category.SHORTCUTS_WIDGETS, FILE_NAME + ": SHORTCUT_KILL_FOREGROUND received but target_package is null");
+
                 }
                 break;
 
             case "UPDATE_HW_RECEIVERS":
-                AppDebugManager.d(Category.ADVANCED_CONDITIONS, FILE_NAME + ": UPDATE_HW_RECEIVERS received, updating hardware receiver state");
+
                 additionalScenariosManager.updateHardwareReceiverState();
                 break;
 
             case "UPDATE_NOTIFICATION_MODE":
-                AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": UPDATE_NOTIFICATION_MODE received, re-evaluating RAM monitor notification");
+
                 if (isRamMonitorNotificationEnabled()) {
                     startRamMonitorNotification();
                 } else {
@@ -515,7 +496,7 @@ public class ShappkyService extends Service {
                 break;
 
             case "TAKE_SNAPSHOT":
-                AppDebugManager.d(Category.UTILS, FILE_NAME + ": TAKE_SNAPSHOT received");
+
                 collectStatsManager.takeSnapshotAsync(() -> {
                     releaseSnapshotWakeLock();
                     scheduleSnapshotAlarm();
@@ -523,7 +504,7 @@ public class ShappkyService extends Service {
                 break;
 
             default:
-                AppDebugManager.w(Category.FOREGROUND_SERVICE, FILE_NAME + ": Unknown service action ignored: " + action);
+
                 break;
         }
     }
@@ -542,10 +523,7 @@ public class ShappkyService extends Service {
         SleepModeLifecyclePolicy.RecoveryAction recovery = SleepModeLifecyclePolicy.recoveryAction(
                 enabled, interactive, hasFrozen);
 
-        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
-                + ": reconcileSleepModeLifecycle(" + reason + "): enabled=" + enabled
-                + ", interactive=" + interactive + ", ownedFrozen=" + hasFrozen
-                + ", recovery=" + recovery);
+
 
         switch (recovery) {
             case UNFREEZE:
@@ -553,8 +531,7 @@ public class ShappkyService extends Service {
                 cancelHeartbeatAlarm();
                 sleepModeManager.unfreezeBackgroundRestrictedApps(() -> {
                     if (stopWhenNotRequiredAfterThaw && !BackgroundWorkPolicy.shouldRunForegroundService(this)) {
-                        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
-                                + ": recovery thaw complete and no automation requires service; stopping self");
+
                         stopSelf();
                     }
                 });
@@ -578,7 +555,7 @@ public class ShappkyService extends Service {
     }
 
     private void registerShizukuBinderListeners() {
-        AppDebugManager.d(Category.CORE, FILE_NAME + ": registerShizukuBinderListeners: subscribing to Shizuku binder events");
+
         shellManager.setShizukuBinderListeners(
                 this::handleShizukuBinderReceived,
                 this::handleShizukuBinderDead
@@ -594,22 +571,22 @@ public class ShappkyService extends Service {
     private void handleShizukuBinderReceived() {
         if (!isRunning) return;
         if (shellManager.hasRootAccess()) {
-            AppDebugManager.d(Category.CORE, FILE_NAME + ": handleShizukuBinderReceived: root access available, ignoring");
+
             return;
         }
         shellManager.bindUserService();
         boolean shizukuOk = shellManager.hasShizukuPermission();
-        AppDebugManager.d(Category.CORE, FILE_NAME + ": handleShizukuBinderReceived: permission=" + shizukuOk);
+
         if (shizukuOk) {
             if (shizukuLostNotificationShown) {
-                AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku permission restored, cancelling notification");
+
                 shizukuLostNotificationShown = false;
             }
             cancelShizukuLostNotification();
         } else {
 
             if (!shizukuLostNotificationShown) {
-                AppDebugManager.w(Category.CORE, FILE_NAME + ": handleShizukuBinderReceived: binder alive but permission missing, sending notification");
+
                 shizukuLostNotificationShown = true;
             }
             sendShizukuLostNotification();
@@ -619,10 +596,10 @@ public class ShappkyService extends Service {
     private void handleShizukuBinderDead() {
         if (!isRunning) return;
         if (shellManager.hasRootAccess()) {
-            AppDebugManager.d(Category.CORE, FILE_NAME + ": handleShizukuBinderDead: root access available, ignoring");
+
             return;
         }
-        AppDebugManager.w(Category.CORE, FILE_NAME + ": handleShizukuBinderDead: Shizuku binder died, sending notification");
+
         if (!shizukuLostNotificationShown) {
             shizukuLostNotificationShown = true;
         }
@@ -630,7 +607,7 @@ public class ShappkyService extends Service {
     }
 
     private void scheduleRootOnlyCheck() {
-        AppDebugManager.d(Category.CORE, FILE_NAME + ": scheduleRootOnlyCheck: starting root-only poll loop");
+
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -649,7 +626,7 @@ public class ShappkyService extends Service {
     }
 
     private void sendShizukuLostNotification() {
-        AppDebugManager.w(Category.CORE, FILE_NAME + ": sendShizukuLostNotification: showing Shizuku-lost notification");
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID_ACTIONS)
                 .setContentTitle(getString(R.string.service_shizuku_lost_title))
                 .setContentText(getString(R.string.service_shizuku_lost_text))
@@ -662,7 +639,7 @@ public class ShappkyService extends Service {
         if (nm != null) {
             nm.notify(NOTIFICATION_ID_SHIZUKU_LOST, builder.build());
         } else {
-            AppDebugManager.e(Category.CORE, FILE_NAME + ": sendShizukuLostNotification: NotificationManager is null, cannot show notification");
+
         }
     }
 
@@ -685,7 +662,7 @@ public class ShappkyService extends Service {
         cancelIdleFreezeAlarm();
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         if (alarmManager == null) {
-            AppDebugManager.e(Category.SLEEP_MODE, FILE_NAME + ": scheduleIdleFreezeAlarm: AlarmManager is null, cannot schedule");
+
             return;
         }
         SharedPreferences prefs = getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
@@ -696,16 +673,16 @@ public class ShappkyService extends Service {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
         } else {
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
-            AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME + ": scheduleIdleFreezeAlarm: exact alarm not permitted, using inexact");
+
         }
-        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": scheduleIdleFreezeAlarm: armed, triggerAt=" + triggerAt);
+
     }
 
     private void cancelIdleFreezeAlarm() {
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         if (alarmManager == null) return;
         alarmManager.cancel(getFreezeAlarmIntent());
-        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Idle freeze alarm cancelled");
+
     }
 
     private PendingIntent getFreezeAlarmIntent() {
@@ -722,7 +699,7 @@ public class ShappkyService extends Service {
     private void scheduleHeartbeatAlarm() {
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         if (alarmManager == null) {
-            AppDebugManager.e(Category.SLEEP_MODE, FILE_NAME + ": scheduleHeartbeatAlarm: AlarmManager is null, cannot schedule");
+
             return;
         }
         PendingIntent pendingIntent = getHeartbeatAlarmIntent();
@@ -731,16 +708,16 @@ public class ShappkyService extends Service {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
         } else {
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
-            AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME + ": scheduleHeartbeatAlarm: exact alarm not permitted, using inexact");
+
         }
-        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": scheduleHeartbeatAlarm: armed, triggerAt=" + triggerAt);
+
     }
 
     private void cancelHeartbeatAlarm() {
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         if (alarmManager == null) return;
         alarmManager.cancel(getHeartbeatAlarmIntent());
-        AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME + ": Heartbeat alarm cancelled");
+
     }
 
     private PendingIntent getHeartbeatAlarmIntent() {
@@ -763,8 +740,7 @@ public class ShappkyService extends Service {
 
         switch (recovery) {
             case UNFREEZE:
-                AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
-                        + ": Heartbeat recovery requires thaw; enabled=" + enabled + ", interactive=" + interactive);
+
                 cancelHeartbeatAlarm();
                 sleepModeManager.unfreezeBackgroundRestrictedApps(() -> {
                     if (!BackgroundWorkPolicy.shouldRunForegroundService(this)) {
@@ -773,14 +749,12 @@ public class ShappkyService extends Service {
                 });
                 break;
             case KEEP_FROZEN_AND_HEARTBEAT:
-                AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
-                        + ": Heartbeat check: owned freeze remains valid while screen is off; rescheduling");
+
                 scheduleHeartbeatAlarm();
                 break;
             case NONE:
             default:
-                AppDebugManager.d(Category.SLEEP_MODE, FILE_NAME
-                        + ": Heartbeat check: no owned frozen apps; stopping heartbeat");
+
                 cancelHeartbeatAlarm();
                 if (!BackgroundWorkPolicy.shouldRunForegroundService(this)) {
                     stopSelf();
@@ -824,8 +798,7 @@ public class ShappkyService extends Service {
     private void scheduleSnapshotAlarm() {
         AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         if (am == null) {
-            AppDebugManager.e(Category.UTILS, FILE_NAME
-                    + ": scheduleSnapshotAlarm: AlarmManager is null, cannot schedule");
+
             return;
         }
 
@@ -836,11 +809,9 @@ public class ShappkyService extends Service {
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
         } else {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
-            AppDebugManager.w(Category.UTILS, FILE_NAME + ": scheduleSnapshotAlarm: exact alarm not permitted, using inexact");
+
         }
-        AppDebugManager.d(Category.UTILS, FILE_NAME
-                + ": scheduleSnapshotAlarm: armed, triggerAt=" + triggerAt
-                + " (in " + ((triggerAt - now) / 60_000) + " min)");
+
     }
 
     private void releaseSnapshotWakeLock() {
@@ -851,7 +822,7 @@ public class ShappkyService extends Service {
         AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         if (am == null) return;
         am.cancel(getSnapshotAlarmIntent());
-        AppDebugManager.d(Category.UTILS, FILE_NAME + ": cancelSnapshotAlarm: cancelled");
+
     }
 
     private PendingIntent getSnapshotAlarmIntent() {
@@ -898,20 +869,20 @@ public class ShappkyService extends Service {
                     if (ramThresholdEnabled) {
                         int threshold = prefs.getInt(KEY_RAM_THRESHOLD, DEFAULT_RAM_THRESHOLD_PERCENT);
                         int ramPercent = getCurrentRamUsagePercent();
-                        AppDebugManager.d(Category.AUTO_KILL_BASE, FILE_NAME + ": scheduleNextKill: RAM threshold check: " + ramPercent + "% / " + threshold + "%");
+
                         if (ramPercent >= threshold) {
-                            AppDebugManager.d(Category.AUTO_KILL_BASE, FILE_NAME + ": scheduleNextKill: threshold reached, starting Service Periodic Kill");
+
                             autoKillManager.performAutoKill(() -> handler.post(this::scheduleNextKill), resolveKillSource("Service Periodic Kill"));
                         } else {
-                            AppDebugManager.d(Category.AUTO_KILL_BASE, FILE_NAME + ": scheduleNextKill: RAM below threshold, kill skipped");
+
                             handler.post(this::scheduleNextKill);
                         }
                     } else {
-                        AppDebugManager.d(Category.AUTO_KILL_BASE, FILE_NAME + ": scheduleNextKill: no RAM threshold, starting Service Periodic Kill");
+
                         autoKillManager.performAutoKill(() -> handler.post(this::scheduleNextKill), resolveKillSource("Service Periodic Kill"));
                     }
                 } else {
-                    AppDebugManager.d(Category.AUTO_KILL_BASE, FILE_NAME + ": scheduleNextKill: skipped (autoKill=" + autoKillEnabled + " periodic=" + periodicKillEnabled + ")");
+
                     handler.post(this::scheduleNextKill);
                 }
             });
@@ -943,14 +914,14 @@ public class ShappkyService extends Service {
 
     @Override
     public void onDestroy() {
-        AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onDestroy called, stopping service");
+
         isRunning = false;
         if (BackgroundWorkPolicy.shouldRunForegroundService(this)) {
             scheduleServiceRestart();
-            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": Service restart scheduled because Auto-Kill is still enabled");
+
         } else {
             cancelServiceRestart();
-            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": Service restart suppressed because Auto-Kill is disabled");
+
         }
         cancelIdleFreezeAlarm();
         if (sleepModeManager != null && sleepModeManager.hasFrozenTimerApps()) {
@@ -958,16 +929,15 @@ public class ShappkyService extends Service {
             // The heartbeat receiver can restart the service, whose init reconciliation then
             // thaws the durable owned set when appropriate.
             scheduleHeartbeatAlarm();
-            AppDebugManager.w(Category.SLEEP_MODE, FILE_NAME
-                    + ": onDestroy: owned frozen timer apps remain; recovery heartbeat preserved");
+
         } else {
             cancelHeartbeatAlarm();
         }
         cancelSnapshotAlarm();
         cancelShizukuLostNotification();
-        AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku-lost notification cancelled on service destroy");
+
         unregisterShizukuBinderListeners();
-        AppDebugManager.d(Category.CORE, FILE_NAME + ": Shizuku binder listeners unregistered on service destroy");
+
         stopRamMonitorNotification();
         if (screenOffReceiver != null) {
             unregisterReceiver(screenOffReceiver);
@@ -976,7 +946,7 @@ public class ShappkyService extends Service {
             unregisterReceiver(packageChangeReceiver);
         }
         if (additionalScenariosManager != null) {
-            AppDebugManager.d(Category.ADVANCED_CONDITIONS, FILE_NAME + ": Stopping AdditionalScenariosManager (onDestroy)");
+
             additionalScenariosManager.stop();
         }
         if (watchdog != null) {
@@ -986,7 +956,7 @@ public class ShappkyService extends Service {
         pendingStartIntents.clear();
         handler.removeCallbacksAndMessages(null);
         executor.shutdownNow();
-        AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": onDestroy completed, executor shut down");
+
         super.onDestroy();
     }
 
@@ -997,7 +967,7 @@ public class ShappkyService extends Service {
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            AppDebugManager.d(Category.FOREGROUND_SERVICE, FILE_NAME + ": createNotificationChannel: registering channels");
+
             NotificationManager nm = getSystemService(NotificationManager.class);
 
             NotificationChannel serviceChannel = new NotificationChannel(
@@ -1018,13 +988,11 @@ public class ShappkyService extends Service {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (!BackgroundWorkPolicy.shouldRunForegroundService(context)) {
-                AppDebugManager.d(Category.FOREGROUND_SERVICE,
-                        "ShappkyService.RestartReceiver: ignoring stale restart alarm because Auto-Kill is disabled");
+
                 return;
             }
             if (!ShappkyService.isRunning()) {
-                AppDebugManager.d(Category.FOREGROUND_SERVICE, "ShappkyService.RestartReceiver: Service not running, restarting via " +
-                        (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? "startForegroundService" : "startService"));
+
                 Intent service = new Intent(context, ShappkyService.class);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context.startForegroundService(service);
@@ -1032,7 +1000,7 @@ public class ShappkyService extends Service {
                     context.startService(service);
                 }
             } else {
-                AppDebugManager.d(Category.FOREGROUND_SERVICE, "ShappkyService.RestartReceiver: Service already running, restart skipped");
+
             }
         }
     }

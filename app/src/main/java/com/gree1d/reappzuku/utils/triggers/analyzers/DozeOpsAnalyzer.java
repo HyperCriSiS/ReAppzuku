@@ -10,15 +10,12 @@ import java.util.regex.Pattern;
 
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.ShellManager;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
 import java.util.Locale;
 
 public class DozeOpsAnalyzer {
 
-    private static final String FILE_NAME = "DozeOpsAnalyzer";
 
     private final AppTriggersAnalyzer analyzer;
 
@@ -78,7 +75,7 @@ public class DozeOpsAnalyzer {
                         TriggerInfo.Severity.HIGH));
             }
         } catch (Exception e) {
-            AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": doze exemption appops fallback failed", e);
+
         }
 
         try {
@@ -94,7 +91,7 @@ public class DozeOpsAnalyzer {
                         TriggerInfo.Severity.HIGH));
             }
         } catch (Exception e) {
-            AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": doze exemption battery fallback failed", e);
+
         }
 
         return list;
@@ -136,7 +133,7 @@ public class DozeOpsAnalyzer {
                         analyzer.getContext().getString(R.string.triggers_doze_state_suffix),
                         TriggerInfo.Severity.INFO));
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": doze state fallback failed", e); }
+        } catch (Exception e) {  }
         return list;
     }
 
@@ -160,7 +157,7 @@ public class DozeOpsAnalyzer {
         if (bv == -1) return list;
 
         String currentName = analyzer.bucketValueToName(bv);
-        AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": analyzeStandbyBucket: pkg=" + packageName + " bv=" + bv + " name=" + currentName);
+
 
 
         List<String> history = new ArrayList<>();
@@ -210,11 +207,11 @@ public class DozeOpsAnalyzer {
                         if (history.isEmpty() || !history.get(history.size()-1).startsWith(bn))
                             history.add(entry);
                     } catch (Exception e) {
-                        AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": standby bucket history parse failed", e);
+
                     }
                 }
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": usagestats failed", e); }
+        } catch (Exception e) {  }
 
         if (history.size() > 4) history = history.subList(history.size()-4, history.size());
 
@@ -265,7 +262,7 @@ public class DozeOpsAnalyzer {
                 Matcher m2 = Pattern.compile("bucket=(\\d+)").matcher(us);
                 if (m2.find()) return m2.group(1);
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": standby fallback/usagestats failed", e); }
+        } catch (Exception e) {  }
 
         try {
             String ops = analyzer.getShellManager().runShellCommandAndGetFullOutput(
@@ -276,7 +273,7 @@ public class DozeOpsAnalyzer {
                 if (ops.contains("allow"))
                     return "5";
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": standby fallback/appops failed", e); }
+        } catch (Exception e) {  }
 
         return null;
     }
@@ -304,7 +301,7 @@ public class DozeOpsAnalyzer {
                             + (jobsBlocked ? " · jobs blocked" : ""),
                     analyzer.getContext().getString(R.string.triggers_restricted_confirmed_explanation),                    
                     TriggerInfo.Severity.HIGH));
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": restricted bucket effects check failed", e); }
+        } catch (Exception e) {  }
         return list;
     }
 
@@ -317,12 +314,12 @@ public class DozeOpsAnalyzer {
             String out = analyzer.getShellManager().runShellCommandAndGetFullOutput(
                     "appops get " + packageName);
             if (out == null || out.trim().isEmpty() || out.contains("Failed transaction")) {
-                AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": analyzeAppOps: appops get failed, trying cmd appops");
+
                 out = analyzer.getShellManager().runShellCommandAndGetFullOutput(
                         "cmd appops get " + packageName);
             }
             if (out == null || out.trim().isEmpty() || out.contains("Failed transaction")) {
-                AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": analyzeAppOps: cmd appops failed, trying dumpsys fallback");
+
                 out = parseDumpsysAppOpsForPackage(packageName);
             }
             if (out == null || out.trim().isEmpty()) return list;
@@ -374,7 +371,7 @@ public class DozeOpsAnalyzer {
                             desc.explanation,
                             desc.severity));
                 } catch (Exception e) {
-                    AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": analyzeAppOps line parse failed", e);
+
                 }
             }
 
@@ -393,7 +390,7 @@ public class DozeOpsAnalyzer {
                 list.addAll(analyzeRestrictedOps(packageName, out));
             }
 
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": analyzeAppOps failed", e); }
+        } catch (Exception e) {  }
         return list;
     }
 
@@ -420,7 +417,7 @@ public class DozeOpsAnalyzer {
                                 : R.string.trigger_exact_alarm_desc_schedule),
                         hasUse ? TriggerInfo.Severity.HIGH : TriggerInfo.Severity.MEDIUM));
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": exact alarm perm check failed", e); }
+        } catch (Exception e) {  }
         return list;
     }
 
@@ -455,7 +452,7 @@ public class DozeOpsAnalyzer {
                         analyzer.getContext().getString(R.string.trigger_manage_media_desc),
                         TriggerInfo.Severity.LOW));
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": analyzeRestrictedOps failed", e); }
+        } catch (Exception e) {  }
         return list;
     }
 
@@ -497,7 +494,7 @@ public class DozeOpsAnalyzer {
             }
             return sb.length() > 0 ? sb.toString() : null;
         } catch (Exception e) {
-            AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": parseDumpsysAppOpsForPackage failed", e);
+
             return null;
         }
     }

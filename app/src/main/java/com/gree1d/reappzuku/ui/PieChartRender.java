@@ -16,8 +16,6 @@ import com.github.mikephil.charting.renderer.PieChartRenderer;
 import com.github.mikephil.charting.utils.MPPointF;
 import com.github.mikephil.charting.utils.ViewPortHandler;
 
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 
 import java.util.List;
 
@@ -37,7 +35,7 @@ public class PieChartRender extends PieChartRenderer {
 
     public PieChartRender(PieChart chart, ChartAnimator animator, ViewPortHandler viewPortHandler) {
         super(chart, animator, viewPortHandler);
-        AppDebugManager.d(Category.STATISTICS_PAGE, FILE + ": renderer created for chart=" + chart);
+
 
         mFillPaint.setStyle(Paint.Style.FILL);
 

@@ -30,15 +30,12 @@ import com.gree1d.reappzuku.manager.CollectStatsManager;
 import com.gree1d.reappzuku.core.BaseActivity;
 import com.gree1d.reappzuku.service.ShappkyService;
 import com.gree1d.reappzuku.R;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 
 public class StatisticsActivity extends BaseActivity {
 
-    private static final String TAG  = "StatisticsActivity";
     private static final String FILE = "StatisticsActivity";
 
     private static final int[] CHART_PERIODS_HOURS = { 2, 6, 12, 24 };
@@ -85,7 +82,7 @@ public class StatisticsActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        AppDebugManager.d(Category.STATISTICS_PAGE, FILE + ": onCreate");
+
         binding = ActivityStatisticsBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
@@ -111,7 +108,7 @@ public class StatisticsActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        AppDebugManager.d(Category.STATISTICS_PAGE, FILE + ": onDestroy");
+
         binding = null;
     }
 
@@ -232,7 +229,7 @@ public class StatisticsActivity extends BaseActivity {
         if (binding == null) return;
 
         if (!ShappkyService.isRunning()) {
-            AppDebugManager.w(Category.STATISTICS_PAGE, FILE + ": loadCharts skipped, ShappkyService not running");
+
             showChartsLoading(false);
             binding.cardNoData.setVisibility(View.VISIBLE);
             binding.tvNoDataHint.setText(getString(R.string.stats_service_inactive_hint));
@@ -241,13 +238,13 @@ public class StatisticsActivity extends BaseActivity {
             return;
         }
 
-        AppDebugManager.d(Category.STATISTICS_PAGE, FILE + ": loadCharts hours=" + hours);
+
         showChartsLoading(true);
         collectStatsManager.getStatsForPeriodAsync(hours, periodStats -> {
             if (binding == null) return;
             showChartsLoading(false);
             if (!periodStats.hasData) {
-                AppDebugManager.i(Category.STATISTICS_PAGE, FILE + ": loadCharts no data for hours=" + hours);
+
                 binding.cardNoData.setVisibility(View.VISIBLE);
                 binding.tvNoDataHint.setText(periodStats.dataHint);
                 binding.cardChartsPager.setVisibility(View.GONE);
@@ -258,7 +255,7 @@ public class StatisticsActivity extends BaseActivity {
             binding.cardChartsPager.setVisibility(View.VISIBLE);
 
             if (periodStats.isPartialData) {
-                AppDebugManager.w(Category.STATISTICS_PAGE, FILE + ": loadCharts partial data for hours=" + hours);
+
                 binding.tvPartialDataWarning.setText(getString(R.string.stats_partial_data_warning));
                 binding.tvPartialDataWarning.setVisibility(View.VISIBLE);
             } else {
@@ -268,8 +265,7 @@ public class StatisticsActivity extends BaseActivity {
             List<CollectStatsManager.AppResourceStats> sorted = periodStats.sorted;
             currentSorted     = sorted;
             currentTotalHours = periodStats.actualHours;
-            AppDebugManager.d(Category.STATISTICS_PAGE, FILE + ": loadCharts loaded " + sorted.size()
-                    + " apps, actualHours=" + periodStats.actualHours);
+
 
             CollectStatsManager.AppResourceStats selfStats = null;
             for (CollectStatsManager.AppResourceStats s : sorted) {
@@ -337,8 +333,7 @@ public class StatisticsActivity extends BaseActivity {
         double total = 0;
         for (CollectStatsManager.AppResourceStats s : sorted) total += metricValue(s, metric);
         if (total <= 0) {
-            AppDebugManager.w(Category.STATISTICS_PAGE, FILE + ": buildPieChart skipped for metric=" + metric
-                    + ", total<=0");
+
             return;
         }
 

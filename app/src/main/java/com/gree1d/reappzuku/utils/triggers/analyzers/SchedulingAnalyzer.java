@@ -10,15 +10,12 @@ import java.util.regex.Pattern;
 
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.ShellManager;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
 import java.util.Locale;
 
 public class SchedulingAnalyzer {
 
-    private static final String FILE_NAME = "SchedulingAnalyzer";
 
     private final AppTriggersAnalyzer analyzer;
     private final DozeOpsAnalyzer dozeOpsAnalyzer;
@@ -72,7 +69,7 @@ public class SchedulingAnalyzer {
         }
 
         int total = wakeupCount + normalCount;
-        AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": analyzeAlarms: pkg=" + packageName + " total=" + total + " wakeup=" + wakeupCount + " exact=" + exactCount + " whileIdle=" + awIdle);
+
         if (total == 0 && topAlarmLines.isEmpty()) return list;
 
         StringBuilder detail = new StringBuilder();
@@ -129,7 +126,7 @@ public class SchedulingAnalyzer {
                         analyzer.getContext().getString(R.string.triggers_alarm_throttled_explanation),                        
                         TriggerInfo.Severity.MEDIUM));
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": alarm cancellation parse failed", e); }
+        } catch (Exception e) {  }
 
         if (analyzer.apiLevel >= android.os.Build.VERSION_CODES.S
                 && analyzer.apiLevel <= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -232,7 +229,7 @@ public class SchedulingAnalyzer {
                         if (lastBlocker == null) lastBlocker = "quota(free in " + analyzer.formatDuration(freeMs) + ")";
                     }
                 }
-            } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": parseAlarmCancellations line failed", e); }
+            } catch (Exception e) {  }
         }
         if (inCancelBlock && blockHasPkg) cancelCount++;
 
@@ -323,7 +320,7 @@ public class SchedulingAnalyzer {
                 }
 
                 if (pending > 0 || running > 0) {
-                    AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": analyzeJobs: pkg=" + packageName + " running=" + running + " pending=" + pending);
+
                     StringBuilder detail = new StringBuilder();
                     if (running > 0) detail.append(analyzer.getContext().getString(R.string.triggers_jobs_detail_running, running));
                     if (pending > 0) { if (detail.length()>0) detail.append(", ");
@@ -362,10 +359,10 @@ public class SchedulingAnalyzer {
                             running > 0 ? TriggerInfo.Severity.HIGH : TriggerInfo.Severity.MEDIUM));
                 }
             }
-        } catch (Exception e) { AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": analyzeJobs/jobscheduler failed", e); }
+        } catch (Exception e) {  }
 
         if (list.isEmpty() && analyzer.apiLevel >= AppTriggersAnalyzer.API_BAL_PRIVILEGES) {
-            AppDebugManager.d(Category.TRIGGERS, FILE_NAME + ": analyzeJobs: dumpsys empty, trying cmd jobscheduler fallback");
+
             List<String> cmdDetails = getJobsFallbackCmdJobscheduler(packageName);
             if (!cmdDetails.isEmpty()) {
                 list.add(new TriggerInfo(TriggerInfo.Group.CAN_WAKE,
@@ -392,7 +389,7 @@ public class SchedulingAnalyzer {
                 if (state.contains("Stopped")) details.add("stopped(cmd)");
             }
         } catch (Exception e) {
-            AppDebugManager.e(Category.TRIGGERS, FILE_NAME + ": jobs cmd fallback failed", e);
+
         }
         return details;
     }

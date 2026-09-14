@@ -37,8 +37,6 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.databinding.ActivitySettingsBinding;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.BackupFileStore;
 import com.gree1d.reappzuku.core.BackupManager;
 import com.gree1d.reappzuku.core.BaseActivity;
@@ -66,7 +64,6 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 
 abstract class SettingsActivityDialogs extends BaseActivity {
 
-    private static final String FILE_NAME = "SettingsActivityDialogs";
 
     protected abstract ActivitySettingsBinding getBinding();
     protected abstract BackgroundAppManager getAppManager();
@@ -190,7 +187,7 @@ abstract class SettingsActivityDialogs extends BaseActivity {
                     }
                 });
     }
-    
+
     protected void showBlacklistDialog() {
         LayoutInflater inflater = this.getLayoutInflater();
         View dialogView = inflater.inflate(R.layout.dialog_filter, null);
@@ -1156,12 +1153,12 @@ abstract class SettingsActivityDialogs extends BaseActivity {
                     }
                 }
             } catch (PackageManager.NameNotFoundException e) {
-                AppDebugManager.e(Category.SETTINGS_PAGE, FILE_NAME + ": showComponentPickerDialog: package not found: " + packageName, e);
+
             }
 
             getHandler().post(() -> {
                 if (items.isEmpty()) {
-                    AppDebugManager.w(Category.SETTINGS_PAGE, FILE_NAME + ": showComponentPickerDialog: no exported components found for " + packageName);
+
                     Toast.makeText(this, getString(R.string.scheduler_component_none_found),
                             Toast.LENGTH_SHORT).show();
                     return;
@@ -1265,19 +1262,19 @@ abstract class SettingsActivityDialogs extends BaseActivity {
 
     protected void exportBackup(Uri uri) {
     getExecutor().execute(() -> {
-        AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup started");
+
         String json = getBackupManager().createBackupJson();
         if (json == null) {
-            AppDebugManager.e(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup: createBackupJson returned null");
+
             getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_backup_create_failed), Toast.LENGTH_SHORT).show());
             return;
         }
         try {
             new BackupFileStore(getContentResolver()).write(uri, json);
-            AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup success");
+
             getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_backup_success), Toast.LENGTH_SHORT).show());
         } catch (Exception e) {
-            AppDebugManager.e(Category.SETTINGS_PAGE, FILE_NAME + ": exportBackup failed", e);
+
             getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_backup_export_failed, e.getMessage()), Toast.LENGTH_SHORT).show());
         }
     });
@@ -1285,13 +1282,13 @@ abstract class SettingsActivityDialogs extends BaseActivity {
 
 protected void importBackup(Uri uri) {
     getExecutor().execute(() -> {
-        AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": importBackup started");
+
         try {
             String json = new BackupFileStore(getContentResolver()).read(uri);
             boolean success = getBackupManager().restoreBackupJson(json);
             getHandler().post(() -> {
                 if (success) {
-                    AppDebugManager.d(Category.SETTINGS_PAGE, FILE_NAME + ": importBackup restore success");
+
                     Set<String> restoredRestrictedApps = new java.util.HashSet<>(
                             getSharedPreferences().getStringSet(KEY_AUTOSTART_DISABLED_APPS, new java.util.HashSet<>()));
                     Runnable finishRestore = () -> {
@@ -1312,12 +1309,12 @@ protected void importBackup(Uri uri) {
                         finishRestore.run();
                     }
                 } else {
-                    AppDebugManager.w(Category.SETTINGS_PAGE, FILE_NAME + ": importBackup: restoreBackupJson returned false");
+
                     Toast.makeText(this, getString(R.string.settings_restore_failed), Toast.LENGTH_SHORT).show();
                 }
             });
         } catch (Exception e) {
-            AppDebugManager.e(Category.SETTINGS_PAGE, FILE_NAME + ": importBackup failed", e);
+
             getHandler().post(() -> Toast.makeText(this, getString(R.string.settings_restore_import_failed, e.getMessage()), Toast.LENGTH_SHORT).show());
         }
     });

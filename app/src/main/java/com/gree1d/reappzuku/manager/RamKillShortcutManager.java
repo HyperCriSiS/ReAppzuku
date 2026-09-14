@@ -21,8 +21,6 @@ import androidx.core.content.pm.ShortcutManagerCompat;
 import androidx.core.graphics.drawable.IconCompat;
 
 import com.gree1d.reappzuku.R;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.core.ProtectedApps;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.service.ShappkyService;
@@ -38,7 +36,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class RamKillShortcutManager {
-    private static final String TAG = "RamKillShortcutManager";
     private static final String SHORTCUT_ID = "ram_kill_shortcut";
     private static final int ICON_SIZE = 108;
     private static final int CORNER_RADIUS = 24;
@@ -55,7 +52,7 @@ public class RamKillShortcutManager {
 
     public void requestPinShortcut() {
         if (!ShortcutManagerCompat.isRequestPinShortcutSupported(context)) {
-            AppDebugManager.w(Category.SHORTCUTS_WIDGETS, "RamKillShortcutManager: Launcher does not support pinned shortcuts");
+
             return;
         }
         executor.execute(() -> {
@@ -90,17 +87,17 @@ public class RamKillShortcutManager {
     }
 
     public void performKillAndUpdate(AutoKillManager autoKillManager) {
-        AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "RamKillShortcutManager: performKillAndUpdate started, thread=" + Thread.currentThread().getName());
+
         executor.execute(() -> {
             long ramBefore = readAvailableRamKb();
-            AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "RamKillShortcutManager: performKillAndUpdate ramBefore=" + ramBefore + " KB");
+
             new Thread(() -> trimMemoryForActivePackages(autoKillManager)).start();
             autoKillManager.performAutoKillWithResult(null, null, (killCount, ignored) -> {
-                AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "RamKillShortcutManager: performKillAndUpdate kill callback received, killCount=" + killCount + ", scheduling toast in 2000ms");
+
                 mainHandler.postDelayed(() -> {
                     long ramAfter = readAvailableRamKb();
                     long freedKb = Math.max(0, ramAfter - ramBefore);
-                    AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "RamKillShortcutManager: performKillAndUpdate ramAfter=" + ramAfter + " KB, freedKb=" + freedKb + " KB");
+
                     showKillToast(killCount, freedKb);
                     updateShortcut();
                 }, 5000);
@@ -109,7 +106,7 @@ public class RamKillShortcutManager {
     }
 
     private void showKillToast(int killCount, long freedKb) {
-        AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "RamKillShortcutManager: showKillToast killCount=" + killCount + ", freedKb=" + freedKb + ", thread=" + Thread.currentThread().getName());
+
         String ram;
         if (freedKb <= 0) {
             ram = null;
@@ -118,7 +115,7 @@ public class RamKillShortcutManager {
         } else {
             ram = String.format(Locale.getDefault(), "%.1f MB", freedKb / 1024f);
         }
-        AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "RamKillShortcutManager: showKillToast ram=" + ram);
+
         String msg;
         if (ram == null) {
             msg = context.getResources().getQuantityString(
@@ -127,15 +124,15 @@ public class RamKillShortcutManager {
             msg = context.getResources().getQuantityString(
                     R.plurals.toast_killed_apps, killCount, killCount, ram);
         }
-        AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "RamKillShortcutManager: showKillToast msg=\"" + msg + "\", showing toast");
+
         Toast.makeText(context, msg, Toast.LENGTH_LONG).show();
-        AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "RamKillShortcutManager: showKillToast toast shown");
+
     }
 
     private void trimMemoryForActivePackages(AutoKillManager autoKillManager) {
         String psOutput = shellManager.runShellCommandAndGetFullOutput("ps -A -o pid,name");
         if (psOutput == null || psOutput.trim().isEmpty()) {
-            AppDebugManager.w(Category.SHORTCUTS_WIDGETS, "RamKillShortcutManager: trimMemoryForActivePackages ps output is null or empty, skipping");
+
             return;
         }
         android.content.pm.PackageManager pm = context.getPackageManager();
@@ -152,7 +149,7 @@ public class RamKillShortcutManager {
             try {
                 android.content.pm.ApplicationInfo ai = pm.getApplicationInfo(basePkg, 0);
                 if ((ai.flags & android.content.pm.ApplicationInfo.FLAG_PERSISTENT) != 0) continue;
-                AppDebugManager.d(Category.SHORTCUTS_WIDGETS, "RamKillShortcutManager: trimMemoryForActivePackages sending COMPLETE trim to pid=" + pid + " pkg=" + basePkg);
+
                 shellManager.runShellCommandBlocking("am send-trim-memory " + pid + " COMPLETE");
             } catch (android.content.pm.PackageManager.NameNotFoundException ignored) {}
         }
@@ -218,7 +215,7 @@ public class RamKillShortcutManager {
                 }
             }
         } catch (Exception e) {
-            AppDebugManager.e(Category.SHORTCUTS_WIDGETS, "RamKillShortcutManager: readAvailableRamKb failed to read /proc/meminfo", e);
+
         }
         return 0;
     }
@@ -239,7 +236,7 @@ public class RamKillShortcutManager {
                 if (totalKb > 0 && availableKb > 0) break;
             }
         } catch (IOException | NumberFormatException e) {
-            AppDebugManager.e(Category.SHORTCUTS_WIDGETS, "RamKillShortcutManager: readRamInfo failed to read /proc/meminfo", e);
+
             return null;
         }
         if (totalKb <= 0) return null;

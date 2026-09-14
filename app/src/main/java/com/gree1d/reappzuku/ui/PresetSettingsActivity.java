@@ -51,8 +51,6 @@ import com.gree1d.reappzuku.manager.AutoKillManager;
 import com.gree1d.reappzuku.manager.PresetManager;
 import com.gree1d.reappzuku.core.BaseActivity;
 import com.gree1d.reappzuku.R;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 
 import static com.gree1d.reappzuku.core.AppConstants.*;
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
@@ -88,7 +86,7 @@ public class PresetSettingsActivity extends BaseActivity {
                         buildCurrentModel();
                         presetManager.exportPresetToJson(workingModel, uri);
                         Toast.makeText(this, getString(R.string.preset_export_success), Toast.LENGTH_SHORT).show();
-                        AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: export success, uri=" + uri);
+
                     }
                 }
             });
@@ -107,9 +105,9 @@ public class PresetSettingsActivity extends BaseActivity {
                             appListMode = hasOwnList ? APP_LIST_MODE_OWN : APP_LIST_MODE_CURRENT;
                             loadSettings();
                             Toast.makeText(this, getString(R.string.preset_import_success), Toast.LENGTH_SHORT).show();
-                            AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: import success, uri=" + uri + ", appListMode=" + appListMode);
+
                         } else {
-                            AppDebugManager.w(Category.SETTINGS_PAGE, "PresetSettingsActivity: import failed, uri=" + uri);
+
                             Toast.makeText(this, getString(R.string.preset_import_failed), Toast.LENGTH_SHORT).show();
                         }
                     }
@@ -123,7 +121,7 @@ public class PresetSettingsActivity extends BaseActivity {
         setContentView(binding.getRoot());
 
         presetNumber = getIntent().getIntExtra(EXTRA_PRESET_NUMBER, PresetModel.PRESET_1);
-        AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: onCreate presetNumber=" + presetNumber);
+
         presetManager = new PresetManager(this);
         sharedPreferences = getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         App app = (App) getApplication();
@@ -169,14 +167,14 @@ public class PresetSettingsActivity extends BaseActivity {
     private void loadWorkingModel() {
         PresetModel saved = presetManager.loadPreset(presetNumber);
         if (saved != null) {
-            AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: loadWorkingModel — loaded saved preset #" + presetNumber + ", enabled=" + saved.enabled);
+
             workingModel = saved;
             ownWhitelist = new HashSet<>(saved.whitelistedApps);
             ownBlacklist = new HashSet<>(saved.blacklistedApps);
             boolean hasOwnList = !ownWhitelist.isEmpty() || !ownBlacklist.isEmpty();
             appListMode = hasOwnList ? APP_LIST_MODE_OWN : APP_LIST_MODE_CURRENT;
         } else {
-            AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: loadWorkingModel — no saved preset #" + presetNumber + ", building from current prefs");
+
             workingModel = new PresetModel(presetNumber);
             workingModel.autoKillEnabled = sharedPreferences.getBoolean(KEY_AUTO_KILL_ENABLED, false);
             workingModel.periodicKillEnabled = sharedPreferences.getBoolean(KEY_PERIODIC_KILL_ENABLED, false);
@@ -223,10 +221,10 @@ public class PresetSettingsActivity extends BaseActivity {
     private void setupListeners() {
         binding.switchPresetEnabled.setOnCheckedChangeListener((btn, isChecked) -> {
             workingModel.enabled = isChecked;
-            AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: preset #" + presetNumber + " enabled=" + isChecked);
+
             if (!isChecked && presetManager.getActivePresetNumber() == presetNumber) {
                 presetManager.forceDeactivateIfActive(presetNumber);
-                AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: preset #" + presetNumber + " disabled — force deactivated");
+
             }
         });
 
@@ -304,7 +302,7 @@ public class PresetSettingsActivity extends BaseActivity {
         PresetModel other = presetManager.loadPreset(
                 presetNumber == PresetModel.PRESET_1 ? PresetModel.PRESET_2 : PresetModel.PRESET_1);
         if (other != null && workingModel.overlapsWithExcludingSelf(other)) {
-            AppDebugManager.w(Category.SETTINGS_PAGE, "PresetSettingsActivity: savePreset #" + presetNumber + " blocked — time overlap with preset #" + other.presetNumber);
+
             new MaterialAlertDialogBuilder(this)
                     .setTitle(getString(R.string.preset_overlap_title))
                     .setMessage(getString(R.string.preset_overlap_message,
@@ -327,7 +325,7 @@ public class PresetSettingsActivity extends BaseActivity {
             presetManager.forceDeactivateIfActive(workingModel.presetNumber);
         }
 
-        AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: preset #" + presetNumber + " saved, enabled=" + workingModel.enabled);
+
         Toast.makeText(this, getString(R.string.preset_saved, presetNumber), Toast.LENGTH_SHORT).show();
         finish();
     }
@@ -375,7 +373,7 @@ public class PresetSettingsActivity extends BaseActivity {
     }
 
     private void resetPreset() {
-        AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: resetPreset #" + presetNumber + " (local only, not yet saved)");
+
 
         workingModel = new PresetModel(presetNumber);
         workingModel.autoKillEnabled = sharedPreferences.getBoolean(KEY_AUTO_KILL_ENABLED, false);
@@ -421,7 +419,7 @@ public class PresetSettingsActivity extends BaseActivity {
                 .setPositiveButton(getString(R.string.dialog_save), (d, w) -> {
                     String name = input.getText().toString().trim();
                     if (!name.isEmpty()) {
-                        AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: preset #" + presetNumber + " name changed to \"" + name + "\"");
+
                         workingModel.name = name;
                         binding.textPresetName.setText(name);
                     }
@@ -468,7 +466,7 @@ public class PresetSettingsActivity extends BaseActivity {
                 .setView(view)
                 .setPositiveButton(getString(R.string.dialog_save), (d, w) -> {
                     if (startHour[0] == endHour[0] && startMinute[0] == endMinute[0]) {
-                        AppDebugManager.w(Category.SETTINGS_PAGE, "PresetSettingsActivity: showTimeRangeDialog — start equals end time, rejected");
+
                         Toast.makeText(this, getString(R.string.preset_time_range_error_same), Toast.LENGTH_SHORT).show();
                         return;
                     }
@@ -476,7 +474,7 @@ public class PresetSettingsActivity extends BaseActivity {
                     workingModel.startMinute = startMinute[0];
                     workingModel.endHour = endHour[0];
                     workingModel.endMinute = endMinute[0];
-                    AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: time range set " + startHour[0] + ":" + startMinute[0] + " – " + endHour[0] + ":" + endMinute[0]);
+
                     updateTimeRangeText();
                 })
                 .setNegativeButton(getString(R.string.dialog_cancel), null)
@@ -491,7 +489,7 @@ public class PresetSettingsActivity extends BaseActivity {
                 getString(R.string.preset_app_list_mode_own)
         };
         showSingleChoiceDialog(getString(R.string.preset_app_list_mode_dialog_title), modes, appListMode, which -> {
-            AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: appListMode changed to " + which + " (" + modes[which] + ")");
+
             appListMode = which;
             updateAppListModeText();
             updateListCounts();
@@ -507,7 +505,7 @@ public class PresetSettingsActivity extends BaseActivity {
         }
         showSingleChoiceDialog(getString(R.string.settings_check_frequency_title),
                 getResources().getStringArray(R.array.settings_kill_interval_labels), selectedIndex, which -> {
-                    AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: killInterval changed to " + KILL_INTERVALS_MS[which] + "ms");
+
                     workingModel.killInterval = KILL_INTERVALS_MS[which];
                     updateKillIntervalText(KILL_INTERVALS_MS[which]);
                 });
@@ -520,7 +518,7 @@ public class PresetSettingsActivity extends BaseActivity {
         }
         showSingleChoiceDialog(getString(R.string.settings_ram_threshold_dialog_title),
                 getResources().getStringArray(R.array.settings_ram_threshold_labels), selected, which -> {
-                    AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: ramThreshold changed to " + RAM_THRESHOLD_VALUES[which] + "%");
+
                     workingModel.ramThreshold = RAM_THRESHOLD_VALUES[which];
                     updateRamThresholdText(RAM_THRESHOLD_VALUES[which]);
                 });
@@ -563,7 +561,7 @@ public class PresetSettingsActivity extends BaseActivity {
             showAutoKillTypeHelpDialog(() -> showAutoKillTypeDialog());
         });
         group.setOnCheckedChangeListener((g, id) -> {
-            AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: autoKillType changed to " + (id - 1000));
+
             workingModel.autoKillType = id - 1000;
             updateAutoKillTypeText(id - 1000);
             dialog.dismiss();
@@ -591,7 +589,7 @@ public class PresetSettingsActivity extends BaseActivity {
                 getString(R.string.settings_mode_blacklist)
         };
         showSingleChoiceDialog(getString(R.string.settings_kill_mode_dialog_title), modes, workingModel.killMode, which -> {
-            AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: killMode changed to " + which + " (" + modes[which] + ")");
+
             workingModel.killMode = which;
             updateKillModeText(which);
             updateKillModeListVisibility(which);
@@ -743,11 +741,7 @@ public class PresetSettingsActivity extends BaseActivity {
             workingModel.hwTriggerHotspot = cbHotspot.isChecked();
             workingModel.appLaunchTriggerEnabled = cbAppLaunch.isChecked();
             workingModel.appLaunchClearCache = cbClearCache.isChecked();
-            AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: additionalScenarios saved — headset=" + workingModel.hwTriggerHeadset
-                    + ", usb=" + workingModel.hwTriggerUsb + ", charger=" + workingModel.hwTriggerCharger
-                    + ", wifi=" + workingModel.hwTriggerWifi + ", bt=" + workingModel.hwTriggerBluetooth
-                    + ", gps=" + workingModel.hwTriggerGps + ", hotspot=" + workingModel.hwTriggerHotspot
-                    + ", appLaunch=" + workingModel.appLaunchTriggerEnabled + ", clearCache=" + workingModel.appLaunchClearCache);
+
             updateAdditionalScenariosSummary();
             dialog.dismiss();
         });
@@ -822,7 +816,7 @@ public class PresetSettingsActivity extends BaseActivity {
 
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
                 workingModel.appLaunchTriggerPackages = filterAdapter.getSelectedPackages();
-                AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: appLaunchTriggerPackages updated, count=" + workingModel.appLaunchTriggerPackages.size());
+
                 if (onSaved != null) onSaved.run();
                 dialog.dismiss();
             });
@@ -830,18 +824,18 @@ public class PresetSettingsActivity extends BaseActivity {
     }
 
     private void showOwnWhitelistDialog() {
-        AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: showOwnWhitelistDialog, current size=" + ownWhitelist.size());
+
         showAppListDialog(getString(R.string.settings_whitelist_dialog_title), ownWhitelist, selected -> {
-            AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: ownWhitelist saved, size=" + selected.size());
+
             ownWhitelist = selected;
             updateListCounts();
         });
     }
 
     private void showOwnBlacklistDialog() {
-        AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: showOwnBlacklistDialog, current size=" + ownBlacklist.size());
+
         showAppListDialog(getString(R.string.settings_blacklist_dialog_title), ownBlacklist, selected -> {
-            AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: ownBlacklist saved, size=" + selected.size());
+
             ownBlacklist = selected;
             updateListCounts();
         });
@@ -1094,7 +1088,7 @@ public class PresetSettingsActivity extends BaseActivity {
 
     @Override
     protected void onDestroy() {
-        AppDebugManager.d(Category.SETTINGS_PAGE, "PresetSettingsActivity: onDestroy preset #" + presetNumber);
+
         super.onDestroy();
         binding = null;
     }

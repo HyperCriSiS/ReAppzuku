@@ -23,8 +23,6 @@ import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 
 import com.gree1d.reappzuku.R;
-import com.gree1d.reappzuku.core.AppDebugManager;
-import com.gree1d.reappzuku.core.AppDebugManager.Category;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 
 public class LogAppOptionsBottomSheet extends BottomSheetDialogFragment {
@@ -121,7 +119,7 @@ public class LogAppOptionsBottomSheet extends BottomSheetDialogFragment {
         boolean bgSupported = args.getBoolean(ARG_BG_SUPPORTED, false);
         int accentColor      = args.getInt(ARG_ACCENT_COLOR);
 
-        AppDebugManager.d(Category.STATISTICS_PAGE, "LogAppOptionsBottomSheet: opened for pkg=" + pkg);
+
 
         TextView nameView = view.findViewById(R.id.log_sheet_app_name);
         TextView pkgView  = view.findViewById(R.id.log_sheet_package_name);
@@ -132,7 +130,7 @@ public class LogAppOptionsBottomSheet extends BottomSheetDialogFragment {
 
         TextView btnKillDetail = view.findViewById(R.id.log_sheet_btn_kill_detail);
         btnKillDetail.setOnClickListener(v -> {
-            AppDebugManager.d(Category.STATISTICS_PAGE, "LogAppOptionsBottomSheet: kill detail clicked for pkg=" + pkg);
+
             dismiss();
             if (listener != null) listener.onShowKillDetail(appName, pkg, windowMs);
         });
@@ -202,8 +200,7 @@ public class LogAppOptionsBottomSheet extends BottomSheetDialogFragment {
                 PackageManager pm = requireContext().getPackageManager();
                 icon = pm.getApplicationIcon(packageName);
             } catch (PackageManager.NameNotFoundException e) {
-                AppDebugManager.w(Category.STATISTICS_PAGE,
-                        "LogAppOptionsBottomSheet: icon not found for pkg=" + packageName, e);
+
             }
             Drawable finalIcon = icon;
             handler.post(() -> {
@@ -226,8 +223,7 @@ public class LogAppOptionsBottomSheet extends BottomSheetDialogFragment {
         checkMedium.setChecked(type == BackgroundAppManager.RestrictionType.MEDIUM);
         checkHard.setChecked(type == BackgroundAppManager.RestrictionType.HARD);
 
-        AppDebugManager.d(Category.STATISTICS_PAGE, "LogAppOptionsBottomSheet: restriction type set to "
-                + type + " for pkg=" + pkg);
+
 
         if (listener != null) listener.onRestrictionTypeChanged(pkg, type);
     }
