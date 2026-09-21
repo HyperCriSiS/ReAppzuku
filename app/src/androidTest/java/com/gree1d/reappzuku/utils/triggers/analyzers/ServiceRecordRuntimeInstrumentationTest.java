@@ -66,7 +66,12 @@ public class ServiceRecordRuntimeInstrumentationTest {
             }
 
             boolean parsed = false;
+            StringBuilder candidates = new StringBuilder();
             for (String line : dump.split("\\r?\\n")) {
+                if ((line.contains("ServiceRecord") || line.contains(targetPackage))
+                        && candidates.length() < 6000) {
+                    candidates.append(line.trim()).append('\n');
+                }
                 if (!ProcessDumpParser.isServiceRecordForPackage(line, targetPackage)) {
                     continue;
                 }
@@ -77,7 +82,12 @@ public class ServiceRecordRuntimeInstrumentationTest {
                     break;
                 }
             }
-            assertTrue("Real ServiceRecord was not parsed for " + component.flattenToShortString(), parsed);
+            assertTrue(
+                    "Real ServiceRecord was not parsed for "
+                            + component.flattenToShortString()
+                            + "\nRelevant ActivityManager lines:\n"
+                            + candidates,
+                    parsed);
         } finally {
             targetContext.unbindService(connection);
         }
