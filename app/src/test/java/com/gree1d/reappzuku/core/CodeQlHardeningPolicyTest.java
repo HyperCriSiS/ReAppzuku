@@ -35,6 +35,35 @@ public class CodeQlHardeningPolicyTest {
         assertFalse(source.contains("new String[] { \"sh\", \"-c\", command }"));
     }
 
+    @Test
+    public void rootShellUsesOnlyAuditedAbsoluteCandidatesInFallbackOrder() throws Exception {
+        String source = readRepositoryFile(
+                "app/src/main/java/com/gree1d/reappzuku/core/ShellManager.java");
+
+        String[] candidates = {
+                "/system/bin/su",
+                "/debug_ramdisk/su",
+                "/sbin/su",
+                "/system/xbin/su",
+                "/system/sbin/su",
+                "/su/bin/su",
+                "/su/xbin/su",
+                "/magisk/.core/bin/su"
+        };
+
+        int previous = -1;
+        for (String candidate : candidates) {
+            String launch = "Runtime.getRuntime().exec(\"" + candidate + "\")";
+            int offset = source.indexOf(launch);
+            assertTrue("Missing audited absolute root shell candidate: " + candidate, offset >= 0);
+            assertTrue("Root shell fallback order changed at: " + candidate, offset > previous);
+            previous = offset;
+        }
+
+        assertEquals(candidates.length, count(source, "Runtime.getRuntime().exec(\""));
+        assertFalse(source.contains("Runtime.getRuntime().exec(\"su\")"));
+    }
+
     private static int count(String value, String needle) {
         int count = 0;
         int offset = 0;
