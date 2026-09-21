@@ -50,7 +50,7 @@ jobs:
           git diff --check
 
           git fetch origin main
-          git checkout origin/main -- .github/workflows/ondemand-test-build.yml
+          git checkout origin/main -- .github/workflows/ondemand-test-build.yml gradlew
 
           python - <<'PY'
           import subprocess
