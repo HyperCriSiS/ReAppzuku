@@ -8,207 +8,38 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  refresh-assurance-docs:
+  validate:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          fetch-depth: 0
-      - name: Refresh validated assurance evidence
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
-
-          bt = chr(96)
-
-          def replace_line(text, predicate, new_line, label):
-              lines = text.splitlines(keepends=True)
-              hits = [i for i, line in enumerate(lines) if predicate(line.rstrip("\n"))]
-              if len(hits) != 1:
-                  raise SystemExit(f"{label}: expected 1 line, got {len(hits)}")
-              i = hits[0]
-              ending = "\n" if lines[i].endswith("\n") else ""
-              lines[i] = new_line + ending
-              return "".join(lines)
-
-          def remove_line(text, predicate, label):
-              lines = text.splitlines(keepends=True)
-              hits = [i for i, line in enumerate(lines) if predicate(line.rstrip("\n"))]
-              if len(hits) != 1:
-                  raise SystemExit(f"{label}: expected 1 line, got {len(hits)}")
-              del lines[hits[0]]
-              return "".join(lines)
-
-          def replace_paragraph(text, start, new_text, label):
-              lines = text.splitlines(keepends=True)
-              hits = [i for i, line in enumerate(lines) if line.startswith(start)]
-              if len(hits) != 1:
-                  raise SystemExit(f"{label}: expected 1 paragraph start, got {len(hits)}")
-              i = hits[0]
-              j = i
-              while j < len(lines) and lines[j].strip():
-                  j += 1
-              replacement = [x + "\n" for x in new_text.split("\n")]
-              lines[i:j] = replacement
-              return "".join(lines)
-
-          matrix_path = Path("docs/CHECK_MATRIX.md")
-          roadmap_path = Path("docs/ROADMAP.md")
-          matrix = matrix_path.read_text()
-          roadmap = roadmap_path.read_text()
-
-          matrix = replace_line(
-              matrix, lambda l: l.startswith("> Audit baseline:"),
-              f"> Audit baseline: {bt}main{bt}, refreshed 2026-09-21 against the current validated product line.",
-              "matrix baseline")
-
-          matrix = replace_line(
-              matrix, lambda l: l.startswith("| A04 | Running-app discovery"),
-              f"| A04 | Running-app discovery / app-state collection | DECIDED | ActivityManager process/service parsing is isolated and JVM fixture-tested across AOSP/OEM-style forms; real official-Shizuku API-36 {bt}ProcessRecord{bt} parsing is proven ({bt}API36_PROCESS_RECORD_PARSED{bt} in {bt}34153570390{bt}). Android 17/API 37 run {bt}35646519446{bt} now additionally proves the production parser against a real system-generated {bt}ServiceRecord{bt} carrying the current AOSP {bt}c:<recentCallingPackage>{bt} suffix; OEM/physical runtime-format diversity remains open. |",
-              "A04")
-
-          matrix = replace_line(
-              matrix, lambda l: l.startswith("| A15 | Update channel"),
-              f"| A15 | Update channel / release / rollback | DECIDED | Fork-owned update resolution enumerates stable numeric releases, direct APK/release links are derived only from validated fork metadata, and the release workflow binds stable tag ↔ source {bt}versionName{bt} ↔ built APK {bt}versionName{bt}. Run {bt}34037508198{bt} proves installed-byte identity and fork-only endpoints. Non-publishing signing preflight {bt}35642800123{bt} additionally proves the workflow fails closed before key decode/build when the stable signing identity secrets are absent; production signing identity and installed rollback evidence therefore remain explicit release blockers rather than an untested workflow assumption. |",
-              "A15")
-
-          matrix = replace_line(
-              matrix, lambda l: l.startswith("| A18 | Build / CI"),
-              f"| A18 | Build / CI / dependencies / supply chain | DECIDED | Source-authoritative least-privilege CI, immutable Action SHA pins, zero-error lint, dependency locking/verification and stable tag/source/APK version binding are enforced. Gradle is 9.7.1 with the binary distribution SHA-256 pinned; pinned Java/Kotlin CodeQL remains active. The signed-release task graph is explicitly scoped to {bt}:app:{bt} so the permanent {bt}securityProbe{bt} test module cannot enter release builds. As of 2026-09-21 GitHub reports zero open Dependabot security alerts and zero open secret-scanning alerts; CodeQL has one explicitly accepted medium warning (#9, {bt}java/android/missing-certificate-pinning{bt}) on the credential-free public GitHub release-metadata request. Root-shell fallback policy is regression-locked in {bt}fd1f533b8c5a8ea51a3ecbc413b2fe17bf1f0910{bt}. Physical release signing/rollback evidence remains open, with preflight {bt}35642800123{bt} proving fail-closed behavior while stable signing secrets are absent. |",
-              "A18")
-
-          matrix = replace_line(
-              matrix,
-              lambda l: l.startswith("- **CM-P2-03:** ActivityManager"),
-              f"- **CM-P2-03:** ActivityManager {bt}ProcessRecord{bt}/{bt}ServiceRecord{bt} parsing is isolated in pure Java; Smart Lifecycle package/dump/foreground/process text handling is further bounded by {bt}PackageTextMatcher{bt}, {bt}SmartLifecycleProtectionPolicy{bt} and {bt}SmartLifecycleTextParser{bt} with JVM tests. Machine-readable system/dumpsys token normalization across the audited analyzers uses {bt}Locale.ROOT{bt} (PR #5, run {bt}34259194668{bt}). Run {bt}34153570390{bt} proves real API-36 {bt}ProcessRecord{bt} parsing through official Shizuku; Android 17/API-37 full run {bt}35646519446{bt} proves a real ActivityManager {bt}ServiceRecord{bt} generated by a bound debug-only target service is consumed by the production parser, including the observed AOSP {bt}c:<recentCallingPackage>{bt} suffix. OEM/physical parser diversity remains open.",
-              "CM-P2-03 summary")
-
-          evidence_marker = "Latest assurance evidence:\n"
-          if matrix.count(evidence_marker) != 1:
-              raise SystemExit("Latest assurance evidence marker mismatch")
-          evidence = (
-              f"- commit {bt}ad672fc661f27345e075f325d180ddcc1fca1306{bt}: real Android 17/API-37 ActivityManager {bt}ServiceRecord{bt} parsing is proven with a debug-only non-exported bound target service and {bt}UiAutomation{bt} system dump; diagnostic run {bt}35645713842{bt} captured the current AOSP {bt}c:<recentCallingPackage>{bt} format, final standard {bt}35645966192{bt}, CodeQL {bt}35645972117{bt}, targeted API-37 {bt}35646059393{bt} and full API-37 {bt}35646519446{bt} passed, with the full lane reporting {bt}OK (42 tests){bt}, separate-UID abuse-probe PASS and launcher smoke;\n"
-              f"- commit {bt}fd1f533b8c5a8ea51a3ecbc413b2fe17bf1f0910{bt}: the audited absolute root-shell fallback contract is a permanent JVM regression guard covering all eight supported {bt}su{bt} candidates in order and rejecting bare PATH-based {bt}exec(\"su\"){bt}; standard {bt}35643580520{bt} and PR CodeQL {bt}35643571945{bt} passed. Real KernelSU/Magisk execution remains device evidence;\n"
-              f"- signed-release preflight {bt}35642800123{bt}: current {bt}main{bt} passed authorization/source selection and then failed closed at the stable-signing-secret requirement before any key decode, release build or publish step. The production signing identity secrets are not configured, so final signature/rollback evidence remains explicitly open;\n"
-          )
-          if "ad672fc661f27345e075f325d180ddcc1fca1306" in matrix:
-              raise SystemExit("new ServiceRecord evidence unexpectedly already present")
-          matrix = matrix.replace(evidence_marker, evidence_marker + evidence, 1)
-
-          matrix = replace_line(
-              matrix, lambda l: l.startswith("- repository security state checked "),
-              "- repository security state checked 2026-09-21: zero open Dependabot alerts and zero open secret-scanning alerts. CodeQL has one intentionally accepted medium warning (#9, " + bt + "java/android/missing-certificate-pinning" + bt + ") on the credential-free public " + bt + "api.github.com" + bt + " release-metadata request; standard platform TLS validation is retained because fixed pins against GitHub's externally managed/rotating certificates would create update-availability fragility;",
-              "security evidence date")
-
-          matrix = replace_line(
-              matrix, lambda l: l.startswith("**Maintainability status:**"),
-              f"**Maintainability status:** the named high-risk seams now have explicit {bt}PrivilegedShell{bt}, {bt}PackageStateSource{bt}, {bt}AppLaunchTriggerPolicy{bt}, parser/protection/background policy, {bt}Clock{bt}/{bt}ScheduleTime{bt}, {bt}AlarmScheduler{bt}, {bt}BackupCodec{bt} and manual-restriction backup policies; the former SQL-debug redaction boundary has been removed entirely from production together with the obsolete debug subsystem. Machine parser casing is deterministic with {bt}Locale.ROOT{bt}. API-36 runtime covers the broad Shizuku/reboot/recovery baseline. Android 17/API 37 additionally proves real Shizuku privileged execution and now the production parser against a real system-generated {bt}ServiceRecord{bt} in {bt}35646519446{bt}. Root execution, physical/OEM parser/provider diversity and final stable-release signing/rollback evidence remain open.",
-              "maintainability status")
-
-          matrix = replace_line(
-              matrix, lambda l: l.startswith("## Closure status —"),
-              "## Closure status — 2026-09-21",
-              "closure date")
-
-          matrix = replace_paragraph(
-              matrix,
-              "This does **not** make every release surface",
-              "This does **not** make every release surface " + bt + "PROVEN" + bt + ": root-backend execution, physical/OEM/launcher/\n"
-              "document-provider and parser-format diversity, plus final stable release signing identity + rollback,\n"
-              "remain external release-evidence gaps and are tracked separately.",
-              "closure gaps")
-
-          matrix = remove_line(
-              matrix, lambda l: l.startswith("- **Runtime process diversity:**"),
-              "obsolete runtime process diversity gap")
-
-          matrix = replace_line(
-              matrix,
-              lambda l: l.startswith("Real API-36 evidence now covers the ") and "ProcessRecord" in l,
-              f"Real API-36 evidence covers the {bt}ProcessRecord{bt} path through official Shizuku ({bt}34153570390{bt}). The earlier Android-16 synthetic background-service harness was correctly removed after platform rejection; it is now superseded by the platform-allowed debug-target bound-service probe. Diagnostic API-37 run {bt}35645713842{bt} captured the real {bt}ServiceRecord{{… <component> c:<recentCallingPackage>}}{bt} output, and final run {bt}35646519446{bt} proves the production parser consumes that real system-generated record. Physical/OEM output diversity remains separate release evidence.",
-              "CM-P2-03 detail")
-
-          matrix = replace_line(
-              matrix,
-              lambda l: l.startswith("- workflow run ") and "34153570390" in l and "synthetic test-only service" in l,
-              f"- workflow run {bt}34153570390{bt}: real API-36 official-Shizuku readiness and {bt}ProcessRecord{bt} parsing passed; its rejected synthetic background-service experiment is retained as historical evidence and is superseded for {bt}ServiceRecord{bt} runtime coverage by API-37 {bt}35646519446{bt};",
-              "historical ServiceRecord evidence")
-
-          roadmap = replace_line(
-              roadmap,
-              lambda l: "Attempts to inject a deterministic test-only" in l,
-              f"- API-36 runs through official Shizuku repeatedly reach {bt}SHIZUKU_READY{bt} and parse the real ReAppzuku ActivityManager {bt}ProcessRecord{bt}; run {bt}34153570390{bt} logs {bt}API36_PROCESS_RECORD_PARSED{bt}. The earlier Android-16 synthetic background-service attempt was correctly blocked and removed. It is now superseded by Android 17/API-37 run {bt}35646519446{bt}, where a debug-only non-exported target service is bound through the normal platform path, a real ActivityManager {bt}ServiceRecord{bt} is read via {bt}UiAutomation{bt}, and the production parser consumes the observed {bt}c:<recentCallingPackage>{bt} form.",
-              "roadmap parser evidence")
-
-          roadmap = replace_line(
-              roadmap,
-              lambda l: l.startswith("- Real API-36 ProcessRecord parsing through"),
-              f"- Real API-36 ProcessRecord parsing through the official Shizuku backend is proven. Android 17/API 37 now also proves real ActivityManager {bt}ServiceRecord{bt} parsing in {bt}35646519446{bt}; diagnostic {bt}35645713842{bt} captured the current AOSP {bt}c:<recentCallingPackage>{bt} suffix and the production parser was minimally extended with JVM regression coverage. OEM/physical output diversity remains release evidence.",
-              "roadmap ServiceRecord summary")
-
-          roadmap = replace_line(
-              roadmap,
-              lambda l: l.startswith("- API 36 remains the broad repeatable Android-runtime baseline"),
-              f"- API 36 remains the broad repeatable Android-runtime baseline for Shizuku/reboot/process-state scenarios. Android 17/API 37 is separately proven for target-37 build/install, real Shizuku manager authorization and privileged rollback; the current product line additionally passed full run {bt}35646519446{bt} with {bt}OK (42 tests){bt}, real system-generated {bt}ServiceRecord{bt} parsing, separate-UID abuse probing and launcher smoke. Remaining release-diversity gaps are physical/OEM variation, final installed-release/signing identity + rollback evidence and root-specific execution.",
-              "roadmap API37 summary")
-
-          roadmap = replace_line(
-              roadmap,
-              lambda l: l.startswith("- [~] Keep ") and "CHECK_MATRIX.md" in l,
-              f"- [~] Keep {bt}CHECK_MATRIX.md{bt} status/evidence current after every high-impact change (refreshed through 2026-09-21; ongoing discipline).",
-              "roadmap evidence freshness")
-
-          roadmap = replace_line(
-              roadmap, lambda l: l.startswith("### Maintainability evidence —"),
-              "### Maintainability evidence — 2026-09-05 to 2026-09-21",
-              "roadmap maintainability date")
-
-          marker = "### Maintainability evidence — 2026-09-05 to 2026-09-21\n\n"
-          if roadmap.count(marker) != 1:
-              raise SystemExit("roadmap evidence marker mismatch")
-          additions = (
-              f"- Root-shell hardening is regression-locked in {bt}fd1f533b8c5a8ea51a3ecbc413b2fe17bf1f0910{bt}: all eight audited absolute {bt}su{bt} candidates and their fallback order are enforced, bare PATH-based {bt}exec(\"su\"){bt} is rejected, and standard {bt}35643580520{bt} plus CodeQL {bt}35643571945{bt} passed. Real KernelSU/Magisk execution remains physical/root diversity evidence.\n"
-              f"- Android 17/API-37 {bt}ServiceRecord{bt} runtime coverage is now deterministic without violating background-start policy. Diagnostic {bt}35645713842{bt} captured the real current AOSP {bt}c:<recentCallingPackage>{bt} suffix; final standard {bt}35645966192{bt}, CodeQL {bt}35645972117{bt}, targeted API-37 {bt}35646059393{bt} and full API-37 {bt}35646519446{bt} passed, with {bt}OK (42 tests){bt}, separate-UID abuse-probe PASS and launcher smoke. The probe service exists only in the debug source set.\n"
-              f"- Non-publishing signed-release preflight {bt}35642800123{bt} demonstrated fail-closed behavior on current {bt}main{bt}: source authorization passed, then execution stopped before key decode/build/publish because the stable signing identity secrets are not configured. Final production signing identity and rollback remain explicit release evidence rather than a CI implementation gap.\n"
-          )
-          if "35642800123" in roadmap:
-              raise SystemExit("new signing evidence unexpectedly already present")
-          roadmap = roadmap.replace(marker, marker + additions, 1)
-
-          stale = [
-              "natural foreground " + bt + "ServiceRecord" + bt + " runtime evidence",
-              "ServiceRecord parsing remains JVM-fixture-proven but awaits",
-              "live ServiceRecord evidence is deliberately left open",
-              "refreshed through 2026-09-15",
-          ]
-          for item in stale:
-              if item in matrix or item in roadmap:
-                  raise SystemExit(f"stale phrase remains: {item}")
-
-          matrix_path.write_text(matrix)
-          roadmap_path.write_text(roadmap)
-          PY
-
-          git diff --check
-          git diff -- docs/ROADMAP.md docs/CHECK_MATRIX.md
-
-          git fetch origin main
-          git checkout origin/main -- .github/workflows/ondemand-test-build.yml
-
-          changed="$(git diff --name-only | sort)"
-          expected="$(printf '%s\n' docs/CHECK_MATRIX.md docs/ROADMAP.md | sort)"
-          test "$changed" = "$expected"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/CHECK_MATRIX.md docs/ROADMAP.md
-          git diff --cached --check
-          git commit -m "Refresh assurance evidence through 2026-09-21"
-          git push origin HEAD:roadmap/assurance-evidence-20260921
+          persist-credentials: false
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - name: Grant execute permission
+        run: chmod +x gradlew
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+      - name: Lint
+        run: ./gradlew lintDebug
+      - name: Compile instrumentation tests
+        run: ./gradlew assembleDebugAndroidTest
+      - name: Verify current Room schema export
+        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+      - name: Upload debug APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: reappzuku-ondemand-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
