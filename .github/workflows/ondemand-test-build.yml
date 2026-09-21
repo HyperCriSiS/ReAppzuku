@@ -4,42 +4,163 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: \${{ github.workflow }}-\${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  validate:
+  refresh-assurance-docs:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          persist-credentials: false
-      - name: Set up JDK 17
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
-        with:
-          java-version: '17'
-          distribution: temurin
-          cache: gradle
-      - name: Grant execute permission
-        run: chmod +x gradlew
-      - name: Unit tests
-        run: ./gradlew testDebugUnitTest
-      - name: Lint
-        run: ./gradlew lintDebug
-      - name: Compile instrumentation tests
-        run: ./gradlew assembleDebugAndroidTest
-      - name: Verify current Room schema export
-        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
-      - name: Upload debug APK
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: reappzuku-ondemand-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          fetch-depth: 0
+      - name: Refresh validated assurance evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly 1 match, got {count}")
+              return text.replace(old, new, 1)
+
+          matrix_path = Path("docs/CHECK_MATRIX.md")
+          roadmap_path = Path("docs/ROADMAP.md")
+          matrix = matrix_path.read_text()
+          roadmap = roadmap_path.read_text()
+
+          matrix = replace_once(
+              matrix,
+              "> Audit baseline: \`main\`, refreshed 2026-09-12 against the current validated product line.",
+              "> Audit baseline: \`main\`, refreshed 2026-09-21 against the current validated product line.",
+              "matrix baseline date")
+
+          old_a04 = "| A04 | Running-app discovery / app-state collection | DECIDED | ActivityManager process/service parsing is isolated and JVM fixture-tested across AOSP/OEM-style forms; real official-Shizuku API-36 \`ProcessRecord\` parsing is proven (\`API36_PROCESS_RECORD_PARSED\` in \`34153570390\`), while deterministic live \`ServiceRecord\` creation is blocked by Android 16 background-service policy in the synthetic harness; OEM/physical runtime remains open. |"
+          new_a04 = "| A04 | Running-app discovery / app-state collection | DECIDED | ActivityManager process/service parsing is isolated and JVM fixture-tested across AOSP/OEM-style forms; real official-Shizuku API-36 \`ProcessRecord\` parsing is proven (\`API36_PROCESS_RECORD_PARSED\` in \`34153570390\`). Android 17/API 37 run \`35646519446\` now additionally proves the production parser against a real system-generated \`ServiceRecord\` carrying the current AOSP \`c:<recentCallingPackage>\` suffix; OEM/physical runtime-format diversity remains open. |"
+          matrix = replace_once(matrix, old_a04, new_a04, "A04")
+
+          old_a15 = "| A15 | Update channel / release / rollback | DECIDED | Fork-owned update resolution enumerates stable numeric releases, direct APK/release links are derived only from validated fork metadata, and the release workflow binds stable tag ↔ source \`versionName\` ↔ built APK \`versionName\`. Run \`34037508198\` proves installed-byte identity and fork-only endpoints. Stable signing/rollback identity remains incomplete. |"
+          new_a15 = "| A15 | Update channel / release / rollback | DECIDED | Fork-owned update resolution enumerates stable numeric releases, direct APK/release links are derived only from validated fork metadata, and the release workflow binds stable tag ↔ source \`versionName\` ↔ built APK \`versionName\`. Run \`34037508198\` proves installed-byte identity and fork-only endpoints. Non-publishing signing preflight \`35642800123\` additionally proves the workflow fails closed before key decode/build when the stable signing identity secrets are absent; production signing identity and installed rollback evidence therefore remain explicit release blockers rather than an untested workflow assumption. |"
+          matrix = replace_once(matrix, old_a15, new_a15, "A15")
+
+          matrix = replace_once(
+              matrix,
+              "As of 2026-09-12 GitHub reports zero open Dependabot alerts, zero open secret-scanning alerts and no remaining actionable CodeQL finding on the validated product line.",
+              "As of 2026-09-21 GitHub reports zero open Dependabot security alerts and zero open secret-scanning alerts. CodeQL has one explicitly accepted medium warning (#9, \`java/android/missing-certificate-pinning\`) on the credential-free public GitHub release-metadata request; no new finding was introduced by the current assurance work.",
+              "A18 security status")
+
+          old_cmp203 = "- **CM-P2-03:** ActivityManager \`ProcessRecord\`/\`ServiceRecord\` parsing is isolated in pure Java; Smart Lifecycle package/dump/foreground/process text handling is further bounded by \`PackageTextMatcher\`, \`SmartLifecycleProtectionPolicy\` and \`SmartLifecycleTextParser\` with JVM tests. Machine-readable system/dumpsys token normalization across the audited analyzers now uses \`Locale.ROOT\` (PR #5, run \`34259194668\`). Run \`34153570390\` proves the \`ProcessRecord\` half on real API 36 through official Shizuku; live \`ServiceRecord\` injection remains a platform-harness gap rather than a source/parser gap. OEM/physical parser diversity remains open."
+          new_cmp203 = "- **CM-P2-03:** ActivityManager \`ProcessRecord\`/\`ServiceRecord\` parsing is isolated in pure Java; Smart Lifecycle package/dump/foreground/process text handling is further bounded by \`PackageTextMatcher\`, \`SmartLifecycleProtectionPolicy\` and \`SmartLifecycleTextParser\` with JVM tests. Machine-readable system/dumpsys token normalization across the audited analyzers uses \`Locale.ROOT\` (PR #5, run \`34259194668\`). Run \`34153570390\` proves real API-36 \`ProcessRecord\` parsing through official Shizuku; Android 17/API-37 full run \`35646519446\` proves a real ActivityManager \`ServiceRecord\` generated by a bound debug-only target service is consumed by the production parser, including the observed AOSP \`c:<recentCallingPackage>\` suffix. OEM/physical parser diversity remains open."
+          matrix = replace_once(matrix, old_cmp203, new_cmp203, "CM-P2-03 summary")
+
+          evidence_marker = "Latest assurance evidence:\n"
+          evidence = (
+              "- commit \`ad672fc661f27345e075f325d180ddcc1fca1306\`: real Android 17/API-37 ActivityManager \`ServiceRecord\` parsing is now proven with a debug-only non-exported bound target service and \`UiAutomation\` system dump; diagnostic run \`35645713842\` captured the current AOSP \`c:<recentCallingPackage>\` format, final standard \`35645966192\`, CodeQL \`35645972117\`, targeted API-37 \`35646059393\` and full API-37 \`35646519446\` passed, with the full lane reporting \`OK (42 tests)\`, separate-UID abuse-probe PASS and launcher smoke;\n"
+              "- commit \`fd1f533b8c5a8ea51a3ecbc413b2fe17bf1f0910\`: the audited absolute root-shell fallback contract is now a permanent JVM regression guard covering all eight supported \`su\` candidates in order and rejecting a return to bare PATH-based \`exec(\"su\")\`; standard \`35643580520\` and PR CodeQL \`35643571945\` passed. Real KernelSU/Magisk execution remains device evidence;\n"
+              "- signed-release preflight \`35642800123\`: current \`main\` passed authorization/source selection and then failed closed at the stable-signing-secret requirement before any key decode, release build or publish step. The production signing identity secrets are not configured, so final signature/rollback evidence remains explicitly open;\n"
+          )
+          if evidence in matrix:
+              raise SystemExit("new assurance evidence already present")
+          matrix = replace_once(matrix, evidence_marker, evidence_marker + evidence, "evidence insertion")
+
+          matrix = replace_once(
+              matrix,
+              "- repository security state checked 2026-09-15:",
+              "- repository security state checked 2026-09-21:",
+              "security evidence date")
+
+          old_maint = "Real API-36 \`ProcessRecord\` parsing is proven; the synthetic \`ServiceRecord\` harness was removed after Android 16 consistently blocked its background start, leaving ServiceRecord runtime diversity for a foreground/physical-device lane. Root, physical/OEM diversity and final stable-release signing/rollback evidence remain open."
+          new_maint = "Real API-36 \`ProcessRecord\` parsing is proven, and Android 17/API 37 now also proves the production parser against a real system-generated \`ServiceRecord\` in \`35646519446\`. Root execution, physical/OEM parser and provider diversity, and final stable-release signing/rollback evidence remain open."
+          matrix = replace_once(matrix, old_maint, new_maint, "maintainability status")
+
+          matrix = replace_once(matrix, "## Closure status — 2026-09-15", "## Closure status — 2026-09-21", "closure date")
+          old_closure = "This does **not** make every release surface \`PROVEN\`: root-backend execution, physical/OEM/launcher/\ndocument-provider diversity, natural foreground \`ServiceRecord\` runtime evidence, and final stable\nrelease signing identity + rollback remain external release-evidence gaps and are tracked separately."
+          new_closure = "This does **not** make every release surface \`PROVEN\`: root-backend execution, physical/OEM/launcher/\ndocument-provider and parser-format diversity, plus final stable release signing identity + rollback,\nremain external release-evidence gaps and are tracked separately."
+          matrix = replace_once(matrix, old_closure, new_closure, "closure gaps")
+
+          runtime_gap = "- **Runtime process diversity:** obtain a natural foreground/physical-device \`ServiceRecord\` source; do not reintroduce the platform-blocked synthetic background-service harness.\n"
+          if matrix.count(runtime_gap) != 1:
+              raise SystemExit(f"runtime gap bullet count={matrix.count(runtime_gap)}")
+          matrix = matrix.replace(runtime_gap, "", 1)
+
+          old_detail = "Real API-36 evidence now covers the \`ProcessRecord\` path through official Shizuku (\`34153570390\`). Repeated attempts to create a synthetic live \`ServiceRecord\` were rejected by Android 16 background-service policy even through the privileged shell, so the non-deterministic harness was removed; ServiceRecord parsing remains bounded by JVM fixtures until a natural foreground/physical-device runtime source is available."
+          new_detail = "Real API-36 evidence covers the \`ProcessRecord\` path through official Shizuku (\`34153570390\`). The earlier Android-16 synthetic background-service harness was correctly removed after platform rejection; it is now superseded by the platform-allowed debug-target bound-service probe. Diagnostic API-37 run \`35645713842\` captured the real \`ServiceRecord{… <component> c:<recentCallingPackage>}\` output, and final run \`35646519446\` proves the production parser consumes that real system-generated record. Physical/OEM output diversity remains separate release evidence."
+          matrix = replace_once(matrix, old_detail, new_detail, "CM-P2-03 detail")
+
+          old_hist = "- workflow run \`34153570390\`: real API-36 official-Shizuku readiness and \`ProcessRecord\` parsing passed; the synthetic test-only service was then rejected by Android 16 background-service policy, so live \`ServiceRecord\` evidence is not claimed;"
+          new_hist = "- workflow run \`34153570390\`: real API-36 official-Shizuku readiness and \`ProcessRecord\` parsing passed; its rejected synthetic background-service experiment is retained as historical evidence and is superseded for \`ServiceRecord\` runtime coverage by API-37 \`35646519446\`;"
+          matrix = replace_once(matrix, old_hist, new_hist, "historical ServiceRecord evidence")
+
+          roadmap = replace_once(
+              roadmap,
+              "Attempts to inject a deterministic test-only \`ServiceRecord\` were blocked by Android 16 background-service start policy even from the Shizuku shell, so live ServiceRecord evidence is deliberately left open rather than weakening the platform contract or spending further emulator retries.",
+              "The earlier Android-16 synthetic background-service attempt was correctly blocked and removed. It is now superseded by Android 17/API-37 run \`35646519446\`, where a debug-only non-exported target service is bound through the normal platform path, a real ActivityManager \`ServiceRecord\` is read via \`UiAutomation\`, and the production parser consumes the observed \`c:<recentCallingPackage>\` form.",
+              "roadmap parser evidence")
+
+          old_road_service = "- Real API-36 ProcessRecord parsing through the official Shizuku backend is proven. \`ServiceRecord\` parsing remains JVM-fixture-proven but awaits a naturally foreground/physical-device runtime source; the failing synthetic service harness was removed instead of being normalized as a permanent flaky gate."
+          new_road_service = "- Real API-36 ProcessRecord parsing through the official Shizuku backend is proven. Android 17/API 37 now also proves real ActivityManager \`ServiceRecord\` parsing in \`35646519446\`; diagnostic \`35645713842\` captured the current AOSP \`c:<recentCallingPackage>\` suffix and the production parser was minimally extended with JVM regression coverage. OEM/physical output diversity remains release evidence."
+          roadmap = replace_once(roadmap, old_road_service, new_road_service, "roadmap ServiceRecord summary")
+
+          old_api = "- API 36 remains the broad repeatable Android-runtime baseline for Shizuku/reboot/process-state scenarios. Android 17/API 37 is separately proven for the committed target-37 build, installation, 41-test instrumentation and launcher smoke in \`34276106536\`, and real Shizuku manager authorization plus representative typed privileged mutations/rollback in \`34316502181\`. Remaining release-diversity gaps are physical/OEM variation, final installed-release/signing identity + rollback evidence and root-specific execution."
+          new_api = "- API 36 remains the broad repeatable Android-runtime baseline for Shizuku/reboot/process-state scenarios. Android 17/API 37 is separately proven for target-37 build/install, real Shizuku manager authorization and privileged rollback; the current product line additionally passed full run \`35646519446\` with \`OK (42 tests)\`, real system-generated \`ServiceRecord\` parsing, separate-UID abuse probing and launcher smoke. Remaining release-diversity gaps are physical/OEM variation, final installed-release/signing identity + rollback evidence and root-specific execution."
+          roadmap = replace_once(roadmap, old_api, new_api, "roadmap current API37 summary")
+
+          roadmap = replace_once(
+              roadmap,
+              "- [~] Keep \`CHECK_MATRIX.md\` status/evidence current after every high-impact change (refreshed through 2026-09-15; ongoing discipline).",
+              "- [~] Keep \`CHECK_MATRIX.md\` status/evidence current after every high-impact change (refreshed through 2026-09-21; ongoing discipline).",
+              "roadmap evidence freshness")
+          roadmap = replace_once(
+              roadmap,
+              "### Maintainability evidence — 2026-09-05 to 2026-09-15",
+              "### Maintainability evidence — 2026-09-05 to 2026-09-21",
+              "roadmap maintainability date")
+
+          marker = "### Maintainability evidence — 2026-09-05 to 2026-09-21\n\n"
+          additions = (
+              "- Root-shell hardening is now regression-locked in \`fd1f533b8c5a8ea51a3ecbc413b2fe17bf1f0910\`: all eight audited absolute \`su\` candidates and their fallback order are enforced, bare PATH-based \`exec(\"su\")\` is rejected, and standard \`35643580520\` plus CodeQL \`35643571945\` passed. Real KernelSU/Magisk execution remains physical/root diversity evidence.\n"
+              "- Android 17/API-37 \`ServiceRecord\` runtime coverage is now deterministic without violating background-start policy. Diagnostic \`35645713842\` captured the real current AOSP \`c:<recentCallingPackage>\` suffix; final standard \`35645966192\`, CodeQL \`35645972117\`, targeted API-37 \`35646059393\` and full API-37 \`35646519446\` passed, with \`OK (42 tests)\`, separate-UID abuse-probe PASS and launcher smoke. The probe service exists only in the debug source set.\n"
+              "- Non-publishing signed-release preflight \`35642800123\` demonstrated fail-closed behavior on current \`main\`: source authorization passed, then execution stopped before key decode/build/publish because the stable signing identity secrets are not configured. Final production signing identity and rollback therefore remain explicit release evidence rather than a CI implementation gap.\n"
+          )
+          if additions in roadmap:
+              raise SystemExit("roadmap additions already present")
+          roadmap = replace_once(roadmap, marker, marker + additions, "roadmap evidence insertion")
+
+          stale = [
+              "natural foreground \`ServiceRecord\` runtime evidence",
+              "ServiceRecord parsing remains JVM-fixture-proven but awaits",
+              "live ServiceRecord evidence is deliberately left open",
+              "refreshed through 2026-09-15",
+          ]
+          for item in stale:
+              if item in matrix or item in roadmap:
+                  raise SystemExit(f"stale phrase remains: {item}")
+
+          matrix_path.write_text(matrix)
+          roadmap_path.write_text(roadmap)
+          PY
+
+          git diff --check
+          git diff -- docs/ROADMAP.md docs/CHECK_MATRIX.md
+
+          git fetch origin main
+          git checkout origin/main -- .github/workflows/ondemand-test-build.yml
+
+          changed="$(git diff --name-only | sort)"
+          expected="$(printf '%s\n' docs/CHECK_MATRIX.md docs/ROADMAP.md | sort)"
+          test "$changed" = "$expected"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/CHECK_MATRIX.md docs/ROADMAP.md
+          git diff --cached --check
+          git commit -m "Refresh assurance evidence through 2026-09-21"
+          git push origin HEAD:roadmap/assurance-evidence-20260921
