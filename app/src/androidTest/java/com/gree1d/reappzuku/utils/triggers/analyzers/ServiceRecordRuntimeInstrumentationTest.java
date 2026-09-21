@@ -30,10 +30,10 @@ public class ServiceRecordRuntimeInstrumentationTest {
     private static final String TAG = "ReAppzukuServiceDump";
 
     @Test
-    public void boundTestServiceProducesParseableRealServiceRecord() throws Exception {
+    public void boundDebugServiceProducesParseableRealServiceRecord() throws Exception {
         Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
-        Context testContext = instrumentation.getContext();
-        String testPackage = testContext.getPackageName();
+        Context targetContext = instrumentation.getTargetContext();
+        String targetPackage = targetContext.getPackageName();
         CountDownLatch connected = new CountDownLatch(1);
         AtomicReference<ComponentName> connectedComponent = new AtomicReference<>();
 
@@ -49,37 +49,37 @@ public class ServiceRecordRuntimeInstrumentationTest {
             }
         };
 
-        Intent intent = new Intent(testContext, ServiceRecordProbeService.class);
-        boolean bound = testContext.bindService(intent, connection, Context.BIND_AUTO_CREATE);
-        assertTrue("Test service bind was rejected", bound);
+        Intent intent = new Intent(targetContext, ServiceRecordProbeService.class);
+        boolean bound = targetContext.bindService(intent, connection, Context.BIND_AUTO_CREATE);
+        assertTrue("Debug target service bind was rejected", bound);
         try {
-            assertTrue("Test service did not connect", connected.await(10, TimeUnit.SECONDS));
+            assertTrue("Debug target service did not connect", connected.await(10, TimeUnit.SECONDS));
             ComponentName component = connectedComponent.get();
-            assertNotNull("Connected test service component missing", component);
+            assertNotNull("Connected debug service component missing", component);
 
             String dump = executeShellCommand(instrumentation, "dumpsys activity services");
             assertTrue("ActivityManager services dump was empty", !dump.trim().isEmpty());
 
             String expectedShortName = component.getClassName();
-            if (expectedShortName.startsWith(testPackage + ".")) {
-                expectedShortName = expectedShortName.substring(testPackage.length() + 1);
+            if (expectedShortName.startsWith(targetPackage + ".")) {
+                expectedShortName = expectedShortName.substring(targetPackage.length() + 1);
             }
 
             boolean parsed = false;
             for (String line : dump.split("\\r?\\n")) {
-                if (!ProcessDumpParser.isServiceRecordForPackage(line, testPackage)) {
+                if (!ProcessDumpParser.isServiceRecordForPackage(line, targetPackage)) {
                     continue;
                 }
                 if (expectedShortName.equals(
-                        ProcessDumpParser.extractServiceShortName(line, testPackage))) {
+                        ProcessDumpParser.extractServiceShortName(line, targetPackage))) {
                     parsed = true;
+                    Log.i(TAG, "API_SERVICE_RECORD_PARSED " + line.trim());
                     break;
                 }
             }
             assertTrue("Real ServiceRecord was not parsed for " + component.flattenToShortString(), parsed);
-            Log.i(TAG, "API_SERVICE_RECORD_PARSED " + component.flattenToShortString());
         } finally {
-            testContext.unbindService(connection);
+            targetContext.unbindService(connection);
         }
     }
 
