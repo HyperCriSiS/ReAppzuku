@@ -86,6 +86,16 @@ public class ProcessDumpParserTest {
     }
 
     @Test
+    public void parsesCurrentAospServiceRecordWithRecentCallingPackage() {
+        String line = "ServiceRecord{abc123 u0 com.example.app/.SyncService c:com.example.caller}";
+
+        assertTrue(ProcessDumpParser.isServiceRecordForPackage(line, "com.example.app"));
+        assertEquals("SyncService",
+                ProcessDumpParser.extractServiceShortName(line, "com.example.app"));
+        assertTrue(ProcessDumpParser.isServiceRecordLine(line));
+    }
+
+    @Test
     public void extractsExactServiceRecordPackage() {
         String line = "* ServiceRecord{abc u0 com.example.app/.SyncService}";
         assertEquals("com.example.app", ProcessDumpParser.extractServiceRecordPackage(line));
