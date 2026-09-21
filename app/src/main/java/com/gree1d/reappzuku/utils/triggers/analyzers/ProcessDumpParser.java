@@ -16,7 +16,8 @@ final class ProcessDumpParser {
     private static final Pattern SET_STATE_PATTERN =
             Pattern.compile("\\bsetProcState=([A-Za-z0-9_]+)");
     private static final Pattern SERVICE_COMPONENT_PATTERN = Pattern.compile(
-            "ServiceRecord\\{[^}\\r\\n]*\\s([A-Za-z0-9_.]+/[A-Za-z0-9_.$]+)\\s*\\}");
+            "ServiceRecord\\{[^}\\r\\n]*?\\s([A-Za-z0-9_.]+/[A-Za-z0-9_.$]+)"
+                    + "(?:\\s+c:[A-Za-z0-9_.]+)?\\s*\\}");
     private static final Pattern ANY_PROCESS_RECORD_PATTERN = Pattern.compile(
             "ProcessRecord\\{[^}\\r\\n]*\\s(?:\\d+:)?"
                     + "([A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)*)"
