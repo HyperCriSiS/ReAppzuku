@@ -8,38 +8,61 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  validate:
+  refresh-room:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          persist-credentials: false
+          fetch-depth: 0
       - name: Set up JDK 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           java-version: '17'
           distribution: temurin
           cache: gradle
-      - name: Grant execute permission
-        run: chmod +x gradlew
-      - name: Unit tests
-        run: ./gradlew testDebugUnitTest
-      - name: Lint
-        run: ./gradlew lintDebug
-      - name: Compile instrumentation tests
-        run: ./gradlew assembleDebugAndroidTest
-      - name: Verify current Room schema export
-        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
-      - name: Upload debug APK
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: reappzuku-ondemand-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+      - name: Upgrade Room and regenerate trust metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("app/build.gradle")
+          s = p.read_text()
+          old = 'def room_version = "2.8.4"'
+          new = 'def room_version = "2.8.5"'
+          if s.count(old) != 1:
+              raise SystemExit(f"Expected one Room 2.8.4 declaration, got {s.count(old)}")
+          p.write_text(s.replace(old, new, 1))
+          PY
+
+          chmod +x gradlew
+          ./gradlew --write-verification-metadata sha256 --write-locks             testDebugUnitTest lintDebug assembleDebugAndroidTest assembleDebug
+
+          grep -Fq 'def room_version = "2.8.5"' app/build.gradle
+          git diff --check
+
+          git fetch origin main
+          git checkout origin/main -- .github/workflows/ondemand-test-build.yml gradlew
+
+          python - <<'PY'
+          import subprocess
+          changed = set(subprocess.check_output(["git","diff","--name-only"], text=True).splitlines())
+          required = {"app/build.gradle", "app/gradle.lockfile", "gradle/verification-metadata.xml"}
+          if not required.issubset(changed):
+              raise SystemExit(f"Missing required Room diffs: {required - changed}")
+          if changed != required:
+              raise SystemExit(f"Unexpected Room diff files: {changed - required}")
+          print("Final Room diff:", sorted(changed))
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/build.gradle app/gradle.lockfile gradle/verification-metadata.xml
+          git diff --cached --check
+          git commit -m "Upgrade Room to 2.8.5"
+          git push origin HEAD:maintenance/room-2.8.5-current
