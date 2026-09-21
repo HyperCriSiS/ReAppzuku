@@ -20,9 +20,9 @@ public class CodeQlHardeningPolicyTest {
                 "app/src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/DozeOpsAnalyzer.java");
 
         assertTrue(source.contains(
-                "time=\\+([0-9dhms]+(?:\\s+[0-9dhms]+)*)\\s+ago"));
+                "time=\\\\+([0-9dhms]+(?:\\\\s+[0-9dhms]+)*)\\\\s+ago"));
         assertFalse(source.contains(
-                "time=\\+([\\d]+[\\dhms]+(?:\\s*[\\dhms]+)*)\\s+ago"));
+                "time=\\\\+([\\\\d]+[\\\\dhms]+(?:\\\\s*[\\\\dhms]+)*)\\\\s+ago"));
     }
 
     @Test
