@@ -43,6 +43,7 @@ import android.widget.Toast;
 import android.net.Uri;
 import androidx.appcompat.app.AlertDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.snackbar.Snackbar;
 
 import android.widget.PopupWindow;
 import android.widget.ImageView;
@@ -96,6 +97,7 @@ public class MainActivity extends BaseActivity {
     private MenuItem selectAllMenuItem;
     private volatile boolean loadInFlight = false;
     private volatile boolean shellPreparationInFlight = false;
+    private Snackbar shellAccessSnackbar;
 
     private int appliedAccent;
     private boolean appliedIsAmoled;
@@ -114,6 +116,7 @@ public class MainActivity extends BaseActivity {
             if (binding != null) {
                 binding.swiperefreshlayout1.setRefreshing(false);
             }
+            showShellAccessUnavailable();
         }
     };
 
@@ -223,6 +226,7 @@ public class MainActivity extends BaseActivity {
     protected void onDestroy() {
         super.onDestroy();
 
+        dismissShellAccessStatus();
         ramMonitor.stopMonitoring();
         handler.removeCallbacksAndMessages(null);
         loadInFlight = false;
@@ -889,6 +893,25 @@ public class MainActivity extends BaseActivity {
         return getString(R.string.main_restriction_menu_default);
     }
 
+    private void showShellAccessUnavailable() {
+        if (binding == null || isFinishing() || isDestroyed()) return;
+        if (shellAccessSnackbar != null && shellAccessSnackbar.isShown()) return;
+
+        shellAccessSnackbar = Snackbar.make(
+                binding.coordinator,
+                R.string.service_shizuku_lost_text,
+                Snackbar.LENGTH_INDEFINITE);
+        shellAccessSnackbar.setAnchorView(binding.bottomNavigation.getRoot());
+        shellAccessSnackbar.show();
+    }
+
+    private void dismissShellAccessStatus() {
+        if (shellAccessSnackbar != null) {
+            shellAccessSnackbar.dismiss();
+            shellAccessSnackbar = null;
+        }
+    }
+
     private void prepareShellAndLoadApps() {
         if (shellPreparationInFlight) {
 
@@ -903,19 +926,21 @@ public class MainActivity extends BaseActivity {
             if (binding == null || isFinishing() || isDestroyed()) return;
 
             if (state.isReady()) {
+                dismissShellAccessStatus();
                 loadBackgroundApps();
                 return;
             }
             binding.swiperefreshlayout1.setRefreshing(false);
             if (state.needsPermissionRequest()) {
-
+                dismissShellAccessStatus();
                 shellManager.checkShellPermissions();
                 return;
             }
             if (state.isWaiting()) {
+                dismissShellAccessStatus();
                 handler.postDelayed(this::prepareShellAndLoadApps, 500L);
             } else {
-
+                showShellAccessUnavailable();
             }
         });
     }
