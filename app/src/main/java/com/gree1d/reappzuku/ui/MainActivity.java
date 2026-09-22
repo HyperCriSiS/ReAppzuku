@@ -1022,6 +1022,7 @@ public class MainActivity extends BaseActivity {
         listAdapter.submitList(new ArrayList<>(appsDataList));
         updateSelectMenuVisibility();
     }
+
     private void killSelectedApps() {
         List<String> packagesToKill = fullAppsList.stream()
                 .filter(AppModel::isSelected)
