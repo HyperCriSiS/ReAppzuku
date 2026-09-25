@@ -53,6 +53,9 @@ public interface AppStatsDao {
            ")")
     void incrementRelaunch(String packageName, long time);
 
+    @Query("UPDATE app_stats SET relaunchCount = 0, lastRelaunchTime = 0")
+    void resetRelaunches();
+
     @Query("UPDATE app_stats SET totalRecoveredKb = totalRecoveredKb + :recoveredKb " +
            "WHERE id = (" +
                "SELECT id FROM app_stats " +

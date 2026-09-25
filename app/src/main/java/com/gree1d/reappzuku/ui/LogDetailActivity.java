@@ -50,6 +50,7 @@ public class LogDetailActivity extends BaseActivity {
 
     public enum LogType {
         AUTO_KILL,
+        RELAUNCHES,
         TOP_OFFENDERS,
         BACKGROUND_RESTRICTIONS,
         SLEEP_MODE,
@@ -86,6 +87,7 @@ public class LogDetailActivity extends BaseActivity {
 
     private final int[] currentTopOffenderFilterIndex = {0};
     private final List<KillHistoryEntry> killHistoryEntries = new ArrayList<>();
+    private final List<KillHistoryEntry> relaunchEntries = new ArrayList<>();
     private final List<TopOffender> topOffenderEntries = new ArrayList<>();
     private final List<BackgroundRestrictionLog.LogEntry> restrictionLogEntries = new ArrayList<>();
 
@@ -123,6 +125,7 @@ public class LogDetailActivity extends BaseActivity {
 
         switch (logType) {
             case AUTO_KILL:               setupAutoKill();               break;
+            case RELAUNCHES:              setupRelaunches();             break;
             case TOP_OFFENDERS:           setupTopOffenders();           break;
             case BACKGROUND_RESTRICTIONS: setupBackgroundRestrictions(); break;
             case SLEEP_MODE:              setupSleepMode();              break;
@@ -181,6 +184,7 @@ public class LogDetailActivity extends BaseActivity {
     private String titleForLogType(LogType type) {
         switch (type) {
             case AUTO_KILL:               return getString(R.string.settings_kill_history_title);
+            case RELAUNCHES:              return getString(R.string.settings_relaunches_title);
             case TOP_OFFENDERS:           return getString(R.string.settings_top_offenders_title);
             case BACKGROUND_RESTRICTIONS: return getString(R.string.settings_restriction_log_title);
             case SLEEP_MODE:              return getString(R.string.log_sleep_mode_title);
@@ -192,6 +196,7 @@ public class LogDetailActivity extends BaseActivity {
     private void onClearClicked() {
         switch (logType) {
             case AUTO_KILL:               clearAutoKill();               break;
+            case RELAUNCHES:              clearRelaunches();             break;
             case TOP_OFFENDERS:           clearTopOffenders();           break;
             case BACKGROUND_RESTRICTIONS: clearBackgroundRestrictions(); break;
             case SLEEP_MODE:              clearSleepMode();              break;
@@ -297,6 +302,86 @@ public class LogDetailActivity extends BaseActivity {
         executor.execute(() -> {
             com.gree1d.reappzuku.db.AppDatabase.getInstance(this).appStatsDao().deleteStatsSince(sinceTime);
             handler.post(this::loadAutoKill);
+        });
+    }
+
+
+    // ---------- Relaunches ----------
+
+    private void setupRelaunches() {
+        emptyView.setText(getString(R.string.stats_relaunches_empty));
+        loading.setVisibility(View.VISIBLE);
+        listView.setVisibility(View.GONE);
+        summaryText.setText(getString(R.string.stats_loading));
+
+        listView.setOnItemClickListener((parent, view, position, id) -> {
+            if (position < relaunchEntries.size()) {
+                KillHistoryEntry entry = relaunchEntries.get(position);
+                showLogAppOptions(entry.appName, entry.packageName, -1L);
+            }
+        });
+
+        loadRelaunches();
+    }
+
+    private void loadRelaunches() {
+        executor.execute(() -> {
+            com.gree1d.reappzuku.db.AppStatsDao appStatsDao =
+                    com.gree1d.reappzuku.db.AppDatabase.getInstance(this).appStatsDao();
+            List<com.gree1d.reappzuku.db.AppStatsAggregate> statsList = appStatsDao.getAllStats();
+
+            List<KillHistoryEntry> entries = new ArrayList<>();
+            java.util.Map<String, String> pendingNameUpdates = new java.util.HashMap<>();
+            int totalRelaunches = 0;
+            java.text.DateFormat timeFormat = android.text.format.DateFormat.getTimeFormat(this);
+
+            for (com.gree1d.reappzuku.db.AppStatsAggregate stats : statsList) {
+                if (stats == null || stats.packageName == null || stats.relaunchCount <= 0) continue;
+
+                String detail = getString(R.string.stats_relaunch_detail, stats.relaunchCount);
+                if (stats.lastRelaunchTime > 0) {
+                    detail += getString(R.string.stats_last_relaunch_time,
+                            timeFormat.format(new java.util.Date(stats.lastRelaunchTime)));
+                }
+                String badge = stats.lastRelaunchTime > 0
+                        ? timeFormat.format(new java.util.Date(stats.lastRelaunchTime))
+                        : "";
+
+                entries.add(new KillHistoryEntry(
+                        resolveAggregateAppName(stats, pendingNameUpdates),
+                        stats.packageName,
+                        detail,
+                        badge,
+                        stats.lastRelaunchTime,
+                        stats.lastKillSource));
+                totalRelaunches += stats.relaunchCount;
+            }
+
+            if (!pendingNameUpdates.isEmpty()) {
+                appStatsDao.updateAppNames(pendingNameUpdates);
+            }
+
+            Collections.sort(entries, (a, b) -> Long.compare(b.lastEventTime, a.lastEventTime));
+            List<SettingsSurfaceRow> rows = buildKillHistoryRows(entries);
+            String summary = getString(R.string.stats_relaunches_summary, rows.size(), totalRelaunches);
+
+            handler.post(() -> {
+                if (isFinishingOrDestroyed()) return;
+                relaunchEntries.clear();
+                relaunchEntries.addAll(entries);
+                adapter.setItems(rows);
+                summaryText.setText(summary);
+                loading.setVisibility(View.GONE);
+                listView.setVisibility(View.VISIBLE);
+                emptyView.setVisibility(rows.isEmpty() ? View.VISIBLE : View.GONE);
+            });
+        });
+    }
+
+    private void clearRelaunches() {
+        executor.execute(() -> {
+            com.gree1d.reappzuku.db.AppDatabase.getInstance(this).appStatsDao().resetRelaunches();
+            handler.post(this::loadRelaunches);
         });
     }
 
