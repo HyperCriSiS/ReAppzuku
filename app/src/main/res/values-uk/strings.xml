@@ -271,7 +271,7 @@
     </string-array>
 
     <!-- ── Керування Auto-Kill ── -->
-    <string name="settings_section_kill_rules">Керування Auto-Kill</string>
+    <string name="settings_section_kill_rules">Керування застосунками</string>
     <string name="settings_mode_title">Режим роботи Auto-Kill</string>
     <string name="settings_mode_whitelist">Білий список</string>
     <string name="settings_mode_blacklist">Чорний список</string>
@@ -294,7 +294,7 @@
     <string name="settings_auto_kill_type_help_message">На деяких прошивках використання команди am force-stop може розцінюватися системою як сигнал до негайного звільнення ОЗП. У такому випадку кожного разу при виконанні Auto-Kill система самостійно закриватиме всі застосунки, незалежно від налаштувань ReAppzuku.\n\nЯкщо ви зіткнулися з цим, просто переключіться на команду am kill. Це більш «м\'яка» для системи команда.</string>
 
     <!-- ── Додаткові інструменти ── -->
-    <string name="settings_section_advanced_tools">Додаткові інструменти</string>
+    <string name="settings_section_advanced_tools">Обмеження та життєвий цикл</string>
     <string name="settings_background_restriction_title">Фонові обмеження</string>
     <string name="settings_background_restriction_subtitle">Обмеження фонової активності вибраних застосунків</string>
     <string name="settings_reapply_restrictions_title">Повторно застосувати налаштування фонових обмежень</string>
@@ -462,6 +462,13 @@
     <!-- ── Журнал Auto-Kill ── -->
     <string name="settings_kill_history_title">Журнал Auto-Kill</string>
     <string name="settings_kill_history_subtitle">Auto-Kills, перезапуски та звільнене ОЗП</string>
+    <string name="settings_relaunches_title">Перезапущені після зупинки</string>
+    <string name="settings_relaunches_subtitle">Застосунки, які знову запущені невдовзі після того, як ReAppzuku їх зупинив</string>
+    <string name="stats_relaunches_empty">Застосунків, що знову запустилися після зупинки, не виявлено.</string>
+    <string name="stats_relaunches_summary">Застосунків: %1$d · виявлено перезапусків: %2$d</string>
+    <string name="stats_relaunch_detected_title">Виявлено повторний запуск після зупинки</string>
+    <string name="stats_relaunch_detected_single">%1$s знову працює після зупинки.</string>
+    <string name="stats_relaunch_detected_multiple">Знову працюють застосунки: %d.</string>
 
     <!-- ── Журнал фонових обмежень ── -->
     <string name="settings_restriction_log_title">Журнал фонових обмежень</string>

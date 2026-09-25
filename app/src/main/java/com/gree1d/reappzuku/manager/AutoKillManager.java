@@ -8,6 +8,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.SharedPreferences;
 import android.os.Handler;
+import android.os.Looper;
 import android.widget.Toast;
 
 import org.json.JSONException;
@@ -41,6 +42,7 @@ public class AutoKillManager {
 
     private final Context context;
     private final Handler handler;
+    private final Handler relaunchHandler;
     private final ExecutorService executor;
     private final ShellManager shellManager;
     private final PrivilegedShell privilegedShell;
@@ -52,6 +54,7 @@ public class AutoKillManager {
             ShellManager shellManager, List<AppModel> currentAppsList) {
         this.context = context;
         this.handler = handler;
+        this.relaunchHandler = new Handler(Looper.getMainLooper());
         this.executor = executor;
         this.shellManager = shellManager;
         this.privilegedShell = new PrivilegedShell(shellManager);
@@ -317,12 +320,7 @@ public class AutoKillManager {
                     handler.post(() -> onResult.accept(finalKillCount, finalTotalRssKb));
                 }
 
-                try {
-                    Thread.sleep(RELAUNCH_CHECK_DELAY_MS);
-                } catch (InterruptedException ignored) {
-                }
-                com.gree1d.reappzuku.db.AppDatabase db = com.gree1d.reappzuku.db.AppDatabase.getInstance(context);
-                checkRelaunches(toKill, db);
+                scheduleRelaunchCheck(toKill);
             } else {
                 savePendingRss(new HashMap<>());
                 if (onResult != null) {
@@ -335,24 +333,52 @@ public class AutoKillManager {
         });
     }
 
-    private void checkRelaunches(List<String> recentlyKilled, com.gree1d.reappzuku.db.AppDatabase db) {
+    private void scheduleRelaunchCheck(List<String> recentlyKilled) {
+        if (recentlyKilled == null || recentlyKilled.isEmpty()) return;
+
+        List<String> snapshot = new ArrayList<>(new HashSet<>(recentlyKilled));
+        relaunchHandler.postDelayed(() -> executor.execute(() -> {
+            com.gree1d.reappzuku.db.AppDatabase db =
+                    com.gree1d.reappzuku.db.AppDatabase.getInstance(context);
+            checkRelaunches(snapshot, db);
+        }), RELAUNCH_CHECK_DELAY_MS);
+    }
+
+    private void checkRelaunches(List<String> recentlyKilled,
+            com.gree1d.reappzuku.db.AppDatabase db) {
         String psOutput = shellManager.runShellCommandAndGetFullOutput("ps -A -o name | grep '\\.'");
-        if (psOutput == null)
-            return;
+        Set<String> relaunched = RelaunchDetector.findRelaunchedPackages(recentlyKilled, psOutput);
+        if (relaunched.isEmpty()) return;
 
         long now = System.currentTimeMillis();
-        try (BufferedReader reader = new BufferedReader(new StringReader(psOutput))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String pkg = line.trim();
-                if (pkg.contains(":")) {
-                    pkg = pkg.split(":")[0];
-                }
-                if (recentlyKilled.contains(pkg)) {
-                    db.appStatsDao().incrementRelaunch(pkg, now);
-                }
-            }
-        } catch (IOException ignored) {
+        for (String packageName : relaunched) {
+            db.appStatsDao().incrementRelaunch(packageName, now);
+        }
+        reportRelaunches(relaunched);
+    }
+
+    private void reportRelaunches(Set<String> relaunched) {
+        if (relaunched == null || relaunched.isEmpty()) return;
+
+        final String message;
+        if (relaunched.size() == 1) {
+            String packageName = relaunched.iterator().next();
+            String appName = resolveInstalledAppName(context.getPackageManager(), packageName);
+            message = context.getString(R.string.stats_relaunch_detected_single,
+                    appName != null ? appName : packageName);
+        } else {
+            message = context.getString(
+                    R.string.stats_relaunch_detected_multiple,
+                    relaunched.size());
+        }
+
+        if (ShappkyService.isRunning()) {
+            ShappkyService.updateNotification(
+                    context,
+                    context.getString(R.string.stats_relaunch_detected_title),
+                    message);
+        } else {
+            handler.post(() -> Toast.makeText(context, message, Toast.LENGTH_LONG).show());
         }
     }
 
@@ -397,6 +423,7 @@ public class AutoKillManager {
             executor.execute(() -> {
                 recordSuccessfulKills(packagesToLog, recoveredToLog, "Manual Kill");
                 killOrphanShellProcesses(new HashSet<>(packagesToLog));
+                scheduleRelaunchCheck(packagesToLog);
             });
             Toast.makeText(context, context.getString(R.string.toast_free_up, formatMemorySize(finalTotalKb)), Toast.LENGTH_LONG).show();
             if (onComplete != null) {
@@ -444,8 +471,10 @@ public class AutoKillManager {
         privilegedShell.killPackage(packageToKill,
                 PrivilegedShell.KillMode.fromAutoKillType(getAutoKillType()), () -> {
             executor.execute(() -> {
-                recordSuccessfulKills(Collections.singletonList(packageToKill), recoveredKbByPackage, source);
+                List<String> killedPackages = Collections.singletonList(packageToKill);
+                recordSuccessfulKills(killedPackages, recoveredKbByPackage, source);
                 killOrphanShellProcesses(Collections.singleton(packageToKill));
+                scheduleRelaunchCheck(killedPackages);
             });
             if ("Shortcut Kill".equals(source)) {
                 String appLabel = resolveInstalledAppName(context.getPackageManager(), packageToKill);
@@ -573,8 +602,10 @@ public class AutoKillManager {
         if (appRamBytes > 0) {
             recoveredKbByPackage.put(packageName, appRamBytes);
         }
-        recordSuccessfulKills(Collections.singletonList(packageName), recoveredKbByPackage, source);
+        List<String> killedPackages = Collections.singletonList(packageName);
+        recordSuccessfulKills(killedPackages, recoveredKbByPackage, source);
         killOrphanShellProcesses(Collections.singleton(packageName));
+        scheduleRelaunchCheck(killedPackages);
     }
 
     private void sendKillNotification(int count) {
@@ -585,7 +616,9 @@ public class AutoKillManager {
 
     public void recordQuickTileKill(String packageName) {
         if (packageName == null || packageName.isEmpty()) return;
-        recordSuccessfulKills(Collections.singletonList(packageName), null, "Quick Tile");
+        List<String> killedPackages = Collections.singletonList(packageName);
+        recordSuccessfulKills(killedPackages, null, "Quick Tile");
+        scheduleRelaunchCheck(killedPackages);
     }
 
     private void recordSuccessfulKills(List<String> packageNames,

@@ -271,7 +271,7 @@
     </string-array>
 
     <!-- ── Управление Auto-Kill ── -->
-    <string name="settings_section_kill_rules">Управление Auto-Kill</string>
+    <string name="settings_section_kill_rules">Управление приложениями</string>
     <string name="settings_mode_title">Режим работы Auto-Kill</string>
     <string name="settings_mode_whitelist">Белый список</string>
     <string name="settings_mode_blacklist">Черный список</string>
@@ -294,7 +294,7 @@
     <string name="settings_auto_kill_type_help_message">На некоторых прошивках использование команды am force-stop может расцениваться системой как сигнал к немедленному освобождению ОЗУ. В таком случае каждый раз при выполнении Auto-Kill система будет закрывать самостоятельно все приложения, не зависимо от настроек ReAppzuku.\n\nЕсли вы столкнулись с этим, просто переключите на команду am kill. Это более «мягкая» для системы команда.</string>
 
     <!-- ── Дополнительные инструменты ── -->
-    <string name="settings_section_advanced_tools">Дополнительные инструменты</string>
+    <string name="settings_section_advanced_tools">Ограничения и жизненный цикл</string>
     <string name="settings_background_restriction_title">Фоновые ограничения</string>
     <string name="settings_background_restriction_subtitle">Ограничение фоновой активности выбранных приложений</string>
     <string name="settings_reapply_restrictions_title">Повторно применить настройки фоновых ограничений</string>
@@ -462,6 +462,13 @@
     <!-- ── Журнал Auto-Kill ── -->
     <string name="settings_kill_history_title">Журнал Auto-Kill</string>
     <string name="settings_kill_history_subtitle">Auto-Kills, перезапуски и освобожденная ОЗУ</string>
+    <string name="settings_relaunches_title">Перезапущены после остановки</string>
+    <string name="settings_relaunches_subtitle">Приложения, снова обнаруженные запущенными вскоре после остановки ReAppzuku</string>
+    <string name="stats_relaunches_empty">Приложения, запущенные снова после остановки, не обнаружены.</string>
+    <string name="stats_relaunches_summary">Приложений: %1$d · обнаружено перезапусков: %2$d</string>
+    <string name="stats_relaunch_detected_title">Обнаружен повторный запуск после остановки</string>
+    <string name="stats_relaunch_detected_single">%1$s снова запущено после остановки.</string>
+    <string name="stats_relaunch_detected_multiple">%d приложений снова запущены после остановки.</string>
 
     <!-- ── Журнал фоновых ограничений ── -->
     <string name="settings_restriction_log_title">Журнал фоновых ограничений</string>

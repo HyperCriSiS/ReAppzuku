@@ -276,7 +276,7 @@
     </string-array>
 
     <!-- ── Auto-Kill management ── -->
-    <string name="settings_section_kill_rules">自动终止管理</string>
+    <string name="settings_section_kill_rules">应用管理</string>
     <string name="settings_mode_title">自动终止模式</string>
     <string name="settings_mode_whitelist">白名单</string>
     <string name="settings_mode_blacklist">黑名单</string>
@@ -299,7 +299,7 @@
     <string name="settings_auto_kill_type_help_message">在某些 ROM 上，am force-stop 可能被系统解释为立即回收 RAM 的信号 — 导致每次自动终止运行时强制关闭所有应用，无论设置如何。\n\n如遇到此问题，请切换到 am kill，该命令更温和，对系统的影响较小。</string>
 
     <!-- ── Advanced tools ── -->
-    <string name="settings_section_advanced_tools">高级工具</string>
+    <string name="settings_section_advanced_tools">限制与生命周期</string>
     <string name="settings_background_restriction_title">后台限制</string>
     <string name="settings_background_restriction_subtitle">限制选中应用的后台活动</string>
     <string name="settings_reapply_restrictions_title">重新应用后台限制设置</string>
@@ -462,6 +462,13 @@
     <!-- ── Kill history log ── -->
     <string name="settings_kill_history_title">自动终止日志</string>
     <string name="settings_kill_history_subtitle">自动终止、重新启动和已释放 RAM</string>
+    <string name="settings_relaunches_title">终止后重新运行</string>
+    <string name="settings_relaunches_subtitle">ReAppzuku 终止后不久又被检测为正在运行的应用</string>
+    <string name="stats_relaunches_empty">尚未检测到应用在终止后重新运行。</string>
+    <string name="stats_relaunches_summary">%1$d 个应用 · 检测到 %2$d 次重新运行</string>
+    <string name="stats_relaunch_detected_title">检测到终止后重新运行</string>
+    <string name="stats_relaunch_detected_single">%1$s 在被终止后又开始运行。</string>
+    <string name="stats_relaunch_detected_multiple">%d 个应用在被终止后又开始运行。</string>
 
     <!-- ── Background restriction log ── -->
     <string name="settings_restriction_log_title">后台限制日志</string>

@@ -293,7 +293,7 @@
     </string-array>
 
     <!-- ── Auto-Kill management ── -->
-    <string name="settings_section_kill_rules">Auto-Kill management</string>
+    <string name="settings_section_kill_rules">App management</string>
     <string name="settings_mode_title">Auto-Kill mode</string>
     <string name="settings_mode_whitelist">Whitelist</string>
     <string name="settings_mode_blacklist">Blacklist</string>
@@ -316,7 +316,7 @@
     <string name="settings_auto_kill_type_help_message">On some ROMs, am force-stop may be interpreted by the system as a signal to reclaim RAM immediately — forcing all apps to close on every Auto-Kill run, regardless of settings.\n\nIf you hit this issue, switch to am kill. It\'s a softer command, less aggressive toward the system.</string>
 
     <!-- ── Advanced tools ── -->
-    <string name="settings_section_advanced_tools">Advanced tools</string>
+    <string name="settings_section_advanced_tools">Restrictions &amp; lifecycle</string>
     <string name="settings_background_restriction_title">Background restrictions</string>
     <string name="settings_background_restriction_subtitle">Restrict background activity for selected apps</string>
     <string name="settings_reapply_restrictions_title">Re-apply background restriction settings</string>
@@ -479,6 +479,13 @@
     <!-- ── Kill history log ── -->
     <string name="settings_kill_history_title">Auto-Kill log</string>
     <string name="settings_kill_history_subtitle">Auto-Kills, relaunches and freed RAM</string>
+    <string name="settings_relaunches_title">Restarted after kill</string>
+    <string name="settings_relaunches_subtitle">Apps detected running again shortly after ReAppzuku stopped them</string>
+    <string name="stats_relaunches_empty">No apps have been detected running again after a kill.</string>
+    <string name="stats_relaunches_summary">%1$d apps · %2$d detected restarts</string>
+    <string name="stats_relaunch_detected_title">Restart detected after kill</string>
+    <string name="stats_relaunch_detected_single">%1$s is running again after being stopped.</string>
+    <string name="stats_relaunch_detected_multiple">%d apps are running again after being stopped.</string>
 
     <!-- ── Background restriction log ── -->
     <string name="settings_restriction_log_title">Background restriction log</string>

@@ -184,6 +184,7 @@ public class StatisticsActivity extends BaseActivity {
 
     private void setupListeners() {
         binding.layoutStats.setOnClickListener(v -> openLogDetail(LogDetailActivity.LogType.AUTO_KILL));
+        binding.layoutRelaunches.setOnClickListener(v -> openLogDetail(LogDetailActivity.LogType.RELAUNCHES));
         binding.layoutTopOffenders.setOnClickListener(v -> openLogDetail(LogDetailActivity.LogType.TOP_OFFENDERS));
         binding.layoutRestrictionLog.setVisibility(
                 appManager.supportsBackgroundRestriction() ? View.VISIBLE : View.GONE);
