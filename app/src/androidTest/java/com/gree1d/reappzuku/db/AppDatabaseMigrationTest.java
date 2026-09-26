@@ -25,7 +25,7 @@ public class AppDatabaseMigrationTest {
             InstrumentationRegistry.getInstrumentation(), AppDatabase.class);
 
     @Test
-    public void migrate2To11_preservesExistingStatsAndMatchesSchema() throws IOException {
+    public void migrate2To12_preservesExistingStatsAndAddsPolicySchema() throws IOException {
         SupportSQLiteDatabase db = helper.createDatabase(TEST_DB, 2);
         db.execSQL("INSERT INTO app_stats " +
                 "(packageName, appName, killCount, relaunchCount, totalRecoveredKb, lastKillTime, lastRelaunchTime) " +
@@ -34,7 +34,7 @@ public class AppDatabaseMigrationTest {
 
         db = helper.runMigrationsAndValidate(
                 TEST_DB,
-                11,
+                12,
                 true,
                 AppDatabase.MIGRATION_2_3,
                 AppDatabase.MIGRATION_3_4,
@@ -44,7 +44,8 @@ public class AppDatabaseMigrationTest {
                 AppDatabase.MIGRATION_7_8,
                 AppDatabase.MIGRATION_8_9,
                 AppDatabase.MIGRATION_9_10,
-                AppDatabase.MIGRATION_10_11);
+                AppDatabase.MIGRATION_10_11,
+                AppDatabase.MIGRATION_11_12);
 
         try (Cursor cursor = db.query(
                 "SELECT packageName, appName, relaunchCount, totalRecoveredKb, lastKillTime, lastRelaunchTime, lastKillSource " +
@@ -57,6 +58,14 @@ public class AppDatabaseMigrationTest {
             assertEquals(111L, cursor.getLong(4));
             assertEquals(222L, cursor.getLong(5));
             assertTrue(cursor.isNull(6));
+        }
+
+        try (Cursor cursor = db.query(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('app_policy','policy_preset') ORDER BY name")) {
+            assertTrue(cursor.moveToFirst());
+            assertEquals("app_policy", cursor.getString(0));
+            assertTrue(cursor.moveToNext());
+            assertEquals("policy_preset", cursor.getString(0));
         }
         db.close();
     }

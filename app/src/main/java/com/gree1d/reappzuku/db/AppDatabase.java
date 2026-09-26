@@ -17,9 +17,11 @@ import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory;
         ResourceSnapshot.class,
         BgRestrictionLog.class,
         SchedulerLog.class,
-        SleepModeLog.class
+        SleepModeLog.class,
+        AppPolicy.class,
+        PolicyPreset.class
     },
-    version = 11,
+    version = 12,
     exportSchema = true
 )
 public abstract class AppDatabase extends RoomDatabase {
@@ -150,6 +152,49 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    static final Migration MIGRATION_11_12 = new Migration(11, 12) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase db) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS `app_policy` (" +
+                    "`packageName` TEXT NOT NULL, " +
+                    "`strategy` INTEGER NOT NULL, " +
+                    "`presetId` INTEGER, " +
+                    "`customized` INTEGER NOT NULL, " +
+                    "`standbyDelayMs` INTEGER NOT NULL, " +
+                    "`forceStopDelayMs` INTEGER NOT NULL, " +
+                    "`killMethod` INTEGER NOT NULL, " +
+                    "`bootCleanup` INTEGER NOT NULL, " +
+                    "`backgroundRestriction` INTEGER NOT NULL, " +
+                    "`protectMedia` INTEGER NOT NULL, " +
+                    "`protectForegroundServices` INTEGER NOT NULL, " +
+                    "`protectWidgets` INTEGER NOT NULL, " +
+                    "`triggerMask` INTEGER NOT NULL, " +
+                    "`createdAt` INTEGER NOT NULL, " +
+                    "`updatedAt` INTEGER NOT NULL, " +
+                    "PRIMARY KEY(`packageName`))");
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_app_policy_strategy` ON `app_policy` (`strategy`)");
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_app_policy_presetId` ON `app_policy` (`presetId`)");
+
+            db.execSQL("CREATE TABLE IF NOT EXISTS `policy_preset` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`name` TEXT NOT NULL, " +
+                    "`strategy` INTEGER NOT NULL, " +
+                    "`standbyDelayMs` INTEGER NOT NULL, " +
+                    "`forceStopDelayMs` INTEGER NOT NULL, " +
+                    "`killMethod` INTEGER NOT NULL, " +
+                    "`bootCleanup` INTEGER NOT NULL, " +
+                    "`backgroundRestriction` INTEGER NOT NULL, " +
+                    "`protectMedia` INTEGER NOT NULL, " +
+                    "`protectForegroundServices` INTEGER NOT NULL, " +
+                    "`protectWidgets` INTEGER NOT NULL, " +
+                    "`triggerMask` INTEGER NOT NULL, " +
+                    "`builtIn` INTEGER NOT NULL, " +
+                    "`createdAt` INTEGER NOT NULL, " +
+                    "`updatedAt` INTEGER NOT NULL)");
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_policy_preset_name` ON `policy_preset` (`name`)");
+        }
+    };
+
     private static final int SQL_CACHE_SIZE = 64;
 
     private static final Callback RAISE_STATEMENT_CACHE_CALLBACK = new Callback() {
@@ -172,6 +217,8 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract BgRestrictionLog.Dao bgRestrictionLogDao();
     public abstract SchedulerLog.Dao schedulerLogDao();
     public abstract SleepModeLog.Dao sleepModeLogDao();
+    public abstract AppPolicyDao appPolicyDao();
+    public abstract PolicyPresetDao policyPresetDao();
 
     public static synchronized AppDatabase getInstance(Context context) {
         if (instance == null) {
@@ -187,7 +234,8 @@ public abstract class AppDatabase extends RoomDatabase {
                         MIGRATION_7_8,
                         MIGRATION_8_9,
                         MIGRATION_9_10,
-                        MIGRATION_10_11
+                        MIGRATION_10_11,
+                        MIGRATION_11_12
                     )
                     .openHelperFactory(new RequerySQLiteOpenHelperFactory())
                     .addCallback(RAISE_STATEMENT_CACHE_CALLBACK)
