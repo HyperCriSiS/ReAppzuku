@@ -19,6 +19,9 @@ public interface PolicyPresetDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     long upsert(PolicyPreset preset);
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    void insertAllIgnore(List<PolicyPreset> presets);
+
     @Delete
     void delete(PolicyPreset preset);
 

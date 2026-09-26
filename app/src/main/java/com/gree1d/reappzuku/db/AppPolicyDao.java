@@ -22,6 +22,9 @@ public interface AppPolicyDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void upsert(AppPolicy policy);
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    void insertAllIgnore(List<AppPolicy> policies);
+
     @Delete
     void delete(AppPolicy policy);
 
