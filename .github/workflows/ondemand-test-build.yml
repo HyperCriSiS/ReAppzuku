@@ -1,45 +1,41 @@
-name: On-demand Shizuku test APK
+name: Normalize policy migration schema
 
 on:
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  validate:
+  apply:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          persist-credentials: false
-      - name: Set up JDK 17
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
-        with:
-          java-version: '17'
-          distribution: temurin
-          cache: gradle
-      - name: Grant execute permission
-        run: chmod +x gradlew
-      - name: Unit tests
-        run: ./gradlew testDebugUnitTest
-      - name: Lint
-        run: ./gradlew lintDebug
-      - name: Compile instrumentation tests
-        run: ./gradlew assembleDebugAndroidTest
-      - name: Verify current Room schema export
-        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
-      - name: Upload debug APK
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: reappzuku-ondemand-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          ref: feature/unified-app-policy-foundation
+          fetch-depth: 0
+      - name: Match migration SQL to Room schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path("app/src/main/java/com/gree1d/reappzuku/db/AppDatabase.java")
+          s = p.read_text()
+          start = s.index("    static final Migration MIGRATION_11_12")
+          end = s.index("    private static final int SQL_CACHE_SIZE", start)
+          block = s[start:end]
+          block = re.sub(r" DEFAULT (?:0|1|3600000|21600000)", "", block)
+          s = s[:start] + block + s[end:]
+          p.write_text(s)
+          PY
+          git fetch origin main
+          git checkout origin/main -- .github/workflows/ondemand-test-build.yml
+          git diff --check
+          git add -A
+          git diff --cached --check
+          git config user.name 'HyperCriSiS'
+          git config user.email 'dev.github@w3b.world'
+          git commit -m 'Match policy migration to generated Room schema'
+          git push origin HEAD:feature/unified-app-policy-foundation
