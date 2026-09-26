@@ -238,6 +238,35 @@ Status convention:
 - PR #6 made app-label search/sorting explicitly user-locale aware while package identifiers use `Locale.ROOT`; run `34259963846` passed.
 - Backup v6 manual-restriction snapshot semantics have real API-36 execution evidence: run `34259632923` installed both APKs and passed `BackupManagerRestoreTest` 12/12.
 
+
+## Phase 9 — Unified per-app lifecycle policies
+
+Goal: replace overlapping global Auto-Kill / Smart Lifecycle ownership with one canonical per-app policy model. Every package has at most one lifecycle strategy; presets are reusable templates, not a second execution engine.
+
+- [x] Define canonical Room-backed `AppPolicy` model with the execution strategies `UNMANAGED`, `PROTECTED`, `SMART` and `IMMEDIATE`. `Custom` is a presentation state for a policy that differs from its preset, not a fifth engine.
+- [x] Add reusable `PolicyPreset` storage in the same schema migration so the foundation does not require another immediate Room version bump.
+- [x] Add central `AppPolicyResolver` with explicit-policy precedence and a bounded legacy fallback. During transition, Smart Lifecycle owns legacy-blacklisted packages before Immediate Auto-Kill so one app cannot be controlled by both engines at once.
+- [x] Add JVM regression coverage for explicit precedence, Smart-vs-Immediate conflict resolution, whitelist protection and blacklist targeting.
+- [x] Add Room 11 -> 12 migration and extend the supported v2 migration chain to validate the new policy tables while preserving existing statistics.
+- [ ] Build one-time legacy migration from whitelist/blacklist, Smart Lifecycle, Sleep Mode and background-restriction state into explicit per-app policies without changing user intent.
+- [ ] Route Auto-Kill and Smart Lifecycle execution through the policy resolver, then retire direct shared-blacklist ownership.
+- [ ] Add per-app Policy Editor reachable from the main app list with strategy, preset, delays, kill method, boot cleanup, background restriction, protection toggles and triggers.
+- [ ] Ship built-in policy presets (Never touch, Messenger, Media, Balanced, Rarely used, Aggressive) plus unlimited user presets and `Save as preset`.
+- [ ] Rename the existing two time-window Auto-Kill presets to Automation Schedules and keep them separate from reusable per-app Policy Presets.
+- [ ] Add `PACKAGE_ADDED` handling with a durable setup queue: `Ask after install`, `Apply default preset`, or `Leave unmanaged`; use a notification/deep link instead of launching an Activity over the foreground app.
+- [ ] Add main-list policy badges and filters for Managed, Smart, Immediate, Protected and Needs setup.
+- [ ] Extend versioned backup/restore to include app policies, policy presets and new-app defaults transactionally.
+- [ ] Remove obsolete blacklist/whitelist/Smart Lifecycle settings UI only after migration and execution parity are proven.
+- [ ] Validate the completed model on API 37 plus physical/OEM devices, including install-notification flow and conflicting legacy configurations.
+
+### Phase 9 migration principles
+
+- Existing installs must keep their current effective behavior until an explicit policy is written or legacy migration completes.
+- A package may never be owned by Smart and Immediate automation simultaneously.
+- Policy presets describe per-app behavior; Automation Schedules describe when policies/triggers are active. These concepts stay separate.
+- Newly installed apps default to no privileged mutation unless the user selected an automatic default preset.
+- System/persistent/protected packages continue to fail safe regardless of policy data.
+
 ## Stable-release gate
 
 A candidate is not stable until all P0 findings are `PROVEN`, no P1 is unowned, reboot/permission/migration paths have repeatable Android evidence, update provenance is correct, exported privileged boundaries are reviewed, and release artifact/signing identity + rollback path are recorded.

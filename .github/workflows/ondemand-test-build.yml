@@ -1,34 +1,45 @@
-name: Apply unified app-policy foundation
+name: On-demand Shizuku test APK
 
 on:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  apply:
+  validate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: feature/unified-app-policy-foundation
-          fetch-depth: 0
-      - name: Apply reviewed policy foundation
-        shell: bash
-        run: |
-          set -euo pipefail
-          printf '%s' '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' | base64 -d | gzip -d > /tmp/policy.patch
-          git apply --check /tmp/policy.patch
-          git apply /tmp/policy.patch
-          bash ./gradlew :app:compileDebugJavaWithJavac --no-daemon
-          test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/12.json
-          git fetch origin main
-          git checkout origin/main -- .github/workflows/ondemand-test-build.yml
-          git diff --check
-          git add -A
-          git diff --cached --check
-          git config user.name 'HyperCriSiS'
-          git config user.email 'dev.github@w3b.world'
-          git commit -m 'Add unified app lifecycle policy foundation'
-          git push origin HEAD:feature/unified-app-policy-foundation
+          persist-credentials: false
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+      - name: Grant execute permission
+        run: chmod +x gradlew
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+      - name: Lint
+        run: ./gradlew lintDebug
+      - name: Compile instrumentation tests
+        run: ./gradlew assembleDebugAndroidTest
+      - name: Verify current Room schema export
+        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+      - name: Upload debug APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: reappzuku-ondemand-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
