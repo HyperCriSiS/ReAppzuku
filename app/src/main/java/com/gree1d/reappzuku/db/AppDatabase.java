@@ -157,20 +157,20 @@ public abstract class AppDatabase extends RoomDatabase {
         public void migrate(@NonNull SupportSQLiteDatabase db) {
             db.execSQL("CREATE TABLE IF NOT EXISTS `app_policy` (" +
                     "`packageName` TEXT NOT NULL, " +
-                    "`strategy` INTEGER NOT NULL DEFAULT 0, " +
+                    "`strategy` INTEGER NOT NULL, " +
                     "`presetId` INTEGER, " +
-                    "`customized` INTEGER NOT NULL DEFAULT 0, " +
-                    "`standbyDelayMs` INTEGER NOT NULL DEFAULT 3600000, " +
-                    "`forceStopDelayMs` INTEGER NOT NULL DEFAULT 21600000, " +
-                    "`killMethod` INTEGER NOT NULL DEFAULT 0, " +
-                    "`bootCleanup` INTEGER NOT NULL DEFAULT 1, " +
-                    "`backgroundRestriction` INTEGER NOT NULL DEFAULT 0, " +
-                    "`protectMedia` INTEGER NOT NULL DEFAULT 1, " +
-                    "`protectForegroundServices` INTEGER NOT NULL DEFAULT 1, " +
-                    "`protectWidgets` INTEGER NOT NULL DEFAULT 1, " +
-                    "`triggerMask` INTEGER NOT NULL DEFAULT 0, " +
-                    "`createdAt` INTEGER NOT NULL DEFAULT 0, " +
-                    "`updatedAt` INTEGER NOT NULL DEFAULT 0, " +
+                    "`customized` INTEGER NOT NULL, " +
+                    "`standbyDelayMs` INTEGER NOT NULL, " +
+                    "`forceStopDelayMs` INTEGER NOT NULL, " +
+                    "`killMethod` INTEGER NOT NULL, " +
+                    "`bootCleanup` INTEGER NOT NULL, " +
+                    "`backgroundRestriction` INTEGER NOT NULL, " +
+                    "`protectMedia` INTEGER NOT NULL, " +
+                    "`protectForegroundServices` INTEGER NOT NULL, " +
+                    "`protectWidgets` INTEGER NOT NULL, " +
+                    "`triggerMask` INTEGER NOT NULL, " +
+                    "`createdAt` INTEGER NOT NULL, " +
+                    "`updatedAt` INTEGER NOT NULL, " +
                     "PRIMARY KEY(`packageName`))");
             db.execSQL("CREATE INDEX IF NOT EXISTS `index_app_policy_strategy` ON `app_policy` (`strategy`)");
             db.execSQL("CREATE INDEX IF NOT EXISTS `index_app_policy_presetId` ON `app_policy` (`presetId`)");
@@ -178,19 +178,19 @@ public abstract class AppDatabase extends RoomDatabase {
             db.execSQL("CREATE TABLE IF NOT EXISTS `policy_preset` (" +
                     "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
                     "`name` TEXT NOT NULL, " +
-                    "`strategy` INTEGER NOT NULL DEFAULT 0, " +
-                    "`standbyDelayMs` INTEGER NOT NULL DEFAULT 3600000, " +
-                    "`forceStopDelayMs` INTEGER NOT NULL DEFAULT 21600000, " +
-                    "`killMethod` INTEGER NOT NULL DEFAULT 0, " +
-                    "`bootCleanup` INTEGER NOT NULL DEFAULT 1, " +
-                    "`backgroundRestriction` INTEGER NOT NULL DEFAULT 0, " +
-                    "`protectMedia` INTEGER NOT NULL DEFAULT 1, " +
-                    "`protectForegroundServices` INTEGER NOT NULL DEFAULT 1, " +
-                    "`protectWidgets` INTEGER NOT NULL DEFAULT 1, " +
-                    "`triggerMask` INTEGER NOT NULL DEFAULT 0, " +
-                    "`builtIn` INTEGER NOT NULL DEFAULT 0, " +
-                    "`createdAt` INTEGER NOT NULL DEFAULT 0, " +
-                    "`updatedAt` INTEGER NOT NULL DEFAULT 0)");
+                    "`strategy` INTEGER NOT NULL, " +
+                    "`standbyDelayMs` INTEGER NOT NULL, " +
+                    "`forceStopDelayMs` INTEGER NOT NULL, " +
+                    "`killMethod` INTEGER NOT NULL, " +
+                    "`bootCleanup` INTEGER NOT NULL, " +
+                    "`backgroundRestriction` INTEGER NOT NULL, " +
+                    "`protectMedia` INTEGER NOT NULL, " +
+                    "`protectForegroundServices` INTEGER NOT NULL, " +
+                    "`protectWidgets` INTEGER NOT NULL, " +
+                    "`triggerMask` INTEGER NOT NULL, " +
+                    "`builtIn` INTEGER NOT NULL, " +
+                    "`createdAt` INTEGER NOT NULL, " +
+                    "`updatedAt` INTEGER NOT NULL)");
             db.execSQL("CREATE INDEX IF NOT EXISTS `index_policy_preset_name` ON `policy_preset` (`name`)");
         }
     };
