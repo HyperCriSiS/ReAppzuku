@@ -44,6 +44,7 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_SLEEP_MODE_APPS_PERMA
 import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_SLEEP_MODE_ENABLED;
 import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_SMART_BOOT_CLEANUP_ENABLED;
 import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_SMART_LIFECYCLE_ENABLED;
+import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_WHITELISTED_APPS;
 import static com.gree1d.reappzuku.core.PreferenceKeys.PREFERENCES_NAME;
 
 /**
