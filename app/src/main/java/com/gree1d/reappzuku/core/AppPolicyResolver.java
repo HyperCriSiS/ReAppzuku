@@ -59,6 +59,31 @@ public final class AppPolicyResolver {
                 : AppPolicy.STRATEGY_UNMANAGED;
     }
 
+    public static boolean shouldExecuteImmediate(@Nullable AppPolicy explicitPolicy,
+                                                 LegacyState legacy,
+                                                 long trigger) {
+        if (resolveStrategy(explicitPolicy, legacy) != AppPolicy.STRATEGY_IMMEDIATE) {
+            return false;
+        }
+        if (explicitPolicy == null || trigger == 0L) {
+            return true;
+        }
+        return (explicitPolicy.triggerMask & trigger) != 0L;
+    }
+
+    public static boolean shouldExecuteSmart(@Nullable AppPolicy explicitPolicy,
+                                             LegacyState legacy,
+                                             boolean bootPass) {
+        if (resolveStrategy(explicitPolicy, legacy) != AppPolicy.STRATEGY_SMART) {
+            return false;
+        }
+        if (!bootPass || explicitPolicy == null) {
+            return true;
+        }
+        return explicitPolicy.bootCleanup
+                && (explicitPolicy.triggerMask & AppPolicy.TRIGGER_BOOT_CLEANUP) != 0L;
+    }
+
     public static boolean isManagedStrategy(int strategy) {
         return strategy == AppPolicy.STRATEGY_SMART
                 || strategy == AppPolicy.STRATEGY_IMMEDIATE;
