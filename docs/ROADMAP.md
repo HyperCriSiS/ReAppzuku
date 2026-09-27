@@ -248,16 +248,24 @@ Goal: replace overlapping global Auto-Kill / Smart Lifecycle ownership with one 
 - [x] Add central `AppPolicyResolver` with explicit-policy precedence and a bounded legacy fallback. During transition, Smart Lifecycle owns legacy-blacklisted packages before Immediate Auto-Kill so one app cannot be controlled by both engines at once.
 - [x] Add JVM regression coverage for explicit precedence, Smart-vs-Immediate conflict resolution, whitelist protection and blacklist targeting.
 - [x] Add Room 11 -> 12 migration and extend the supported v2 migration chain to validate the new policy tables while preserving existing statistics.
-- [ ] Build one-time legacy migration from whitelist/blacklist, Smart Lifecycle, Sleep Mode and background-restriction state into explicit per-app policies without changing user intent.
+- [~] Build one-time idempotent legacy migration from whitelist/blacklist, Smart Lifecycle, active/permanent Sleep Mode ownership and background-restriction state into explicit per-app policies without changing current effective ownership. The migration planner/runtime bridge and regression coverage are implemented; activation is deliberately deferred to the execution-routing cutover so legacy UI edits cannot make a precomputed snapshot stale.
 - [ ] Route Auto-Kill and Smart Lifecycle execution through the policy resolver, then retire direct shared-blacklist ownership.
 - [ ] Add per-app Policy Editor reachable from the main app list with strategy, preset, delays, kill method, boot cleanup, background restriction, protection toggles and triggers.
-- [ ] Ship built-in policy presets (Never touch, Messenger, Media, Balanced, Rarely used, Aggressive) plus unlimited user presets and `Save as preset`.
+- [~] Seed stable built-in policy presets (Never touch, Messenger, Media, Balanced, Rarely used, Aggressive). User-created presets, localization/display names and `Save as preset` remain part of the Policy Editor block.
 - [ ] Rename the existing two time-window Auto-Kill presets to Automation Schedules and keep them separate from reusable per-app Policy Presets.
 - [ ] Add `PACKAGE_ADDED` handling with a durable setup queue: `Ask after install`, `Apply default preset`, or `Leave unmanaged`; use a notification/deep link instead of launching an Activity over the foreground app.
 - [ ] Add main-list policy badges and filters for Managed, Smart, Immediate, Protected and Needs setup.
 - [ ] Extend versioned backup/restore to include app policies, policy presets and new-app defaults transactionally.
 - [ ] Remove obsolete blacklist/whitelist/Smart Lifecycle settings UI only after migration and execution parity are proven.
 - [ ] Validate the completed model on API 37 plus physical/OEM devices, including install-notification flow and conflicting legacy configurations.
+
+### Phase 9 migration evidence — 2026-09-26
+
+- Legacy policy migration code is versioned and retry-safe: Room rows commit first, the SharedPreferences completion marker is committed second, and reruns use insert-ignore so an existing explicit policy is never overwritten. It is not auto-started yet; activation stays coupled to the execution-routing cutover while legacy settings remain editable.
+- Legacy whitelist mode is materialized against the currently installed eligible package set rather than preserved as an inverse global list; future installs remain unmanaged until the dedicated new-app default flow is implemented.
+- Active timer Sleep Mode, permanent freezes and still-owned frozen timer apps take lifecycle precedence and become `PROTECTED`; the existing Sleep Mode preference data remains the freeze source of truth for now.
+- Background restriction strength migrates independently with MANUAL > HARD > MEDIUM > SOFT precedence; manual AppOps/bucket/whitelist detail remains in its existing exact per-package preference keys until the Policy Editor/backup block moves that detail.
+- Six stable built-in preset IDs are seeded idempotently. Legacy-derived policies intentionally start as Custom (`presetId=null`, `customized=true`) instead of pretending to match a reusable preset.
 
 ### Phase 9 migration principles
 

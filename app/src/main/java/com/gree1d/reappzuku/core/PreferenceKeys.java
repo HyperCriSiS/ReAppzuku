@@ -67,6 +67,7 @@ public final class PreferenceKeys {
     public static final String KEY_REPLACEMENT_NOTICE_SHOWN_VERSION = "replacement_notice_shown_version";
     public static final String KEY_EXIT_ON_BACK = "exit_on_back";
     public static final String KEY_PREVENT_SHIZUKU_AUTOSTART = "prevent_shizuku_autostart";
+    public static final String KEY_APP_POLICY_MIGRATION_VERSION = "app_policy_migration_version";
 
     // Notifications
     public static final String KEY_NOTIFICATION_MODE = "notificationMode";
