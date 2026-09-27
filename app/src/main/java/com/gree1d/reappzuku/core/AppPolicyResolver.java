@@ -71,6 +71,18 @@ public final class AppPolicyResolver {
         return (explicitPolicy.triggerMask & trigger) != 0L;
     }
 
+    public static int resolveImmediateKillMethod(@Nullable AppPolicy explicitPolicy,
+                                                 int legacyAutoKillType) {
+        if (explicitPolicy != null) {
+            return explicitPolicy.killMethod == AppPolicy.KILL_METHOD_AM_KILL
+                    ? AppPolicy.KILL_METHOD_AM_KILL
+                    : AppPolicy.KILL_METHOD_FORCE_STOP;
+        }
+        return legacyAutoKillType == AppPolicy.KILL_METHOD_AM_KILL
+                ? AppPolicy.KILL_METHOD_AM_KILL
+                : AppPolicy.KILL_METHOD_FORCE_STOP;
+    }
+
     public static boolean shouldExecuteSmart(@Nullable AppPolicy explicitPolicy,
                                              LegacyState legacy,
                                              boolean bootPass) {
