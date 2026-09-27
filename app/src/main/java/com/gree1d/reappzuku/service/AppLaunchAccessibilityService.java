@@ -18,6 +18,7 @@ import java.util.concurrent.ExecutorService;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
+import com.gree1d.reappzuku.db.AppPolicy;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.PresetManager;
 import com.gree1d.reappzuku.manager.SmartLifecycleManager;
@@ -105,7 +106,11 @@ public class AppLaunchAccessibilityService extends AccessibilityService {
         lastTriggerTime = now;
 
 
-        autoKillManager.performAutoKill(null, new HashSet<String>(targetPackages), resolveKillSource("App Launch Trigger"));
+        autoKillManager.performAutoKill(
+                null,
+                new HashSet<String>(targetPackages),
+                resolveKillSource("App Launch Trigger"),
+                AppPolicy.TRIGGER_APP_LAUNCH);
 
         if (prefs.getBoolean(KEY_APP_LAUNCH_CLEAR_CACHE, false)) {
             executor.execute(() -> trimMemoryForAll(targetPackages));
