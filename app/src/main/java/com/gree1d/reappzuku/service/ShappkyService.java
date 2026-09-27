@@ -31,6 +31,7 @@ import com.gree1d.reappzuku.core.ShellBackendState;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
+import com.gree1d.reappzuku.db.AppPolicy;
 import com.gree1d.reappzuku.manager.SleepModeManager;
 import com.gree1d.reappzuku.manager.CollectStatsManager;
 import com.gree1d.reappzuku.service.CollectStatsReceiver;
@@ -380,14 +381,20 @@ public class ShappkyService extends Service {
 
                         if (ramPercent >= threshold) {
 
-                            autoKillManager.performAutoKill(() -> KillTriggerReceiver.releaseAutoKillWakeLock(), resolveKillSource("Screen-Off Kill"));
+                            autoKillManager.performAutoKill(
+                                    () -> KillTriggerReceiver.releaseAutoKillWakeLock(),
+                                    resolveKillSource("Screen-Off Kill"),
+                                    AppPolicy.TRIGGER_SCREEN_OFF);
                         } else {
 
                             KillTriggerReceiver.releaseAutoKillWakeLock();
                         }
                     } else {
 
-                        autoKillManager.performAutoKill(() -> KillTriggerReceiver.releaseAutoKillWakeLock(), resolveKillSource("Screen-Off Kill"));
+                        autoKillManager.performAutoKill(
+                                () -> KillTriggerReceiver.releaseAutoKillWakeLock(),
+                                resolveKillSource("Screen-Off Kill"),
+                                AppPolicy.TRIGGER_SCREEN_OFF);
                     }
                 });
                 break;
@@ -872,14 +879,20 @@ public class ShappkyService extends Service {
 
                         if (ramPercent >= threshold) {
 
-                            autoKillManager.performAutoKill(() -> handler.post(this::scheduleNextKill), resolveKillSource("Service Periodic Kill"));
+                            autoKillManager.performAutoKill(
+                                    () -> handler.post(this::scheduleNextKill),
+                                    resolveKillSource("Service Periodic Kill"),
+                                    AppPolicy.TRIGGER_RAM_THRESHOLD);
                         } else {
 
                             handler.post(this::scheduleNextKill);
                         }
                     } else {
 
-                        autoKillManager.performAutoKill(() -> handler.post(this::scheduleNextKill), resolveKillSource("Service Periodic Kill"));
+                        autoKillManager.performAutoKill(
+                                () -> handler.post(this::scheduleNextKill),
+                                resolveKillSource("Service Periodic Kill"),
+                                AppPolicy.TRIGGER_PERIODIC);
                     }
                 } else {
 
