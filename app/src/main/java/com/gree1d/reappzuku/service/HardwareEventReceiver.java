@@ -14,6 +14,7 @@ import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
+import com.gree1d.reappzuku.db.AppPolicy;
 import com.gree1d.reappzuku.manager.PresetManager;
 
 import static com.gree1d.reappzuku.core.AppConstants.*;
@@ -131,7 +132,8 @@ public class HardwareEventReceiver extends BroadcastReceiver {
 
             autoKillManager.performAutoKill(() -> {
 
-            }, resolveKillSource(appContext, "Hardware event: " + finalDescription));
+            }, resolveKillSource(appContext, "Hardware event: " + finalDescription),
+                    AppPolicy.TRIGGER_HARDWARE_EVENT);
         };
 
 

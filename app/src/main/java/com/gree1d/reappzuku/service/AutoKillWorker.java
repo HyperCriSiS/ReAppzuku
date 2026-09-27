@@ -21,6 +21,7 @@ import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
+import com.gree1d.reappzuku.db.AppPolicy;
 
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
@@ -96,7 +97,10 @@ public class AutoKillWorker extends Worker {
 
             String source = getInputData().getString(KEY_SOURCE);
             if (source == null) source = "Periodic Kill";
-            autoKillManager.performAutoKill(latch::countDown, source);
+            long trigger = ramThresholdEnabled
+                    ? AppPolicy.TRIGGER_RAM_THRESHOLD
+                    : AppPolicy.TRIGGER_PERIODIC;
+            autoKillManager.performAutoKill(latch::countDown, source, trigger);
 
             boolean finished = latch.await(60, TimeUnit.SECONDS);
             if (!finished) {

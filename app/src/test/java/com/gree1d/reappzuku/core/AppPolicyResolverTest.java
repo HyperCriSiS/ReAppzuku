@@ -79,6 +79,28 @@ public class AppPolicyResolverTest {
     }
 
     @Test
+    public void explicitImmediateKillMethodOverridesLegacyDefault() {
+        AppPolicy explicit = new AppPolicy("com.example.app");
+        explicit.killMethod = AppPolicy.KILL_METHOD_AM_KILL;
+
+        assertEquals(AppPolicy.KILL_METHOD_AM_KILL,
+                AppPolicyResolver.resolveImmediateKillMethod(
+                        explicit, AppPolicy.KILL_METHOD_FORCE_STOP));
+    }
+
+    @Test
+    public void invalidImmediateKillMethodFailsSafeToForceStop() {
+        AppPolicy explicit = new AppPolicy("com.example.app");
+        explicit.killMethod = 99;
+
+        assertEquals(AppPolicy.KILL_METHOD_FORCE_STOP,
+                AppPolicyResolver.resolveImmediateKillMethod(
+                        explicit, AppPolicy.KILL_METHOD_AM_KILL));
+        assertEquals(AppPolicy.KILL_METHOD_FORCE_STOP,
+                AppPolicyResolver.resolveImmediateKillMethod(null, 99));
+    }
+
+    @Test
     public void explicitSmartBootPassRequiresBootCleanupTrigger() {
         AppPolicy explicit = new AppPolicy("com.example.app");
         explicit.strategy = AppPolicy.STRATEGY_SMART;

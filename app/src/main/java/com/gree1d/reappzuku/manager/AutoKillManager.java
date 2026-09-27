@@ -1,5 +1,6 @@
 package com.gree1d.reappzuku.manager;
 
+import com.gree1d.reappzuku.core.AppPolicyResolver;
 import com.gree1d.reappzuku.core.PackageNameValidator;
 import com.gree1d.reappzuku.core.PrivilegedShell;
 
@@ -32,6 +33,8 @@ import com.gree1d.reappzuku.utils.AppModel;
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.service.ShappkyService;
 import com.gree1d.reappzuku.core.ProtectedApps;
+import com.gree1d.reappzuku.db.AppDatabase;
+import com.gree1d.reappzuku.db.AppPolicy;
 
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
@@ -67,15 +70,29 @@ public class AutoKillManager {
     }
 
     public void performAutoKill(Runnable onComplete, String source) {
-        performAutoKill(onComplete, null, source);
+        performAutoKill(onComplete, null, source, 0L);
+    }
+
+    public void performAutoKill(Runnable onComplete, String source, long trigger) {
+        performAutoKill(onComplete, null, source, trigger);
     }
 
     public void performAutoKill(Runnable onComplete, Set<String> extraWhitelist, String source) {
-        performAutoKillWithResult(onComplete, extraWhitelist, null, source);
+        performAutoKill(onComplete, extraWhitelist, source, 0L);
+    }
+
+    public void performAutoKill(Runnable onComplete, Set<String> extraWhitelist,
+            String source, long trigger) {
+        performAutoKillWithResult(onComplete, extraWhitelist, null, source, trigger);
     }
 
     public void performAutoKillWithResult(Runnable onComplete, Set<String> extraWhitelist,
             java.util.function.BiConsumer<Integer, Long> onResult, String source) {
+        performAutoKillWithResult(onComplete, extraWhitelist, onResult, source, 0L);
+    }
+
+    public void performAutoKillWithResult(Runnable onComplete, Set<String> extraWhitelist,
+            java.util.function.BiConsumer<Integer, Long> onResult, String source, long trigger) {
         executor.execute(() -> {
             if (!shellManager.resolveAnyShellPermission()) {
                 if (onComplete != null)
@@ -87,12 +104,18 @@ public class AutoKillManager {
             Set<String> whitelistedApps = getWhitelistedApps();
             Set<String> blacklistedApps = getBlacklistedApps();
             int killMode = getKillMode();
+            boolean presetActive = new PresetManager(context).getActivePresetNumber() != 0;
+            boolean legacyAutoKillEnabled =
+                    sharedpreferences.getBoolean(KEY_AUTO_KILL_ENABLED, false) || presetActive;
+            boolean legacySmartEnabled =
+                    sharedpreferences.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false);
 
-
-
-
-
-
+            Map<String, AppPolicy> explicitPolicies = new HashMap<>();
+            for (AppPolicy policy : AppDatabase.getInstance(context).appPolicyDao().getAll()) {
+                if (policy != null && policy.packageName != null) {
+                    explicitPolicies.put(policy.packageName, policy);
+                }
+            }
 
             String dumpOutput = shellManager.runShellCommandAndGetFullOutput("dumpsys activity activities");
 
@@ -226,8 +249,6 @@ public class AutoKillManager {
 
             killOrphanShellProcesses(null);
 
-            boolean presetActive = new PresetManager(context).getActivePresetNumber() != 0;
-
             String currentKeyboard = ProtectedApps.getCurrentKeyboardPackage(context);
             String currentLauncher = ProtectedApps.getCurrentLauncherPackage(context);
 
@@ -254,20 +275,23 @@ public class AutoKillManager {
 
                                 return false;
                             }
-                            if (killMode == 1) {
-                                boolean inBlacklist = blacklistedApps.contains(pkg);
-
-                                return inBlacklist;
-                            } else {
-                                if (whitelistedApps.contains(pkg)) {
-
-                                    return false;
-                                }
-                                ApplicationInfo appInfo = pm.getApplicationInfo(pkg, 0);
-                                boolean persistent = (appInfo.flags & ApplicationInfo.FLAG_PERSISTENT) != 0;
-
-                                return !persistent;
+                            ApplicationInfo appInfo = pm.getApplicationInfo(pkg, 0);
+                            boolean persistent =
+                                    (appInfo.flags & ApplicationInfo.FLAG_PERSISTENT) != 0;
+                            if (persistent) {
+                                return false;
                             }
+
+                            AppPolicy explicitPolicy = explicitPolicies.get(pkg);
+                            AppPolicyResolver.LegacyState legacyState =
+                                    new AppPolicyResolver.LegacyState(
+                                            legacyAutoKillEnabled,
+                                            legacySmartEnabled,
+                                            killMode == 0,
+                                            whitelistedApps.contains(pkg),
+                                            blacklistedApps.contains(pkg));
+                            return AppPolicyResolver.shouldExecuteImmediate(
+                                    explicitPolicy, legacyState, trigger);
                         } catch (PackageManager.NameNotFoundException e) {
 
                             return false;
@@ -305,8 +329,27 @@ public class AutoKillManager {
                 }
                 savePendingRss(newPendingRss);
 
-                privilegedShell.killPackagesAndGetFullOutput(
-                        toKill, PrivilegedShell.KillMode.fromAutoKillType(getAutoKillType()));
+                List<String> forceStopPackages = new ArrayList<>();
+                List<String> amKillPackages = new ArrayList<>();
+                int legacyKillMethod = getAutoKillType();
+                for (String pkg : toKill) {
+                    AppPolicy explicitPolicy = explicitPolicies.get(pkg);
+                    int killMethod = AppPolicyResolver.resolveImmediateKillMethod(
+                            explicitPolicy, legacyKillMethod);
+                    if (killMethod == AppPolicy.KILL_METHOD_AM_KILL) {
+                        amKillPackages.add(pkg);
+                    } else {
+                        forceStopPackages.add(pkg);
+                    }
+                }
+                if (!forceStopPackages.isEmpty()) {
+                    privilegedShell.killPackagesAndGetFullOutput(
+                            forceStopPackages, PrivilegedShell.KillMode.FORCE_STOP);
+                }
+                if (!amKillPackages.isEmpty()) {
+                    privilegedShell.killPackagesAndGetFullOutput(
+                            amKillPackages, PrivilegedShell.KillMode.KILL);
+                }
 
                 sendKillNotification(toKill.size());
 
