@@ -21,7 +21,7 @@ import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory;
         AppPolicy.class,
         PolicyPreset.class
     },
-    version = 12,
+    version = 13,
     exportSchema = true
 )
 public abstract class AppDatabase extends RoomDatabase {
@@ -195,6 +195,13 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    static final Migration MIGRATION_12_13 = new Migration(12, 13) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase db) {
+            db.execSQL("ALTER TABLE app_policy ADD COLUMN source INTEGER NOT NULL DEFAULT 0");
+        }
+    };
+
     private static final int SQL_CACHE_SIZE = 64;
 
     private static final Callback RAISE_STATEMENT_CACHE_CALLBACK = new Callback() {
@@ -235,7 +242,8 @@ public abstract class AppDatabase extends RoomDatabase {
                         MIGRATION_8_9,
                         MIGRATION_9_10,
                         MIGRATION_10_11,
-                        MIGRATION_11_12
+                        MIGRATION_11_12,
+                        MIGRATION_12_13
                     )
                     .openHelperFactory(new RequerySQLiteOpenHelperFactory())
                     .addCallback(RAISE_STATEMENT_CACHE_CALLBACK)
