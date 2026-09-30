@@ -52,8 +52,11 @@ public class SmartLifecycleWorker extends Worker {
                 System.currentTimeMillis() - SystemClock.elapsedRealtime()).apply();
 
         schedulePeriodic(context);
-        if (!prefs.getBoolean(KEY_SMART_BOOT_CLEANUP_ENABLED, true)) return;
 
+        // Always enqueue the boot pass while the legacy Smart engine is enabled.
+        // SmartLifecycleManager keeps the legacy global cleanup switch for legacy-
+        // owned packages, while explicit SMART policies use their own bootCleanup
+        // flag and TRIGGER_BOOT_CLEANUP bit.
         int grace = SmartLifecycleManager.getBootGraceMinutes(prefs);
         Data data = new Data.Builder().putBoolean(INPUT_BOOT_PASS, true).build();
         OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(SmartLifecycleWorker.class)
@@ -82,18 +85,15 @@ public class SmartLifecycleWorker extends Worker {
             ShellManager shellManager = app.getShellManager();
             boolean bootPass = getInputData().getBoolean(INPUT_BOOT_PASS, false);
             if (!shellManager.resolveAnyShellPermission()) {
-
                 return bootPass ? Result.retry() : Result.success();
             }
             SmartLifecycleManager manager = new SmartLifecycleManager(context, shellManager);
             boolean passCompleted = manager.runPass(bootPass);
             if (SmartLifecycleRecoveryPolicy.shouldRetryWorker(bootPass, passCompleted)) {
-
                 return Result.retry();
             }
             return Result.success();
         } catch (Throwable t) {
-
             return Result.retry();
         }
     }
