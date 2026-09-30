@@ -116,6 +116,69 @@ public class AppPolicyResolverTest {
     }
 
     @Test
+    public void explicitNonSmartPolicyRemovesLegacySmartOwnership() {
+        AppPolicy explicit = new AppPolicy("com.example.app");
+        explicit.strategy = AppPolicy.STRATEGY_PROTECTED;
+
+        assertFalse(AppPolicyResolver.shouldExecuteSmart(
+                explicit, legacy(true, true, false, false, true), false));
+    }
+
+    @Test
+    public void explicitSmartPolicyUsesPerAppDelays() {
+        AppPolicy explicit = new AppPolicy("com.example.app");
+        explicit.strategy = AppPolicy.STRATEGY_SMART;
+        explicit.standbyDelayMs = 15_000L;
+        explicit.forceStopDelayMs = 45_000L;
+
+        long standby = AppPolicyResolver.resolveSmartStandbyDelayMs(explicit, 60_000L);
+        long forceStop = AppPolicyResolver.resolveSmartForceStopDelayMs(
+                explicit, 120_000L, standby);
+
+        assertEquals(15_000L, standby);
+        assertEquals(45_000L, forceStop);
+    }
+
+    @Test
+    public void invalidExplicitSmartDelaysUseConservativePolicyDefaults() {
+        AppPolicy explicit = new AppPolicy("com.example.app");
+        explicit.strategy = AppPolicy.STRATEGY_SMART;
+        explicit.standbyDelayMs = -1L;
+        explicit.forceStopDelayMs = -1L;
+
+        long standby = AppPolicyResolver.resolveSmartStandbyDelayMs(explicit, 30_000L);
+        long forceStop = AppPolicyResolver.resolveSmartForceStopDelayMs(
+                explicit, 60_000L, standby);
+
+        assertEquals(AppPolicy.DEFAULT_SMART_STANDBY_DELAY_MS, standby);
+        assertEquals(AppPolicy.DEFAULT_SMART_FORCE_STOP_DELAY_MS, forceStop);
+    }
+
+    @Test
+    public void smartForceStopNeverPrecedesResolvedStandby() {
+        AppPolicy explicit = new AppPolicy("com.example.app");
+        explicit.strategy = AppPolicy.STRATEGY_SMART;
+        explicit.standbyDelayMs = 60_000L;
+        explicit.forceStopDelayMs = 10_000L;
+
+        long standby = AppPolicyResolver.resolveSmartStandbyDelayMs(explicit, 30_000L);
+        long forceStop = AppPolicyResolver.resolveSmartForceStopDelayMs(
+                explicit, 120_000L, standby);
+
+        assertEquals(60_000L, standby);
+        assertEquals(60_000L, forceStop);
+    }
+
+    @Test
+    public void smartDelayFallbackUsesSafeDefaultsForInvalidLegacyValues() {
+        assertEquals(AppPolicy.DEFAULT_SMART_STANDBY_DELAY_MS,
+                AppPolicyResolver.resolveSmartStandbyDelayMs(null, 0L));
+        assertEquals(AppPolicy.DEFAULT_SMART_FORCE_STOP_DELAY_MS,
+                AppPolicyResolver.resolveSmartForceStopDelayMs(
+                        null, 0L, AppPolicy.DEFAULT_SMART_STANDBY_DELAY_MS));
+    }
+
+    @Test
     public void managedStrategyOnlyIncludesSmartAndImmediate() {
         assertTrue(AppPolicyResolver.isManagedStrategy(AppPolicy.STRATEGY_SMART));
         assertTrue(AppPolicyResolver.isManagedStrategy(AppPolicy.STRATEGY_IMMEDIATE));

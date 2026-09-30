@@ -7,12 +7,17 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.provider.Settings;
 
+import com.gree1d.reappzuku.core.AppPolicyResolver;
 import com.gree1d.reappzuku.core.ProtectedApps;
 import com.gree1d.reappzuku.core.PrivilegedShell;
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.db.AppDatabase;
+import com.gree1d.reappzuku.db.AppPolicy;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
@@ -21,9 +26,9 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
  * Conservative lifecycle management inspired by Brevent's "standby first,
  * force-stop later" model, but using ReAppzuku/Shizuku as the privilege layer.
  *
- * Only packages explicitly placed in ReAppzuku's blacklist are managed. This
- * intentionally does not inherit whitelist-mode semantics, because doing so
- * could silently target almost every installed application.
+ * During Phase 9 explicit Room-backed policies own per-app behavior. Packages
+ * without an explicit policy keep the bounded legacy blacklist fallback while
+ * the old settings UI remains available.
  */
 public final class SmartLifecycleManager {
 
@@ -81,15 +86,32 @@ public final class SmartLifecycleManager {
     }
 
     public boolean runPass(boolean bootPass) {
-        if (!prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false)) return true;
+        boolean legacySmartEnabled = prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false);
+        if (!legacySmartEnabled) return true;
         if (!shellManager.resolveAnyShellPermission()) {
-
             return false;
         }
 
-        Set<String> managed = new HashSet<>(prefs.getStringSet(KEY_BLACKLISTED_APPS, Collections.emptySet()));
-        if (managed.isEmpty()) {
+        Set<String> blacklisted = new HashSet<>(
+                prefs.getStringSet(KEY_BLACKLISTED_APPS, Collections.emptySet()));
+        Set<String> whitelisted = new HashSet<>(
+                prefs.getStringSet(KEY_WHITELISTED_APPS, Collections.emptySet()));
+        boolean legacyAutoKillEnabled = prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false)
+                || prefs.getInt(KEY_ACTIVE_PRESET, 0) != 0;
+        boolean whitelistMode = prefs.getInt(KEY_KILL_MODE, 1) == 0;
 
+        Map<String, AppPolicy> explicitPolicies = new HashMap<>();
+        for (AppPolicy policy : AppDatabase.getInstance(context).appPolicyDao().getAll()) {
+            if (policy != null && policy.packageName != null) {
+                explicitPolicies.put(policy.packageName, policy);
+            }
+        }
+
+        Set<String> managed = new HashSet<>(blacklisted);
+        // Include every explicit row so switching a formerly-SMART package to
+        // PROTECTED/UNMANAGED/IMMEDIATE also clears stale Smart timing state.
+        managed.addAll(explicitPolicies.keySet());
+        if (managed.isEmpty()) {
             return true;
         }
 
@@ -106,12 +128,30 @@ public final class SmartLifecycleManager {
 
         long now = System.currentTimeMillis();
         long bootEpoch = prefs.getLong(KEY_SMART_BOOT_EPOCH_MS, 0L);
-        long standbyDelay = getStandbyDelayMinutes(prefs) * MINUTE;
-        long forceStopDelay = getForceStopDelayMinutes(prefs) * MINUTE;
+        long legacyStandbyDelay = getStandbyDelayMinutes(prefs) * MINUTE;
+        long legacyForceStopDelay = getForceStopDelayMinutes(prefs) * MINUTE;
+        boolean legacyBootCleanupEnabled =
+                prefs.getBoolean(KEY_SMART_BOOT_CLEANUP_ENABLED, true);
         boolean retryRequired = false;
 
         for (String pkg : managed) {
-            if (!isEligiblePackage(pkg)) continue;
+            AppPolicy explicitPolicy = explicitPolicies.get(pkg);
+            AppPolicyResolver.LegacyState legacyState = new AppPolicyResolver.LegacyState(
+                    legacyAutoKillEnabled,
+                    legacySmartEnabled,
+                    whitelistMode,
+                    whitelisted.contains(pkg),
+                    blacklisted.contains(pkg));
+
+            if (!AppPolicyResolver.shouldExecuteSmart(explicitPolicy, legacyState, bootPass)) {
+                clearBackgroundState(pkg);
+                continue;
+            }
+
+            if (!isEligiblePackage(pkg)) {
+                clearBackgroundState(pkg);
+                continue;
+            }
 
             if (pkg.equals(currentForeground)) {
                 clearBackgroundState(pkg);
@@ -126,20 +166,22 @@ public final class SmartLifecycleManager {
             String protectionReason = getProtectionReason(pkg, mediaDump, widgetDump, servicesDump,
                     wallpaperDump, devicePolicyDump, connectivityDump);
             if (protectionReason != null) {
-
                 clearBackgroundState(pkg);
                 continue;
             }
 
             if (bootPass) {
-                if (!prefs.getBoolean(KEY_SMART_BOOT_CLEANUP_ENABLED, true)) continue;
+                // Explicit SMART policies own their boot-cleanup decision. Legacy-owned
+                // packages keep the old global switch until that UI is retired.
+                if (explicitPolicy == null && !legacyBootCleanupEnabled) continue;
+
                 long lastForeground = prefs.getLong(KEY_SMART_LAST_FOREGROUND_PREFIX + pkg, 0L);
                 if (bootEpoch > 0 && lastForeground >= bootEpoch) {
-
                     continue;
                 }
                 SmartLifecycleRecoveryPolicy.ForceStopOutcome outcome =
-                        SmartLifecycleRecoveryPolicy.onForceStopResult(true, forceStop(pkg, "boot cleanup"));
+                        SmartLifecycleRecoveryPolicy.onForceStopResult(
+                                true, forceStop(pkg, "boot cleanup"));
                 if (outcome == SmartLifecycleRecoveryPolicy.ForceStopOutcome.CLEAR_STATE) {
                     clearBackgroundState(pkg);
                 } else if (outcome == SmartLifecycleRecoveryPolicy.ForceStopOutcome.KEEP_STATE_AND_RETRY) {
@@ -148,25 +190,32 @@ public final class SmartLifecycleManager {
                 continue;
             }
 
+            long standbyDelay = AppPolicyResolver.resolveSmartStandbyDelayMs(
+                    explicitPolicy, legacyStandbyDelay);
+            long forceStopDelay = AppPolicyResolver.resolveSmartForceStopDelayMs(
+                    explicitPolicy, legacyForceStopDelay, standbyDelay);
+
             String sinceKey = KEY_SMART_BACKGROUND_SINCE_PREFIX + pkg;
             long backgroundSince = prefs.getLong(sinceKey, 0L);
             if (backgroundSince <= 0L || backgroundSince > now) {
                 prefs.edit().putLong(sinceKey, now).apply();
-
                 continue;
             }
 
             long idle = now - backgroundSince;
-            if (idle >= standbyDelay && !prefs.getBoolean(KEY_SMART_STANDBY_APPLIED_PREFIX + pkg, false)) {
+            if (idle >= standbyDelay
+                    && !prefs.getBoolean(KEY_SMART_STANDBY_APPLIED_PREFIX + pkg, false)) {
                 if (setStandby(pkg)) {
-                    prefs.edit().putBoolean(KEY_SMART_STANDBY_APPLIED_PREFIX + pkg, true).apply();
+                    prefs.edit()
+                            .putBoolean(KEY_SMART_STANDBY_APPLIED_PREFIX + pkg, true)
+                            .apply();
                 }
             }
 
             if (idle >= forceStopDelay) {
                 SmartLifecycleRecoveryPolicy.ForceStopOutcome outcome =
-                        SmartLifecycleRecoveryPolicy.onForceStopResult(false,
-                                forceStop(pkg, "inactive " + (idle / MINUTE) + " min"));
+                        SmartLifecycleRecoveryPolicy.onForceStopResult(
+                                false, forceStop(pkg, "inactive " + (idle / MINUTE) + " min"));
                 if (outcome == SmartLifecycleRecoveryPolicy.ForceStopOutcome.CLEAR_STATE) {
                     clearBackgroundState(pkg);
                 }
@@ -187,7 +236,8 @@ public final class SmartLifecycleManager {
     }
 
     private String getProtectionReason(String pkg, String mediaDump, String widgetDump,
-            String servicesDump, String wallpaperDump, String devicePolicyDump, String connectivityDump) {
+            String servicesDump, String wallpaperDump, String devicePolicyDump,
+            String connectivityDump) {
         if (isEnabledAccessibilityService(pkg)) return "accessibility service";
         if (isEnabledNotificationListener(pkg)) return "notification listener";
         return SmartLifecycleProtectionPolicy.getDumpProtectionReason(
@@ -231,16 +281,12 @@ public final class SmartLifecycleManager {
     }
 
     private boolean setStandby(String pkg) {
-        boolean ok = privilegedShell.setStandbyBucketBlocking(
+        return privilegedShell.setStandbyBucketBlocking(
                 pkg, PrivilegedShell.StandbyBucket.RARE);
-
-        return ok;
     }
 
     private boolean forceStop(String pkg, String reason) {
-        boolean ok = privilegedShell.forceStopPackageBlocking(pkg);
-
-        return ok;
+        return privilegedShell.forceStopPackageBlocking(pkg);
     }
 
     private void clearBackgroundState(String pkg) {
@@ -254,5 +300,4 @@ public final class SmartLifecycleManager {
         String output = shellManager.runShellCommandAndGetFullOutput(command);
         return output == null ? "" : output;
     }
-
 }
