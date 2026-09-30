@@ -148,7 +148,10 @@ public final class SmartLifecycleManager {
                     whitelisted.contains(pkg),
                     blacklisted.contains(pkg));
 
-            if (!AppPolicyResolver.shouldExecuteSmart(explicitPolicy, legacyState, bootPass)) {
+            if (!AppPolicyResolver.shouldExecuteSmart(
+                    explicitPolicy,
+                    migrationSnapshotCurrent ? null : legacyState,
+                    bootPass)) {
                 clearBackgroundState(pkg);
                 continue;
             }
