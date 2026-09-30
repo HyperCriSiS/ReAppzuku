@@ -5,11 +5,16 @@ import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 
+import androidx.annotation.Nullable;
+
 import com.gree1d.reappzuku.db.AppDatabase;
 import com.gree1d.reappzuku.db.AppPolicy;
 import com.gree1d.reappzuku.db.AppPolicyDao;
 import com.gree1d.reappzuku.manager.SmartLifecycleManager;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -17,45 +22,19 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_APP_LAUNCH_TRIGGER_ENABLED;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_APP_POLICY_MIGRATION_VERSION;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_AUTO_KILL_ENABLED;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_AUTO_KILL_TYPE;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_AUTOSTART_DISABLED_APPS;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_BLACKLISTED_APPS;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_HARD_RESTRICTION_APPS;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_HIDDEN_APPS;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_HW_TRIGGER_BLUETOOTH;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_HW_TRIGGER_CHARGER;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_HW_TRIGGER_GPS;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_HW_TRIGGER_HEADSET;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_HW_TRIGGER_HOTSPOT;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_HW_TRIGGER_USB;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_HW_TRIGGER_WIFI;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_KILL_MODE;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_KILL_ON_SCREEN_OFF;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_MANUAL_RESTRICTION_APPS;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_MEDIUM_RESTRICTION_APPS;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_PERIODIC_KILL_ENABLED;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_RAM_THRESHOLD_ENABLED;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_SLEEP_MODE_APPS;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_SLEEP_MODE_APPS_FROZEN;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_SLEEP_MODE_APPS_PERMANENT;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_SLEEP_MODE_ENABLED;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_SMART_BOOT_CLEANUP_ENABLED;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_SMART_LIFECYCLE_ENABLED;
-import static com.gree1d.reappzuku.core.PreferenceKeys.KEY_WHITELISTED_APPS;
-import static com.gree1d.reappzuku.core.PreferenceKeys.PREFERENCES_NAME;
+import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 
 /**
- * One-time bridge from the legacy list/global settings model to explicit per-app policies.
+ * Retry-safe bridge from the editable legacy settings model to canonical per-app policies.
  *
- * The bridge deliberately does not remove or rewrite any legacy preference. Runtime ownership
- * remains on the old managers until the later execution-routing block is proven. Existing
- * explicit policies are never overwritten, which also makes a retry after process death safe.
+ * Migration-owned rows carry explicit provenance. A fingerprint binds those rows to the exact
+ * legacy snapshot that produced them. If any old UI/preset/restore writer changes relevant
+ * preferences, the fingerprint stops matching immediately and runtime routing ignores only
+ * LEGACY_MIGRATED rows until a fresh reconciliation succeeds. User-owned explicit policies are
+ * never discarded by this bridge.
  */
 public final class AppPolicyLegacyMigrator {
-    static final int CURRENT_MIGRATION_VERSION = 1;
+    static final int CURRENT_MIGRATION_VERSION = 2;
     private static final long MINUTE_MS = 60_000L;
 
     private AppPolicyLegacyMigrator() {}
@@ -69,17 +48,21 @@ public final class AppPolicyLegacyMigrator {
             AppDatabase db = AppDatabase.getInstance(appContext);
             PolicyPresetSeeder.seedBuiltIns(db);
 
-            if (prefs.getInt(KEY_APP_POLICY_MIGRATION_VERSION, 0) >= CURRENT_MIGRATION_VERSION) {
+            LegacySnapshot legacy = readSnapshot(prefs);
+            String fingerprint = fingerprintSnapshot(legacy);
+            if (isMigrationSnapshotCurrent(prefs, fingerprint)) {
                 return true;
             }
 
-            LegacySnapshot legacy = readSnapshot(prefs);
             PackageInventory inventory = collectPackageInventory(appContext);
+            AppPolicyDao policyDao = db.appPolicyDao();
 
-            Set<String> existingPackages = new HashSet<>();
-            for (AppPolicy policy : db.appPolicyDao().getAll()) {
-                if (policy != null && policy.packageName != null) {
-                    existingPackages.add(policy.packageName);
+            Set<String> existingExplicitPackages = new HashSet<>();
+            for (AppPolicy policy : policyDao.getAll()) {
+                if (policy != null
+                        && policy.packageName != null
+                        && policy.source != AppPolicy.SOURCE_LEGACY_MIGRATED) {
+                    existingExplicitPackages.add(policy.packageName);
                 }
             }
 
@@ -87,20 +70,107 @@ public final class AppPolicyLegacyMigrator {
                     legacy,
                     inventory.eligibleInstalledPackages,
                     inventory.failSafePackages,
-                    existingPackages,
+                    existingExplicitPackages,
                     System.currentTimeMillis());
 
-            AppPolicyDao policyDao = db.appPolicyDao();
-            db.runInTransaction(() -> policyDao.insertAllIgnore(planned));
+            // Invalidate before touching Room. If the process dies anywhere below, runtime falls
+            // back to live legacy state instead of treating a partially refreshed snapshot as
+            // canonical.
+            if (!invalidateMigration(prefs.edit()).commit()) {
+                return false;
+            }
 
-            // Commit only after the Room transaction. If this write fails, the next process start
-            // safely retries and INSERT IGNORE preserves any rows already committed.
+            db.runInTransaction(() -> {
+                policyDao.deleteBySource(AppPolicy.SOURCE_LEGACY_MIGRATED);
+                policyDao.insertAllIgnore(planned);
+            });
+
+            // A legacy write may race the Room transaction. Never bless rows generated from an
+            // older snapshot: leave them invalid and let the next coalesced pass rebuild them.
+            if (!fingerprint.equals(fingerprintSnapshot(readSnapshot(prefs)))) {
+                return false;
+            }
+
             return prefs.edit()
+                    .putString(KEY_APP_POLICY_MIGRATION_FINGERPRINT, fingerprint)
                     .putInt(KEY_APP_POLICY_MIGRATION_VERSION, CURRENT_MIGRATION_VERSION)
                     .commit();
         } catch (RuntimeException ignored) {
-            // Do not mark a failed migration complete. Existing legacy execution remains intact.
+            // Do not mark a failed migration complete. Stale migration-owned rows remain ignored.
             return false;
+        }
+    }
+
+    public static boolean isMigrationSnapshotCurrent(SharedPreferences prefs) {
+        if (prefs == null) return false;
+        try {
+            String currentFingerprint = fingerprintSnapshot(readSnapshot(prefs));
+            return isMigrationSnapshotCurrent(prefs, currentFingerprint);
+        } catch (RuntimeException ignored) {
+            return false;
+        }
+    }
+
+    static boolean isMigrationSnapshotCurrent(
+            SharedPreferences prefs, String currentFingerprint) {
+        if (prefs.getInt(KEY_APP_POLICY_MIGRATION_VERSION, 0) < CURRENT_MIGRATION_VERSION) {
+            return false;
+        }
+        String stored = prefs.getString(KEY_APP_POLICY_MIGRATION_FINGERPRINT, null);
+        return stored != null && stored.equals(currentFingerprint);
+    }
+
+    @Nullable
+    public static AppPolicy resolveEffectivePolicy(
+            @Nullable AppPolicy policy, boolean migrationSnapshotCurrent) {
+        if (policy == null) return null;
+        if (policy.source == AppPolicy.SOURCE_LEGACY_MIGRATED && !migrationSnapshotCurrent) {
+            return null;
+        }
+        return policy;
+    }
+
+    static SharedPreferences.Editor invalidateMigration(SharedPreferences.Editor editor) {
+        return editor
+                .putInt(KEY_APP_POLICY_MIGRATION_VERSION, 0)
+                .remove(KEY_APP_POLICY_MIGRATION_FINGERPRINT);
+    }
+
+    public static boolean affectsMigrationKey(@Nullable String key) {
+        if (key == null) return false;
+        switch (key) {
+            case KEY_AUTO_KILL_ENABLED:
+            case KEY_ACTIVE_PRESET:
+            case KEY_SMART_LIFECYCLE_ENABLED:
+            case KEY_SLEEP_MODE_ENABLED:
+            case KEY_KILL_MODE:
+            case KEY_AUTO_KILL_TYPE:
+            case KEY_SMART_LIFECYCLE_PROFILE:
+            case KEY_SMART_BOOT_CLEANUP_ENABLED:
+            case KEY_PERIODIC_KILL_ENABLED:
+            case KEY_KILL_ON_SCREEN_OFF:
+            case KEY_RAM_THRESHOLD_ENABLED:
+            case KEY_HW_TRIGGER_HEADSET:
+            case KEY_HW_TRIGGER_USB:
+            case KEY_HW_TRIGGER_CHARGER:
+            case KEY_HW_TRIGGER_WIFI:
+            case KEY_HW_TRIGGER_BLUETOOTH:
+            case KEY_HW_TRIGGER_GPS:
+            case KEY_HW_TRIGGER_HOTSPOT:
+            case KEY_APP_LAUNCH_TRIGGER_ENABLED:
+            case KEY_HIDDEN_APPS:
+            case KEY_WHITELISTED_APPS:
+            case KEY_BLACKLISTED_APPS:
+            case KEY_SLEEP_MODE_APPS:
+            case KEY_SLEEP_MODE_APPS_PERMANENT:
+            case KEY_SLEEP_MODE_APPS_FROZEN:
+            case KEY_AUTOSTART_DISABLED_APPS:
+            case KEY_MEDIUM_RESTRICTION_APPS:
+            case KEY_HARD_RESTRICTION_APPS:
+            case KEY_MANUAL_RESTRICTION_APPS:
+                return true;
+            default:
+                return false;
         }
     }
 
@@ -128,8 +198,8 @@ public final class AppPolicyLegacyMigrator {
         candidates.addAll(legacy.manualRestrictedApps);
 
         // Whitelist mode historically targets every installed non-protected app that is not
-        // explicitly whitelisted. Materialize that effective set now so the later policy engine
-        // does not need to reinterpret a global inverse list.
+        // explicitly whitelisted. Materialize that effective set now so future installs remain
+        // unmanaged until the dedicated new-app flow exists.
         if (legacy.autoKillEnabled && legacy.whitelistMode) {
             candidates.addAll(eligibleInstalled);
         }
@@ -143,6 +213,7 @@ public final class AppPolicyLegacyMigrator {
             AppPolicy policy = new AppPolicy(packageName);
             policy.strategy = resolveMigratedStrategy(
                     packageName, legacy, eligibleInstalled, failSafe);
+            policy.source = AppPolicy.SOURCE_LEGACY_MIGRATED;
             policy.presetId = null;
             policy.customized = true;
             policy.standbyDelayMs = legacy.smartStandbyDelayMs;
@@ -178,8 +249,6 @@ public final class AppPolicyLegacyMigrator {
             return AppPolicy.STRATEGY_PROTECTED;
         }
 
-        // Smart Lifecycle historically consumes the blacklist independently of Auto-Kill's
-        // whitelist/blacklist mode. Give it ownership first to remove dual-engine control.
         if (legacy.smartLifecycleEnabled && legacy.blacklistedApps.contains(packageName)) {
             return AppPolicy.STRATEGY_SMART;
         }
@@ -233,9 +302,59 @@ public final class AppPolicyLegacyMigrator {
         return 0L;
     }
 
-    private static LegacySnapshot readSnapshot(SharedPreferences prefs) {
+    static String fingerprintSnapshot(LegacySnapshot snapshot) {
+        StringBuilder canonical = new StringBuilder();
+        append(canonical, "autoKill", snapshot.autoKillEnabled);
+        append(canonical, "activePreset", snapshot.activePresetNumber);
+        append(canonical, "smart", snapshot.smartLifecycleEnabled);
+        append(canonical, "sleep", snapshot.sleepModeEnabled);
+        append(canonical, "whitelistMode", snapshot.whitelistMode);
+        append(canonical, "killMethod", snapshot.killMethod);
+        append(canonical, "standby", snapshot.smartStandbyDelayMs);
+        append(canonical, "forceStop", snapshot.smartForceStopDelayMs);
+        append(canonical, "bootCleanup", snapshot.smartBootCleanup);
+        append(canonical, "triggers", snapshot.immediateTriggerMask);
+        appendSet(canonical, "hidden", snapshot.hiddenApps);
+        appendSet(canonical, "whitelist", snapshot.whitelistedApps);
+        appendSet(canonical, "blacklist", snapshot.blacklistedApps);
+        appendSet(canonical, "sleepTimer", snapshot.sleepTimerApps);
+        appendSet(canonical, "sleepPermanent", snapshot.sleepPermanentApps);
+        appendSet(canonical, "sleepFrozen", snapshot.sleepFrozenTimerApps);
+        appendSet(canonical, "restrictionSoft", snapshot.backgroundRestrictedApps);
+        appendSet(canonical, "restrictionMedium", snapshot.mediumRestrictedApps);
+        appendSet(canonical, "restrictionHard", snapshot.hardRestrictedApps);
+        appendSet(canonical, "restrictionManual", snapshot.manualRestrictedApps);
+
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.toString().getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(digest.length * 2);
+            for (byte value : digest) {
+                hex.append(String.format(java.util.Locale.ROOT, "%02x", value & 0xff));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
+    }
+
+    private static void append(StringBuilder target, String key, Object value) {
+        target.append(key).append('=').append(value).append('\n');
+    }
+
+    private static void appendSet(StringBuilder target, String key, Set<String> values) {
+        target.append(key).append('=');
+        for (String value : new TreeSet<>(safeSet(values))) {
+            target.append(value.length()).append(':').append(value).append(';');
+        }
+        target.append('\n');
+    }
+
+    static LegacySnapshot readSnapshot(SharedPreferences prefs) {
         LegacySnapshot snapshot = new LegacySnapshot();
-        snapshot.autoKillEnabled = prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false);
+        snapshot.activePresetNumber = prefs.getInt(KEY_ACTIVE_PRESET, 0);
+        snapshot.autoKillEnabled = prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false)
+                || snapshot.activePresetNumber != 0;
         snapshot.smartLifecycleEnabled = prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false);
         snapshot.sleepModeEnabled = prefs.getBoolean(KEY_SLEEP_MODE_ENABLED, false);
         snapshot.whitelistMode = prefs.getInt(KEY_KILL_MODE, 1) == 0;
@@ -302,12 +421,8 @@ public final class AppPolicyLegacyMigrator {
         Set<String> failSafe = new HashSet<>();
         PackageManager packageManager = context.getPackageManager();
 
-        List<ApplicationInfo> apps;
-        try {
-            apps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA);
-        } catch (RuntimeException ignored) {
-            apps = Collections.emptyList();
-        }
+        List<ApplicationInfo> apps =
+                packageManager.getInstalledApplications(PackageManager.GET_META_DATA);
 
         for (ApplicationInfo info : apps) {
             if (info == null || !PackageNameValidator.isValid(info.packageName)) continue;
@@ -326,6 +441,7 @@ public final class AppPolicyLegacyMigrator {
 
     static final class LegacySnapshot {
         boolean autoKillEnabled;
+        int activePresetNumber;
         boolean smartLifecycleEnabled;
         boolean sleepModeEnabled;
         boolean whitelistMode;

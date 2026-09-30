@@ -34,7 +34,7 @@ jobs:
       - name: Compile instrumentation tests
         run: ./gradlew assembleDebugAndroidTest
       - name: Verify current Room schema export
-        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/11.json
+        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/13.json
       - name: Build debug APK
         run: ./gradlew assembleDebug
       - name: Upload debug APK

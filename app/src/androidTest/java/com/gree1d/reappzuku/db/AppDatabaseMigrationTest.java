@@ -19,13 +19,14 @@ import java.io.IOException;
 @RunWith(AndroidJUnit4.class)
 public class AppDatabaseMigrationTest {
     private static final String TEST_DB = "reappzuku-migration-test";
+    private static final String TEST_DB_12 = "reappzuku-migration-12-test";
 
     @Rule
     public final MigrationTestHelper helper = new MigrationTestHelper(
             InstrumentationRegistry.getInstrumentation(), AppDatabase.class);
 
     @Test
-    public void migrate2To12_preservesExistingStatsAndAddsPolicySchema() throws IOException {
+    public void migrate2To13_preservesExistingStatsAndAddsPolicySchema() throws IOException {
         SupportSQLiteDatabase db = helper.createDatabase(TEST_DB, 2);
         db.execSQL("INSERT INTO app_stats " +
                 "(packageName, appName, killCount, relaunchCount, totalRecoveredKb, lastKillTime, lastRelaunchTime) " +
@@ -34,7 +35,7 @@ public class AppDatabaseMigrationTest {
 
         db = helper.runMigrationsAndValidate(
                 TEST_DB,
-                12,
+                13,
                 true,
                 AppDatabase.MIGRATION_2_3,
                 AppDatabase.MIGRATION_3_4,
@@ -45,7 +46,8 @@ public class AppDatabaseMigrationTest {
                 AppDatabase.MIGRATION_8_9,
                 AppDatabase.MIGRATION_9_10,
                 AppDatabase.MIGRATION_10_11,
-                AppDatabase.MIGRATION_11_12);
+                AppDatabase.MIGRATION_11_12,
+                AppDatabase.MIGRATION_12_13);
 
         try (Cursor cursor = db.query(
                 "SELECT packageName, appName, relaunchCount, totalRecoveredKb, lastKillTime, lastRelaunchTime, lastKillSource " +
@@ -66,6 +68,28 @@ public class AppDatabaseMigrationTest {
             assertEquals("app_policy", cursor.getString(0));
             assertTrue(cursor.moveToNext());
             assertEquals("policy_preset", cursor.getString(0));
+        }
+        db.close();
+    }
+
+    @Test
+    public void migrate12To13_existingPoliciesDefaultToExplicitSource() throws IOException {
+        SupportSQLiteDatabase db = helper.createDatabase(TEST_DB_12, 12);
+        db.execSQL("INSERT INTO app_policy " +
+                "(packageName, strategy, presetId, customized, standbyDelayMs, forceStopDelayMs, " +
+                "killMethod, bootCleanup, backgroundRestriction, protectMedia, " +
+                "protectForegroundServices, protectWidgets, triggerMask, createdAt, updatedAt) " +
+                "VALUES ('com.example.explicit', 3, NULL, 1, 3600000, 21600000, " +
+                "0, 1, 0, 1, 1, 1, 1, 100, 100)");
+        db.close();
+
+        db = helper.runMigrationsAndValidate(
+                TEST_DB_12, 13, true, AppDatabase.MIGRATION_12_13);
+
+        try (Cursor cursor = db.query(
+                "SELECT source FROM app_policy WHERE packageName='com.example.explicit'")) {
+            assertTrue(cursor.moveToFirst());
+            assertEquals(AppPolicy.SOURCE_EXPLICIT, cursor.getInt(0));
         }
         db.close();
     }

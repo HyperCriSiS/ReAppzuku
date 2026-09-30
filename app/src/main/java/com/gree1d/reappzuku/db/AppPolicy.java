@@ -19,6 +19,9 @@ public class AppPolicy {
     public static final int STRATEGY_SMART = 2;
     public static final int STRATEGY_IMMEDIATE = 3;
 
+    public static final int SOURCE_EXPLICIT = 0;
+    public static final int SOURCE_LEGACY_MIGRATED = 1;
+
     public static final int KILL_METHOD_FORCE_STOP = 0;
     public static final int KILL_METHOD_AM_KILL = 1;
 
@@ -43,6 +46,7 @@ public class AppPolicy {
     public String packageName;
 
     public int strategy = STRATEGY_UNMANAGED;
+    public int source = SOURCE_EXPLICIT;
 
     @Nullable
     public Long presetId;

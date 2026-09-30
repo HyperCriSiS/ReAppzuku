@@ -112,6 +112,11 @@ public class App extends Application {
 
         shellManager = new ShellManager(this, handler, executor);
 
+        // Materialize the current legacy state once per normal-process start. If legacy settings
+        // change later, runtime fingerprint checks ignore stale migration-owned rows immediately;
+        // the next process start rebuilds them without ever overriding explicit policies.
+        executor.execute(() -> AppPolicyLegacyMigrator.migrateIfNeeded(this));
+
         // ShellManager owns the application-lifetime Binder/permission/UserService
         // state machine and reacts to Shizuku restarts centrally.
     }

@@ -1,6 +1,9 @@
 package com.gree1d.reappzuku.core;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import com.gree1d.reappzuku.db.AppPolicy;
@@ -25,6 +28,7 @@ public class AppPolicyLegacyMigratorTest {
                 Collections.emptySet(), 123L));
 
         assertEquals(AppPolicy.STRATEGY_SMART, policy.strategy);
+        assertEquals(AppPolicy.SOURCE_LEGACY_MIGRATED, policy.source);
     }
 
     @Test
@@ -167,6 +171,7 @@ public class AppPolicyLegacyMigratorTest {
                 legacy, set("com.example.app"), Collections.emptySet(),
                 Collections.emptySet(), 123L));
 
+        assertEquals(AppPolicy.SOURCE_LEGACY_MIGRATED, policy.source);
         assertEquals(AppPolicy.KILL_METHOD_AM_KILL, policy.killMethod);
         assertEquals(legacy.immediateTriggerMask, policy.triggerMask);
         assertEquals(123L, policy.createdAt);
@@ -206,6 +211,57 @@ public class AppPolicyLegacyMigratorTest {
 
         assertEquals(1, policies.size());
         assertEquals("valid.package", policies.get(0).packageName);
+    }
+
+    @Test
+    public void fingerprintIsStableAcrossSetIterationOrder() {
+        AppPolicyLegacyMigrator.LegacySnapshot first = base();
+        first.autoKillEnabled = true;
+        first.blacklistedApps = set("com.example.b", "com.example.a");
+
+        AppPolicyLegacyMigrator.LegacySnapshot same = base();
+        same.autoKillEnabled = true;
+        same.blacklistedApps = set("com.example.a", "com.example.b");
+
+        assertEquals(
+                AppPolicyLegacyMigrator.fingerprintSnapshot(first),
+                AppPolicyLegacyMigrator.fingerprintSnapshot(same));
+    }
+
+    @Test
+    public void fingerprintChangesForOwnershipAndTimingInputs() {
+        AppPolicyLegacyMigrator.LegacySnapshot original = base();
+        original.autoKillEnabled = true;
+        original.activePresetNumber = 0;
+        original.sleepFrozenTimerApps = set("com.example.app");
+
+        AppPolicyLegacyMigrator.LegacySnapshot changed = base();
+        changed.autoKillEnabled = true;
+        changed.activePresetNumber = 1;
+        changed.sleepFrozenTimerApps = set("com.example.app");
+
+        assertFalse(AppPolicyLegacyMigrator.fingerprintSnapshot(original).equals(
+                AppPolicyLegacyMigrator.fingerprintSnapshot(changed)));
+
+        changed.activePresetNumber = 0;
+        changed.smartStandbyDelayMs = original.smartStandbyDelayMs + 1L;
+        assertFalse(AppPolicyLegacyMigrator.fingerprintSnapshot(original).equals(
+                AppPolicyLegacyMigrator.fingerprintSnapshot(changed)));
+    }
+
+    @Test
+    public void staleMigrationRowsFallBackButExplicitPoliciesAlwaysWin() {
+        AppPolicy migrated = new AppPolicy("com.example.migrated");
+        migrated.source = AppPolicy.SOURCE_LEGACY_MIGRATED;
+
+        assertNull(AppPolicyLegacyMigrator.resolveEffectivePolicy(migrated, false));
+        assertSame(migrated, AppPolicyLegacyMigrator.resolveEffectivePolicy(migrated, true));
+
+        AppPolicy explicit = new AppPolicy("com.example.explicit");
+        explicit.source = AppPolicy.SOURCE_EXPLICIT;
+
+        assertSame(explicit, AppPolicyLegacyMigrator.resolveEffectivePolicy(explicit, false));
+        assertSame(explicit, AppPolicyLegacyMigrator.resolveEffectivePolicy(explicit, true));
     }
 
     private static AppPolicyLegacyMigrator.LegacySnapshot base() {

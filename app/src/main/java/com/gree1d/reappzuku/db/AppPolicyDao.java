@@ -31,6 +31,9 @@ public interface AppPolicyDao {
     @Query("DELETE FROM app_policy WHERE packageName = :packageName")
     void deleteByPackage(String packageName);
 
+    @Query("DELETE FROM app_policy WHERE source = :source")
+    void deleteBySource(int source);
+
     @Query("SELECT COUNT(*) FROM app_policy")
     int getCount();
 }
