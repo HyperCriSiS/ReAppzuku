@@ -20,11 +20,10 @@ jobs:
         with:
           java-version: '17'
           distribution: temurin
-          cache: gradle
-      - name: Generate schema 13
+      - name: Generate schema 13 from source
         run: |
           chmod +x gradlew
-          ./gradlew :app:compileDebugJavaWithJavac
+          ./gradlew :app:compileDebugJavaWithJavac --rerun-tasks --no-build-cache
           test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/13.json
       - name: Commit compiler-generated schema only
         run: |
