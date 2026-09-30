@@ -96,6 +96,37 @@ public final class AppPolicyResolver {
                 && (explicitPolicy.triggerMask & AppPolicy.TRIGGER_BOOT_CLEANUP) != 0L;
     }
 
+    public static long resolveSmartStandbyDelayMs(@Nullable AppPolicy explicitPolicy,
+                                                   long legacyDelayMs) {
+        if (explicitPolicy != null
+                && explicitPolicy.strategy == AppPolicy.STRATEGY_SMART
+                && explicitPolicy.standbyDelayMs > 0L) {
+            return explicitPolicy.standbyDelayMs;
+        }
+        return legacyDelayMs > 0L
+                ? legacyDelayMs
+                : AppPolicy.DEFAULT_SMART_STANDBY_DELAY_MS;
+    }
+
+    public static long resolveSmartForceStopDelayMs(@Nullable AppPolicy explicitPolicy,
+                                                     long legacyDelayMs,
+                                                     long resolvedStandbyDelayMs) {
+        long standbyDelayMs = resolvedStandbyDelayMs > 0L
+                ? resolvedStandbyDelayMs
+                : AppPolicy.DEFAULT_SMART_STANDBY_DELAY_MS;
+        long forceStopDelayMs;
+        if (explicitPolicy != null
+                && explicitPolicy.strategy == AppPolicy.STRATEGY_SMART
+                && explicitPolicy.forceStopDelayMs > 0L) {
+            forceStopDelayMs = explicitPolicy.forceStopDelayMs;
+        } else {
+            forceStopDelayMs = legacyDelayMs > 0L
+                    ? legacyDelayMs
+                    : AppPolicy.DEFAULT_SMART_FORCE_STOP_DELAY_MS;
+        }
+        return Math.max(standbyDelayMs, forceStopDelayMs);
+    }
+
     public static boolean isManagedStrategy(int strategy) {
         return strategy == AppPolicy.STRATEGY_SMART
                 || strategy == AppPolicy.STRATEGY_IMMEDIATE;
