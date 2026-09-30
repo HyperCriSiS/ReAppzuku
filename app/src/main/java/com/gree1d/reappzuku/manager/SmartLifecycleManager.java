@@ -7,6 +7,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.provider.Settings;
 
+import com.gree1d.reappzuku.core.AppPolicyLegacyMigrator;
 import com.gree1d.reappzuku.core.AppPolicyResolver;
 import com.gree1d.reappzuku.core.ProtectedApps;
 import com.gree1d.reappzuku.core.PrivilegedShell;
@@ -100,10 +101,14 @@ public final class SmartLifecycleManager {
                 || prefs.getInt(KEY_ACTIVE_PRESET, 0) != 0;
         boolean whitelistMode = prefs.getInt(KEY_KILL_MODE, 1) == 0;
 
+        boolean migrationSnapshotCurrent =
+                AppPolicyLegacyMigrator.isMigrationSnapshotCurrent(prefs);
         Map<String, AppPolicy> explicitPolicies = new HashMap<>();
         for (AppPolicy policy : AppDatabase.getInstance(context).appPolicyDao().getAll()) {
-            if (policy != null && policy.packageName != null) {
-                explicitPolicies.put(policy.packageName, policy);
+            AppPolicy effectivePolicy = AppPolicyLegacyMigrator.resolveEffectivePolicy(
+                    policy, migrationSnapshotCurrent);
+            if (effectivePolicy != null && effectivePolicy.packageName != null) {
+                explicitPolicies.put(effectivePolicy.packageName, effectivePolicy);
             }
         }
 
