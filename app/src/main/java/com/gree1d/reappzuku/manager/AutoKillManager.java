@@ -1,5 +1,6 @@
 package com.gree1d.reappzuku.manager;
 
+import com.gree1d.reappzuku.core.AppPolicyLegacyMigrator;
 import com.gree1d.reappzuku.core.AppPolicyResolver;
 import com.gree1d.reappzuku.core.PackageNameValidator;
 import com.gree1d.reappzuku.core.PrivilegedShell;
@@ -110,10 +111,14 @@ public class AutoKillManager {
             boolean legacySmartEnabled =
                     sharedpreferences.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false);
 
+            boolean migrationSnapshotCurrent =
+                    AppPolicyLegacyMigrator.isMigrationSnapshotCurrent(sharedpreferences);
             Map<String, AppPolicy> explicitPolicies = new HashMap<>();
             for (AppPolicy policy : AppDatabase.getInstance(context).appPolicyDao().getAll()) {
-                if (policy != null && policy.packageName != null) {
-                    explicitPolicies.put(policy.packageName, policy);
+                AppPolicy effectivePolicy = AppPolicyLegacyMigrator.resolveEffectivePolicy(
+                        policy, migrationSnapshotCurrent);
+                if (effectivePolicy != null && effectivePolicy.packageName != null) {
+                    explicitPolicies.put(effectivePolicy.packageName, effectivePolicy);
                 }
             }
 
