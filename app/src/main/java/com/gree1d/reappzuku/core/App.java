@@ -4,6 +4,7 @@ import android.app.ActivityManager;
 import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.Handler;
@@ -17,6 +18,8 @@ import rikka.shizuku.ShizukuProvider;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class App extends Application {
 
@@ -27,6 +30,10 @@ public class App extends Application {
     private ExecutorService shellExecutor;
     private ShellManager shellManager;
     private LruCache<String, Bitmap> iconCache;
+    private SharedPreferences legacyPolicyPreferences;
+    private SharedPreferences.OnSharedPreferenceChangeListener legacyPolicyPreferenceListener;
+    private final AtomicBoolean legacyPolicyMigrationQueued = new AtomicBoolean(false);
+    private final AtomicInteger legacyPolicyChangeGeneration = new AtomicInteger(0);
 
     private static final int ICON_CACHE_MAX_BYTES = 24 * 1024 * 1024;
 
@@ -112,8 +119,36 @@ public class App extends Application {
 
         shellManager = new ShellManager(this, handler, executor);
 
+        legacyPolicyPreferences =
+                getSharedPreferences(PreferenceKeys.PREFERENCES_NAME, MODE_PRIVATE);
+        legacyPolicyPreferenceListener = (prefs, key) -> {
+            if (!AppPolicyLegacyMigrator.affectsMigrationKey(key)) return;
+            legacyPolicyChangeGeneration.incrementAndGet();
+            scheduleLegacyPolicyMigration();
+        };
+        legacyPolicyPreferences.registerOnSharedPreferenceChangeListener(
+                legacyPolicyPreferenceListener);
+        scheduleLegacyPolicyMigration();
+
         // ShellManager owns the application-lifetime Binder/permission/UserService
         // state machine and reacts to Shizuku restarts centrally.
+    }
+
+    private void scheduleLegacyPolicyMigration() {
+        if (executor == null || !legacyPolicyMigrationQueued.compareAndSet(false, true)) {
+            return;
+        }
+        executor.execute(() -> {
+            int generationAtStart = legacyPolicyChangeGeneration.get();
+            try {
+                AppPolicyLegacyMigrator.migrateIfNeeded(this);
+            } finally {
+                legacyPolicyMigrationQueued.set(false);
+                if (legacyPolicyChangeGeneration.get() != generationAtStart) {
+                    scheduleLegacyPolicyMigration();
+                }
+            }
+        });
     }
 
     public ShellManager getShellManager() {
