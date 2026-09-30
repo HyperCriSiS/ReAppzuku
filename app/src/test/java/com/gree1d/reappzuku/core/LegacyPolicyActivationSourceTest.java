@@ -27,6 +27,17 @@ public class LegacyPolicyActivationSourceTest {
     }
 
     @Test
+    public void currentMigrationDisablesLegacyFallbackInBothExecutionEngines() throws Exception {
+        String autoKill = readRepositoryFile(
+                "app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java");
+        String smart = readRepositoryFile(
+                "app/src/main/java/com/gree1d/reappzuku/manager/SmartLifecycleManager.java");
+
+        assertEquals(1, count(autoKill, "migrationSnapshotCurrent ? null : legacyState"));
+        assertEquals(1, count(smart, "migrationSnapshotCurrent ? null : legacyState"));
+    }
+
+    @Test
     public void applicationReconcilesLegacyPoliciesOnNormalProcessStart() throws Exception {
         String source = readRepositoryFile(
                 "app/src/main/java/com/gree1d/reappzuku/core/App.java");

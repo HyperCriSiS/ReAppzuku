@@ -30,8 +30,8 @@ public class SmartLifecyclePolicyRoutingSourceTest {
         String source = readRepositoryFile(
                 "app/src/main/java/com/gree1d/reappzuku/manager/SmartLifecycleManager.java");
 
-        assertTrue(source.contains(
-                "if (!AppPolicyResolver.shouldExecuteSmart(explicitPolicy, legacyState, bootPass))"));
+        assertTrue(source.contains("AppPolicyResolver.shouldExecuteSmart("));
+        assertTrue(source.contains("migrationSnapshotCurrent ? null : legacyState"));
         assertTrue(source.contains("clearBackgroundState(pkg);"));
     }
 
