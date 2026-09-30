@@ -421,12 +421,8 @@ public final class AppPolicyLegacyMigrator {
         Set<String> failSafe = new HashSet<>();
         PackageManager packageManager = context.getPackageManager();
 
-        List<ApplicationInfo> apps;
-        try {
-            apps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA);
-        } catch (RuntimeException ignored) {
-            apps = Collections.emptyList();
-        }
+        List<ApplicationInfo> apps =
+                packageManager.getInstalledApplications(PackageManager.GET_META_DATA);
 
         for (ApplicationInfo info : apps) {
             if (info == null || !PackageNameValidator.isValid(info.packageName)) continue;
