@@ -98,10 +98,10 @@ public final class AppPolicyResolver {
 
     public static long resolveSmartStandbyDelayMs(@Nullable AppPolicy explicitPolicy,
                                                    long legacyDelayMs) {
-        if (explicitPolicy != null
-                && explicitPolicy.strategy == AppPolicy.STRATEGY_SMART
-                && explicitPolicy.standbyDelayMs > 0L) {
-            return explicitPolicy.standbyDelayMs;
+        if (explicitPolicy != null && explicitPolicy.strategy == AppPolicy.STRATEGY_SMART) {
+            return explicitPolicy.standbyDelayMs > 0L
+                    ? explicitPolicy.standbyDelayMs
+                    : AppPolicy.DEFAULT_SMART_STANDBY_DELAY_MS;
         }
         return legacyDelayMs > 0L
                 ? legacyDelayMs
@@ -115,10 +115,10 @@ public final class AppPolicyResolver {
                 ? resolvedStandbyDelayMs
                 : AppPolicy.DEFAULT_SMART_STANDBY_DELAY_MS;
         long forceStopDelayMs;
-        if (explicitPolicy != null
-                && explicitPolicy.strategy == AppPolicy.STRATEGY_SMART
-                && explicitPolicy.forceStopDelayMs > 0L) {
-            forceStopDelayMs = explicitPolicy.forceStopDelayMs;
+        if (explicitPolicy != null && explicitPolicy.strategy == AppPolicy.STRATEGY_SMART) {
+            forceStopDelayMs = explicitPolicy.forceStopDelayMs > 0L
+                    ? explicitPolicy.forceStopDelayMs
+                    : AppPolicy.DEFAULT_SMART_FORCE_STOP_DELAY_MS;
         } else {
             forceStopDelayMs = legacyDelayMs > 0L
                     ? legacyDelayMs

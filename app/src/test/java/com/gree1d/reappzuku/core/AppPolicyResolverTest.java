@@ -140,23 +140,33 @@ public class AppPolicyResolverTest {
     }
 
     @Test
-    public void invalidSmartDelaysFallBackAndNeverForceStopBeforeStandby() {
+    public void invalidExplicitSmartDelaysUseConservativePolicyDefaults() {
         AppPolicy explicit = new AppPolicy("com.example.app");
         explicit.strategy = AppPolicy.STRATEGY_SMART;
         explicit.standbyDelayMs = -1L;
+        explicit.forceStopDelayMs = -1L;
+
+        long standby = AppPolicyResolver.resolveSmartStandbyDelayMs(explicit, 30_000L);
+        long forceStop = AppPolicyResolver.resolveSmartForceStopDelayMs(
+                explicit, 60_000L, standby);
+
+        assertEquals(AppPolicy.DEFAULT_SMART_STANDBY_DELAY_MS, standby);
+        assertEquals(AppPolicy.DEFAULT_SMART_FORCE_STOP_DELAY_MS, forceStop);
+    }
+
+    @Test
+    public void smartForceStopNeverPrecedesResolvedStandby() {
+        AppPolicy explicit = new AppPolicy("com.example.app");
+        explicit.strategy = AppPolicy.STRATEGY_SMART;
+        explicit.standbyDelayMs = 60_000L;
         explicit.forceStopDelayMs = 10_000L;
 
-        long standby = AppPolicyResolver.resolveSmartStandbyDelayMs(explicit, 60_000L);
+        long standby = AppPolicyResolver.resolveSmartStandbyDelayMs(explicit, 30_000L);
         long forceStop = AppPolicyResolver.resolveSmartForceStopDelayMs(
-                explicit, 30_000L, standby);
+                explicit, 120_000L, standby);
 
         assertEquals(60_000L, standby);
         assertEquals(60_000L, forceStop);
-
-        explicit.forceStopDelayMs = -1L;
-        forceStop = AppPolicyResolver.resolveSmartForceStopDelayMs(
-                explicit, 120_000L, standby);
-        assertEquals(120_000L, forceStop);
     }
 
     @Test
