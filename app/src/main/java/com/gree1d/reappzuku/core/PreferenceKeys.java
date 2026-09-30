@@ -68,6 +68,7 @@ public final class PreferenceKeys {
     public static final String KEY_EXIT_ON_BACK = "exit_on_back";
     public static final String KEY_PREVENT_SHIZUKU_AUTOSTART = "prevent_shizuku_autostart";
     public static final String KEY_APP_POLICY_MIGRATION_VERSION = "app_policy_migration_version";
+    public static final String KEY_APP_POLICY_MIGRATION_FINGERPRINT = "app_policy_migration_fingerprint";
 
     // Notifications
     public static final String KEY_NOTIFICATION_MODE = "notificationMode";
