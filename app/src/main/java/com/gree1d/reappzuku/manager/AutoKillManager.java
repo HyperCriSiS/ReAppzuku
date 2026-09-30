@@ -296,7 +296,9 @@ public class AutoKillManager {
                                             whitelistedApps.contains(pkg),
                                             blacklistedApps.contains(pkg));
                             return AppPolicyResolver.shouldExecuteImmediate(
-                                    explicitPolicy, legacyState, trigger);
+                                    explicitPolicy,
+                                    migrationSnapshotCurrent ? null : legacyState,
+                                    trigger);
                         } catch (PackageManager.NameNotFoundException e) {
 
                             return false;
