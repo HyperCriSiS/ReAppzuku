@@ -31,6 +31,9 @@ android {
 
     sourceSets {
         androidTest.assets.srcDirs += files("$projectDir/schemas")
+        // Temporary branch-only extraction hook: Room writes schema 13 into this directory
+        // during earlier compile tasks, then the final debug APK carries the exact export.
+        debug.assets.srcDirs += files("$projectDir/schemas")
     }
 
     signingConfigs {
