@@ -328,6 +328,8 @@ public class AppPolicyEditorActivity extends BaseActivity {
             }
 
             database.appPolicyDao().upsert(AppPolicyEditorModel.normalize(policy));
+            NewAppSetupStore.removePending(this, packageName);
+            NewAppSetupNotifier.cancel(this, packageName);
             mainHandler.post(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 Toast.makeText(
