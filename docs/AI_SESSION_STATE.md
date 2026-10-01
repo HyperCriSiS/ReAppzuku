@@ -1,100 +1,67 @@
 # AI Session State
 
-Updated: 2026-09-30
+Updated: 2026-10-01
 
 ## Last completed work blocks
 
-### Phase 9 legacy migration preparation
+### Phase 9 legacy-policy activation
 
-Merged PR: #59  
-Merge commit: `3c435097eee6f9ed972dcabc5fa31e88fd7998ed`
+Main before the current editor block: `fce4efef9e8a9d50be473234e6aa4ab7428534e9`
 
-- Added the idempotent legacy-to-`AppPolicy` migration planner/bridge.
-- Existing explicit policies are preserved via insert-ignore.
-- Legacy Smart-vs-Immediate conflicts resolve to `SMART`.
-- Active/permanent/still-owned Sleep Mode packages resolve to `PROTECTED`.
-- Whitelist mode is materialized against the currently installed eligible package set.
-- Background restriction migration preserves strongest legacy ownership: MANUAL > HARD > MEDIUM > SOFT.
-- Stable built-in preset IDs are seeded for Never touch, Messenger, Media, Balanced, Rarely used and Aggressive.
-- Migration activation remains deliberately deferred because the old settings UI is still editable; activating a one-time snapshot before edit compatibility exists could create stale explicit policies.
+- Activated retry-safe legacy-to-`AppPolicy` reconciliation on normal process startup.
+- Room schema 13 records policy provenance so explicit rows are never replaced by migration-owned rows.
+- Migration-owned rows are bound to a deterministic legacy-state fingerprint; stale snapshots immediately fall back to the bounded live legacy resolver until the next successful reconciliation.
+- A valid snapshot disables direct legacy fallback for packages without a policy, preserving unmanaged behavior for newly installed apps until the setup-queue work lands.
+- Auto-Kill and Smart Lifecycle remain mutually exclusive through `AppPolicyResolver`.
 
-Validation:
-- Standard validation `36270576451` passed.
-- CodeQL `36270709709` passed.
+Validation on main before this block included green CodeQL and Android 17 / API 37 runtime coverage.
 
-### Phase 9 Auto-Kill execution routing
+### Phase 9 per-app Policy Editor
 
-Merged PR: #61  
-Merge commit: `196ea1abe2acfe4a8c75b166ed21ea1832c0e889`
+Merged PR: #64  
+Merge commit: `56797a6c0d66b8d127c08da2fbee3d3afd524fa7`
 
-- Automatic Auto-Kill target ownership now goes through `AppPolicyResolver.shouldExecuteImmediate(...)`.
-- Explicit Room-backed policy takes precedence over legacy whitelist/blacklist state.
-- Legacy Smart Lifecycle ownership wins over legacy Immediate ownership for shared blacklist entries, preventing dual ownership.
-- Automatic entry points carry concrete policy triggers for periodic, RAM threshold, screen-off, hardware event and app launch.
-- Per-app Immediate `killMethod` is honored; invalid values fail safe to force-stop.
-- Existing protected/persistent/foreground/scheduler safeguards, statistics and relaunch tracking remain intact.
-- Added resolver regressions plus a source-authoritative trigger-routing contract.
+- Added a per-app lifecycle Policy Editor reachable from the main app options sheet.
+- Editor covers canonical strategy, reusable preset, Smart standby/force-stop delays, Immediate kill method, boot cleanup, background restriction, media/foreground-service/widget protections, and all six trigger bits.
+- Saving writes an explicit `AppPolicy`, so user edits override migration-owned legacy materialization without changing Room schema 13.
+- Built-in presets use stable IDs with localized display names; user-created presets are supported with `Save as preset`.
+- Existing customized preset-backed policies are preserved during spinner initialization instead of being overwritten by the selected preset.
+- Policy normalization rejects unknown strategy/restriction/kill values, strips unknown trigger bits, preserves Smart “never force-stop”, and clamps Smart force-stop delay so it cannot precede standby.
+- Added focused JVM regressions for preset application, normalization, never-force-stop semantics and preset round trips.
+- Added Policy Editor localization for Spanish, Russian, Ukrainian and Simplified Chinese.
+- Existing app-option checkbox behavior/tint is intentionally unchanged; an incidental draft change was detected in diff review and reverted before merge.
 
 Validation:
-- Standard validation `36314992017` passed.
-- CodeQL `36314991343` passed.
-- GitHub Advanced Security `36314993786` passed.
-
-### Phase 9 Smart Lifecycle execution routing
-
-Merged PR: #62  
-Merge commit: `e3c03a90114c49f8fe9e97de90e548d2f455b46a`
-
-- Smart Lifecycle ownership now goes through `AppPolicyResolver.shouldExecuteSmart(...)`.
-- The candidate reconciliation set contains legacy blacklist packages plus all explicit policy rows. Explicit non-SMART policies therefore remove legacy Smart ownership and clear stale Smart timing state.
-- Explicit SMART policies use their own `standbyDelayMs` and `forceStopDelayMs`; legacy-owned packages keep the existing Gentle/Balanced/Aggressive profile delays.
-- Invalid explicit delay values fail safe to the conservative `AppPolicy` defaults instead of inheriting a potentially more aggressive legacy profile.
-- Force-stop delay is clamped so it can never precede the resolved standby delay.
-- Explicit SMART boot cleanup is controlled by per-app `bootCleanup` plus `TRIGGER_BOOT_CLEANUP`.
-- Legacy-owned packages retain the old global boot-cleanup switch during the transition.
-- The boot worker always schedules the boot pass while the legacy Smart engine is enabled, so explicit policies can make their own boot-cleanup decision even when legacy global boot cleanup is disabled.
-- Existing foreground, protected/system/persistent, media/widget/service, accessibility/notification-listener and recovery safeguards remain intact.
-- The legacy global Smart Lifecycle switch remains the transitional master enable while the old settings UI still exists.
-- Added resolver delay/ownership regressions and source-authoritative Smart routing contracts.
-
-Validation:
-- Final-head standard validation `36651682281` passed: unit tests, lint, AndroidTest compilation, Room schema verification and debug APK build/upload.
-- Final-head CodeQL `36651678473` passed.
-- Final-head GitHub Advanced Security `36651678716` passed.
-- Android 17 / API 37 runtime `36652012427` passed on merge commit `e3c03a90114c49f8fe9e97de90e548d2f455b46a`: emulator boot, app/instrumentation/security-probe build and install, full instrumentation, external component abuse probe, launcher smoke test and evidence upload all passed.
-- No PR review threads or code-review findings were present.
+- Standard validation: 36856861081
+- CodeQL: 36856858307
+- GitHub Advanced Security: 36856861855
+- PR review threads: none at final review.
 
 ## Current Phase 9 architecture state
 
-- Canonical strategies remain `UNMANAGED`, `PROTECTED`, `SMART`, `IMMEDIATE`.
-- `Custom` is presentation state, not a fifth execution engine.
-- Auto-Kill and Smart Lifecycle now both use `AppPolicyResolver` for per-app execution ownership.
-- An explicit Room policy has precedence over legacy fallback in both engines.
-- Smart and Immediate cannot simultaneously own the same package through the resolver.
-- Legacy global settings are still present as transition controls/fallback and must not be removed yet.
-- The one-time `AppPolicyLegacyMigrator` is implemented but still deliberately not auto-started.
-- Room schema remains 12.
+- Canonical strategies are `UNMANAGED`, `PROTECTED`, `SMART`, `IMMEDIATE`; `Custom` remains presentation/provenance state, not an execution engine.
+- Auto-Kill and Smart Lifecycle both use `AppPolicyResolver`; one package cannot be owned by both engines.
+- Explicit Room-backed policy always wins over legacy migration/fallback.
+- Retry-safe schema-13 migration is active and fingerprints remaining editable legacy state.
+- Per-app policy editing and reusable user presets now exist without another Room version bump.
+- Legacy global settings remain transition controls/fallback and must not be removed until remaining Phase 9 parity work is complete.
+- Background-restriction strength is stored canonically, while exact manual AppOps/bucket/whitelist legacy details still remain in their existing per-package preference keys pending backup/UI parity work.
 
 ## Next work unit
 
-**Atomic legacy-policy activation compatibility**
+**Automation Schedules rename/separation**
 
-The execution-routing cutover is now proven, so the next blocker is safely activating the prepared legacy migration without allowing later edits in the still-existing legacy UI to diverge from materialized `AppPolicy` rows.
-
-1. Audit every write path for legacy lifecycle state: whitelist/blacklist membership, Smart Lifecycle, Auto-Kill mode/state, Sleep Mode ownership and background-restriction settings.
-2. Define one compatibility boundary for the remaining migration window. Preferred invariant: once explicit migration is activated, every relevant legacy edit that changes effective per-app ownership must update the canonical `AppPolicy` state atomically or explicitly invalidate/recompute the migrated row.
-3. Do not simply call `AppPolicyLegacyMigrator.migrateIfNeeded()` at startup while legacy write paths can still create stale explicit rows.
-4. Add regression coverage for post-migration edits, repeated migration, explicit-policy precedence and failure/retry behavior.
-5. Only after the compatibility bridge is proven, activate the migration marker in production startup/reconciliation.
-6. Then continue with the per-app Policy Editor, user presets, Automation Schedule rename/separation, new-app setup queue, badges/filters and backup/restore.
-7. Update `docs/ROADMAP.md` Phase 9 execution-routing status to completed as part of the next documentation/compatibility commit if it is still shown as open.
+1. Rename the two existing time-window Auto-Kill “presets” to Automation Schedules in data/UI terminology where safe.
+2. Keep schedule semantics strictly separate from reusable per-app `PolicyPreset` records.
+3. Preserve existing schedule behavior and persisted user state; this is a terminology/ownership cleanup, not an execution rewrite.
+4. Add targeted source/behavior regressions for the separation before moving on to the new-app setup queue.
+5. After that: durable `PACKAGE_ADDED` setup queue/default preset behavior, main-list policy badges/filters, then transactional backup/restore coverage.
 
 ## Guardrails
 
 - Never allow Smart and Immediate automation to own the same package simultaneously.
-- Explicit Room-backed policy always has precedence over legacy fallback.
-- Do not activate the migration marker while legacy UI edits can silently diverge from already-materialized explicit policies.
+- Explicit Room-backed policy always has precedence over migration-owned or legacy fallback state.
 - Newly installed apps default to no privileged mutation unless the user explicitly selects an automatic default preset.
-- Protected/system/persistent packages must continue to fail safe regardless of stored policy.
-- Keep the legacy global Smart Lifecycle switch as transitional master enable until the migration/UI cutover has a replacement scheduling contract.
-- Do not remove legacy settings UI until migration, execution and backup/restore parity are proven.
+- Protected/system/persistent packages continue to fail safe regardless of stored policy.
+- Policy presets describe per-app behavior; Automation Schedules describe when automation is active. Do not merge those concepts.
+- Keep legacy UI/settings until migration, execution and backup/restore parity are proven.
