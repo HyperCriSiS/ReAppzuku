@@ -37,6 +37,26 @@ Validation:
 - GitHub Advanced Security: 36856861855
 - PR review threads: none at final review.
 
+### Phase 9 Automation Schedules separation
+
+Merged PR: #65  
+Merge commit: `f37505e6035b67a30170a625e51d2994a8b75e32`
+
+- Renamed the two user-facing time-window Auto-Kill preset surfaces to Automation Schedules.
+- Added `AutomationScheduleManager` as the schedule-named UI/API facade over the legacy implementation.
+- Kept historical persisted preference stores, alarm broadcast actions, backup prefix and serialized model fields unchanged so upgrades retain schedules and pending alarms.
+- Kept Room-backed `PolicyPreset` semantically separate: it remains a reusable per-app behavior template and has no schedule start/end fields.
+- Historical default names `Preset 1` / `Preset 2` render with localized Automation Schedule labels; new JSON exports use schedule terminology.
+- Localized the renamed surface for English, Spanish, Russian, Ukrainian and Simplified Chinese.
+- Added focused compatibility and source-authoritative separation regressions.
+- No Room schema change and no automation execution rewrite.
+
+Validation:
+- Standard validation: `36862912195`
+- CodeQL: `36862911361`
+- GitHub Advanced Security: `36862917104`
+- PR review threads: none at final review.
+
 ## Current Phase 9 architecture state
 
 - Canonical strategies are `UNMANAGED`, `PROTECTED`, `SMART`, `IMMEDIATE`; `Custom` remains presentation/provenance state, not an execution engine.
@@ -44,18 +64,20 @@ Validation:
 - Explicit Room-backed policy always wins over legacy migration/fallback.
 - Retry-safe schema-13 migration is active and fingerprints remaining editable legacy state.
 - Per-app policy editing and reusable user presets now exist without another Room version bump.
+- Automation Schedules are explicitly separate from reusable per-app `PolicyPreset` templates; legacy schedule persistence identifiers remain compatibility-only.
 - Legacy global settings remain transition controls/fallback and must not be removed until remaining Phase 9 parity work is complete.
 - Background-restriction strength is stored canonically, while exact manual AppOps/bucket/whitelist legacy details still remain in their existing per-package preference keys pending backup/UI parity work.
 
 ## Next work unit
 
-**Automation Schedules rename/separation**
+**Durable new-app setup queue / default policy behavior**
 
-1. Rename the two existing time-window Auto-Kill “presets” to Automation Schedules in data/UI terminology where safe.
-2. Keep schedule semantics strictly separate from reusable per-app `PolicyPreset` records.
-3. Preserve existing schedule behavior and persisted user state; this is a terminology/ownership cleanup, not an execution rewrite.
-4. Add targeted source/behavior regressions for the separation before moving on to the new-app setup queue.
-5. After that: durable `PACKAGE_ADDED` setup queue/default preset behavior, main-list policy badges/filters, then transactional backup/restore coverage.
+1. Add `PACKAGE_ADDED` handling that never performs a privileged mutation by default.
+2. Persist a durable Needs-setup queue so installs are not lost across process death/reboot.
+3. Support the three configured outcomes from the roadmap: `Ask after install`, `Apply default preset`, or `Leave unmanaged`.
+4. For Ask, surface a notification/deep link into ReAppzuku instead of launching an Activity over the foreground app.
+5. Validate package identifiers and eligibility before queueing/applying policy, and keep protected/system/persistent packages fail-safe.
+6. Add focused JVM/source tests plus Android-facing receiver/notification coverage before moving to main-list Needs-setup badges/filters.
 
 ## Guardrails
 

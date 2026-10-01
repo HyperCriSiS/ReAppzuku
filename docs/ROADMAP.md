@@ -252,7 +252,7 @@ Goal: replace overlapping global Auto-Kill / Smart Lifecycle ownership with one 
 - [x] Route Auto-Kill and Smart Lifecycle execution through the policy resolver. A current migration snapshot disables direct legacy fallback entirely; a stale snapshot re-enables bounded legacy fallback until the next process-start reconciliation, preventing dual ownership without making old UI edits stale.
 - [x] Add per-app Policy Editor reachable from the main app list with strategy, preset, delays, kill method, boot cleanup, background restriction, protection toggles and triggers. Explicit saves override migrated legacy ownership and preserve preset/customized provenance.
 - [x] Seed stable built-in policy presets (Never touch, Messenger, Media, Balanced, Rarely used, Aggressive), expose localized display names, and support user-created presets via `Save as preset`.
-- [ ] Rename the existing two time-window Auto-Kill presets to Automation Schedules and keep them separate from reusable per-app Policy Presets.
+- [x] Rename the existing two time-window Auto-Kill presets to Automation Schedules and keep them separate from reusable per-app Policy Presets.
 - [ ] Add `PACKAGE_ADDED` handling with a durable setup queue: `Ask after install`, `Apply default preset`, or `Leave unmanaged`; use a notification/deep link instead of launching an Activity over the foreground app.
 - [ ] Add main-list policy badges and filters for Managed, Smart, Immediate, Protected and Needs setup.
 - [ ] Extend versioned backup/restore to include app policies, policy presets and new-app defaults transactionally.
@@ -268,6 +268,16 @@ Goal: replace overlapping global Auto-Kill / Smart Lifecycle ownership with one 
 - Active timer Sleep Mode, permanent freezes and still-owned frozen timer apps take lifecycle precedence and become `PROTECTED`; the existing Sleep Mode preference data remains the freeze source of truth for now.
 - Background restriction strength migrates independently with MANUAL > HARD > MEDIUM > SOFT precedence; manual AppOps/bucket/whitelist detail remains in its existing exact per-package preference keys until the Policy Editor/backup block moves that detail.
 - Six stable built-in preset IDs are seeded idempotently. Legacy-derived policies intentionally start as Custom (`presetId=null`, `customized=true`) instead of pretending to match a reusable preset.
+
+### Phase 9 Automation Schedule separation evidence — 2026-10-01
+
+- PR #65 / merge `f37505e6035b67a30170a625e51d2994a8b75e32` separates the two legacy time-window Auto-Kill schedule slots from Room-backed reusable `PolicyPreset` templates in UI/API terminology.
+- New UI code goes through `AutomationScheduleManager`; the historical `PresetManager` and `PresetModel` remain the compatibility implementation/serialized model only.
+- Existing installs keep their schedule state unchanged: `preset_1_prefs`, `preset_2_prefs`, `PRESET_ACTIVATE` / `PRESET_DEACTIVATE`, `preset_backup_` and legacy serialized fields were deliberately not renamed.
+- Historical default names such as `Preset 1` / `Preset 2` are displayed as localized Automation Schedule names without requiring a storage migration; new JSON exports use `automation-schedule-N.json`.
+- Source-authoritative regressions lock the compatibility identifiers and verify that Room `PolicyPreset` remains free of time-window fields.
+- Final-head validation passed: standard `36862912195`, CodeQL `36862911361`, GitHub Advanced Security `36862917104`; PR review threads were empty.
+- No Room schema or automation execution behavior changed in this block.
 
 ### Phase 9 migration principles
 
