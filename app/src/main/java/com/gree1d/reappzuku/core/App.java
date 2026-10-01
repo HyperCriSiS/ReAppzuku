@@ -15,6 +15,8 @@ import com.google.android.material.color.DynamicColors;
 import rikka.shizuku.Shizuku;
 import rikka.shizuku.ShizukuProvider;
 
+import com.gree1d.reappzuku.service.SmartLifecycleWorker;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -118,6 +120,7 @@ public class App extends Application {
         executor.execute(() -> {
             AppPolicyLegacyMigrator.migrateIfNeeded(this);
             NewAppSetupCoordinator.replayPending(this);
+            SmartLifecycleWorker.schedulePeriodic(this);
         });
 
         // ShellManager owns the application-lifetime Binder/permission/UserService
