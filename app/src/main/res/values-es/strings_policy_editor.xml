@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_policy_editor">Política de ciclo de vida</string>
+    <string name="policy_editor_title">Política de ciclo de vida de la app</string>
+    <string name="policy_editor_preset">Preajuste de política</string>
+    <string name="policy_editor_custom">Personalizado / sin preajuste</string>
+    <string name="policy_editor_strategy">Estrategia</string>
+    <string name="policy_editor_smart_delays">Retrasos de Smart Lifecycle</string>
+    <string name="policy_editor_standby_minutes">Retraso de espera (minutos)</string>
+    <string name="policy_editor_force_stop_minutes">Retraso de detención forzada (minutos)</string>
+    <string name="policy_editor_never_hint">Usa -1 para no detener nunca de forma forzada en Smart.</string>
+    <string name="policy_editor_kill_method">Método de cierre inmediato</string>
+    <string name="policy_editor_background_restriction">Restricción en segundo plano</string>
+    <string name="policy_editor_boot_cleanup">Permitir limpieza al arrancar</string>
+    <string name="policy_editor_protection">Protecciones</string>
+    <string name="policy_editor_protect_media">Proteger contenido multimedia activo</string>
+    <string name="policy_editor_protect_fgs">Proteger servicios en primer plano</string>
+    <string name="policy_editor_protect_widgets">Proteger proveedores de widgets</string>
+    <string name="policy_editor_triggers">Activadores de automatización</string>
+    <string name="policy_editor_trigger_periodic">Periódico</string>
+    <string name="policy_editor_trigger_screen_off">Pantalla apagada</string>
+    <string name="policy_editor_trigger_ram">Umbral de RAM</string>
+    <string name="policy_editor_trigger_boot">Limpieza al arrancar</string>
+    <string name="policy_editor_trigger_hardware">Evento de hardware</string>
+    <string name="policy_editor_trigger_app_launch">Inicio de app</string>
+    <string name="policy_editor_save">Guardar política</string>
+    <string name="policy_editor_save_as_preset">Guardar como preajuste</string>
+    <string name="policy_editor_preset_name_hint">Nombre del preajuste</string>
+    <string name="policy_editor_saved">Política guardada</string>
+    <string name="policy_editor_preset_saved">Política y preajuste guardados</string>
+    <string name="policy_editor_invalid_package">Nombre de paquete no válido.</string>
+    <string name="policy_editor_delay_required">Ambos campos de retraso son obligatorios.</string>
+    <string name="policy_editor_invalid_delay">Introduce un retraso válido en minutos. La detención forzada puede usar -1 para nunca.</string>
+    <string name="policy_editor_invalid_preset_name">Introduce un nombre de preajuste de 1 a 80 caracteres.</string>
+    <string name="policy_preset_never_touch">No tocar nunca</string>
+    <string name="policy_preset_messenger">Mensajería</string>
+    <string name="policy_preset_media">Multimedia</string>
+    <string name="policy_preset_balanced">Equilibrado</string>
+    <string name="policy_preset_rarely_used">Uso poco frecuente</string>
+    <string name="policy_preset_aggressive">Agresivo</string>
+    <string-array name="policy_editor_strategies">
+        <item>Sin gestionar</item>
+        <item>Protegido</item>
+        <item>Smart</item>
+        <item>Inmediato</item>
+    </string-array>
+    <string-array name="policy_editor_kill_methods">
+        <item>Forzar detención</item>
+        <item>am kill</item>
+    </string-array>
+    <string-array name="policy_editor_restrictions">
+        <item>Ninguna</item>
+        <item>Suave</item>
+        <item>Media</item>
+        <item>Fuerte</item>
+        <item>Manual</item>
+    </string-array>
+</resources>

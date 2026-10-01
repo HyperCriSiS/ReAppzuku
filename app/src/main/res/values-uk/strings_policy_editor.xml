@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_policy_editor">Політика життєвого циклу</string>
+    <string name="policy_editor_title">Політика життєвого циклу застосунку</string>
+    <string name="policy_editor_preset">Шаблон політики</string>
+    <string name="policy_editor_custom">Власна / без шаблону</string>
+    <string name="policy_editor_strategy">Стратегія</string>
+    <string name="policy_editor_smart_delays">Затримки Smart Lifecycle</string>
+    <string name="policy_editor_standby_minutes">Затримка очікування (хвилини)</string>
+    <string name="policy_editor_force_stop_minutes">Затримка примусової зупинки (хвилини)</string>
+    <string name="policy_editor_never_hint">Використовуйте -1, щоб Smart ніколи не виконував примусову зупинку.</string>
+    <string name="policy_editor_kill_method">Метод негайного завершення</string>
+    <string name="policy_editor_background_restriction">Обмеження фонової роботи</string>
+    <string name="policy_editor_boot_cleanup">Дозволити очищення під час запуску</string>
+    <string name="policy_editor_protection">Захисні винятки</string>
+    <string name="policy_editor_protect_media">Захищати активне відтворення</string>
+    <string name="policy_editor_protect_fgs">Захищати служби переднього плану</string>
+    <string name="policy_editor_protect_widgets">Захищати постачальників віджетів</string>
+    <string name="policy_editor_triggers">Тригери автоматизації</string>
+    <string name="policy_editor_trigger_periodic">Періодично</string>
+    <string name="policy_editor_trigger_screen_off">Вимкнення екрана</string>
+    <string name="policy_editor_trigger_ram">Поріг ОЗП</string>
+    <string name="policy_editor_trigger_boot">Очищення під час запуску</string>
+    <string name="policy_editor_trigger_hardware">Апаратна подія</string>
+    <string name="policy_editor_trigger_app_launch">Запуск застосунку</string>
+    <string name="policy_editor_save">Зберегти політику</string>
+    <string name="policy_editor_save_as_preset">Зберегти як шаблон</string>
+    <string name="policy_editor_preset_name_hint">Назва шаблону</string>
+    <string name="policy_editor_saved">Політику збережено</string>
+    <string name="policy_editor_preset_saved">Політику та шаблон збережено</string>
+    <string name="policy_editor_invalid_package">Недійсне ім’я пакета.</string>
+    <string name="policy_editor_delay_required">Обидва поля затримки обов’язкові.</string>
+    <string name="policy_editor_invalid_delay">Введіть допустиму затримку у хвилинах. Для відсутності примусової зупинки вкажіть -1.</string>
+    <string name="policy_editor_invalid_preset_name">Введіть назву шаблону довжиною від 1 до 80 символів.</string>
+    <string name="policy_preset_never_touch">Ніколи не чіпати</string>
+    <string name="policy_preset_messenger">Месенджер</string>
+    <string name="policy_preset_media">Медіа</string>
+    <string name="policy_preset_balanced">Збалансований</string>
+    <string name="policy_preset_rarely_used">Рідко використовується</string>
+    <string name="policy_preset_aggressive">Агресивний</string>
+    <string-array name="policy_editor_strategies">
+        <item>Без керування</item>
+        <item>Захищений</item>
+        <item>Smart</item>
+        <item>Негайний</item>
+    </string-array>
+    <string-array name="policy_editor_kill_methods">
+        <item>Примусова зупинка</item>
+        <item>am kill</item>
+    </string-array>
+    <string-array name="policy_editor_restrictions">
+        <item>Немає</item>
+        <item>М’яке</item>
+        <item>Середнє</item>
+        <item>Жорстке</item>
+        <item>Вручну</item>
+    </string-array>
+</resources>
