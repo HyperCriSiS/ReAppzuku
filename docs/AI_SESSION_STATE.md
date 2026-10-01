@@ -57,6 +57,29 @@ Validation:
 - GitHub Advanced Security: `36862917104`
 - PR review threads: none at final review.
 
+### Phase 9 durable new-app setup queue
+
+Merged PR: #66  
+Merge commit: `93502e2bd44c50dac5a2c9b2432258a928da9c0b`
+
+- Added `PACKAGE_ADDED` handling with a durable Needs-setup queue and the three roadmap outcomes: Ask after install, Apply default preset, and Leave unmanaged.
+- Ask is the default and performs no privileged lifecycle mutation. Ask and Leave unmanaged create an explicit `UNMANAGED` policy as a safety barrier against legacy fallback.
+- Apply default preset is opt-in and may create a managed policy only after the user selects that mode; Balanced is the stored default preset choice until changed.
+- Existing explicit policies are preserved. Migration-owned legacy policies do not count as user configuration for a reinstall and can be replaced by the new-app decision.
+- Package IDs are validated; system, persistent and protected packages fail safe.
+- The receiver ignores app updates via `EXTRA_REPLACING`, works asynchronously, and never opens UI over the foreground app.
+- Ask notifications deep-link to the Policy Editor. A New app setup settings screen provides mode/default-preset controls, pending count and review-next fallback when notifications are denied or dismissed.
+- Pending entries replay after legacy reconciliation at process start, survive process death/reboot, and prune packages that no longer exist.
+- Successful Policy Editor saves clear the matching pending entry and notification.
+- No Room schema bump was required; queue/mode/default-preset state is kept in existing app preferences.
+- Updated the exported-component security review for `PackageAddedReceiver`.
+
+Validation:
+- Standard validation: `36919753802`
+- CodeQL: `36919752974`
+- GitHub Advanced Security: `36919755791`
+- PR review threads: none at final review.
+
 ## Current Phase 9 architecture state
 
 - Canonical strategies are `UNMANAGED`, `PROTECTED`, `SMART`, `IMMEDIATE`; `Custom` remains presentation/provenance state, not an execution engine.
@@ -65,19 +88,21 @@ Validation:
 - Retry-safe schema-13 migration is active and fingerprints remaining editable legacy state.
 - Per-app policy editing and reusable user presets now exist without another Room version bump.
 - Automation Schedules are explicitly separate from reusable per-app `PolicyPreset` templates; legacy schedule persistence identifiers remain compatibility-only.
+- Newly installed apps now enter an explicit safe setup path: Ask/Leave are canonical `UNMANAGED`, while only an explicitly selected default preset can auto-manage an app.
+- A durable Needs-setup queue is replayed after legacy migration and cannot be suppressed by migration-owned legacy rows on reinstall.
 - Legacy global settings remain transition controls/fallback and must not be removed until remaining Phase 9 parity work is complete.
 - Background-restriction strength is stored canonically, while exact manual AppOps/bucket/whitelist legacy details still remain in their existing per-package preference keys pending backup/UI parity work.
 
 ## Next work unit
 
-**Durable new-app setup queue / default policy behavior**
+**Main-list policy badges and filters**
 
-1. Add `PACKAGE_ADDED` handling that never performs a privileged mutation by default.
-2. Persist a durable Needs-setup queue so installs are not lost across process death/reboot.
-3. Support the three configured outcomes from the roadmap: `Ask after install`, `Apply default preset`, or `Leave unmanaged`.
-4. For Ask, surface a notification/deep link into ReAppzuku instead of launching an Activity over the foreground app.
-5. Validate package identifiers and eligibility before queueing/applying policy, and keep protected/system/persistent packages fail-safe.
-6. Add focused JVM/source tests plus Android-facing receiver/notification coverage before moving to main-list Needs-setup badges/filters.
+1. Surface canonical policy status directly in the main app list without reintroducing parallel legacy ownership semantics.
+2. Add compact badges/status for Managed, Smart, Immediate, Protected and Needs setup.
+3. Add list filters for those same states, with Needs setup driven by the durable new-app queue.
+4. Resolve status through canonical explicit/migration/fallback rules so displayed ownership matches execution ownership.
+5. Keep legacy blacklist/whitelist/Smart controls available during transition; badges describe effective canonical status rather than replacing those controls yet.
+6. Add focused JVM/source/UI regressions, then move to transactional backup/restore for policies, presets and new-app defaults.
 
 ## Guardrails
 

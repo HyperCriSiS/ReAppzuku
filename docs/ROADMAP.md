@@ -253,7 +253,7 @@ Goal: replace overlapping global Auto-Kill / Smart Lifecycle ownership with one 
 - [x] Add per-app Policy Editor reachable from the main app list with strategy, preset, delays, kill method, boot cleanup, background restriction, protection toggles and triggers. Explicit saves override migrated legacy ownership and preserve preset/customized provenance.
 - [x] Seed stable built-in policy presets (Never touch, Messenger, Media, Balanced, Rarely used, Aggressive), expose localized display names, and support user-created presets via `Save as preset`.
 - [x] Rename the existing two time-window Auto-Kill presets to Automation Schedules and keep them separate from reusable per-app Policy Presets.
-- [ ] Add `PACKAGE_ADDED` handling with a durable setup queue: `Ask after install`, `Apply default preset`, or `Leave unmanaged`; use a notification/deep link instead of launching an Activity over the foreground app.
+- [x] Add `PACKAGE_ADDED` handling with a durable setup queue: `Ask after install`, `Apply default preset`, or `Leave unmanaged`; use a notification/deep link instead of launching an Activity over the foreground app.
 - [ ] Add main-list policy badges and filters for Managed, Smart, Immediate, Protected and Needs setup.
 - [ ] Extend versioned backup/restore to include app policies, policy presets and new-app defaults transactionally.
 - [ ] Remove obsolete blacklist/whitelist/Smart Lifecycle settings UI only after migration and execution parity are proven.
@@ -278,6 +278,17 @@ Goal: replace overlapping global Auto-Kill / Smart Lifecycle ownership with one 
 - Source-authoritative regressions lock the compatibility identifiers and verify that Room `PolicyPreset` remains free of time-window fields.
 - Final-head validation passed: standard `36862912195`, CodeQL `36862911361`, GitHub Advanced Security `36862917104`; PR review threads were empty.
 - No Room schema or automation execution behavior changed in this block.
+
+### Phase 9 new-app setup evidence — 2026-10-01
+
+- PR #66 / merge `93502e2bd44c50dac5a2c9b2432258a928da9c0b` adds a manifest-declared `PACKAGE_ADDED` receiver and a durable SharedPreferences-backed Needs-setup queue without changing Room schema 13.
+- The default mode is `Ask after install`. Ask and `Leave unmanaged` write an explicit canonical `UNMANAGED` policy, preventing stale legacy fallback or migration-owned rows from claiming a newly installed package. Only a user-selected `Apply default preset` mode may automatically write a managing policy.
+- Reinstalls are protected from legacy capture: an existing policy blocks setup only when it is explicitly user-owned. Migration-owned legacy rows may be replaced by the new-app safety/default decision.
+- `PACKAGE_ADDED` ignores `EXTRA_REPLACING`, validates package names, rejects system/persistent/protected packages, uses `goAsync()`, and never launches an Activity over the foreground app.
+- Ask uses a notification/deep link to the per-app Policy Editor when notification permission is available. A dedicated New app setup settings page also exposes mode/default-preset controls, pending count and a review-next action so the queue remains usable when notifications are denied or dismissed.
+- Pending entries replay after legacy migration on normal process startup, survive process death/reboot, prune missing packages, and clear only after an explicit editor save, automatic preset application or Leave unmanaged resolution.
+- The exported-component security review now documents `PackageAddedReceiver`; source/JVM regressions cover receiver action/replacement filtering, explicit-Unmanaged safety, migration-owned reinstall handling and migration-before-replay ordering.
+- Final-head validation passed: standard `36919753802`, CodeQL `36919752974`, GitHub Advanced Security `36919755791`; PR review threads were empty.
 
 ### Phase 9 migration principles
 
