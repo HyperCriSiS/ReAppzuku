@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_policy_editor">Политика жизненного цикла</string>
+    <string name="policy_editor_title">Политика жизненного цикла приложения</string>
+    <string name="policy_editor_preset">Предустановка политики</string>
+    <string name="policy_editor_custom">Пользовательская / без предустановки</string>
+    <string name="policy_editor_strategy">Стратегия</string>
+    <string name="policy_editor_smart_delays">Задержки Smart Lifecycle</string>
+    <string name="policy_editor_standby_minutes">Задержка ожидания (минуты)</string>
+    <string name="policy_editor_force_stop_minutes">Задержка принудительной остановки (минуты)</string>
+    <string name="policy_editor_never_hint">Используйте -1, чтобы Smart никогда не выполнял принудительную остановку.</string>
+    <string name="policy_editor_kill_method">Метод немедленного завершения</string>
+    <string name="policy_editor_background_restriction">Ограничение фоновой работы</string>
+    <string name="policy_editor_boot_cleanup">Разрешить очистку при загрузке</string>
+    <string name="policy_editor_protection">Защитные исключения</string>
+    <string name="policy_editor_protect_media">Защищать активное воспроизведение</string>
+    <string name="policy_editor_protect_fgs">Защищать службы переднего плана</string>
+    <string name="policy_editor_protect_widgets">Защищать поставщиков виджетов</string>
+    <string name="policy_editor_triggers">Триггеры автоматизации</string>
+    <string name="policy_editor_trigger_periodic">Периодически</string>
+    <string name="policy_editor_trigger_screen_off">Выключение экрана</string>
+    <string name="policy_editor_trigger_ram">Порог ОЗУ</string>
+    <string name="policy_editor_trigger_boot">Очистка при загрузке</string>
+    <string name="policy_editor_trigger_hardware">Аппаратное событие</string>
+    <string name="policy_editor_trigger_app_launch">Запуск приложения</string>
+    <string name="policy_editor_save">Сохранить политику</string>
+    <string name="policy_editor_save_as_preset">Сохранить как предустановку</string>
+    <string name="policy_editor_preset_name_hint">Название предустановки</string>
+    <string name="policy_editor_saved">Политика сохранена</string>
+    <string name="policy_editor_preset_saved">Политика и предустановка сохранены</string>
+    <string name="policy_editor_invalid_package">Недопустимое имя пакета.</string>
+    <string name="policy_editor_delay_required">Оба поля задержки обязательны.</string>
+    <string name="policy_editor_invalid_delay">Введите допустимую задержку в минутах. Для отсутствия принудительной остановки укажите -1.</string>
+    <string name="policy_editor_invalid_preset_name">Введите название предустановки длиной от 1 до 80 символов.</string>
+    <string name="policy_preset_never_touch">Никогда не трогать</string>
+    <string name="policy_preset_messenger">Мессенджер</string>
+    <string name="policy_preset_media">Медиа</string>
+    <string name="policy_preset_balanced">Сбалансированный</string>
+    <string name="policy_preset_rarely_used">Редко используемый</string>
+    <string name="policy_preset_aggressive">Агрессивный</string>
+    <string-array name="policy_editor_strategies">
+        <item>Без управления</item>
+        <item>Защищённый</item>
+        <item>Smart</item>
+        <item>Немедленный</item>
+    </string-array>
+    <string-array name="policy_editor_kill_methods">
+        <item>Принудительная остановка</item>
+        <item>am kill</item>
+    </string-array>
+    <string-array name="policy_editor_restrictions">
+        <item>Нет</item>
+        <item>Мягкое</item>
+        <item>Среднее</item>
+        <item>Жёсткое</item>
+        <item>Вручную</item>
+    </string-array>
+</resources>

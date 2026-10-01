@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_policy_editor">生命周期策略</string>
+    <string name="policy_editor_title">应用生命周期策略</string>
+    <string name="policy_editor_preset">策略预设</string>
+    <string name="policy_editor_custom">自定义 / 无预设</string>
+    <string name="policy_editor_strategy">策略</string>
+    <string name="policy_editor_smart_delays">Smart Lifecycle 延迟</string>
+    <string name="policy_editor_standby_minutes">待机延迟（分钟）</string>
+    <string name="policy_editor_force_stop_minutes">强制停止延迟（分钟）</string>
+    <string name="policy_editor_never_hint">使用 -1 表示 Smart 永不强制停止。</string>
+    <string name="policy_editor_kill_method">立即终止方式</string>
+    <string name="policy_editor_background_restriction">后台限制</string>
+    <string name="policy_editor_boot_cleanup">允许启动时清理</string>
+    <string name="policy_editor_protection">保护措施</string>
+    <string name="policy_editor_protect_media">保护活动媒体</string>
+    <string name="policy_editor_protect_fgs">保护前台服务</string>
+    <string name="policy_editor_protect_widgets">保护小组件提供程序</string>
+    <string name="policy_editor_triggers">自动化触发条件</string>
+    <string name="policy_editor_trigger_periodic">定期</string>
+    <string name="policy_editor_trigger_screen_off">屏幕关闭</string>
+    <string name="policy_editor_trigger_ram">内存阈值</string>
+    <string name="policy_editor_trigger_boot">启动清理</string>
+    <string name="policy_editor_trigger_hardware">硬件事件</string>
+    <string name="policy_editor_trigger_app_launch">应用启动</string>
+    <string name="policy_editor_save">保存策略</string>
+    <string name="policy_editor_save_as_preset">另存为预设</string>
+    <string name="policy_editor_preset_name_hint">预设名称</string>
+    <string name="policy_editor_saved">策略已保存</string>
+    <string name="policy_editor_preset_saved">策略和预设已保存</string>
+    <string name="policy_editor_invalid_package">软件包名称无效。</string>
+    <string name="policy_editor_delay_required">两个延迟字段均为必填项。</string>
+    <string name="policy_editor_invalid_delay">请输入有效的分钟数。强制停止可使用 -1 表示永不执行。</string>
+    <string name="policy_editor_invalid_preset_name">请输入 1 到 80 个字符的预设名称。</string>
+    <string name="policy_preset_never_touch">永不处理</string>
+    <string name="policy_preset_messenger">即时通讯</string>
+    <string name="policy_preset_media">媒体</string>
+    <string name="policy_preset_balanced">均衡</string>
+    <string name="policy_preset_rarely_used">很少使用</string>
+    <string name="policy_preset_aggressive">激进</string>
+    <string-array name="policy_editor_strategies">
+        <item>不管理</item>
+        <item>受保护</item>
+        <item>Smart</item>
+        <item>立即</item>
+    </string-array>
+    <string-array name="policy_editor_kill_methods">
+        <item>强制停止</item>
+        <item>am kill</item>
+    </string-array>
+    <string-array name="policy_editor_restrictions">
+        <item>无</item>
+        <item>轻度</item>
+        <item>中度</item>
+        <item>严格</item>
+        <item>手动</item>
+    </string-array>
+</resources>

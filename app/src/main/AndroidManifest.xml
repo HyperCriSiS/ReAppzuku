@@ -91,6 +91,11 @@
             android:name="com.gree1d.reappzuku.ui.PresetSettingsActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name="com.gree1d.reappzuku.ui.AppPolicyEditorActivity"
+            android:exported="false"
+            android:parentActivityName="com.gree1d.reappzuku.ui.MainActivity"
+            android:windowSoftInputMode="adjustResize" />
 
         <service
             android:name="com.gree1d.reappzuku.service.ShappkyService"

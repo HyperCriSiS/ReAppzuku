@@ -1,5 +1,6 @@
 package com.gree1d.reappzuku.ui;
 
+import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -158,6 +159,7 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
 
         TextView btnInfo        = view.findViewById(R.id.sheet_btn_app_info);
         TextView btnTriggers    = view.findViewById(R.id.sheet_btn_app_triggers);
+        TextView btnPolicy      = view.findViewById(R.id.sheet_btn_policy);
         TextView btnUninstall   = view.findViewById(R.id.sheet_btn_uninstall);
         TextView btnHiddenSingle = view.findViewById(R.id.sheet_btn_hidden_single);
 
@@ -184,7 +186,7 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
         checkBgRestrict.setButtonTintList(accentTint);
 
         for (View row : new View[] {
-                btnInfo, btnTriggers, btnUninstall, btnHiddenSingle,
+                btnInfo, btnTriggers, btnPolicy, btnUninstall, btnHiddenSingle,
                 addToHeader, itemWhitelist, itemBlacklist, itemHidden, itemBgRestrict }) {
             FocusHighlightUtil.apply(row);
         }
@@ -201,6 +203,13 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
 
             dismiss();
             if (listener != null) listener.onAppTriggers();
+        });
+
+        btnPolicy.setOnClickListener(v -> {
+            dismiss();
+            Intent intent = new Intent(requireContext(), AppPolicyEditorActivity.class);
+            intent.putExtra(AppPolicyEditorActivity.EXTRA_PACKAGE_NAME, pkg);
+            startActivity(intent);
         });
 
         if (isProtected) {
