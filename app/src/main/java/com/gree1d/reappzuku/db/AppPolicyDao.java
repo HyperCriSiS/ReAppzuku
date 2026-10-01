@@ -25,6 +25,9 @@ public interface AppPolicyDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     void insertAllIgnore(List<AppPolicy> policies);
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void upsertAll(List<AppPolicy> policies);
+
     @Delete
     void delete(AppPolicy policy);
 
@@ -33,6 +36,9 @@ public interface AppPolicyDao {
 
     @Query("DELETE FROM app_policy WHERE source = :source")
     void deleteBySource(int source);
+
+    @Query("DELETE FROM app_policy")
+    void deleteAll();
 
     @Query("SELECT COUNT(*) FROM app_policy")
     int getCount();

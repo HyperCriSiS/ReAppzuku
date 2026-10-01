@@ -5,11 +5,16 @@ import android.content.SharedPreferences;
 import android.util.Log;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Set;
 
+import com.gree1d.reappzuku.db.AppDatabase;
+import com.gree1d.reappzuku.db.AppPolicy;
+import com.gree1d.reappzuku.db.PolicyPreset;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.PresetManager;
 import com.gree1d.reappzuku.utils.PresetModel;
@@ -30,7 +35,8 @@ public class BackupManager {
     enum RestoreCommitPoint {
         AFTER_MAIN_COMMIT,
         AFTER_PRESET_1_COMMIT,
-        AFTER_PRESET_2_COMMIT
+        AFTER_PRESET_2_COMMIT,
+        AFTER_PHASE9_DB_COMMIT
     }
 
     interface RestoreFaultInjector {
@@ -137,6 +143,7 @@ public class BackupManager {
 
 
             putPresets(root);
+            putPhase9(root);
 
 
             String result = backupCodec.encode(root);
@@ -160,18 +167,27 @@ public class BackupManager {
         Map<String, ?> mainSnapshot = null;
         Map<String, ?> preset1Snapshot = null;
         Map<String, ?> preset2Snapshot = null;
+        List<AppPolicy> appPolicySnapshot = null;
+        List<PolicyPreset> policyPresetSnapshot = null;
         PresetManager presetManager = new PresetManager(context);
+        AppDatabase database = AppDatabase.getInstance(context);
         boolean durableWriteStarted = false;
         try {
             JSONObject root = decoded.root;
-            // Validate all preset JSON before the first durable write.
+            // Validate all imported JSON before the first durable write.
             PresetModel[] restoredPresets = parsePresets(root);
             boolean containsPresetSection = root.has(KEY_PRESETS);
+            Phase9BackupCodec.Snapshot restoredPhase9 =
+                    Phase9BackupCodec.parse(root, decoded.version);
 
-            // Snapshot every preference file participating in the transaction.
+            // Snapshot every durable store participating in the transaction.
             mainSnapshot = deepCopyPreferenceMap(prefs.getAll());
             preset1Snapshot = presetManager.snapshotPresetStorage(PresetModel.PRESET_1);
             preset2Snapshot = presetManager.snapshotPresetStorage(PresetModel.PRESET_2);
+            if (restoredPhase9 != null) {
+                appPolicySnapshot = new ArrayList<>(database.appPolicyDao().getAll());
+                policyPresetSnapshot = new ArrayList<>(database.policyPresetDao().getAll());
+            }
 
             SharedPreferences.Editor editor = prefs.edit();
             restoreSet(editor, root, KEY_HIDDEN_APPS);
@@ -233,6 +249,14 @@ public class BackupManager {
                 }
             }
 
+            if (restoredPhase9 != null) {
+                editor.putInt(KEY_NEW_APP_SETUP_MODE, restoredPhase9.newAppSetupMode);
+                editor.putLong(KEY_NEW_APP_DEFAULT_PRESET_ID, restoredPhase9.defaultPresetId);
+                editor.putStringSet(KEY_NEW_APP_SETUP_QUEUE,
+                        new HashSet<>(restoredPhase9.pendingSetup));
+                AppPolicyLegacyMigrator.invalidateMigration(editor);
+            }
+
             durableWriteStarted = true;
             if (!editor.commit()) throw new IllegalStateException("main preferences commit failed");
             restoreFaultInjector.afterCommit(RestoreCommitPoint.AFTER_MAIN_COMMIT);
@@ -246,15 +270,29 @@ public class BackupManager {
                 restoreFaultInjector.afterCommit(RestoreCommitPoint.AFTER_PRESET_2_COMMIT);
             }
 
+            if (restoredPhase9 != null) {
+                replacePhase9Database(database, restoredPhase9);
+                restoreFaultInjector.afterCommit(RestoreCommitPoint.AFTER_PHASE9_DB_COMMIT);
+            }
+
             // Side effects only after all durable state was committed successfully.
             if (containsPresetSection) presetManager.restoreAfterBoot();
+            if (restoredPhase9 != null && !AppPolicyLegacyMigrator.migrateIfNeeded(context)) {
+                throw new IllegalStateException("Phase 9 legacy reconciliation failed");
+            }
             BackgroundWorkPolicy.enforceCompatibleBehavior(context);
 
             return true;
         } catch (Exception e) {
 
             if (durableWriteStarted && mainSnapshot != null) {
-                rollbackRestore(presetManager, mainSnapshot, preset1Snapshot, preset2Snapshot);
+                rollbackRestore(
+                        presetManager,
+                        mainSnapshot,
+                        preset1Snapshot,
+                        preset2Snapshot,
+                        appPolicySnapshot,
+                        policyPresetSnapshot);
             }
             return false;
         }
@@ -439,6 +477,31 @@ public class BackupManager {
         }
     }
 
+    private void putPhase9(JSONObject root) throws Exception {
+        AppDatabase database = AppDatabase.getInstance(context);
+        List<AppPolicy> explicitPolicies = new ArrayList<>();
+        for (AppPolicy policy : database.appPolicyDao().getAll()) {
+            if (policy != null && policy.source == AppPolicy.SOURCE_EXPLICIT) {
+                explicitPolicies.add(policy);
+            }
+        }
+
+        List<PolicyPreset> userPresets = new ArrayList<>();
+        for (PolicyPreset preset : database.policyPresetDao().getAll()) {
+            if (preset != null && !preset.builtIn) {
+                userPresets.add(preset);
+            }
+        }
+
+        Phase9BackupCodec.putPhase9(
+                root,
+                explicitPolicies,
+                userPresets,
+                NewAppSetupStore.getMode(context),
+                NewAppSetupStore.getDefaultPresetId(context),
+                new HashSet<>(NewAppSetupStore.getPending(context)));
+    }
+
     private void putPresets(JSONObject root) throws Exception {
         PresetManager presetManager = new PresetManager(context);
         JSONObject presets = new JSONObject();
@@ -474,15 +537,62 @@ public class BackupManager {
                 : manager.savePresetBlocking(model);
     }
 
+    private void replacePhase9Database(
+            AppDatabase database, Phase9BackupCodec.Snapshot restored) {
+        PolicyPresetSeeder.seedBuiltIns(database);
+        database.runInTransaction(() -> {
+            database.appPolicyDao().deleteAll();
+            database.policyPresetDao().deleteUserPresets();
+            if (!restored.userPresets.isEmpty()) {
+                database.policyPresetDao().upsertAll(restored.userPresets);
+            }
+            if (!restored.appPolicies.isEmpty()) {
+                database.appPolicyDao().upsertAll(restored.appPolicies);
+            }
+        });
+    }
+
+    private boolean restorePhase9DatabaseSnapshot(
+            List<AppPolicy> appPolicies, List<PolicyPreset> policyPresets) {
+        if (appPolicies == null || policyPresets == null) return true;
+        try {
+            AppDatabase database = AppDatabase.getInstance(context);
+            database.runInTransaction(() -> {
+                database.appPolicyDao().deleteAll();
+                database.policyPresetDao().deleteAll();
+                if (!policyPresets.isEmpty()) {
+                    database.policyPresetDao().upsertAll(policyPresets);
+                }
+                if (!appPolicies.isEmpty()) {
+                    database.appPolicyDao().upsertAll(appPolicies);
+                }
+            });
+            return true;
+        } catch (RuntimeException ignored) {
+            return false;
+        }
+    }
+
     private boolean rollbackRestore(PresetManager manager,
                                     Map<String, ?> mainSnapshot,
                                     Map<String, ?> preset1Snapshot,
                                     Map<String, ?> preset2Snapshot) {
+        return rollbackRestore(
+                manager, mainSnapshot, preset1Snapshot, preset2Snapshot, null, null);
+    }
+
+    private boolean rollbackRestore(PresetManager manager,
+                                    Map<String, ?> mainSnapshot,
+                                    Map<String, ?> preset1Snapshot,
+                                    Map<String, ?> preset2Snapshot,
+                                    List<AppPolicy> appPolicySnapshot,
+                                    List<PolicyPreset> policyPresetSnapshot) {
         boolean mainOk = restorePreferenceMap(prefs, mainSnapshot);
         boolean p1Ok = preset1Snapshot != null
                 && manager.restorePresetStorageBlocking(PresetModel.PRESET_1, preset1Snapshot);
         boolean p2Ok = preset2Snapshot != null
                 && manager.restorePresetStorageBlocking(PresetModel.PRESET_2, preset2Snapshot);
+        boolean phase9Ok = restorePhase9DatabaseSnapshot(appPolicySnapshot, policyPresetSnapshot);
         try {
             manager.restoreAfterBoot();
             BackgroundWorkPolicy.enforceCompatibleBehavior(context);
@@ -490,7 +600,7 @@ public class BackupManager {
 
             return false;
         }
-        return mainOk && p1Ok && p2Ok;
+        return mainOk && p1Ok && p2Ok && phase9Ok;
     }
 
     @SuppressWarnings("unchecked")

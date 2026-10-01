@@ -22,11 +22,20 @@ public interface PolicyPresetDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     void insertAllIgnore(List<PolicyPreset> presets);
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void upsertAll(List<PolicyPreset> presets);
+
     @Delete
     void delete(PolicyPreset preset);
 
     @Query("DELETE FROM policy_preset WHERE id = :id")
     void deleteById(long id);
+
+    @Query("DELETE FROM policy_preset WHERE builtIn = 0")
+    void deleteUserPresets();
+
+    @Query("DELETE FROM policy_preset")
+    void deleteAll();
 
     @Query("SELECT COUNT(*) FROM policy_preset")
     int getCount();
