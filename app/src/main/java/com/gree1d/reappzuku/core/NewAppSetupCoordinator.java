@@ -22,7 +22,10 @@ public final class NewAppSetupCoordinator {
         AppDatabase db = AppDatabase.getInstance(context);
         boolean queued = NewAppSetupStore.isPending(context, packageName);
         AppPolicy existing = db.appPolicyDao().getByPackage(packageName);
-        if (existing != null && !queued) return;
+        boolean explicitlyConfigured = existing != null
+                && existing.source == AppPolicy.SOURCE_EXPLICIT
+                && !queued;
+        if (explicitlyConfigured) return;
 
         boolean eligible = isEligible(context, packageName);
         int mode = NewAppSetupStore.getMode(context);
@@ -33,7 +36,7 @@ public final class NewAppSetupCoordinator {
         }
 
         int action = NewAppSetupPolicy.decide(
-                mode, eligible, existing != null && !queued, preset != null);
+                mode, eligible, explicitlyConfigured, preset != null);
         applyDecision(context, db, packageName, preset, action);
     }
 
@@ -82,7 +85,8 @@ public final class NewAppSetupCoordinator {
     }
 
     private static void ensureExplicitUnmanaged(AppDatabase db, String packageName) {
-        if (db.appPolicyDao().getByPackage(packageName) != null) return;
+        AppPolicy current = db.appPolicyDao().getByPackage(packageName);
+        if (current != null && current.source == AppPolicy.SOURCE_EXPLICIT) return;
         long now = System.currentTimeMillis();
         AppPolicy policy = AppPolicyEditorModel.defaultPolicy(packageName, now);
         policy.strategy = AppPolicy.STRATEGY_UNMANAGED;
