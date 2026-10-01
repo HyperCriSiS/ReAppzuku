@@ -44,6 +44,7 @@ public class AppPolicyEditorActivity extends BaseActivity {
     private AppPolicy loadedPolicy;
     private final List<PolicyPreset> presets = new ArrayList<>();
     private boolean bindingUi;
+    private boolean presetSelectionReady;
     private boolean customized = true;
 
     private TextView packageView;
@@ -127,7 +128,12 @@ public class AppPolicyEditorActivity extends BaseActivity {
 
     private void configureListeners() {
         presetSpinner.setOnItemSelectedListener(new SimpleItemSelectedListener(position -> {
-            if (bindingUi || position <= 0 || position - 1 >= presets.size()) return;
+            if (!presetSelectionReady
+                    || bindingUi
+                    || position <= 0
+                    || position - 1 >= presets.size()) {
+                return;
+            }
             PolicyPreset preset = presets.get(position - 1);
             AppPolicy preview = AppPolicyEditorModel.fromPreset(
                     packageName, preset, System.currentTimeMillis());
@@ -189,11 +195,13 @@ public class AppPolicyEditorActivity extends BaseActivity {
                 if (isFinishing() || isDestroyed()) return;
                 presets.clear();
                 presets.addAll(loadedPresets);
+                presetSelectionReady = false;
                 bindPresetAdapter(finalPolicy);
                 bindPolicyValues(finalPolicy);
                 loadedPolicy = finalPolicy;
                 customized = finalPolicy.customized || finalPolicy.presetId == null;
                 setEnabled(true);
+                presetSpinner.post(() -> presetSelectionReady = true);
             });
         });
     }
