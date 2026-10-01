@@ -43,7 +43,7 @@ import com.gree1d.reappzuku.core.BaseActivity;
 import com.gree1d.reappzuku.manager.AdditionalScenariosManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
-import com.gree1d.reappzuku.manager.PresetManager;
+import com.gree1d.reappzuku.manager.AutomationScheduleManager;
 import com.gree1d.reappzuku.manager.RestrictionsScheduler;
 import com.gree1d.reappzuku.manager.SleepModeManager;
 import com.gree1d.reappzuku.service.AppLaunchAccessibilityService;
@@ -51,6 +51,7 @@ import com.gree1d.reappzuku.service.AutoKillWorker;
 import com.gree1d.reappzuku.service.ShappkyService;
 import com.gree1d.reappzuku.utils.AppModel;
 import com.gree1d.reappzuku.utils.PresetModel;
+import com.gree1d.reappzuku.core.AutomationScheduleCompat;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -75,7 +76,7 @@ abstract class SettingsActivityDialogs extends BaseActivity {
     protected abstract ExecutorService getExecutor();
     protected abstract android.os.Handler getHandler();
     protected abstract SharedPreferences getSharedPreferences();
-    protected abstract boolean isPresetActive();
+    protected abstract boolean isAutomationScheduleActive();
     protected abstract boolean isServiceEnabled();
     protected abstract boolean getAutoKillPref(String key, boolean defVal);
     protected abstract int getAutoKillIntPref(String key, int defVal);
@@ -98,9 +99,9 @@ abstract class SettingsActivityDialogs extends BaseActivity {
     protected abstract void loadSettings();
     protected abstract int darkenColor(int color, float factor);
 
-    protected void showPresetActiveDialog() {
+    protected void showAutomationScheduleActiveDialog() {
         new MaterialAlertDialogBuilder(this)
-                .setMessage(R.string.antichange_settings)
+                .setMessage(R.string.automation_schedule_active_settings_locked)
                 .setPositiveButton(R.string.dialog_close, null)
                 .show();
     }
@@ -997,8 +998,7 @@ abstract class SettingsActivityDialogs extends BaseActivity {
         CheckBox cbSetBucket              = dialogView.findViewById(R.id.scheduler_cb_set_bucket_active);
 
         boolean hadLaunch = onActivateAction[0] != RestrictionsScheduler.ON_ACTIVATE_NOTHING
-                && selectedComponent[0] != null;
-        rgAction.check(hadLaunch ? R.id.scheduler_rb_launch : R.id.scheduler_rb_none);
+                && selectedComponent[0] != null;        rgAction.check(hadLaunch ? R.id.scheduler_rb_launch : R.id.scheduler_rb_none);
         componentContainer.setVisibility(hadLaunch ? View.VISIBLE : View.GONE);
         btnComponent.setText(selectedComponent[0] != null
                 ? shortComponentName(selectedComponent[0])
@@ -1388,14 +1388,14 @@ protected void showSpecialThanksDialog() {
                 .show());
     }
 
-    protected void showPresetPickerDialog() {
-        PresetManager presetManager = new PresetManager(this);
-        int activePreset = presetManager.getActivePresetNumber();
+    protected void showAutomationSchedulePickerDialog() {
+        AutomationScheduleManager scheduleManager = new AutomationScheduleManager(this);
+        int activePreset = scheduleManager.getActiveScheduleNumber();
 
         View view = getLayoutInflater().inflate(R.layout.dialog_single_choice, null);
         TextView titleView = view.findViewById(R.id.single_choice_title);
         RadioGroup group = view.findViewById(R.id.single_choice_group);
-        titleView.setText(getString(R.string.settings_presets_title));
+        titleView.setText(getString(R.string.automation_schedules_title));
 
         int accent = getSharedPreferences().getInt(KEY_ACCENT, ACCENT_SYSTEM);
         android.content.res.ColorStateList tint = (accent == ACCENT_CUSTOM)
@@ -1405,9 +1405,13 @@ protected void showSpecialThanksDialog() {
         int dp12 = (int) (getResources().getDisplayMetrics().density * 12);
 
         for (int presetNumber : new int[]{ PresetModel.PRESET_1, PresetModel.PRESET_2 }) {
-            String name = presetManager.presetExists(presetNumber)
-                    ? presetManager.getPresetName(presetNumber)
-                    : getString(R.string.preset_title, presetNumber);
+            String storedName = scheduleManager.scheduleExists(presetNumber)
+                    ? scheduleManager.getScheduleName(presetNumber)
+                    : null;
+            String name = storedName == null || storedName.trim().isEmpty()
+                    || AutomationScheduleCompat.isLegacyDefaultName(storedName, presetNumber)
+                    ? getString(R.string.automation_schedule_title, presetNumber)
+                    : storedName;
 
             android.widget.LinearLayout row = new android.widget.LinearLayout(this);
             row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
@@ -1428,7 +1432,7 @@ protected void showSpecialThanksDialog() {
 
             if (activePreset == presetNumber) {
                 TextView badge = new TextView(this);
-                badge.setText(getString(R.string.preset_badge_active));
+                badge.setText(getString(R.string.automation_schedule_badge_active));
                 badge.setTextSize(11);
                 badge.setTextColor(Color.WHITE);
                 badge.setBackground(buildBadgeBackground());
@@ -1461,7 +1465,7 @@ protected void showSpecialThanksDialog() {
             android.view.View.OnClickListener openPreset = v -> {
                 dialog.dismiss();
                 Intent intent = new Intent(this, PresetSettingsActivity.class);
-                intent.putExtra(PresetSettingsActivity.EXTRA_PRESET_NUMBER, presetNumber);
+                intent.putExtra(PresetSettingsActivity.EXTRA_AUTOMATION_SCHEDULE_NUMBER, presetNumber);
                 startActivity(intent);
             };
             row.setOnClickListener(openPreset);

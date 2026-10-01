@@ -48,7 +48,8 @@ import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.utils.PresetModel;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
-import com.gree1d.reappzuku.manager.PresetManager;
+import com.gree1d.reappzuku.manager.AutomationScheduleManager;
+import com.gree1d.reappzuku.core.AutomationScheduleCompat;
 import com.gree1d.reappzuku.core.BaseActivity;
 import com.gree1d.reappzuku.R;
 
@@ -57,7 +58,8 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 
 public class PresetSettingsActivity extends BaseActivity {
 
-    public static final String EXTRA_PRESET_NUMBER = "preset_number";
+    public static final String EXTRA_AUTOMATION_SCHEDULE_NUMBER = "automation_schedule_number";
+    public static final String EXTRA_PRESET_NUMBER = "preset_number"; // legacy in-process compatibility
 
     private static final int APP_LIST_MODE_CURRENT = 0;
     private static final int APP_LIST_MODE_OWN = 1;
@@ -71,7 +73,7 @@ public class PresetSettingsActivity extends BaseActivity {
     private ExecutorService executor;
 
     private int presetNumber;
-    private PresetManager presetManager;
+    private AutomationScheduleManager presetManager;
     private PresetModel workingModel;
 
     private int appListMode = APP_LIST_MODE_CURRENT;
@@ -84,8 +86,8 @@ public class PresetSettingsActivity extends BaseActivity {
                     Uri uri = result.getData().getData();
                     if (uri != null) {
                         buildCurrentModel();
-                        presetManager.exportPresetToJson(workingModel, uri);
-                        Toast.makeText(this, getString(R.string.preset_export_success), Toast.LENGTH_SHORT).show();
+                        presetManager.exportScheduleToJson(workingModel, uri);
+                        Toast.makeText(this, getString(R.string.automation_schedule_export_success), Toast.LENGTH_SHORT).show();
 
                     }
                 }
@@ -96,7 +98,7 @@ public class PresetSettingsActivity extends BaseActivity {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     Uri uri = result.getData().getData();
                     if (uri != null) {
-                        PresetModel imported = presetManager.importPresetFromJson(presetNumber, uri);
+                        PresetModel imported = presetManager.importScheduleFromJson(presetNumber, uri);
                         if (imported != null) {
                             workingModel = imported;
                             ownWhitelist = new HashSet<>(imported.whitelistedApps);
@@ -104,11 +106,11 @@ public class PresetSettingsActivity extends BaseActivity {
                             boolean hasOwnList = !ownWhitelist.isEmpty() || !ownBlacklist.isEmpty();
                             appListMode = hasOwnList ? APP_LIST_MODE_OWN : APP_LIST_MODE_CURRENT;
                             loadSettings();
-                            Toast.makeText(this, getString(R.string.preset_import_success), Toast.LENGTH_SHORT).show();
+                            Toast.makeText(this, getString(R.string.automation_schedule_import_success), Toast.LENGTH_SHORT).show();
 
                         } else {
 
-                            Toast.makeText(this, getString(R.string.preset_import_failed), Toast.LENGTH_SHORT).show();
+                            Toast.makeText(this, getString(R.string.automation_schedule_import_failed), Toast.LENGTH_SHORT).show();
                         }
                     }
                 }
@@ -120,9 +122,10 @@ public class PresetSettingsActivity extends BaseActivity {
         binding = ActivityPresetSettingsBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        presetNumber = getIntent().getIntExtra(EXTRA_PRESET_NUMBER, PresetModel.PRESET_1);
+        int legacyPresetNumber = getIntent().getIntExtra(EXTRA_PRESET_NUMBER, PresetModel.PRESET_1);
+        presetNumber = getIntent().getIntExtra(EXTRA_AUTOMATION_SCHEDULE_NUMBER, legacyPresetNumber);
 
-        presetManager = new PresetManager(this);
+        presetManager = new AutomationScheduleManager(this);
         sharedPreferences = getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         App app = (App) getApplication();
         handler = app.getSharedHandler();
@@ -142,7 +145,7 @@ public class PresetSettingsActivity extends BaseActivity {
         setSupportActionBar(binding.toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-            getSupportActionBar().setTitle(getString(R.string.preset_title, presetNumber));
+            getSupportActionBar().setTitle(getString(R.string.automation_schedule_title, presetNumber));
         }
         binding.toolbar.setNavigationOnClickListener(v -> finish());
 
@@ -165,7 +168,7 @@ public class PresetSettingsActivity extends BaseActivity {
     }
 
     private void loadWorkingModel() {
-        PresetModel saved = presetManager.loadPreset(presetNumber);
+        PresetModel saved = presetManager.loadSchedule(presetNumber);
         if (saved != null) {
 
             workingModel = saved;
@@ -199,9 +202,17 @@ public class PresetSettingsActivity extends BaseActivity {
         }
     }
 
+    private String displayScheduleName(String storedName) {
+        if (storedName == null || storedName.trim().isEmpty()
+                || AutomationScheduleCompat.isLegacyDefaultName(storedName, presetNumber)) {
+            return getString(R.string.automation_schedule_title, presetNumber);
+        }
+        return storedName;
+    }
+
     private void loadSettings() {
         binding.switchPresetEnabled.setChecked(workingModel.enabled);
-        binding.textPresetName.setText(workingModel.name);
+        binding.textPresetName.setText(displayScheduleName(workingModel.name));
         updateTimeRangeText();
         updateAppListModeText();
         binding.switchPeriodicKill.setChecked(workingModel.periodicKillEnabled);
@@ -222,8 +233,8 @@ public class PresetSettingsActivity extends BaseActivity {
         binding.switchPresetEnabled.setOnCheckedChangeListener((btn, isChecked) -> {
             workingModel.enabled = isChecked;
 
-            if (!isChecked && presetManager.getActivePresetNumber() == presetNumber) {
-                presetManager.forceDeactivateIfActive(presetNumber);
+            if (!isChecked && presetManager.getActiveScheduleNumber() == presetNumber) {
+                presetManager.forceDeactivateScheduleIfActive(presetNumber);
 
             }
         });
@@ -248,14 +259,14 @@ public class PresetSettingsActivity extends BaseActivity {
         binding.layoutKillMode.setOnClickListener(v -> showKillModeDialog());
         binding.layoutWhitelist.setOnClickListener(v -> {
             if (appListMode == APP_LIST_MODE_CURRENT) {
-                Toast.makeText(this, getString(R.string.preset_app_list_mode_switch_hint), Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.automation_schedule_app_list_mode_switch_hint), Toast.LENGTH_SHORT).show();
                 return;
             }
             showOwnWhitelistDialog();
         });
         binding.layoutBlacklist.setOnClickListener(v -> {
             if (appListMode == APP_LIST_MODE_CURRENT) {
-                Toast.makeText(this, getString(R.string.preset_app_list_mode_switch_hint), Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.automation_schedule_app_list_mode_switch_hint), Toast.LENGTH_SHORT).show();
                 return;
             }
             showOwnBlacklistDialog();
@@ -299,13 +310,13 @@ public class PresetSettingsActivity extends BaseActivity {
     }
 
     private void savePreset() {
-        PresetModel other = presetManager.loadPreset(
+        PresetModel other = presetManager.loadSchedule(
                 presetNumber == PresetModel.PRESET_1 ? PresetModel.PRESET_2 : PresetModel.PRESET_1);
         if (other != null && workingModel.overlapsWithExcludingSelf(other)) {
 
             new MaterialAlertDialogBuilder(this)
-                    .setTitle(getString(R.string.preset_overlap_title))
-                    .setMessage(getString(R.string.preset_overlap_message,
+                    .setTitle(getString(R.string.automation_schedule_overlap_title))
+                    .setMessage(getString(R.string.automation_schedule_overlap_message,
                             other.startHour, other.startMinute, other.endHour, other.endMinute))
                     .setPositiveButton(getString(R.string.dialog_ok), null)
                     .show();
@@ -315,18 +326,18 @@ public class PresetSettingsActivity extends BaseActivity {
         buildCurrentModel();
         workingModel.autoKillEnabled = true;
 
-        presetManager.savePreset(workingModel);
+        presetManager.saveSchedule(workingModel);
 
         if (workingModel.enabled) {
-            presetManager.scheduleAlarms(workingModel);
-            presetManager.checkAndApplyCurrentPreset();
+            presetManager.scheduleActivationAlarms(workingModel);
+            presetManager.reconcileCurrentSchedule();
         } else {
-            presetManager.cancelAlarms(workingModel.presetNumber);
-            presetManager.forceDeactivateIfActive(workingModel.presetNumber);
+            presetManager.cancelActivationAlarms(workingModel.presetNumber);
+            presetManager.forceDeactivateScheduleIfActive(workingModel.presetNumber);
         }
 
 
-        Toast.makeText(this, getString(R.string.preset_saved, presetNumber), Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.automation_schedule_saved, presetNumber), Toast.LENGTH_SHORT).show();
         finish();
     }
 
@@ -346,7 +357,7 @@ public class PresetSettingsActivity extends BaseActivity {
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("application/json");
-        intent.putExtra(Intent.EXTRA_TITLE, "preset" + presetNumber + ".json");
+        intent.putExtra(Intent.EXTRA_TITLE, AutomationScheduleCompat.exportFileName(presetNumber));
         exportLauncher.launch(intent);
     }
 
@@ -359,9 +370,9 @@ public class PresetSettingsActivity extends BaseActivity {
 
     private void showResetConfirmationDialog() {
         AlertDialog dialog = new MaterialAlertDialogBuilder(this)
-                .setTitle(getString(R.string.preset_reset_dialog_title))
-                .setMessage(getString(R.string.preset_reset_dialog_message, presetNumber))
-                .setPositiveButton(getString(R.string.preset_reset_button), (d, w) -> resetPreset())
+                .setTitle(getString(R.string.automation_schedule_reset_dialog_title))
+                .setMessage(getString(R.string.automation_schedule_reset_dialog_message, presetNumber))
+                .setPositiveButton(getString(R.string.automation_schedule_reset_button), (d, w) -> resetPreset())
                 .setNegativeButton(getString(R.string.dialog_cancel), null)
                 .create();
         dialog.show();
@@ -401,20 +412,20 @@ public class PresetSettingsActivity extends BaseActivity {
         appListMode = APP_LIST_MODE_CURRENT;
 
         loadSettings();
-        Toast.makeText(this, getString(R.string.preset_reset_success, presetNumber), Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.automation_schedule_reset_success, presetNumber), Toast.LENGTH_SHORT).show();
     }
 
     private void showPresetNameDialog() {
         EditText input = new EditText(this);
         input.setInputType(InputType.TYPE_CLASS_TEXT);
-        input.setText(workingModel.name);
+        input.setText(displayScheduleName(workingModel.name));
         input.setFilters(new InputFilter[]{ new InputFilter.LengthFilter(30) });
         input.selectAll();
         int dp16 = (int) (getResources().getDisplayMetrics().density * 16);
         input.setPadding(dp16, dp16, dp16, dp16);
 
         AlertDialog dialog = new MaterialAlertDialogBuilder(this)
-                .setTitle(getString(R.string.preset_name_dialog_title))
+                .setTitle(getString(R.string.automation_schedule_name_dialog_title))
                 .setView(input)
                 .setPositiveButton(getString(R.string.dialog_save), (d, w) -> {
                     String name = input.getText().toString().trim();
@@ -462,12 +473,12 @@ public class PresetSettingsActivity extends BaseActivity {
                 }, endHour[0], endMinute[0], use24h).show());
 
         AlertDialog dialog = new MaterialAlertDialogBuilder(this)
-                .setTitle(getString(R.string.preset_time_range_dialog_title))
+                .setTitle(getString(R.string.automation_schedule_time_range_dialog_title))
                 .setView(view)
                 .setPositiveButton(getString(R.string.dialog_save), (d, w) -> {
                     if (startHour[0] == endHour[0] && startMinute[0] == endMinute[0]) {
 
-                        Toast.makeText(this, getString(R.string.preset_time_range_error_same), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, getString(R.string.automation_schedule_time_range_error_same), Toast.LENGTH_SHORT).show();
                         return;
                     }
                     workingModel.startHour = startHour[0];
@@ -485,10 +496,10 @@ public class PresetSettingsActivity extends BaseActivity {
 
     private void showAppListModeDialog() {
         String[] modes = {
-                getString(R.string.preset_app_list_mode_current),
-                getString(R.string.preset_app_list_mode_own)
+                getString(R.string.automation_schedule_app_list_mode_current),
+                getString(R.string.automation_schedule_app_list_mode_own)
         };
-        showSingleChoiceDialog(getString(R.string.preset_app_list_mode_dialog_title), modes, appListMode, which -> {
+        showSingleChoiceDialog(getString(R.string.automation_schedule_app_list_mode_dialog_title), modes, appListMode, which -> {
 
             appListMode = which;
             updateAppListModeText();
@@ -919,8 +930,8 @@ public class PresetSettingsActivity extends BaseActivity {
 
     private void updateAppListModeText() {
         binding.textPresetAppListMode.setText(appListMode == APP_LIST_MODE_CURRENT
-                ? getString(R.string.preset_app_list_mode_current)
-                : getString(R.string.preset_app_list_mode_own));
+                ? getString(R.string.automation_schedule_app_list_mode_current)
+                : getString(R.string.automation_schedule_app_list_mode_own));
     }
 
     private void updateKillIntervalText(int intervalMs) {
@@ -969,11 +980,11 @@ public class PresetSettingsActivity extends BaseActivity {
         if (appListMode == APP_LIST_MODE_CURRENT) {
             Set<String> wl = sharedPreferences.getStringSet(KEY_WHITELISTED_APPS, new HashSet<>());
             Set<String> bl = sharedPreferences.getStringSet(KEY_BLACKLISTED_APPS, new HashSet<>());
-            binding.textWhitelistCount.setText(getString(R.string.preset_list_count_current, wl.size()));
-            binding.textBlacklistCount.setText(getString(R.string.preset_list_count_current, bl.size()));
+            binding.textWhitelistCount.setText(getString(R.string.automation_schedule_list_count_current, wl.size()));
+            binding.textBlacklistCount.setText(getString(R.string.automation_schedule_list_count_current, bl.size()));
         } else {
-            binding.textWhitelistCount.setText(getString(R.string.preset_list_count_own, ownWhitelist.size()));
-            binding.textBlacklistCount.setText(getString(R.string.preset_list_count_own, ownBlacklist.size()));
+            binding.textWhitelistCount.setText(getString(R.string.automation_schedule_list_count_own, ownWhitelist.size()));
+            binding.textBlacklistCount.setText(getString(R.string.automation_schedule_list_count_own, ownBlacklist.size()));
         }
     }
 
@@ -997,8 +1008,7 @@ public class PresetSettingsActivity extends BaseActivity {
             popup.setOnMenuItemClickListener(item -> {
                 switch (item.getItemId()) {
                     case 0: showSystem[0] = !showSystem[0]; item.setChecked(showSystem[0]); break;
-                    case 1: showUser[0] = !showUser[0]; item.setChecked(showUser[0]); break;
-                    case 2: showRunning[0] = !showRunning[0]; item.setChecked(showRunning[0]); break;
+                    case 1: showUser[0] = !showUser[0]; item.setChecked(showUser[0]); break;                    case 2: showRunning[0] = !showRunning[0]; item.setChecked(showRunning[0]); break;
                 }
                 adapter.setFilters(showSystem[0], showUser[0], showRunning[0]);
                 return true;

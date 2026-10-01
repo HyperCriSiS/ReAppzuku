@@ -10,6 +10,12 @@ import com.gree1d.reappzuku.core.PresetInputPolicy;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Legacy serialized model for an Automation Schedule slot.
+ *
+ * <p>The class and JSON field names are retained for import/backup compatibility. It is not a
+ * per-app policy preset; those are represented by {@code com.gree1d.reappzuku.db.PolicyPreset}.</p>
+ */
 public class PresetModel {
 
     public static final int PRESET_1 = 1;

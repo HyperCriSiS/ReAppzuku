@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="automation_schedules_title">Розклади автоматизації</string>
+    <string name="automation_schedules_subtitle">До 2 наборів правил Auto-Kill за часом</string>
+    <string name="automation_schedule_title">Розклад автоматизації %d</string>
+    <string name="automation_schedule_section_title">Розклад автоматизації</string>
+    <string name="automation_schedule_enabled_title">Увімкнути розклад</string>
+    <string name="automation_schedule_enabled_subtitle">Розклад автоматично діє протягом заданого часу</string>
+    <string name="automation_schedule_name_title">Назва розкладу</string>
+    <string name="automation_schedule_name_dialog_title">Назва розкладу</string>
+    <string name="automation_schedule_time_range_title">Активний час</string>
+    <string name="automation_schedule_time_range_dialog_title">Активний час</string>
+    <string name="automation_schedule_time_from_label">З</string>
+    <string name="automation_schedule_time_to_label">До</string>
+    <string name="automation_schedule_time_range_error_same">Час початку та завершення має відрізнятися</string>
+    <string name="automation_schedule_app_list_mode_title">Джерело списку застосунків</string>
+    <string name="automation_schedule_app_list_mode_dialog_title">Джерело списку застосунків</string>
+    <string name="automation_schedule_app_list_mode_current">Використовувати поточний білий / чорний список</string>
+    <string name="automation_schedule_app_list_mode_own">Використовувати власний список розкладу</string>
+    <string name="automation_schedule_app_list_mode_switch_hint">Перейдіть до «Власного списку» для редагування</string>
+    <string name="automation_schedule_list_count_current">%d застосунків (з поточних налаштувань)</string>
+    <string name="automation_schedule_list_count_own">Вибрано застосунків: %d</string>
+    <string name="automation_schedule_saved">Розклад автоматизації %d збережено</string>
+    <string name="automation_schedule_export_json_button">Експорт у JSON</string>
+    <string name="automation_schedule_export_success">Розклад автоматизації успішно експортовано</string>
+    <string name="automation_schedule_badge_active">Активний</string>
+    <string name="automation_schedule_overlap_title">Перетин часу</string>
+    <string name="automation_schedule_overlap_message">Цей період перетинається з іншим розкладом автоматизації (%1$d:%2$02d – %3$d:%4$02d). Змініть час, щоб розклади не перетиналися.</string>
+    <string name="automation_schedule_import_json_button">Імпорт із JSON</string>
+    <string name="automation_schedule_import_success">Розклад автоматизації успішно імпортовано</string>
+    <string name="automation_schedule_import_failed">Не вдалося імпортувати розклад автоматизації</string>
+    <string name="automation_schedule_reset_button">Скинути розклад</string>
+    <string name="automation_schedule_reset_dialog_title">Скинути налаштування розкладу?</string>
+    <string name="automation_schedule_reset_dialog_message">Усі налаштування розкладу автоматизації %d буде скинуто. Зміни застосуються лише після натискання «Зберегти».</string>
+    <string name="automation_schedule_reset_success">Налаштування розкладу автоматизації %d скинуто — натисніть «Зберегти» для застосування</string>
+    <string name="automation_schedule_active_settings_locked">Не можна змінювати основні налаштування Auto-Kill, поки активний розклад автоматизації</string>
+</resources>
