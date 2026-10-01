@@ -62,6 +62,8 @@ import static com.gree1d.reappzuku.core.AppConstants.*;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.core.ShellBackendState;
 import com.gree1d.reappzuku.core.BackgroundWorkPolicy;
+import com.gree1d.reappzuku.core.AppPolicyListSnapshot;
+import com.gree1d.reappzuku.core.AppPolicyListState;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
@@ -94,6 +96,7 @@ public class MainActivity extends BaseActivity {
     private final List<AppModel> fullAppsList = new ArrayList<>();
     private String currentSearchQuery = "";
     private int currentSortMode = AppConstants.SORT_MODE_DEFAULT;
+    private int currentPolicyFilterMask = AppPolicyListState.FILTER_NONE;
     private MenuItem selectAllMenuItem;
     private volatile boolean loadInFlight = false;
     private volatile boolean shellPreparationInFlight = false;
@@ -970,16 +973,30 @@ public class MainActivity extends BaseActivity {
                 .map(AppModel::getPackageName)
                 .collect(Collectors.toSet());
 
-        appManager.loadBackgroundAppsForMainScreen(
-                quickResult -> {
+        executor.execute(() -> {
+            AppPolicyListSnapshot policySnapshot =
+                    AppPolicyListSnapshot.capture(getApplicationContext());
+            appManager.loadBackgroundAppsForMainScreen(
+                    quickResult -> {
+                        applyPolicyListState(quickResult, policySnapshot);
+                        applyLoadedAppsList(quickResult, selectedPackages, /* finished= */ false);
+                    },
+                    fullResult -> {
+                        applyPolicyListState(fullResult, policySnapshot);
+                        applyLoadedAppsList(fullResult, selectedPackages, /* finished= */ true);
+                        loadInFlight = false;
+                    });
+        });
+    }
 
-                    applyLoadedAppsList(quickResult, selectedPackages, /* finished= */ false);
-                },
-                fullResult -> {
-
-                    applyLoadedAppsList(fullResult, selectedPackages, /* finished= */ true);
-                    loadInFlight = false;
-                });
+    private void applyPolicyListState(
+            List<AppModel> apps, AppPolicyListSnapshot policySnapshot) {
+        if (apps == null || policySnapshot == null) return;
+        for (AppModel app : apps) {
+            boolean failSafe = app.isProtected() || app.isPersistentApp();
+            app.setPolicyListStatus(policySnapshot.resolveStatus(
+                    app.getPackageName(), failSafe));
+        }
     }
 
     private void applyLoadedAppsList(List<AppModel> result, Set<String> selectedPackages, boolean finished) {
@@ -997,27 +1014,30 @@ public class MainActivity extends BaseActivity {
         filterApps(currentSearchQuery);
         binding.runningApps.setText(getString(R.string.main_active_apps_count, fullAppsList.size()));
         if (finished) {
-            binding.swiperefreshlayout1.setRefreshing(false);
-        }
+            binding.swiperefreshlayout1.setRefreshing(false);        }
         cpuMonitor.refreshAppsList(fullAppsList);
     }
 
     private void filterApps(String query) {
-        currentSearchQuery = query;
+        currentSearchQuery = query != null ? query : "";
         appsDataList.clear();
-        if (query == null || query.isEmpty()) {
-            appsDataList.addAll(fullAppsList);
-        } else {
-            Locale labelLocale = Locale.getDefault();
-            String labelQuery = query.toLowerCase(labelLocale);
-            String packageQuery = query.toLowerCase(Locale.ROOT);
-            for (AppModel app : fullAppsList) {
-                if (app.getAppName().toLowerCase(labelLocale).contains(labelQuery) ||
-                        app.getPackageName().toLowerCase(Locale.ROOT).contains(packageQuery)) {
-                    appsDataList.add(app);
-                }
+
+        Locale labelLocale = Locale.getDefault();
+        String labelQuery = currentSearchQuery.toLowerCase(labelLocale);
+        String packageQuery = currentSearchQuery.toLowerCase(Locale.ROOT);
+        boolean hasQuery = !currentSearchQuery.isEmpty();
+
+        for (AppModel app : fullAppsList) {
+            boolean matchesQuery = !hasQuery
+                    || app.getAppName().toLowerCase(labelLocale).contains(labelQuery)
+                    || app.getPackageName().toLowerCase(Locale.ROOT).contains(packageQuery);
+            boolean matchesPolicy = AppPolicyListState.matchesFilter(
+                    currentPolicyFilterMask, app.getPolicyListStatus());
+            if (matchesQuery && matchesPolicy) {
+                appsDataList.add(app);
             }
         }
+
         appManager.sortAppList(appsDataList, currentSortMode);
         listAdapter.submitList(new ArrayList<>(appsDataList));
         updateSelectMenuVisibility();
@@ -1125,6 +1145,9 @@ public class MainActivity extends BaseActivity {
         boolean showSystemApps = sharedPreferences.getBoolean(KEY_SHOW_SYSTEM_APPS, false);
         boolean showPersistentApps = sharedPreferences.getBoolean(KEY_SHOW_PERSISTENT_APPS, false);
         currentSortMode = sharedPreferences.getInt(KEY_SORT_MODE, AppConstants.SORT_MODE_DEFAULT);
+        currentPolicyFilterMask = AppPolicyListState.sanitizeFilterMask(
+                sharedPreferences.getInt(
+                        KEY_MAIN_POLICY_FILTER_MASK, AppPolicyListState.FILTER_NONE));
         appManager.setShowSystemApps(showSystemApps);
         appManager.setShowPersistentApps(showPersistentApps);
     }
@@ -1280,6 +1303,40 @@ public class MainActivity extends BaseActivity {
         if (accentTint != null) checkboxPersistent.setButtonTintList(accentTint);
         root.addView(checkboxPersistent);
 
+        View policyDivider = new View(this);
+        LinearLayout.LayoutParams policyDividerParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 1);
+        policyDividerParams.setMargins(0, dp8, 0, dp8);
+        policyDivider.setLayoutParams(policyDividerParams);
+        policyDivider.setBackgroundColor(tv.data);
+        root.addView(policyDivider);
+
+        TextView policyFilterTitle = new TextView(this);
+        policyFilterTitle.setText(R.string.policy_filter_section_title);
+        policyFilterTitle.setTextColor(ContextCompat.getColor(this, R.color.text_secondary));
+        policyFilterTitle.setTextSize(13);
+        policyFilterTitle.setPadding(dp16, dp8, dp16, dp8);
+        root.addView(policyFilterTitle);
+
+        int[][] policyFilters = {
+                { AppPolicyListState.FILTER_MANAGED, R.string.policy_filter_managed },
+                { AppPolicyListState.FILTER_SMART, R.string.policy_filter_smart },
+                { AppPolicyListState.FILTER_IMMEDIATE, R.string.policy_filter_immediate },
+                { AppPolicyListState.FILTER_PROTECTED, R.string.policy_filter_protected },
+                { AppPolicyListState.FILTER_NEEDS_SETUP, R.string.policy_filter_needs_setup }
+        };
+        List<CheckBox> policyFilterChecks = new ArrayList<>();
+        for (int[] filter : policyFilters) {
+            CheckBox checkBox = new CheckBox(this);
+            checkBox.setText(filter[1]);
+            checkBox.setPadding(dp16, dp8, dp16, dp8);
+            checkBox.setLayoutParams(fullWidth);
+            checkBox.setChecked((currentPolicyFilterMask & filter[0]) != 0);
+            if (accentTint != null) checkBox.setButtonTintList(accentTint);
+            root.addView(checkBox);
+            policyFilterChecks.add(checkBox);
+        }
+
         checkboxSystem.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked && !sharedPreferences.getBoolean("system_apps_warning_shown", false)) {
                 buttonView.setChecked(false);
@@ -1303,16 +1360,25 @@ public class MainActivity extends BaseActivity {
         scrollView.addView(root);
 
         AlertDialog sortDialog = new MaterialAlertDialogBuilder(this)
-                .setTitle(getString(R.string.sort_title))
+                .setTitle(getString(R.string.sort_filter_title))
                 .setView(scrollView)
                 .setPositiveButton(getString(R.string.dialog_apply), (dialog, which) -> {
                     int checkedId = radioGroup.getCheckedRadioButtonId();
                     int newSortMode = (checkedId != -1) ? (checkedId - 1000) : AppConstants.SORT_MODE_DEFAULT;
 
                     currentSortMode = newSortMode;
+                    int newPolicyFilterMask = AppPolicyListState.FILTER_NONE;
+                    for (int i = 0; i < policyFilters.length; i++) {
+                        if (policyFilterChecks.get(i).isChecked()) {
+                            newPolicyFilterMask |= policyFilters[i][0];
+                        }
+                    }
+                    currentPolicyFilterMask =
+                            AppPolicyListState.sanitizeFilterMask(newPolicyFilterMask);
 
                     sharedPreferences.edit()
                             .putInt(KEY_SORT_MODE, newSortMode)
+                            .putInt(KEY_MAIN_POLICY_FILTER_MASK, currentPolicyFilterMask)
                             .putBoolean(KEY_SHOW_SYSTEM_APPS, checkboxSystem.isChecked())
                             .putBoolean(KEY_SHOW_PERSISTENT_APPS, checkboxPersistent.isChecked())
                             .apply();

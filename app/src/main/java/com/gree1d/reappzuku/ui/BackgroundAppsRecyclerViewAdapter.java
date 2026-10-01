@@ -18,6 +18,7 @@ import com.gree1d.reappzuku.utils.AppModel;
 import com.gree1d.reappzuku.utils.FocusHighlightUtil;
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.PreferenceKeys;
+import com.gree1d.reappzuku.core.AppPolicyListState;
 
 public class BackgroundAppsRecyclerViewAdapter extends RecyclerView.Adapter<BackgroundAppsRecyclerViewAdapter.ViewHolder> {
 
@@ -124,6 +125,7 @@ public class BackgroundAppsRecyclerViewAdapter extends RecyclerView.Adapter<Back
             boolean persistent = app.isPersistentApp();
             binding.badgePersistent.setVisibility(persistent ? View.VISIBLE : View.GONE);
             binding.badgeSystem.setVisibility(!persistent && app.isSystemApp() ? View.VISIBLE : View.GONE);
+            bindPolicyBadge(app);
 
             binding.protectedIcon.setVisibility(app.isProtected() ? View.VISIBLE : View.GONE);
             binding.protectedIcon.setContentDescription(context.getString(R.string.a11y_protected_app));
@@ -209,6 +211,7 @@ public class BackgroundAppsRecyclerViewAdapter extends RecyclerView.Adapter<Back
             binding.appCpu.setAlpha(alpha);
             binding.badgeSystem.setAlpha(alpha);
             binding.badgePersistent.setAlpha(alpha);
+            binding.badgePolicy.setAlpha(alpha);
 
             if (app.isProtected()) {
                 binding.btnAppAction.setVisibility(View.GONE);
@@ -252,6 +255,34 @@ public class BackgroundAppsRecyclerViewAdapter extends RecyclerView.Adapter<Back
                     }
                 });
             }
+        }
+
+        private void bindPolicyBadge(AppModel app) {
+            int textRes;
+            switch (app.getPolicyListStatus()) {
+                case AppPolicyListState.STATUS_NEEDS_SETUP:
+                    textRes = R.string.policy_badge_needs_setup;
+                    break;
+                case AppPolicyListState.STATUS_PROTECTED:
+                    textRes = R.string.policy_badge_protected;
+                    break;
+                case AppPolicyListState.STATUS_SMART:
+                    textRes = R.string.policy_badge_managed_smart;
+                    break;
+                case AppPolicyListState.STATUS_IMMEDIATE:
+                    textRes = R.string.policy_badge_managed_immediate;
+                    break;
+                case AppPolicyListState.STATUS_UNMANAGED:
+                default:
+                    binding.badgePolicy.setVisibility(View.GONE);
+                    binding.badgePolicy.setText("");
+                    binding.badgePolicy.setContentDescription(null);
+                    return;
+            }
+            String text = context.getString(textRes);
+            binding.badgePolicy.setText(text);
+            binding.badgePolicy.setContentDescription(text);
+            binding.badgePolicy.setVisibility(View.VISIBLE);
         }
     }
 }

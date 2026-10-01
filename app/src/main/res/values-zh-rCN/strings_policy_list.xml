@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sort_filter_title">排序和筛选</string>
+    <string name="policy_filter_section_title">策略状态</string>
+    <string name="policy_filter_managed">受管理</string>
+    <string name="policy_filter_smart">智能</string>
+    <string name="policy_filter_immediate">立即</string>
+    <string name="policy_filter_protected">受保护</string>
+    <string name="policy_filter_needs_setup">需要设置</string>
+    <string name="policy_badge_managed_smart">受管理 · 智能</string>
+    <string name="policy_badge_managed_immediate">受管理 · 立即</string>
+    <string name="policy_badge_protected">受保护</string>
+    <string name="policy_badge_needs_setup">需要设置</string>
+</resources>

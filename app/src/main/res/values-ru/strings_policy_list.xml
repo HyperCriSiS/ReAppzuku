@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sort_filter_title">Сортировка и фильтр</string>
+    <string name="policy_filter_section_title">Статус политики</string>
+    <string name="policy_filter_managed">Управляемые</string>
+    <string name="policy_filter_smart">Smart</string>
+    <string name="policy_filter_immediate">Immediate</string>
+    <string name="policy_filter_protected">Защищённые</string>
+    <string name="policy_filter_needs_setup">Требуют настройки</string>
+    <string name="policy_badge_managed_smart">Управляется · Smart</string>
+    <string name="policy_badge_managed_immediate">Управляется · Immediate</string>
+    <string name="policy_badge_protected">Защищено</string>
+    <string name="policy_badge_needs_setup">Нужна настройка</string>
+</resources>

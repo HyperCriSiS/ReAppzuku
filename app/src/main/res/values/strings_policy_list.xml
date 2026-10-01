@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sort_filter_title">Sort &amp; filter</string>
+    <string name="policy_filter_section_title">Policy status</string>
+    <string name="policy_filter_managed">Managed</string>
+    <string name="policy_filter_smart">Smart</string>
+    <string name="policy_filter_immediate">Immediate</string>
+    <string name="policy_filter_protected">Protected</string>
+    <string name="policy_filter_needs_setup">Needs setup</string>
+    <string name="policy_badge_managed_smart">Managed · Smart</string>
+    <string name="policy_badge_managed_immediate">Managed · Immediate</string>
+    <string name="policy_badge_protected">Protected</string>
+    <string name="policy_badge_needs_setup">Needs setup</string>
+</resources>

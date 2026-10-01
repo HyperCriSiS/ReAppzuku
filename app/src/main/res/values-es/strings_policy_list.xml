@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sort_filter_title">Ordenar y filtrar</string>
+    <string name="policy_filter_section_title">Estado de política</string>
+    <string name="policy_filter_managed">Gestionadas</string>
+    <string name="policy_filter_smart">Inteligente</string>
+    <string name="policy_filter_immediate">Inmediata</string>
+    <string name="policy_filter_protected">Protegidas</string>
+    <string name="policy_filter_needs_setup">Requiere configuración</string>
+    <string name="policy_badge_managed_smart">Gestionada · Inteligente</string>
+    <string name="policy_badge_managed_immediate">Gestionada · Inmediata</string>
+    <string name="policy_badge_protected">Protegida</string>
+    <string name="policy_badge_needs_setup">Requiere configuración</string>
+</resources>
