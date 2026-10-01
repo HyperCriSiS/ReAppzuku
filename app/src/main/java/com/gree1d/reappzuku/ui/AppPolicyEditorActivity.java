@@ -21,6 +21,8 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.AppPolicyEditorModel;
 import com.gree1d.reappzuku.core.BaseActivity;
+import com.gree1d.reappzuku.core.NewAppSetupNotifier;
+import com.gree1d.reappzuku.core.NewAppSetupStore;
 import com.gree1d.reappzuku.core.PackageNameValidator;
 import com.gree1d.reappzuku.core.PolicyPresetSeeder;
 import com.gree1d.reappzuku.db.AppDatabase;
