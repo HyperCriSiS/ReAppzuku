@@ -71,7 +71,7 @@
                             android:id="@+id/section_title_preset"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@string/preset_section_title"
+                            android:text="@string/automation_schedule_section_title"
                             android:textColor="?attr/colorSecondary"
                             android:textSize="14sp"
                             android:textStyle="bold" />
@@ -95,14 +95,14 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="@string/preset_enabled_title"
+                                android:text="@string/automation_schedule_enabled_title"
                                 android:textColor="@color/text_primary"
                                 android:textSize="16sp" />
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="@string/preset_enabled_subtitle"
+                                android:text="@string/automation_schedule_enabled_subtitle"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="12sp" />
                         </LinearLayout>
@@ -128,7 +128,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@string/preset_name_title"
+                            android:text="@string/automation_schedule_name_title"
                             android:textColor="@color/text_primary"
                             android:textSize="16sp" />
 
@@ -153,7 +153,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@string/preset_time_range_title"
+                            android:text="@string/automation_schedule_time_range_title"
                             android:textColor="@color/text_primary"
                             android:textSize="16sp" />
 
@@ -178,7 +178,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@string/preset_app_list_mode_title"
+                            android:text="@string/automation_schedule_app_list_mode_title"
                             android:textColor="@color/text_primary"
                             android:textSize="16sp" />
 
@@ -543,7 +543,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:layout_marginEnd="4dp"
-                    android:text="@string/preset_import_json_button" />
+                    android:text="@string/automation_schedule_import_json_button" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_export_json"
@@ -552,7 +552,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:layout_marginStart="4dp"
-                    android:text="@string/preset_export_json_button" />
+                    android:text="@string/automation_schedule_export_json_button" />
 
             </LinearLayout>
 
@@ -562,7 +562,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
-                android:text="@string/preset_reset_button"
+                android:text="@string/automation_schedule_reset_button"
                 android:textColor="@color/sheet_delete_color"
                 app:strokeColor="@color/sheet_delete_color" />
 

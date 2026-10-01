@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="automation_schedules_title">自动化计划</string>
+    <string name="automation_schedules_subtitle">按时间安排最多 2 组 Auto-Kill 规则</string>
+    <string name="automation_schedule_title">自动化计划 %d</string>
+    <string name="automation_schedule_section_title">自动化计划</string>
+    <string name="automation_schedule_enabled_title">启用计划</string>
+    <string name="automation_schedule_enabled_subtitle">计划会在设定的时间段内自动生效</string>
+    <string name="automation_schedule_name_title">计划名称</string>
+    <string name="automation_schedule_name_dialog_title">计划名称</string>
+    <string name="automation_schedule_time_range_title">生效时间</string>
+    <string name="automation_schedule_time_range_dialog_title">生效时间</string>
+    <string name="automation_schedule_time_from_label">从</string>
+    <string name="automation_schedule_time_to_label">到</string>
+    <string name="automation_schedule_time_range_error_same">开始和结束时间必须不同</string>
+    <string name="automation_schedule_app_list_mode_title">应用列表来源</string>
+    <string name="automation_schedule_app_list_mode_dialog_title">应用列表来源</string>
+    <string name="automation_schedule_app_list_mode_current">使用当前白名单 / 黑名单</string>
+    <string name="automation_schedule_app_list_mode_own">使用计划自己的列表</string>
+    <string name="automation_schedule_app_list_mode_switch_hint">切换到“自有列表”进行编辑</string>
+    <string name="automation_schedule_list_count_current">%d 个应用（来自当前设置）</string>
+    <string name="automation_schedule_list_count_own">已选择 %d 个应用</string>
+    <string name="automation_schedule_saved">自动化计划 %d 已保存</string>
+    <string name="automation_schedule_export_json_button">导出为 JSON</string>
+    <string name="automation_schedule_export_success">自动化计划导出成功</string>
+    <string name="automation_schedule_badge_active">活动中</string>
+    <string name="automation_schedule_overlap_title">时间重叠</string>
+    <string name="automation_schedule_overlap_message">此时间段与另一个自动化计划重叠（%1$d:%2$02d – %3$d:%4$02d）。请调整时间，避免计划重叠。</string>
+    <string name="automation_schedule_import_json_button">从 JSON 导入</string>
+    <string name="automation_schedule_import_success">自动化计划导入成功</string>
+    <string name="automation_schedule_import_failed">无法导入自动化计划</string>
+    <string name="automation_schedule_reset_button">重置计划</string>
+    <string name="automation_schedule_reset_dialog_title">重置计划设置？</string>
+    <string name="automation_schedule_reset_dialog_message">自动化计划 %d 的所有设置都将恢复默认值。只有点击“保存”后更改才会生效。</string>
+    <string name="automation_schedule_reset_success">自动化计划 %d 的设置已重置 — 点击“保存”以应用</string>
+    <string name="automation_schedule_active_settings_locked">自动化计划处于活动状态时，无法更改主 Auto-Kill 设置</string>
+</resources>

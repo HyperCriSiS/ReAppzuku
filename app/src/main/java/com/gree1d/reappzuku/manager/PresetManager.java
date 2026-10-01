@@ -26,6 +26,14 @@ import com.gree1d.reappzuku.service.ShappkyService;
 
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 
+/**
+ * Legacy-named persistence/runtime implementation for the two time-window Automation Schedules.
+ *
+ * <p>Preference names, broadcast actions and backup keys intentionally retain their historical
+ * "preset" identifiers so existing schedules, alarms and backups survive upgrades unchanged.
+ * New UI code should use {@link AutomationScheduleManager}. This class is unrelated to the
+ * Room-backed per-app {@code PolicyPreset} templates.</p>
+ */
 public class PresetManager {
 
 

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="automation_schedules_title">Automation Schedules</string>
+    <string name="automation_schedules_subtitle">Schedule up to 2 Auto-Kill rule sets by time</string>
+    <string name="automation_schedule_title">Automation Schedule %d</string>
+    <string name="automation_schedule_section_title">Automation Schedule</string>
+    <string name="automation_schedule_enabled_title">Enable schedule</string>
+    <string name="automation_schedule_enabled_subtitle">Schedule activates automatically during its time window</string>
+    <string name="automation_schedule_name_title">Schedule name</string>
+    <string name="automation_schedule_name_dialog_title">Schedule name</string>
+    <string name="automation_schedule_time_range_title">Active time</string>
+    <string name="automation_schedule_time_range_dialog_title">Active time</string>
+    <string name="automation_schedule_time_from_label">From</string>
+    <string name="automation_schedule_time_to_label">To</string>
+    <string name="automation_schedule_time_range_error_same">Start and end time must differ</string>
+    <string name="automation_schedule_app_list_mode_title">App list source</string>
+    <string name="automation_schedule_app_list_mode_dialog_title">App list source</string>
+    <string name="automation_schedule_app_list_mode_current">Use current whitelist / blacklist</string>
+    <string name="automation_schedule_app_list_mode_own">Use schedule’s own list</string>
+    <string name="automation_schedule_app_list_mode_switch_hint">Switch to "Own list" to edit</string>
+    <string name="automation_schedule_list_count_current">%d apps (from current settings)</string>
+    <string name="automation_schedule_list_count_own">%d apps selected</string>
+    <string name="automation_schedule_saved">Automation Schedule %d saved</string>
+    <string name="automation_schedule_export_json_button">Export to JSON</string>
+    <string name="automation_schedule_export_success">Automation Schedule exported successfully</string>
+    <string name="automation_schedule_badge_active">Active</string>
+    <string name="automation_schedule_overlap_title">Time overlap</string>
+    <string name="automation_schedule_overlap_message">This range overlaps with another Automation Schedule (%1$d:%2$02d – %3$d:%4$02d). Adjust the times so schedules don’t overlap.</string>
+    <string name="automation_schedule_import_json_button">Import from JSON</string>
+    <string name="automation_schedule_import_success">Automation Schedule imported successfully</string>
+    <string name="automation_schedule_import_failed">Failed to import Automation Schedule</string>
+    <string name="automation_schedule_reset_button">Reset schedule</string>
+    <string name="automation_schedule_reset_dialog_title">Reset schedule settings?</string>
+    <string name="automation_schedule_reset_dialog_message">All settings of Automation Schedule %d will be reset to defaults. Changes only apply after you tap Save.</string>
+    <string name="automation_schedule_reset_success">Automation Schedule %d settings reset — tap Save to apply</string>
+    <string name="automation_schedule_active_settings_locked">You cannot change main Auto-Kill settings while an Automation Schedule is active</string>
+</resources>

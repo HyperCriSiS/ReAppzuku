@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="automation_schedules_title">Horarios de automatización</string>
+    <string name="automation_schedules_subtitle">Programa hasta 2 conjuntos de reglas de Auto-Kill por horario</string>
+    <string name="automation_schedule_title">Horario de automatización %d</string>
+    <string name="automation_schedule_section_title">Horario de automatización</string>
+    <string name="automation_schedule_enabled_title">Activar horario</string>
+    <string name="automation_schedule_enabled_subtitle">El horario se activa automáticamente durante su franja horaria</string>
+    <string name="automation_schedule_name_title">Nombre del horario</string>
+    <string name="automation_schedule_name_dialog_title">Nombre del horario</string>
+    <string name="automation_schedule_time_range_title">Horario activo</string>
+    <string name="automation_schedule_time_range_dialog_title">Horario activo</string>
+    <string name="automation_schedule_time_from_label">Desde</string>
+    <string name="automation_schedule_time_to_label">Hasta</string>
+    <string name="automation_schedule_time_range_error_same">La hora de inicio y de finalización deben ser diferentes</string>
+    <string name="automation_schedule_app_list_mode_title">Origen de la lista de apps</string>
+    <string name="automation_schedule_app_list_mode_dialog_title">Origen de la lista de apps</string>
+    <string name="automation_schedule_app_list_mode_current">Usar lista blanca / lista negra actual</string>
+    <string name="automation_schedule_app_list_mode_own">Usar la lista propia del horario</string>
+    <string name="automation_schedule_app_list_mode_switch_hint">Cambia a "Lista propia" para editar</string>
+    <string name="automation_schedule_list_count_current">%d apps (desde los ajustes actuales)</string>
+    <string name="automation_schedule_list_count_own">%d apps seleccionadas</string>
+    <string name="automation_schedule_saved">Horario de automatización %d guardado</string>
+    <string name="automation_schedule_export_json_button">Exportar a JSON</string>
+    <string name="automation_schedule_export_success">Horario de automatización exportado correctamente</string>
+    <string name="automation_schedule_badge_active">Activo</string>
+    <string name="automation_schedule_overlap_title">Solapamiento de horarios</string>
+    <string name="automation_schedule_overlap_message">Este intervalo se solapa con otro horario de automatización (%1$d:%2$02d – %3$d:%4$02d). Ajusta las horas para que no se solapen.</string>
+    <string name="automation_schedule_import_json_button">Importar desde JSON</string>
+    <string name="automation_schedule_import_success">Horario de automatización importado correctamente</string>
+    <string name="automation_schedule_import_failed">No se pudo importar el horario de automatización</string>
+    <string name="automation_schedule_reset_button">Restablecer horario</string>
+    <string name="automation_schedule_reset_dialog_title">¿Restablecer los ajustes del horario?</string>
+    <string name="automation_schedule_reset_dialog_message">Todos los ajustes del horario de automatización %d se restablecerán. Los cambios solo se aplican al pulsar Guardar.</string>
+    <string name="automation_schedule_reset_success">Ajustes del horario de automatización %d restablecidos — pulsa Guardar para aplicar</string>
+    <string name="automation_schedule_active_settings_locked">No puedes cambiar los ajustes principales de Auto-Kill mientras haya un horario de automatización activo</string>
+</resources>

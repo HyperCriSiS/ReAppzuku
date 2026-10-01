@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="automation_schedules_title">Расписания автоматизации</string>
+    <string name="automation_schedules_subtitle">До 2 наборов правил Auto-Kill по времени</string>
+    <string name="automation_schedule_title">Расписание автоматизации %d</string>
+    <string name="automation_schedule_section_title">Расписание автоматизации</string>
+    <string name="automation_schedule_enabled_title">Включить расписание</string>
+    <string name="automation_schedule_enabled_subtitle">Расписание автоматически действует в заданный период</string>
+    <string name="automation_schedule_name_title">Название расписания</string>
+    <string name="automation_schedule_name_dialog_title">Название расписания</string>
+    <string name="automation_schedule_time_range_title">Активное время</string>
+    <string name="automation_schedule_time_range_dialog_title">Активное время</string>
+    <string name="automation_schedule_time_from_label">С</string>
+    <string name="automation_schedule_time_to_label">До</string>
+    <string name="automation_schedule_time_range_error_same">Время начала и конца должны различаться</string>
+    <string name="automation_schedule_app_list_mode_title">Источник списка приложений</string>
+    <string name="automation_schedule_app_list_mode_dialog_title">Источник списка приложений</string>
+    <string name="automation_schedule_app_list_mode_current">Использовать текущий белый / чёрный список</string>
+    <string name="automation_schedule_app_list_mode_own">Использовать собственный список расписания</string>
+    <string name="automation_schedule_app_list_mode_switch_hint">Переключитесь на «Собственный список» для редактирования</string>
+    <string name="automation_schedule_list_count_current">%d приложений (из текущих настроек)</string>
+    <string name="automation_schedule_list_count_own">Выбрано приложений: %d</string>
+    <string name="automation_schedule_saved">Расписание автоматизации %d сохранено</string>
+    <string name="automation_schedule_export_json_button">Экспорт в JSON</string>
+    <string name="automation_schedule_export_success">Расписание автоматизации успешно экспортировано</string>
+    <string name="automation_schedule_badge_active">Активно</string>
+    <string name="automation_schedule_overlap_title">Пересечение времени</string>
+    <string name="automation_schedule_overlap_message">Этот период пересекается с другим расписанием автоматизации (%1$d:%2$02d – %3$d:%4$02d). Измените время, чтобы расписания не пересекались.</string>
+    <string name="automation_schedule_import_json_button">Импорт из JSON</string>
+    <string name="automation_schedule_import_success">Расписание автоматизации успешно импортировано</string>
+    <string name="automation_schedule_import_failed">Не удалось импортировать расписание автоматизации</string>
+    <string name="automation_schedule_reset_button">Сбросить расписание</string>
+    <string name="automation_schedule_reset_dialog_title">Сбросить настройки расписания?</string>
+    <string name="automation_schedule_reset_dialog_message">Все настройки расписания автоматизации %d будут сброшены. Изменения применятся только после нажатия «Сохранить».</string>
+    <string name="automation_schedule_reset_success">Настройки расписания автоматизации %d сброшены — нажмите «Сохранить» для применения</string>
+    <string name="automation_schedule_active_settings_locked">Нельзя изменять основные настройки Auto-Kill, пока активно расписание автоматизации</string>
+</resources>

@@ -27,7 +27,7 @@ import com.gree1d.reappzuku.core.BackgroundWorkPolicy;
 import com.gree1d.reappzuku.manager.AdditionalScenariosManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
-import com.gree1d.reappzuku.manager.PresetManager;
+import com.gree1d.reappzuku.manager.AutomationScheduleManager;
 import com.gree1d.reappzuku.manager.RamKillShortcutManager;
 import com.gree1d.reappzuku.manager.RestrictionsScheduler;
 import com.gree1d.reappzuku.manager.SleepModeManager;
@@ -64,7 +64,7 @@ public class SettingsActivity extends SettingsActivityDialogs
     private ExecutorService executor;
     private int easterEggClickCount = 0;
     private static final int EASTER_EGG_THRESHOLD = 5;
-    private PresetManager presetManager;
+    private AutomationScheduleManager automationScheduleManager;
 
     private final android.widget.CompoundButton.OnCheckedChangeListener autoKillListener = (buttonView, isChecked) -> {
         if (isChecked && !hasPrivilege()) {
@@ -142,7 +142,7 @@ public class SettingsActivity extends SettingsActivityDialogs
                 getApplicationContext(), handler, executor, shellManager, appManager, sleepModeManager);
         additionalScenariosManager = new AdditionalScenariosManager(this);
         ramKillShortcutManager = new RamKillShortcutManager(this, shellManager);
-        presetManager = new PresetManager(this);
+        automationScheduleManager = new AutomationScheduleManager(this);
 
         setupToolbar();
         loadSettings();
@@ -171,7 +171,7 @@ public class SettingsActivity extends SettingsActivityDialogs
         updateSmartLifecycleOptionsVisibility(smartEnabled);
         updateAutomationOptionsVisibility(autoKill, periodic);
         applyServiceDependentState(autoKill);
-        applyPresetActiveState(isPresetActive());
+        applyAutomationScheduleActiveState(isAutomationScheduleActive());
         updateRamThresholdLimitVisibility(ramEnabled && autoKill);
         updateAppBehaviorAvailability();
         updateShellModeText();
@@ -256,7 +256,7 @@ public class SettingsActivity extends SettingsActivityDialogs
                 updateSmartLifecycleProfileText(prefs.getInt(KEY_SMART_LIFECYCLE_PROFILE, SmartLifecycleManager.PROFILE_BALANCED));
                 break;
             case KEY_ACTIVE_PRESET:
-                applyPresetActiveState(isPresetActive());
+                applyAutomationScheduleActiveState(isAutomationScheduleActive());
                 break;
         }
         updateAppBehaviorAvailability();
@@ -603,7 +603,7 @@ public class SettingsActivity extends SettingsActivityDialogs
 
         updateKillModeVisibility();
         applyServiceDependentState(isServiceEnabled());
-        applyPresetActiveState(isPresetActive());
+        applyAutomationScheduleActiveState(isAutomationScheduleActive());
         setupAdditionalScenariosListeners();
     }
 
@@ -772,7 +772,7 @@ public class SettingsActivity extends SettingsActivityDialogs
                     labels.add(getString(R.string.settings_sleep_mode_title));
                     break;
                 case ACTIVE_PRESET:
-                    labels.add(getString(R.string.settings_presets_title));
+                    labels.add(getString(R.string.automation_schedules_title));
                     break;
                 case RESTRICTIONS_SCHEDULE:
                     labels.add(getString(R.string.settings_restrictions_scheduler_title));
@@ -880,46 +880,46 @@ public class SettingsActivity extends SettingsActivityDialogs
         binding.layoutSleepModeDelay.setAlpha(alpha);
     }
 
-    private void applyPresetActiveState(boolean presetActive) {
+    private void applyAutomationScheduleActiveState(boolean presetActive) {
         float alpha = presetActive ? 0.5f : 1.0f;
-        View.OnClickListener presetBlocker = presetActive ? v -> showPresetActiveDialog() : null;
+        View.OnClickListener presetBlocker = presetActive ? v -> showAutomationScheduleActiveDialog() : null;
 
         binding.switchPeriodicKill.setEnabled(!presetActive);
         binding.switchKillScreenOff.setEnabled(!presetActive);
         binding.switchRamThreshold.setEnabled(!presetActive);
 
         binding.layoutPeriodicKill.setAlpha(alpha);
-        binding.layoutPeriodicKill.setOnClickListener(presetActive ? v -> showPresetActiveDialog() : null);
+        binding.layoutPeriodicKill.setOnClickListener(presetActive ? v -> showAutomationScheduleActiveDialog() : null);
         binding.layoutScreenLock.setAlpha(alpha);
         binding.layoutScreenLock.setOnClickListener(presetBlocker);
         binding.layoutRamThresholdToggle.setAlpha(alpha);
         binding.layoutRamThresholdToggle.setOnClickListener(presetBlocker);
         binding.layoutRamThreshold.setAlpha(alpha);
-        binding.layoutRamThreshold.setOnClickListener(presetActive ? v -> showPresetActiveDialog() : v -> showRamThresholdDialog());
+        binding.layoutRamThreshold.setOnClickListener(presetActive ? v -> showAutomationScheduleActiveDialog() : v -> showRamThresholdDialog());
         binding.layoutKillInterval.setAlpha(alpha);
-        binding.layoutKillInterval.setOnClickListener(presetActive ? v -> showPresetActiveDialog() : v -> showKillIntervalDialog());
+        binding.layoutKillInterval.setOnClickListener(presetActive ? v -> showAutomationScheduleActiveDialog() : v -> showKillIntervalDialog());
         binding.layoutKillMode.setAlpha(alpha);
-        binding.layoutKillMode.setOnClickListener(presetActive ? v -> showPresetActiveDialog() : v -> {
+        binding.layoutKillMode.setOnClickListener(presetActive ? v -> showAutomationScheduleActiveDialog() : v -> {
             if (!isServiceEnabled()) { showServiceRequiredToast(); return; }
             showKillModeDialog();
         });
         binding.layoutAutoKillType.setAlpha(alpha);
-        binding.layoutAutoKillType.setOnClickListener(presetActive ? v -> showPresetActiveDialog() : v -> {
+        binding.layoutAutoKillType.setOnClickListener(presetActive ? v -> showAutomationScheduleActiveDialog() : v -> {
             if (!isServiceEnabled()) { showServiceRequiredToast(); return; }
             showAutoKillTypeDialog();
         });
         binding.layoutBlacklist.setAlpha(alpha);
-        binding.layoutBlacklist.setOnClickListener(presetActive ? v -> showPresetActiveDialog() : v -> {
+        binding.layoutBlacklist.setOnClickListener(presetActive ? v -> showAutomationScheduleActiveDialog() : v -> {
             if (!isServiceEnabled()) { showServiceRequiredToast(); return; }
             showBlacklistDialog();
         });
         binding.layoutWhitelist.setAlpha(alpha);
-        binding.layoutWhitelist.setOnClickListener(presetActive ? v -> showPresetActiveDialog() : v -> {
+        binding.layoutWhitelist.setOnClickListener(presetActive ? v -> showAutomationScheduleActiveDialog() : v -> {
             if (!isServiceEnabled()) { showServiceRequiredToast(); return; }
             showWhitelistDialog();
         });
         binding.layoutAdditionalScenarios.setAlpha(alpha);
-        binding.layoutAdditionalScenarios.setOnClickListener(presetActive ? v -> showPresetActiveDialog() : v -> {
+        binding.layoutAdditionalScenarios.setOnClickListener(presetActive ? v -> showAutomationScheduleActiveDialog() : v -> {
             if (!isServiceEnabled()) { showServiceRequiredToast(); return; }
             showAdditionalScenariosDialog();
         });
@@ -930,8 +930,8 @@ public class SettingsActivity extends SettingsActivityDialogs
     }
 
     @Override
-    protected boolean isPresetActive() {
-        return presetManager != null && presetManager.getActivePresetNumber() != 0;
+    protected boolean isAutomationScheduleActive() {
+        return automationScheduleManager != null && automationScheduleManager.getActiveScheduleNumber() != 0;
     }
 
     @Override
@@ -941,8 +941,8 @@ public class SettingsActivity extends SettingsActivityDialogs
 
     @Override
     protected boolean getAutoKillPref(String key, boolean defVal) {
-        if (isPresetActive()) {
-            return sharedPreferences.getBoolean(PresetManager.KEY_BACKUP_PREFIX + key, defVal);
+        if (isAutomationScheduleActive()) {
+            return sharedPreferences.getBoolean(AutomationScheduleManager.LEGACY_BACKUP_PREFIX + key, defVal);
         }
         return sharedPreferences.getBoolean(key, defVal);
     }
@@ -950,14 +950,14 @@ public class SettingsActivity extends SettingsActivityDialogs
     protected void putAutoKillPref(String key, boolean value) {
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putBoolean(key, value);
-        if (isPresetActive()) editor.putBoolean(PresetManager.KEY_BACKUP_PREFIX + key, value);
+        if (isAutomationScheduleActive()) editor.putBoolean(AutomationScheduleManager.LEGACY_BACKUP_PREFIX + key, value);
         editor.apply();
     }
 
     @Override
     protected int getAutoKillIntPref(String key, int defVal) {
-        if (isPresetActive()) {
-            return sharedPreferences.getInt(PresetManager.KEY_BACKUP_PREFIX + key, defVal);
+        if (isAutomationScheduleActive()) {
+            return sharedPreferences.getInt(AutomationScheduleManager.LEGACY_BACKUP_PREFIX + key, defVal);
         }
         return sharedPreferences.getInt(key, defVal);
     }
@@ -966,7 +966,7 @@ public class SettingsActivity extends SettingsActivityDialogs
     protected void putAutoKillIntPref(String key, int value) {
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putInt(key, value);
-        if (isPresetActive()) editor.putInt(PresetManager.KEY_BACKUP_PREFIX + key, value);
+        if (isAutomationScheduleActive()) editor.putInt(AutomationScheduleManager.LEGACY_BACKUP_PREFIX + key, value);
         editor.apply();
     }
 
@@ -994,11 +994,10 @@ public class SettingsActivity extends SettingsActivityDialogs
                     if (sharedPreferences.getBoolean(KEY_AUTO_KILL_ENABLED, false)) {
                         sharedPreferences.edit()
                                 .putBoolean(KEY_AUTO_KILL_ENABLED, false)
-                                .putBoolean(PresetManager.KEY_BACKUP_PREFIX + KEY_AUTO_KILL_ENABLED, false)
+                                .putBoolean(AutomationScheduleManager.LEGACY_BACKUP_PREFIX + KEY_AUTO_KILL_ENABLED, false)
                                 .apply();
                         binding.switchAutoKill.setChecked(false);
-                        stopService(new Intent(SettingsActivity.this, ShappkyService.class));
-                        AutoKillWorker.cancel(SettingsActivity.this);
+                        stopService(new Intent(SettingsActivity.this, ShappkyService.class));                        AutoKillWorker.cancel(SettingsActivity.this);
                     }
                     applyServiceDependentState(false);
                 } else {
@@ -1027,7 +1026,7 @@ public class SettingsActivity extends SettingsActivityDialogs
             if (killMode == 0 && whitelistedApps.isEmpty()) {
                 sharedPreferences.edit()
                         .putBoolean(KEY_AUTO_KILL_ENABLED, false)
-                        .putBoolean(PresetManager.KEY_BACKUP_PREFIX + KEY_AUTO_KILL_ENABLED, false)
+                        .putBoolean(AutomationScheduleManager.LEGACY_BACKUP_PREFIX + KEY_AUTO_KILL_ENABLED, false)
                         .apply();
                 if (binding.switchAutoKill != null) binding.switchAutoKill.setChecked(false);
                 resetDialogButtonColors(new MaterialAlertDialogBuilder(this)
@@ -1066,7 +1065,7 @@ public class SettingsActivity extends SettingsActivityDialogs
             if (!isServiceEnabled()) { showServiceRequiredToast(); return; }
             showAdditionalScenariosDialog();
         });
-        binding.layoutPresets.setOnClickListener(v -> showPresetPickerDialog());
+        binding.layoutPresets.setOnClickListener(v -> showAutomationSchedulePickerDialog());
         binding.layoutAddShortcut.setOnClickListener(v -> ramKillShortcutManager.requestPinShortcut());
     }
 }
