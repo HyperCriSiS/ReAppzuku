@@ -71,7 +71,7 @@ public final class NewAppSetupNotifier {
     }
 
     private static int notificationId(String packageName) {
-        return 0x4E415000 | (packageName.hashCode() & 0x00000FFF);
+        return 0x4E410000 ^ packageName.hashCode();
     }
 
     private static String appLabel(Context context, String packageName) {
