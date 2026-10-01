@@ -30,6 +30,12 @@ public class NewAppSetupSourcePolicyTest {
         assertTrue(coordinator.contains("ACTION_LEAVE_UNMANAGED"));
         assertTrue(coordinator.contains("AppPolicy.STRATEGY_UNMANAGED"));
     }
+
+    @Test public void migrationOwnedPolicyDoesNotCaptureAReinstall() throws Exception {
+        String coordinator = readRepositoryFile("app/src/main/java/com/gree1d/reappzuku/core/NewAppSetupCoordinator.java");
+        assertTrue(coordinator.contains("existing.source == AppPolicy.SOURCE_EXPLICIT"));
+        assertTrue(coordinator.contains("current.source == AppPolicy.SOURCE_EXPLICIT"));
+    }
     @Test public void pendingQueueReplaysAfterLegacyMigration() throws Exception {
         String app = readRepositoryFile("app/src/main/java/com/gree1d/reappzuku/core/App.java");
         int migration = app.indexOf("AppPolicyLegacyMigrator.migrateIfNeeded(this)");
