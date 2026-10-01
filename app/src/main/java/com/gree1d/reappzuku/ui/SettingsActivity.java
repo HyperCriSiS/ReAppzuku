@@ -797,8 +797,7 @@ public class SettingsActivity extends SettingsActivityDialogs
         binding.switchSmartBootCleanup.setEnabled(enabled);
     }
 
-    private void updateSmartLifecycleProfileText(int profile) {
-        if (profile == SmartLifecycleManager.PROFILE_GENTLE) {
+    private void updateSmartLifecycleProfileText(int profile) {        if (profile == SmartLifecycleManager.PROFILE_GENTLE) {
             binding.textSmartLifecycleProfile.setText(R.string.settings_smart_lifecycle_profile_gentle);
         } else if (profile == SmartLifecycleManager.PROFILE_AGGRESSIVE) {
             binding.textSmartLifecycleProfile.setText(R.string.settings_smart_lifecycle_profile_aggressive);
@@ -1066,6 +1065,8 @@ public class SettingsActivity extends SettingsActivityDialogs
             showAdditionalScenariosDialog();
         });
         binding.layoutPresets.setOnClickListener(v -> showAutomationSchedulePickerDialog());
+        binding.layoutNewAppSetup.setOnClickListener(v ->
+                startActivity(new Intent(this, NewAppSetupSettingsActivity.class)));
         binding.layoutAddShortcut.setOnClickListener(v -> ramKillShortcutManager.requestPinShortcut());
     }
 }

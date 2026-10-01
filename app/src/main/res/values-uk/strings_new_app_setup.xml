@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="new_app_setup_settings_title">Налаштування нових застосунків</string>
+    <string name="new_app_setup_settings_subtitle">Виберіть дію після встановлення нового застосунку</string>
+    <string name="new_app_setup_behavior_title">Після встановлення нового застосунку</string>
+    <string name="new_app_setup_mode_ask">Запитувати після встановлення</string>
+    <string name="new_app_setup_mode_apply">Застосувати типовий пресет</string>
+    <string name="new_app_setup_mode_leave">Залишити без керування</string>
+    <string name="new_app_setup_default_preset_title">Типовий пресет політики</string>
+    <string name="new_app_setup_safety_note">Режими «Запитувати» та «Без керування» створюють явну безпечну політику без керування. Лише типовий пресет може автоматично ввімкнути керування.</string>
+    <string name="new_app_setup_pending_count">Очікують налаштування: %d</string>
+    <string name="new_app_setup_review_next">Перевірити наступний застосунок</string>
+    <string name="new_app_setup_notification_channel">Налаштування нових застосунків</string>
+    <string name="new_app_setup_notification_title">Налаштувати новий застосунок</string>
+    <string name="new_app_setup_notification_text">%1$s очікує політику життєвого циклу</string>
+</resources>

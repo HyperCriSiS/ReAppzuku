@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="new_app_setup_settings_title">Configuración de apps nuevas</string>
+    <string name="new_app_setup_settings_subtitle">Elige qué ocurre después de instalar una app nueva</string>
+    <string name="new_app_setup_behavior_title">Después de instalar una app nueva</string>
+    <string name="new_app_setup_mode_ask">Preguntar después de instalar</string>
+    <string name="new_app_setup_mode_apply">Aplicar preajuste predeterminado</string>
+    <string name="new_app_setup_mode_leave">Dejar sin gestionar</string>
+    <string name="new_app_setup_default_preset_title">Preajuste de política predeterminado</string>
+    <string name="new_app_setup_safety_note">Preguntar y Dejar sin gestionar crean una política explícita Sin gestionar. Solo Aplicar preajuste predeterminado puede activar automáticamente la gestión.</string>
+    <string name="new_app_setup_pending_count">Configuración pendiente: %d</string>
+    <string name="new_app_setup_review_next">Revisar la siguiente app pendiente</string>
+    <string name="new_app_setup_notification_channel">Configuración de apps nuevas</string>
+    <string name="new_app_setup_notification_title">Configurar app recién instalada</string>
+    <string name="new_app_setup_notification_text">%1$s espera una política de ciclo de vida</string>
+</resources>

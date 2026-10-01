@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="new_app_setup_settings_title">新应用设置</string>
+    <string name="new_app_setup_settings_subtitle">选择安装新应用后的处理方式</string>
+    <string name="new_app_setup_behavior_title">安装新应用后</string>
+    <string name="new_app_setup_mode_ask">安装后询问</string>
+    <string name="new_app_setup_mode_apply">应用默认预设</string>
+    <string name="new_app_setup_mode_leave">保持不受管理</string>
+    <string name="new_app_setup_default_preset_title">默认策略预设</string>
+    <string name="new_app_setup_safety_note">“询问”和“保持不受管理”会创建明确的不受管理安全策略。只有“应用默认预设”可以自动启用生命周期管理。</string>
+    <string name="new_app_setup_pending_count">待设置：%d</string>
+    <string name="new_app_setup_review_next">查看下一个待设置应用</string>
+    <string name="new_app_setup_notification_channel">新应用设置</string>
+    <string name="new_app_setup_notification_title">设置新安装的应用</string>
+    <string name="new_app_setup_notification_text">%1$s 正在等待生命周期策略</string>
+</resources>
