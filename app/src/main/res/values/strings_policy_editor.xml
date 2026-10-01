@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="PolicyEditorLabel">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">20dp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <style name="PolicyEditorCheck">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:gravity">center_vertical</item>
+    </style>
+
+    <string name="menu_policy_editor">Lifecycle policy</string>
+    <string name="policy_editor_title">App lifecycle policy</string>
+    <string name="policy_editor_preset">Policy preset</string>
+    <string name="policy_editor_custom">Custom / no preset</string>
+    <string name="policy_editor_strategy">Strategy</string>
+    <string name="policy_editor_smart_delays">Smart Lifecycle delays</string>
+    <string name="policy_editor_standby_minutes">Standby delay (minutes)</string>
+    <string name="policy_editor_force_stop_minutes">Force-stop delay (minutes)</string>
+    <string name="policy_editor_never_hint">Use -1 for no Smart force-stop.</string>
+    <string name="policy_editor_kill_method">Immediate kill method</string>
+    <string name="policy_editor_background_restriction">Background restriction</string>
+    <string name="policy_editor_boot_cleanup">Allow boot cleanup</string>
+    <string name="policy_editor_protection">Protection safeguards</string>
+    <string name="policy_editor_protect_media">Protect active media</string>
+    <string name="policy_editor_protect_fgs">Protect foreground services</string>
+    <string name="policy_editor_protect_widgets">Protect widget providers</string>
+    <string name="policy_editor_triggers">Automation triggers</string>
+    <string name="policy_editor_trigger_periodic">Periodic</string>
+    <string name="policy_editor_trigger_screen_off">Screen off</string>
+    <string name="policy_editor_trigger_ram">RAM threshold</string>
+    <string name="policy_editor_trigger_boot">Boot cleanup</string>
+    <string name="policy_editor_trigger_hardware">Hardware event</string>
+    <string name="policy_editor_trigger_app_launch">App launch</string>
+    <string name="policy_editor_save">Save policy</string>
+    <string name="policy_editor_save_as_preset">Save as preset</string>
+    <string name="policy_editor_preset_name_hint">Preset name</string>
+    <string name="policy_editor_saved">Policy saved</string>
+    <string name="policy_editor_preset_saved">Policy and preset saved</string>
+    <string name="policy_editor_invalid_package">Invalid package name.</string>
+    <string name="policy_editor_delay_required">Both delay fields are required.</string>
+    <string name="policy_editor_invalid_delay">Enter a valid delay in minutes. Force-stop may use -1 for never.</string>
+    <string name="policy_editor_invalid_preset_name">Enter a preset name from 1 to 80 characters.</string>
+
+    <string name="policy_preset_never_touch">Never touch</string>
+    <string name="policy_preset_messenger">Messenger</string>
+    <string name="policy_preset_media">Media</string>
+    <string name="policy_preset_balanced">Balanced</string>
+    <string name="policy_preset_rarely_used">Rarely used</string>
+    <string name="policy_preset_aggressive">Aggressive</string>
+
+    <string-array name="policy_editor_strategies">
+        <item>Unmanaged</item>
+        <item>Protected</item>
+        <item>Smart</item>
+        <item>Immediate</item>
+    </string-array>
+
+    <string-array name="policy_editor_kill_methods">
+        <item>Force stop</item>
+        <item>am kill</item>
+    </string-array>
+
+    <string-array name="policy_editor_restrictions">
+        <item>None</item>
+        <item>Soft</item>
+        <item>Medium</item>
+        <item>Hard</item>
+        <item>Manual</item>
+    </string-array>
+</resources>

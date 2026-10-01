@@ -1,5 +1,6 @@
 package com.gree1d.reappzuku.ui;
 
+import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -84,7 +85,6 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
         this.listener = listener;
     }
 
-
     @Override
     public int getTheme() {
         return R.style.AppBottomSheetDialogTheme;
@@ -144,8 +144,6 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
         String bgLabel       = args.getString(ARG_BG_RESTRICT_LABEL, "");
         int accentColor      = args.getInt(ARG_ACCENT_COLOR);
 
-
-
         ColorStateList accentTint = buildCheckboxTint(accentColor);
 
         ImageView iconView = view.findViewById(R.id.sheet_app_icon);
@@ -158,6 +156,7 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
 
         TextView btnInfo        = view.findViewById(R.id.sheet_btn_app_info);
         TextView btnTriggers    = view.findViewById(R.id.sheet_btn_app_triggers);
+        TextView btnPolicy      = view.findViewById(R.id.sheet_btn_policy);
         TextView btnUninstall   = view.findViewById(R.id.sheet_btn_uninstall);
         TextView btnHiddenSingle = view.findViewById(R.id.sheet_btn_hidden_single);
 
@@ -184,7 +183,7 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
         checkBgRestrict.setButtonTintList(accentTint);
 
         for (View row : new View[] {
-                btnInfo, btnTriggers, btnUninstall, btnHiddenSingle,
+                btnInfo, btnTriggers, btnPolicy, btnUninstall, btnHiddenSingle,
                 addToHeader, itemWhitelist, itemBlacklist, itemHidden, itemBgRestrict }) {
             FocusHighlightUtil.apply(row);
         }
@@ -192,22 +191,26 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
         btnInfo.post(btnInfo::requestFocus);
 
         btnInfo.setOnClickListener(v -> {
-
             dismiss();
             if (listener != null) listener.onAppInfo();
         });
 
         btnTriggers.setOnClickListener(v -> {
-
             dismiss();
             if (listener != null) listener.onAppTriggers();
+        });
+
+        btnPolicy.setOnClickListener(v -> {
+            dismiss();
+            Intent intent = new Intent(requireContext(), AppPolicyEditorActivity.class);
+            intent.putExtra(AppPolicyEditorActivity.EXTRA_PACKAGE_NAME, pkg);
+            startActivity(intent);
         });
 
         if (isProtected) {
             btnHiddenSingle.setVisibility(View.VISIBLE);
             btnHiddenSingle.setText(getString(R.string.menu_hidden));
             btnHiddenSingle.setOnClickListener(v -> {
-
                 dismiss();
                 if (listener != null) listener.onToggleHiddenSingle();
             });
@@ -220,7 +223,6 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
             if (!isSystem) {
                 btnUninstall.setVisibility(View.VISIBLE);
                 btnUninstall.setOnClickListener(v -> {
-
                     dismiss();
                     if (listener != null) listener.onUninstall();
                 });
@@ -247,59 +249,52 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
             itemWhitelist.setOnClickListener(v -> {
                 boolean next = !checkWhitelist.isChecked();
                 checkWhitelist.setChecked(next);
-
-
                 updateMutualExclusion(checkWhitelist, itemWhitelist, checkBlacklist, itemBlacklist);
-
                 if (listener != null) listener.onToggleWhitelist(next);
             });
 
             itemBlacklist.setOnClickListener(v -> {
                 boolean next = !checkBlacklist.isChecked();
                 checkBlacklist.setChecked(next);
-
-
                 updateMutualExclusion(checkWhitelist, itemWhitelist, checkBlacklist, itemBlacklist);
-
                 if (listener != null) listener.onToggleBlacklist(next);
             });
 
             itemHidden.setOnClickListener(v -> {
                 boolean next = !checkHidden.isChecked();
                 checkHidden.setChecked(next);
-
                 if (listener != null) listener.onToggleHidden(next);
             });
 
             itemBgRestrict.setOnClickListener(v -> {
                 boolean next = !checkBgRestrict.isChecked();
                 checkBgRestrict.setChecked(next);
-
                 if (listener != null) listener.onToggleBackgroundRestriction(next);
             });
         }
     }
 
-    private void updateMutualExclusion(CheckBox checkWhitelist, LinearLayout itemWhitelist, 
+    private void updateMutualExclusion(CheckBox checkWhitelist, LinearLayout itemWhitelist,
                                        CheckBox checkBlacklist, LinearLayout itemBlacklist) {
         boolean isWhitelistChecked = checkWhitelist.isChecked();
         boolean isBlacklistChecked = checkBlacklist.isChecked();
 
         itemBlacklist.setEnabled(!isWhitelistChecked);
-        checkBlacklist.setEnabled(!isWhitelistChecked);
         itemBlacklist.setAlpha(isWhitelistChecked ? 0.4f : 1.0f);
 
         itemWhitelist.setEnabled(!isBlacklistChecked);
-        checkWhitelist.setEnabled(!isBlacklistChecked);
         itemWhitelist.setAlpha(isBlacklistChecked ? 0.4f : 1.0f);
     }
 
-    private ColorStateList buildCheckboxTint(int color) {
+    private ColorStateList buildCheckboxTint(int accentColor) {
         int[][] states = new int[][] {
-            new int[] { android.R.attr.state_checked },
-            new int[] { -android.R.attr.state_checked }
+                new int[] { android.R.attr.state_checked },
+                new int[] { -android.R.attr.state_checked }
         };
-        int[] colors = new int[] { color, color };
+        int[] colors = new int[] {
+                accentColor,
+                androidx.core.content.ContextCompat.getColor(requireContext(), R.color.checkbox_unchecked)
+        };
         return new ColorStateList(states, colors);
     }
 }
