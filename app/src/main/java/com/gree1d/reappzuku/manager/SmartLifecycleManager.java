@@ -88,10 +88,6 @@ public final class SmartLifecycleManager {
 
     public boolean runPass(boolean bootPass) {
         boolean legacySmartEnabled = prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false);
-        if (!legacySmartEnabled) return true;
-        if (!shellManager.resolveAnyShellPermission()) {
-            return false;
-        }
 
         Set<String> blacklisted = new HashSet<>(
                 prefs.getStringSet(KEY_BLACKLISTED_APPS, Collections.emptySet()));
@@ -118,6 +114,9 @@ public final class SmartLifecycleManager {
         managed.addAll(explicitPolicies.keySet());
         if (managed.isEmpty()) {
             return true;
+        }
+        if (!shellManager.resolveAnyShellPermission()) {
+            return false;
         }
 
         String currentForeground = getCurrentForegroundPackage();
@@ -180,7 +179,7 @@ public final class SmartLifecycleManager {
 
             if (bootPass) {
                 // Explicit SMART policies own their boot-cleanup decision. Legacy-owned
-                // packages keep the old global switch until that UI is retired.
+                // packages keep the old global switch until that compatibility path is retired.
                 if (explicitPolicy == null && !legacyBootCleanupEnabled) continue;
 
                 long lastForeground = prefs.getLong(KEY_SMART_LAST_FOREGROUND_PREFIX + pkg, 0L);
