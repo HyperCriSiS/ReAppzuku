@@ -254,7 +254,7 @@ Goal: replace overlapping global Auto-Kill / Smart Lifecycle ownership with one 
 - [x] Seed stable built-in policy presets (Never touch, Messenger, Media, Balanced, Rarely used, Aggressive), expose localized display names, and support user-created presets via `Save as preset`.
 - [x] Rename the existing two time-window Auto-Kill presets to Automation Schedules and keep them separate from reusable per-app Policy Presets.
 - [x] Add `PACKAGE_ADDED` handling with a durable setup queue: `Ask after install`, `Apply default preset`, or `Leave unmanaged`; use a notification/deep link instead of launching an Activity over the foreground app.
-- [ ] Add main-list policy badges and filters for Managed, Smart, Immediate, Protected and Needs setup.
+- [x] Add main-list policy badges and filters for Managed, Smart, Immediate, Protected and Needs setup.
 - [ ] Extend versioned backup/restore to include app policies, policy presets and new-app defaults transactionally.
 - [ ] Remove obsolete blacklist/whitelist/Smart Lifecycle settings UI only after migration and execution parity are proven.
 - [ ] Validate the completed model on API 37 plus physical/OEM devices, including install-notification flow and conflicting legacy configurations.
@@ -289,6 +289,17 @@ Goal: replace overlapping global Auto-Kill / Smart Lifecycle ownership with one 
 - Pending entries replay after legacy migration on normal process startup, survive process death/reboot, prune missing packages, and clear only after an explicit editor save, automatic preset application or Leave unmanaged resolution.
 - The exported-component security review now documents `PackageAddedReceiver`; source/JVM regressions cover receiver action/replacement filtering, explicit-Unmanaged safety, migration-owned reinstall handling and migration-before-replay ordering.
 - Final-head validation passed: standard `36919753802`, CodeQL `36919752974`, GitHub Advanced Security `36919755791`; PR review threads were empty.
+
+### Phase 9 main-list policy status evidence — 2026-10-01
+
+- PR #67 / merge `c4bdeeae1a87cf8343410fcd83c30bf134f5e78d` surfaces effective lifecycle ownership in the main running-app list without changing execution or Room schema 13.
+- One background `AppPolicyListSnapshot` is captured per app scan, reading Room and relevant legacy/new-app preference state once; row binding and filtering are then in-memory only.
+- Status resolution reuses the production migration freshness boundary and `AppPolicyResolver`: explicit policy precedence remains intact, stale migration-owned rows fall back to live legacy state, and a current migration snapshot suppresses direct legacy fallback.
+- Compact badges expose `Managed · Smart`, `Managed · Immediate`, `Protected` and `Needs setup`; unmanaged rows intentionally remain visually quiet.
+- The existing sort dialog now also filters by `Managed`, `Smart`, `Immediate`, `Protected` and `Needs setup`. Managed means exactly Smart or Immediate, matching `AppPolicyResolver.isManagedStrategy()`; multiple filters use OR semantics.
+- `Needs setup` comes only from the durable new-app queue. Protected/persistent fail-safe status has priority over queue presentation.
+- Policy-filter selection is persisted independently of the legacy whitelist/blacklist/Smart controls, which remain available during the transition.
+- Final-head validation passed: standard `36926009009`, CodeQL `36935664025`, GitHub Advanced Security `36935665475`; PR review threads were empty.
 
 ### Phase 9 migration principles
 

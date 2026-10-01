@@ -80,6 +80,25 @@ Validation:
 - GitHub Advanced Security: `36919755791`
 - PR review threads: none at final review.
 
+### Phase 9 main-list policy badges and filters
+
+Merged PR: #67  
+Merge commit: `c4bdeeae1a87cf8343410fcd83c30bf134f5e78d`
+
+- Added canonical policy-status badges to the main running-app list: Managed · Smart, Managed · Immediate, Protected and Needs setup.
+- Added Managed, Smart, Immediate, Protected and Needs setup filters to the existing sort dialog with OR semantics and persisted selection.
+- Captures one immutable `AppPolicyListSnapshot` per scan on a background executor; Room and preferences are not queried per row.
+- Display status follows the same explicit/migration/fallback boundary as execution through `AppPolicyLegacyMigrator` and `AppPolicyResolver`.
+- Needs setup is driven only by the durable new-app queue. Protected/persistent fail-safe status takes display priority.
+- Legacy whitelist/blacklist/Smart controls remain available and are not reinterpreted as a second ownership model.
+- No Room schema change and no lifecycle execution rewrite.
+
+Validation:
+- Standard validation: `36926009009`
+- CodeQL: `36935664025`
+- GitHub Advanced Security: `36935665475`
+- PR review threads: none at final review.
+
 ## Current Phase 9 architecture state
 
 - Canonical strategies are `UNMANAGED`, `PROTECTED`, `SMART`, `IMMEDIATE`; `Custom` remains presentation/provenance state, not an execution engine.
@@ -90,19 +109,20 @@ Validation:
 - Automation Schedules are explicitly separate from reusable per-app `PolicyPreset` templates; legacy schedule persistence identifiers remain compatibility-only.
 - Newly installed apps now enter an explicit safe setup path: Ask/Leave are canonical `UNMANAGED`, while only an explicitly selected default preset can auto-manage an app.
 - A durable Needs-setup queue is replayed after legacy migration and cannot be suppressed by migration-owned legacy rows on reinstall.
+- The main app list now exposes effective canonical ownership from a per-scan snapshot; badges and filters use the same resolver/migration boundary as execution.
 - Legacy global settings remain transition controls/fallback and must not be removed until remaining Phase 9 parity work is complete.
 - Background-restriction strength is stored canonically, while exact manual AppOps/bucket/whitelist legacy details still remain in their existing per-package preference keys pending backup/UI parity work.
 
 ## Next work unit
 
-**Main-list policy badges and filters**
+**Transactional backup/restore for Phase 9 policy state**
 
-1. Surface canonical policy status directly in the main app list without reintroducing parallel legacy ownership semantics.
-2. Add compact badges/status for Managed, Smart, Immediate, Protected and Needs setup.
-3. Add list filters for those same states, with Needs setup driven by the durable new-app queue.
-4. Resolve status through canonical explicit/migration/fallback rules so displayed ownership matches execution ownership.
-5. Keep legacy blacklist/whitelist/Smart controls available during transition; badges describe effective canonical status rather than replacing those controls yet.
-6. Add focused JVM/source/UI regressions, then move to transactional backup/restore for policies, presets and new-app defaults.
+1. Extend the versioned backup format to include canonical `AppPolicy` rows, reusable `PolicyPreset` rows and new-app setup mode/default-preset/Needs-setup queue state.
+2. Preserve the existing transactional restore contract: stage and validate everything before the first durable write, then commit policy DB + preferences as one recoverable unit with rollback on failure.
+3. Validate package identifiers, strategies, preset IDs/relationships, trigger masks, delay bounds, restriction strength and queue contents before importing.
+4. Keep built-in preset IDs stable and prevent imported user presets from silently overwriting incompatible built-ins.
+5. Reconcile legacy migration fingerprint/new-app queue state after a successful restore without allowing Smart and Immediate dual ownership.
+6. Add focused parser/rollback/JVM coverage plus Android restore-path coverage before considering legacy settings UI removal.
 
 ## Guardrails
 
