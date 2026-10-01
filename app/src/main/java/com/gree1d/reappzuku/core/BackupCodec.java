@@ -6,7 +6,7 @@ import org.json.JSONObject;
 /** Bounded/versioned JSON envelope for ReAppzuku configuration backups. */
 public final class BackupCodec {
     static final String KEY_BACKUP_VERSION = "backup_version";
-    public static final int CURRENT_VERSION = 6;
+    public static final int CURRENT_VERSION = 7;
     public static final int MAX_BACKUP_CHARS = 2 * 1024 * 1024;
 
     public enum DecodeFailure {
@@ -46,7 +46,11 @@ public final class BackupCodec {
 
     public String encode(JSONObject root) throws JSONException {
         if (root == null) throw new IllegalArgumentException("root == null");
-        return root.toString(4);
+        String encoded = root.toString(4);
+        if (encoded.length() > MAX_BACKUP_CHARS) {
+            throw new IllegalArgumentException("backup payload exceeds maximum size");
+        }
+        return encoded;
     }
 
     public DecodedBackup decode(String json) throws DecodeException {
