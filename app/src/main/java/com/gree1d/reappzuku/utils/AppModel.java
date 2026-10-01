@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.drawable.Drawable;
 
 import com.gree1d.reappzuku.manager.SleepModeManager;
+import com.gree1d.reappzuku.core.AppPolicyListState;
 import com.gree1d.reappzuku.R;
 
 public class AppModel {
@@ -24,6 +25,7 @@ public class AppModel {
     private String cpuUsage = "";
     private float cpuUsageValue = -1f;
     private int pid = -1;
+    private int policyListStatus = AppPolicyListState.STATUS_UNMANAGED;
 
     public AppModel(String appName, String packageName, String appRam, long appRamBytes, Drawable appIcon,
             boolean isSystemApp, boolean isPersistentApp, boolean isProtected) {
@@ -198,6 +200,14 @@ public class AppModel {
 
     public void setWhitelisted(boolean whitelisted) {
         isWhitelisted = whitelisted;
+    }
+
+    public int getPolicyListStatus() {
+        return policyListStatus;
+    }
+
+    public void setPolicyListStatus(int policyListStatus) {
+        this.policyListStatus = AppPolicyListState.sanitizeStatus(policyListStatus);
     }
 
     public SleepModeManager.FreezeType getFreezeType() {

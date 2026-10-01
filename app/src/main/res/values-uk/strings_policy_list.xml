@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sort_filter_title">Сортування та фільтр</string>
+    <string name="policy_filter_section_title">Статус політики</string>
+    <string name="policy_filter_managed">Керовані</string>
+    <string name="policy_filter_smart">Smart</string>
+    <string name="policy_filter_immediate">Immediate</string>
+    <string name="policy_filter_protected">Захищені</string>
+    <string name="policy_filter_needs_setup">Потребують налаштування</string>
+    <string name="policy_badge_managed_smart">Керується · Smart</string>
+    <string name="policy_badge_managed_immediate">Керується · Immediate</string>
+    <string name="policy_badge_protected">Захищено</string>
+    <string name="policy_badge_needs_setup">Потрібне налаштування</string>
+</resources>

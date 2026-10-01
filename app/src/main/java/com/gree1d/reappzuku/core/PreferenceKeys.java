@@ -64,6 +64,7 @@ public final class PreferenceKeys {
     public static final String KEY_ACCENT = "appAccent";
     public static final String KEY_AMOLED = "appAmoled";
     public static final String KEY_SORT_MODE = "sort_mode";
+    public static final String KEY_MAIN_POLICY_FILTER_MASK = "main_policy_filter_mask";
     public static final String KEY_REPLACEMENT_NOTICE_SHOWN_VERSION = "replacement_notice_shown_version";
     public static final String KEY_EXIT_ON_BACK = "exit_on_back";
     public static final String KEY_PREVENT_SHIZUKU_AUTOSTART = "prevent_shizuku_autostart";

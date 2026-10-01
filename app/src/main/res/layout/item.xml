@@ -166,6 +166,24 @@
                     android:visibility="gone"
                     android:focusable="false" />
 
+                <TextView
+                    android:id="@+id/badge_policy"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/badge_policy"
+                    android:paddingStart="5dp"
+                    android:paddingEnd="5dp"
+                    android:paddingTop="1dp"
+                    android:paddingBottom="1dp"
+                    android:textColor="#196F3D"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    android:focusable="false"
+                    tools:text="Managed · Smart"
+                    tools:visibility="visible" />
+
             </LinearLayout>
 
         </LinearLayout>
