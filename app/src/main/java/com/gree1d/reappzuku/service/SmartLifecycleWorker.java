@@ -33,11 +33,6 @@ public class SmartLifecycleWorker extends Worker {
     }
 
     public static void schedulePeriodic(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
-        if (!prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false)) {
-            cancel(context);
-            return;
-        }
         PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(
                 SmartLifecycleWorker.class, 15, TimeUnit.MINUTES).build();
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
@@ -46,17 +41,14 @@ public class SmartLifecycleWorker extends Worker {
 
     public static void scheduleAfterBoot(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
-        if (!prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false)) return;
-
         prefs.edit().putLong(KEY_SMART_BOOT_EPOCH_MS,
                 System.currentTimeMillis() - SystemClock.elapsedRealtime()).apply();
 
         schedulePeriodic(context);
 
-        // Always enqueue the boot pass while the legacy Smart engine is enabled.
-        // SmartLifecycleManager keeps the legacy global cleanup switch for legacy-
-        // owned packages, while explicit SMART policies use their own bootCleanup
-        // flag and TRIGGER_BOOT_CLEANUP bit.
+        // Always enqueue the boot pass. SmartLifecycleManager filters both canonical
+        // policy ownership and the bounded legacy fallback, while explicit SMART
+        // policies own their per-app boot cleanup decision.
         int grace = SmartLifecycleManager.getBootGraceMinutes(prefs);
         Data data = new Data.Builder().putBoolean(INPUT_BOOT_PASS, true).build();
         OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(SmartLifecycleWorker.class)
@@ -77,16 +69,10 @@ public class SmartLifecycleWorker extends Worker {
     @Override
     public Result doWork() {
         Context context = getApplicationContext();
-        SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
-        if (!prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false)) return Result.success();
-
         try {
             App app = (App) context;
             ShellManager shellManager = app.getShellManager();
             boolean bootPass = getInputData().getBoolean(INPUT_BOOT_PASS, false);
-            if (!shellManager.resolveAnyShellPermission()) {
-                return bootPass ? Result.retry() : Result.success();
-            }
             SmartLifecycleManager manager = new SmartLifecycleManager(context, shellManager);
             boolean passCompleted = manager.runPass(bootPass);
             if (SmartLifecycleRecoveryPolicy.shouldRetryWorker(bootPass, passCompleted)) {
