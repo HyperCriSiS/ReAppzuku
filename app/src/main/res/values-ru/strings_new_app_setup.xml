@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="new_app_setup_settings_title">Настройка новых приложений</string>
+    <string name="new_app_setup_settings_subtitle">Выберите действие после установки нового приложения</string>
+    <string name="new_app_setup_behavior_title">После установки нового приложения</string>
+    <string name="new_app_setup_mode_ask">Спрашивать после установки</string>
+    <string name="new_app_setup_mode_apply">Применить предустановку по умолчанию</string>
+    <string name="new_app_setup_mode_leave">Оставить без управления</string>
+    <string name="new_app_setup_default_preset_title">Предустановка политики по умолчанию</string>
+    <string name="new_app_setup_safety_note">Режимы «Спрашивать» и «Без управления» создают явную безопасную политику без управления. Только предустановка по умолчанию может автоматически включить управление.</string>
+    <string name="new_app_setup_pending_count">Ожидают настройки: %d</string>
+    <string name="new_app_setup_review_next">Проверить следующее приложение</string>
+    <string name="new_app_setup_notification_channel">Настройка новых приложений</string>
+    <string name="new_app_setup_notification_title">Настроить новое приложение</string>
+    <string name="new_app_setup_notification_text">%1$s ожидает политику жизненного цикла</string>
+</resources>

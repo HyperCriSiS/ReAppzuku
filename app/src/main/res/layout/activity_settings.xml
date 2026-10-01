@@ -698,7 +698,6 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:orientation="vertical">
-
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
@@ -870,6 +869,31 @@
                             android:id="@+id/text_additional_scenarios_summary"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="12sp" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/layout_new_app_setup"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="12dp"
+                        android:background="?attr/selectableItemBackground">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/new_app_setup_settings_title"
+                            android:textColor="@color/text_primary"
+                            android:textSize="16sp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/new_app_setup_settings_subtitle"
                             android:textColor="@color/text_secondary"
                             android:textSize="12sp" />
 
@@ -1398,7 +1422,6 @@
                                 android:textSize="16sp" />
                         </LinearLayout>
                     </LinearLayout>
-
 
 
 

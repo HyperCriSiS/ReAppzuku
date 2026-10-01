@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="new_app_setup_settings_title">New app setup</string>
+    <string name="new_app_setup_settings_subtitle">Choose what happens after a new app is installed</string>
+    <string name="new_app_setup_behavior_title">After installing a new app</string>
+    <string name="new_app_setup_mode_ask">Ask after install</string>
+    <string name="new_app_setup_mode_apply">Apply default preset</string>
+    <string name="new_app_setup_mode_leave">Leave unmanaged</string>
+    <string name="new_app_setup_default_preset_title">Default policy preset</string>
+    <string name="new_app_setup_safety_note">Ask and Leave unmanaged create an explicit Unmanaged safety policy. Only Apply default preset can automatically enable lifecycle management.</string>
+    <string name="new_app_setup_pending_count">Pending setup: %d</string>
+    <string name="new_app_setup_review_next">Review next pending app</string>
+    <string name="new_app_setup_notification_channel">New app setup</string>
+    <string name="new_app_setup_notification_title">Set up newly installed app</string>
+    <string name="new_app_setup_notification_text">%1$s is waiting for a lifecycle policy</string>
+</resources>

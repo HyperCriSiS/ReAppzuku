@@ -70,6 +70,11 @@ public final class PreferenceKeys {
     public static final String KEY_APP_POLICY_MIGRATION_VERSION = "app_policy_migration_version";
     public static final String KEY_APP_POLICY_MIGRATION_FINGERPRINT = "app_policy_migration_fingerprint";
 
+    // New-app policy setup
+    public static final String KEY_NEW_APP_SETUP_MODE = "new_app_setup_mode";
+    public static final String KEY_NEW_APP_DEFAULT_PRESET_ID = "new_app_default_preset_id";
+    public static final String KEY_NEW_APP_SETUP_QUEUE = "new_app_setup_queue";
+
     // Notifications
     public static final String KEY_NOTIFICATION_MODE = "notificationMode";
     public static final int NOTIFICATION_MODE_ALL = 0;

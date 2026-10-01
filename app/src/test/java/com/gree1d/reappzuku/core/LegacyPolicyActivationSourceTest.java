@@ -43,8 +43,12 @@ public class LegacyPolicyActivationSourceTest {
                 "app/src/main/java/com/gree1d/reappzuku/core/App.java");
 
         assertEquals(1, count(source, "AppPolicyLegacyMigrator.migrateIfNeeded(this)"));
-        assertTrue(source.contains(
-                "executor.execute(() -> AppPolicyLegacyMigrator.migrateIfNeeded(this))"));
+        int executor = source.indexOf("executor.execute(() -> {");
+        int migration = source.indexOf("AppPolicyLegacyMigrator.migrateIfNeeded(this)");
+        int replay = source.indexOf("NewAppSetupCoordinator.replayPending(this)");
+        assertTrue(executor >= 0);
+        assertTrue(migration > executor);
+        assertTrue(replay > migration);
     }
 
     @Test

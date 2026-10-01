@@ -12,6 +12,7 @@ Purpose: every `android:exported="true"` component must have an explicit princip
 | `ShappkyQuickTile` | Android Quick Settings tile discovery/binding | `android.permission.BIND_QUICK_SETTINGS_TILE` | User-initiated privileged foreground-app action | Keep exported; platform signature permission is the boundary |
 | `ShappkyBackgroundKillTile` | Android Quick Settings tile discovery/binding | `android.permission.BIND_QUICK_SETTINGS_TILE` | User-initiated background cleanup | Keep exported; platform signature permission is the boundary |
 | `BootReceiver` | Receive system boot completion | Receiver checks exactly `Intent.ACTION_BOOT_COMPLETED`; no external extras affect target/actions | Restores explicitly persisted automation state | Keep exported for system broadcast; action validation remains mandatory |
+| `PackageAddedReceiver` | Receive the platform's package-installed broadcast | Receiver accepts exactly `Intent.ACTION_PACKAGE_ADDED`, ignores `EXTRA_REPLACING`, requires the `package:` data scheme and validates the package identifier; Android protects this system broadcast | Records a canonical new-app policy/setup decision only; Ask/Leave are explicitly Unmanaged, and managed policy is applied only when the user previously selected a default preset | Keep exported for system broadcast; no Activity launch and no raw extra is passed to a privileged shell command |
 | `AppzukuWidgetReceiver` | AppWidget host/provider integration | AppWidget framework intents | Reads `/proc/meminfo` and local statistics only; no Shizuku/root action | Keep exported; no privileged command surface |
 | `rikka.shizuku.ShizukuProvider` | Required Shizuku binder bootstrap contract | `android.permission.INTERACT_ACROSS_USERS_FULL` plus Shizuku's provider protocol | Binder/bootstrap only; no arbitrary app command endpoint | Keep exported as required by Shizuku integration |
 
@@ -32,6 +33,7 @@ Purpose: every `android:exported="true"` component must have an explicit princip
 - The permanent API-37 security lane builds a separate `com.reappzuku.securityprobe` APK with no requested permissions or shared UID, verifies its UID differs from ReAppzuku, and requires that it receives no Binder from the Accessibility service or either Quick Tile. Run `34668594681` passed this external-principal probe.
 - The same external probe requires a foreign explicit `BOOT_COMPLETED` injection to be rejected; run `34668594681` passed.
 - `BootReceiver` ignores null/non-`BOOT_COMPLETED` actions.
+- `PackageAddedReceiver` accepts only fresh `PACKAGE_ADDED` events, ignores replacement/update broadcasts, validates the package name, and delegates asynchronously without launching UI over the foreground app.
 - `AppzukuWidgetReceiver` delegates only to the read-only Glance widget data path.
 
 ## Remaining hardening
