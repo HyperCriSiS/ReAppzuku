@@ -82,7 +82,6 @@ abstract class SettingsActivityDialogs extends BaseActivity {
     protected abstract int getAutoKillIntPref(String key, int defVal);
     protected abstract void putAutoKillIntPref(String key, int value);
     protected abstract void updateAutomationOptionsVisibility(boolean serviceEnabled, boolean periodicEnabled);
-    protected abstract void updateKillModeVisibility();
     protected abstract void updateRamThresholdText(int threshold);
     protected abstract void updateRamThresholdLimitVisibility(boolean enabled);
     protected abstract void updateKillIntervalText(int intervalMs);
@@ -163,133 +162,6 @@ abstract class SettingsActivityDialogs extends BaseActivity {
                 .create();
         dialog.show();
         resetDialogButtonColors(dialog);
-    }
-
-    protected void showKillModeDialog() {
-        String[] modes = {
-                getString(R.string.settings_mode_whitelist),
-                getString(R.string.settings_mode_blacklist)
-        };
-        showSingleChoiceDialog(getString(R.string.settings_kill_mode_dialog_title),
-                modes, getAutoKillManager().getKillMode(), which -> {
-                    getAutoKillManager().setKillMode(which);
-                    updateKillModeVisibility();
-                    if (which == 0) {
-                        boolean autoKillEnabled = getAutoKillPref(KEY_AUTO_KILL_ENABLED, false);
-                        Set<String> whitelistedApps = getSharedPreferences().getStringSet(KEY_WHITELISTED_APPS, new HashSet<>());
-                        if (autoKillEnabled && whitelistedApps.isEmpty()) {
-                            resetDialogButtonColors(new MaterialAlertDialogBuilder(this)
-                                    .setTitle(R.string.dialog_unsafe_whitelist_title)
-                                    .setMessage(R.string.dialog_unsafe_whitelist_message)
-                                    .setPositiveButton(R.string.dialog_unsafe_whitelist_ok, (d, w) -> d.dismiss())
-                                    .setCancelable(false)
-                                    .show());
-                        }
-                    }
-                });
-    }
-
-    protected void showBlacklistDialog() {
-        LayoutInflater inflater = this.getLayoutInflater();
-        View dialogView = inflater.inflate(R.layout.dialog_filter, null);
-        ListView listView = dialogView.findViewById(R.id.filter_list_view);
-        ProgressBar progressBar = dialogView.findViewById(R.id.filter_loading_progress);
-        EditText searchBox = dialogView.findViewById(R.id.filter_search);
-        LinearLayout filterOptions = dialogView.findViewById(R.id.filter_options_container);
-
-        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
-                .setTitle(getString(R.string.settings_blacklist_dialog_title))
-                .setView(dialogView)
-                .create();
-        dialog.setButton(AlertDialog.BUTTON_POSITIVE, getString(R.string.dialog_save), (d, w) -> {});
-        dialog.setButton(AlertDialog.BUTTON_NEGATIVE, getString(R.string.dialog_cancel), (d, w) -> d.dismiss());
-        searchBox.setVisibility(View.GONE);
-        dialog.show();
-        resetDialogButtonColors(dialog);
-
-        getAppManager().loadAllApps(allApps -> {
-            allApps = filterOutProtected(allApps);
-            Set<String> blacklisted = getAutoKillManager().getBlacklistedApps();
-            FilterAppsAdapter filterAdapter = new FilterAppsAdapter(this, allApps, blacklisted);
-            if (getSharedPreferences().getInt(KEY_ACCENT, ACCENT_SYSTEM) == ACCENT_CUSTOM)
-                filterAdapter.setAccentColor(getSharedPreferences().getInt(KEY_ACCENT_CUSTOM_COLOR, ACCENT_CUSTOM_DEFAULT_COLOR));
-            listView.setAdapter(filterAdapter);
-            progressBar.setVisibility(View.GONE);
-            listView.setVisibility(View.VISIBLE);
-            searchBox.setVisibility(View.VISIBLE);
-            filterOptions.setVisibility(View.VISIBLE);
-
-            setupFilterListeners(dialogView, filterAdapter);
-            getAppManager().updateRunningState(allApps, () -> {
-                if (!dialog.isShowing()) return;
-                filterAdapter.notifyDataSetChanged();
-            });
-
-            searchBox.addTextChangedListener(new TextWatcher() {
-                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-                @Override public void onTextChanged(CharSequence s, int start, int before, int count) { filterAdapter.getFilter().filter(s); }
-                @Override public void afterTextChanged(Editable s) {}
-            });
-
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-                getAutoKillManager().saveBlacklistedApps(filterAdapter.getSelectedPackages());
-                dialog.dismiss();
-            });
-        });
-    }
-
-    protected void showWhitelistDialog() {
-        LayoutInflater inflater = this.getLayoutInflater();
-        View dialogView = inflater.inflate(R.layout.dialog_filter, null);
-        ListView listView = dialogView.findViewById(R.id.filter_list_view);
-        ProgressBar progressBar = dialogView.findViewById(R.id.filter_loading_progress);
-        EditText searchBox = dialogView.findViewById(R.id.filter_search);
-        LinearLayout filterOptions = dialogView.findViewById(R.id.filter_options_container);
-
-        AlertDialog whitelistDialog = new MaterialAlertDialogBuilder(this)
-                .setTitle(getString(R.string.settings_whitelist_dialog_title))
-                .setView(dialogView)
-                .create();
-        whitelistDialog.setButton(AlertDialog.BUTTON_NEGATIVE, getString(R.string.dialog_cancel), (dialog, which) -> dialog.dismiss());
-        whitelistDialog.setButton(AlertDialog.BUTTON_POSITIVE, getString(R.string.dialog_save), (dialog, which) -> {});
-
-        progressBar.setVisibility(View.VISIBLE);
-        listView.setVisibility(View.GONE);
-        searchBox.setVisibility(View.GONE);
-        whitelistDialog.show();
-        resetDialogButtonColors(whitelistDialog);
-
-        getAppManager().loadAllApps(allApps -> {
-            allApps = filterOutProtected(allApps);
-            Set<String> whitelistedApps = getAppManager().getWhitelistedApps();
-            FilterAppsAdapter filterAdapter = new FilterAppsAdapter(this, allApps, whitelistedApps);
-            if (getSharedPreferences().getInt(KEY_ACCENT, ACCENT_SYSTEM) == ACCENT_CUSTOM)
-                filterAdapter.setAccentColor(getSharedPreferences().getInt(KEY_ACCENT_CUSTOM_COLOR, ACCENT_CUSTOM_DEFAULT_COLOR));
-            listView.setAdapter(filterAdapter);
-            listView.setOnItemClickListener(null);
-
-            progressBar.setVisibility(View.GONE);
-            listView.setVisibility(View.VISIBLE);
-            searchBox.setVisibility(View.VISIBLE);
-            filterOptions.setVisibility(View.VISIBLE);
-
-            setupFilterListeners(dialogView, filterAdapter, true);
-            getAppManager().updateRunningState(allApps, () -> {
-                if (!whitelistDialog.isShowing()) return;
-                filterAdapter.notifyDataSetChanged();
-            });
-
-            searchBox.addTextChangedListener(new TextWatcher() {
-                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-                @Override public void onTextChanged(CharSequence s, int start, int before, int count) { filterAdapter.getFilter().filter(s); }
-                @Override public void afterTextChanged(Editable s) {}
-            });
-
-            whitelistDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-                getAppManager().saveWhitelistedApps(filterAdapter.getSelectedPackages());
-                whitelistDialog.dismiss();
-            });
-        });
     }
 
     protected void showHiddenAppsDialog() {
@@ -997,8 +869,7 @@ abstract class SettingsActivityDialogs extends BaseActivity {
         TextView btnComponent             = dialogView.findViewById(R.id.scheduler_btn_component);
         CheckBox cbSetBucket              = dialogView.findViewById(R.id.scheduler_cb_set_bucket_active);
 
-        boolean hadLaunch = onActivateAction[0] != RestrictionsScheduler.ON_ACTIVATE_NOTHING
-                && selectedComponent[0] != null;        rgAction.check(hadLaunch ? R.id.scheduler_rb_launch : R.id.scheduler_rb_none);
+        boolean hadLaunch = onActivateAction[0] != RestrictionsScheduler.ON_ACTIVATE_NOTHING                && selectedComponent[0] != null;        rgAction.check(hadLaunch ? R.id.scheduler_rb_launch : R.id.scheduler_rb_none);
         componentContainer.setVisibility(hadLaunch ? View.VISIBLE : View.GONE);
         btnComponent.setText(selectedComponent[0] != null
                 ? shortComponentName(selectedComponent[0])
@@ -1294,7 +1165,6 @@ protected void importBackup(Uri uri) {
                     Runnable finishRestore = () -> {
                         applyAutomationStateFromPreferences();
                         loadSettings();
-                        updateKillModeVisibility();
                         if (getAppManager().supportsBackgroundRestriction()
                                 && !restoredRestrictedApps.isEmpty()
                                 && !getAppManager().canApplyBackgroundRestrictionNow()) {

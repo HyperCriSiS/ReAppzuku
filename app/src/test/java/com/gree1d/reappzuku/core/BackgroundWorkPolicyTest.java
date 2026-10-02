@@ -28,6 +28,7 @@ public class BackgroundWorkPolicyTest {
             EnumSet<BackgroundWorkPolicy.Blocker> expected =
                     EnumSet.noneOf(BackgroundWorkPolicy.Blocker.class);
             for (int bit = 0; bit < blockerByBit.length; bit++) {
+                if (bit == 1) continue; // Legacy Smart no longer requires main-process continuity.
                 if ((mask & (1 << bit)) != 0) expected.add(blockerByBit[bit]);
             }
 
@@ -42,7 +43,7 @@ public class BackgroundWorkPolicyTest {
             assertEquals("blocker mismatch for mask=" + mask, expected, actual);
             assertEquals(
                     "continuity mismatch for mask=" + mask,
-                    mask != 0,
+                    (mask & ~2) != 0,
                     AutomationDesiredState.requiresBackgroundContinuity(
                             autoKill,
                             smartLifecycle,
@@ -54,11 +55,10 @@ public class BackgroundWorkPolicyTest {
 
     @Test
     public void exhaustiveAppBehaviorCompatibilityTruthTable() {
-        // 5 continuity inputs x requested Exit-on-Back x requested Shizuku on-demand mode.
-        // Any active continuity blocker must force both behavior options off; without
-        // blockers the user's requested values must survive unchanged.
+        // Five historical inputs remain accepted, but legacy Smart alone is no longer a
+        // continuity blocker because canonical Smart execution is WorkManager-backed.
         for (int mask = 0; mask < 32; mask++) {
-            boolean continuityRequired = mask != 0;
+            boolean continuityRequired = (mask & ~2) != 0;
             for (int requestedBits = 0; requestedBits < 4; requestedBits++) {
                 boolean requestedExitOnBack = (requestedBits & 1) != 0;
                 boolean requestedPreventAutoStart = (requestedBits & 2) != 0;

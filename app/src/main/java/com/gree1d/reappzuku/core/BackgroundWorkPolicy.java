@@ -43,7 +43,7 @@ public final class BackgroundWorkPolicy {
         SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         return resolveActiveBlockers(
                 prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false),
-                prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false),
+                false, // Legacy Smart is migration input, not a main-process continuity requirement.
                 prefs.getBoolean(KEY_SLEEP_MODE_ENABLED, false),
                 prefs.getInt(KEY_ACTIVE_PRESET, 0) != 0,
                 hasEnabledRestrictionSchedule(prefs));
@@ -57,7 +57,8 @@ public final class BackgroundWorkPolicy {
             boolean restrictionsScheduleEnabled) {
         EnumSet<Blocker> blockers = EnumSet.noneOf(Blocker.class);
         if (autoKillEnabled) blockers.add(Blocker.AUTO_KILL);
-        if (smartLifecycleEnabled) blockers.add(Blocker.SMART_LIFECYCLE);
+        // Canonical Smart execution is WorkManager-backed. The legacy Smart flag remains
+        // accepted by this compatibility signature but must not disable On-demand behavior.
         if (sleepModeEnabled) blockers.add(Blocker.SLEEP_MODE);
         if (activePreset) blockers.add(Blocker.ACTIVE_PRESET);
         if (restrictionsScheduleEnabled) blockers.add(Blocker.RESTRICTIONS_SCHEDULE);
