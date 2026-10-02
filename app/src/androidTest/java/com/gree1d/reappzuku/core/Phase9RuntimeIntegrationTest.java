@@ -344,7 +344,7 @@ public class Phase9RuntimeIntegrationTest {
             while ((read = input.read(buffer)) != -1) {
                 output.write(buffer, 0, read);
             }
-            return output.toString(StandardCharsets.UTF_8).trim();
+            return new String(output.toByteArray(), StandardCharsets.UTF_8).trim();
         } finally {
             descriptor.close();
         }
