@@ -170,15 +170,6 @@
         </receiver>
 
         <receiver
-            android:name="com.gree1d.reappzuku.core.PackageAddedReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.PACKAGE_ADDED" />
-                <data android:scheme="package" />
-            </intent-filter>
-        </receiver>
-
-        <receiver
             android:name="com.gree1d.reappzuku.service.ShappkyService$RestartReceiver"
             android:exported="false" />
             

@@ -29,6 +29,7 @@ public class App extends Application {
     private ExecutorService shellExecutor;
     private ShellManager shellManager;
     private LruCache<String, Bitmap> iconCache;
+    private PackageAddedReceiver packageAddedReceiver;
 
     private static final int ICON_CACHE_MAX_BYTES = 24 * 1024 * 1024;
 
@@ -114,11 +115,22 @@ public class App extends Application {
 
         shellManager = new ShellManager(this, handler, executor);
 
+        // PACKAGE_ADDED is an implicit package broadcast and cannot be relied on as a
+        // manifest receiver on modern target SDKs. Register it only for this live process;
+        // NewAppDiscoveryWorker provides the durable catch-up path while the process is absent.
+        packageAddedReceiver = PackageAddedReceiver.register(this);
+
         // Materialize the current legacy state once per normal-process start. If legacy settings
         // change later, runtime fingerprint checks ignore stale migration-owned rows immediately;
         // the next process start rebuilds them without ever overriding explicit policies.
         executor.execute(() -> {
             AppPolicyLegacyMigrator.migrateIfNeeded(this);
+            try {
+                NewAppDiscoveryWorker.reconcileNow(this);
+            } catch (RuntimeException ignored) {
+                // Periodic reconciliation retries if package inventory is transiently unavailable.
+            }
+            NewAppDiscoveryWorker.schedulePeriodic(this);
             NewAppSetupCoordinator.replayPending(this);
             SmartLifecycleWorker.reconcilePeriodic(this);
         });

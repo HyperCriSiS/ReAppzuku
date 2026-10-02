@@ -224,47 +224,41 @@ jobs:
           test -n "$INSTRUMENTATION"
           test -f "$PROBE_APK"
 
-          activate_product() {
-            local phase="$1"
-            adb shell am start -W \
-              -n com.gree1d.reappzuku/com.gree1d.reappzuku.ui.MainActivity \
-              >"/tmp/api37-phase9-launch-${phase}.txt" 2>&1
-            adb shell input keyevent 3 || true
-            sleep 2
-          }
-
-          install_probe() {
-            adb uninstall com.reappzuku.securityprobe >/dev/null 2>&1 || true
-            adb install -r -t "$PROBE_APK"
-            sleep 3
-          }
-
-          run_phase() {
-            local phase="$1"
-            local log="/tmp/api37-phase9-package-${phase}.txt"
+          run_test() {
+            local method="$1"
+            local phase="$2"
+            local log="$3"
             adb shell am instrument -w -r \
-              -e class 'com.gree1d.reappzuku.core.Phase9PackageAddedRuntimeTest#verifyHostDrivenPackageAddedFlow' \
+              -e class "com.gree1d.reappzuku.core.Phase9PackageAddedRuntimeTest#${method}" \
               -e phase9_install_phase "$phase" \
               "$INSTRUMENTATION" | tee "$log"
             grep -Eq 'OK \([0-9]+ tests?\)' "$log"
             ! grep -Fq 'FAILURES!!!' "$log"
           }
 
-          # Denied notification permission: package install must still produce durable
-          # Needs-setup state without posting a notification.
-          adb shell pm clear com.gree1d.reappzuku
-          adb shell pm revoke com.gree1d.reappzuku android.permission.POST_NOTIFICATIONS || true
-          activate_product denied
-          install_probe
-          run_phase denied
+          install_probe_fresh() {
+            adb uninstall com.reappzuku.securityprobe >/dev/null 2>&1 || true
+            adb install -r -t "$PROBE_APK"
+          }
 
-          # Granted permission: the same real PACKAGE_ADDED path must additionally post
-          # the setup notification, whose PendingIntent must deep-link into Policy Editor.
-          adb shell pm clear com.gree1d.reappzuku
-          adb shell pm grant com.gree1d.reappzuku android.permission.POST_NOTIFICATIONS
-          activate_product granted
-          install_probe
-          run_phase granted
+          prepare_phase() {
+            local permission="$1"
+            local phase="$2"
+            adb shell pm clear com.gree1d.reappzuku
+            if [ "$permission" = granted ]; then
+              adb shell pm grant com.gree1d.reappzuku android.permission.POST_NOTIFICATIONS
+            else
+              adb shell pm revoke com.gree1d.reappzuku android.permission.POST_NOTIFICATIONS || true
+            fi
+            run_test initializeHostDrivenPackageAddedBaseline baseline \
+              "/tmp/api37-phase9-baseline-${phase}.txt"
+            install_probe_fresh
+            run_test verifyHostDrivenPackageAddedFlow "$phase" \
+              "/tmp/api37-phase9-package-${phase}.txt"
+          }
+
+          prepare_phase denied denied
+          prepare_phase granted granted
 
       - name: Run external component abuse probe
         shell: bash

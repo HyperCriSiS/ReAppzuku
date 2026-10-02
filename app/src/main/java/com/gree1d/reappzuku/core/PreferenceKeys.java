@@ -75,6 +75,8 @@ public final class PreferenceKeys {
     public static final String KEY_NEW_APP_SETUP_MODE = "new_app_setup_mode";
     public static final String KEY_NEW_APP_DEFAULT_PRESET_ID = "new_app_default_preset_id";
     public static final String KEY_NEW_APP_SETUP_QUEUE = "new_app_setup_queue";
+    // Device-local install identity snapshot; deliberately not part of portable backup state.
+    public static final String KEY_NEW_APP_DISCOVERY_SNAPSHOT = "new_app_discovery_snapshot";
 
     // Notifications
     public static final String KEY_NOTIFICATION_MODE = "notificationMode";

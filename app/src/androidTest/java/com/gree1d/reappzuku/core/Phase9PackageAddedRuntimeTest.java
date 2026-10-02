@@ -33,22 +33,37 @@ public class Phase9PackageAddedRuntimeTest {
     private static final String NEW_APP_CHANNEL = "new_app_setup";
 
     @Test
-    public void verifyHostDrivenPackageAddedFlow() throws Exception {
-        Bundle arguments = InstrumentationRegistry.getArguments();
-        String phase = arguments.getString("phase9_install_phase");
-        Assume.assumeTrue("host-driven package install phase required",
-                "denied".equals(phase) || "granted".equals(phase));
-
+    public void initializeHostDrivenPackageAddedBaseline() {
+        assumePhase("baseline");
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        AppDatabase db = AppDatabase.getInstance(context);
 
-        assertTrue("PACKAGE_ADDED did not create pending setup state",
+        NewAppDiscoveryWorker.reconcileNow(context);
+
+        assertTrue("discovery snapshot was not initialized",
+                NewAppDiscoveryWorker.hasSnapshot(context));
+        assertTrue("installed probe identity missing from baseline",
+                NewAppDiscoveryWorker.isCurrentInstallKnown(context, PROBE_PACKAGE));
+        assertFalse("baseline must not retroactively queue existing apps",
+                NewAppSetupStore.isPending(context, PROBE_PACKAGE));
+    }
+
+    @Test
+    public void verifyHostDrivenPackageAddedFlow() throws Exception {
+        String phase = requireVerificationPhase();
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+
+        NewAppDiscoveryWorker.reconcileNow(context);
+
+        assertTrue("new install did not create pending setup state",
                 waitUntil(() -> NewAppSetupStore.isPending(context, PROBE_PACKAGE), 10_000L));
 
-        AppPolicy pending = db.appPolicyDao().getByPackage(PROBE_PACKAGE);
-        assertNotNull("PACKAGE_ADDED did not create explicit safety policy", pending);
+        AppPolicy pending = AppDatabase.getInstance(context)
+                .appPolicyDao().getByPackage(PROBE_PACKAGE);
+        assertNotNull("new install did not create explicit safety policy", pending);
         assertEquals(AppPolicy.SOURCE_EXPLICIT, pending.source);
         assertEquals(AppPolicy.STRATEGY_UNMANAGED, pending.strategy);
+        assertTrue("processed install identity was not checkpointed",
+                NewAppDiscoveryWorker.isCurrentInstallKnown(context, PROBE_PACKAGE));
 
         int notificationPermission = ContextCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS);
@@ -73,6 +88,20 @@ public class Phase9PackageAddedRuntimeTest {
         assertEquals(PROBE_PACKAGE,
                 editor.getIntent().getStringExtra(AppPolicyEditorActivity.EXTRA_PACKAGE_NAME));
         InstrumentationRegistry.getInstrumentation().runOnMainSync(editor::finish);
+    }
+
+    private static void assumePhase(String expected) {
+        Bundle arguments = InstrumentationRegistry.getArguments();
+        Assume.assumeTrue("host-driven package install phase required",
+                expected.equals(arguments.getString("phase9_install_phase")));
+    }
+
+    private static String requireVerificationPhase() {
+        String phase = InstrumentationRegistry.getArguments()
+                .getString("phase9_install_phase");
+        Assume.assumeTrue("host-driven package install phase required",
+                "denied".equals(phase) || "granted".equals(phase));
+        return phase;
     }
 
     private static boolean hasActiveNewAppNotification(Context context) {
