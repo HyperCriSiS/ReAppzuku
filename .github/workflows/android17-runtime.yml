@@ -166,6 +166,9 @@ jobs:
           install_with_retry "$APP_APK" app
           install_with_retry "$TEST_APK" androidTest
           install_with_retry "$PROBE_APK" securityProbe
+          # Keep a shell-readable copy so the Phase 9 runtime test can perform a real
+          # uninstall/install cycle and receive the protected PACKAGE_ADDED broadcast.
+          adb push "$PROBE_APK" /data/local/tmp/reappzuku-security-probe.apk
           dump="$(adb shell dumpsys package com.gree1d.reappzuku | tr -d '\r')"
           grep -Fq 'targetSdk=37' <<<"$dump"
           grep -Fq 'versionName=1.8.7' <<<"$dump"
