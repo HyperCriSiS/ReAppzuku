@@ -166,9 +166,6 @@ jobs:
           install_with_retry "$APP_APK" app
           install_with_retry "$TEST_APK" androidTest
           install_with_retry "$PROBE_APK" securityProbe
-          # Keep a shell-readable copy so the Phase 9 runtime test can perform a real
-          # uninstall/install cycle and receive the protected PACKAGE_ADDED broadcast.
-          adb push "$PROBE_APK" /data/local/tmp/reappzuku-security-probe.apk
           dump="$(adb shell dumpsys package com.gree1d.reappzuku | tr -d '\r')"
           grep -Fq 'targetSdk=37' <<<"$dump"
           grep -Fq 'versionName=1.8.7' <<<"$dump"
@@ -211,6 +208,63 @@ jobs:
           adb shell am instrument -w -r "${args[@]}" "$INSTRUMENTATION" | tee /tmp/api37-instrumentation.txt
           grep -Eq 'OK \([0-9]+ tests?\)' /tmp/api37-instrumentation.txt
           ! grep -Fq 'FAILURES!!!' /tmp/api37-instrumentation.txt
+
+      - name: Run Phase 9 package-added install flow
+        if: ${{ inputs.test_class == '' || inputs.test_class == 'com.gree1d.reappzuku.core.Phase9RuntimeIntegrationTest' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation \
+              | tr -d '\r' \
+              | sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' \
+              | head -n 1
+          )"
+          PROBE_APK="$(find securityProbe/build/outputs/apk/debug -type f -name '*.apk' | head -n 1)"
+          test -n "$INSTRUMENTATION"
+          test -f "$PROBE_APK"
+
+          activate_product() {
+            local phase="$1"
+            adb shell am start -W \
+              -n com.gree1d.reappzuku/com.gree1d.reappzuku.ui.MainActivity \
+              >"/tmp/api37-phase9-launch-${phase}.txt" 2>&1
+            adb shell input keyevent 3 || true
+            sleep 2
+          }
+
+          install_probe() {
+            adb uninstall com.reappzuku.securityprobe >/dev/null 2>&1 || true
+            adb install -r -t "$PROBE_APK"
+            sleep 3
+          }
+
+          run_phase() {
+            local phase="$1"
+            local log="/tmp/api37-phase9-package-${phase}.txt"
+            adb shell am instrument -w -r \
+              -e class 'com.gree1d.reappzuku.core.Phase9PackageAddedRuntimeTest#verifyHostDrivenPackageAddedFlow' \
+              -e phase9_install_phase "$phase" \
+              "$INSTRUMENTATION" | tee "$log"
+            grep -Eq 'OK \([0-9]+ tests?\)' "$log"
+            ! grep -Fq 'FAILURES!!!' "$log"
+          }
+
+          # Denied notification permission: package install must still produce durable
+          # Needs-setup state without posting a notification.
+          adb shell pm clear com.gree1d.reappzuku
+          adb shell pm revoke com.gree1d.reappzuku android.permission.POST_NOTIFICATIONS || true
+          activate_product denied
+          install_probe
+          run_phase denied
+
+          # Granted permission: the same real PACKAGE_ADDED path must additionally post
+          # the setup notification, whose PendingIntent must deep-link into Policy Editor.
+          adb shell pm clear com.gree1d.reappzuku
+          adb shell pm grant com.gree1d.reappzuku android.permission.POST_NOTIFICATIONS
+          activate_product granted
+          install_probe
+          run_phase granted
 
       - name: Run external component abuse probe
         shell: bash
@@ -265,7 +319,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p api37-evidence
-          for file in /tmp/api37-emulator.log /tmp/api37-instrumentation.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt /tmp/api37-security-probe*.txt /tmp/install-*.log; do
+          for file in /tmp/api37-emulator.log /tmp/api37-instrumentation.txt /tmp/api37-phase9-*.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt /tmp/api37-security-probe*.txt /tmp/install-*.log; do
             if [ -f "$file" ]; then
               cp "$file" api37-evidence/
             fi
