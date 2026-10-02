@@ -17,6 +17,7 @@ import com.gree1d.reappzuku.db.AppPolicy;
 import com.gree1d.reappzuku.db.PolicyPreset;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.PresetManager;
+import com.gree1d.reappzuku.service.SmartLifecycleWorker;
 import com.gree1d.reappzuku.utils.PresetModel;
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 
@@ -281,6 +282,7 @@ public class BackupManager {
                 throw new IllegalStateException("Phase 9 legacy reconciliation failed");
             }
             BackgroundWorkPolicy.enforceCompatibleBehavior(context);
+            SmartLifecycleWorker.reconcilePeriodic(context);
 
             return true;
         } catch (Exception e) {
@@ -596,6 +598,7 @@ public class BackupManager {
         try {
             manager.restoreAfterBoot();
             BackgroundWorkPolicy.enforceCompatibleBehavior(context);
+            SmartLifecycleWorker.reconcilePeriodic(context);
         } catch (Exception e) {
 
             return false;

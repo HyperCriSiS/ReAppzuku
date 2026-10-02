@@ -120,7 +120,7 @@ public class App extends Application {
         executor.execute(() -> {
             AppPolicyLegacyMigrator.migrateIfNeeded(this);
             NewAppSetupCoordinator.replayPending(this);
-            SmartLifecycleWorker.schedulePeriodic(this);
+            SmartLifecycleWorker.reconcilePeriodic(this);
         });
 
         // ShellManager owns the application-lifetime Binder/permission/UserService

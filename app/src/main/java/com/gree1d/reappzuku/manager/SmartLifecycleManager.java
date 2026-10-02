@@ -28,8 +28,8 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
  * force-stop later" model, but using ReAppzuku/Shizuku as the privilege layer.
  *
  * During Phase 9 explicit Room-backed policies own per-app behavior. Packages
- * without an explicit policy keep the bounded legacy blacklist fallback while
- * the old settings UI remains available.
+ * without an explicit policy keep the bounded legacy blacklist fallback only
+ * while compatibility migration is still required.
  */
 public final class SmartLifecycleManager {
 
@@ -115,6 +115,28 @@ public final class SmartLifecycleManager {
         if (managed.isEmpty()) {
             return true;
         }
+
+        Set<String> smartManaged = new HashSet<>();
+        for (String pkg : managed) {
+            AppPolicy explicitPolicy = explicitPolicies.get(pkg);
+            AppPolicyResolver.LegacyState legacyState = new AppPolicyResolver.LegacyState(
+                    legacyAutoKillEnabled,
+                    legacySmartEnabled,
+                    whitelistMode,
+                    whitelisted.contains(pkg),
+                    blacklisted.contains(pkg));
+            if (AppPolicyResolver.shouldExecuteSmart(
+                    explicitPolicy,
+                    migrationSnapshotCurrent ? null : legacyState,
+                    bootPass)) {
+                smartManaged.add(pkg);
+            } else {
+                clearBackgroundState(pkg);
+            }
+        }
+        if (smartManaged.isEmpty()) {
+            return true;
+        }
         if (!shellManager.resolveAnyShellPermission()) {
             return false;
         }
@@ -138,22 +160,8 @@ public final class SmartLifecycleManager {
                 prefs.getBoolean(KEY_SMART_BOOT_CLEANUP_ENABLED, true);
         boolean retryRequired = false;
 
-        for (String pkg : managed) {
+        for (String pkg : smartManaged) {
             AppPolicy explicitPolicy = explicitPolicies.get(pkg);
-            AppPolicyResolver.LegacyState legacyState = new AppPolicyResolver.LegacyState(
-                    legacyAutoKillEnabled,
-                    legacySmartEnabled,
-                    whitelistMode,
-                    whitelisted.contains(pkg),
-                    blacklisted.contains(pkg));
-
-            if (!AppPolicyResolver.shouldExecuteSmart(
-                    explicitPolicy,
-                    migrationSnapshotCurrent ? null : legacyState,
-                    bootPass)) {
-                clearBackgroundState(pkg);
-                continue;
-            }
 
             if (!isEligiblePackage(pkg)) {
                 clearBackgroundState(pkg);
