@@ -83,7 +83,7 @@ public class Phase9RuntimeIntegrationTest {
                 .getResult().get(10, TimeUnit.SECONDS);
 
         // The external abuse probe runs after instrumentation in the API-37 workflow.
-        if (!isInstalled(PROBE_PACKAGE) && deviceFileExists(PROBE_APK)) {
+        if (!isInstalled(PROBE_PACKAGE)) {
             String output = shell("pm install " + PROBE_APK);
             assertTrue("probe reinstall failed: " + output, output.contains("Success"));
         }
@@ -158,8 +158,8 @@ public class Phase9RuntimeIntegrationTest {
     @Test
     public void realPackageInstallQueuesSetupWithoutNotificationsThenDeepLinksWhenGranted()
             throws Exception {
-        assertTrue("probe APK must be staged by API-37 workflow", deviceFileExists(PROBE_APK));
-
+        // The API-37 workflow stages the external probe APK under /data/local/tmp.
+        // pm install is the authoritative existence/access check for this shell context.
         // Fresh targetSdk-37 installs start without POST_NOTIFICATIONS. This validates that
         // setup state is durable even when Android suppresses the notification.
         assertEquals(PackageManager.PERMISSION_DENIED,
@@ -330,9 +330,6 @@ public class Phase9RuntimeIntegrationTest {
         }
     }
 
-    private boolean deviceFileExists(String path) throws Exception {
-        return shell("if [ -f " + path + " ]; then echo READY; fi").contains("READY");
-    }
 
     private String shell(String command) throws Exception {
         ParcelFileDescriptor descriptor = InstrumentationRegistry.getInstrumentation()
