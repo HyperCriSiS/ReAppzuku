@@ -10,14 +10,20 @@ public class AutomationDesiredStateTest {
     }
 
     @Test public void noAutomationAllowsOnDemandBehavior() {
-        assertFalse(AutomationDesiredState.requiresBackgroundContinuity(false, false, false, false, false));
+        assertFalse(AutomationDesiredState.requiresBackgroundContinuity(
+                false, false, false, false, false));
     }
 
-    @Test public void everyAutomationSourceBlocksOnDemandBehavior() {
-        assertTrue(AutomationDesiredState.requiresBackgroundContinuity(true, false, false, false, false));
-        assertTrue(AutomationDesiredState.requiresBackgroundContinuity(false, true, false, false, false));
-        assertTrue(AutomationDesiredState.requiresBackgroundContinuity(false, false, true, false, false));
-        assertTrue(AutomationDesiredState.requiresBackgroundContinuity(false, false, false, true, false));
-        assertTrue(AutomationDesiredState.requiresBackgroundContinuity(false, false, false, false, true));
+    @Test public void onlyContinuousAutomationSourcesBlockOnDemandBehavior() {
+        assertTrue(AutomationDesiredState.requiresBackgroundContinuity(
+                true, false, false, false, false));
+        assertFalse(AutomationDesiredState.requiresBackgroundContinuity(
+                false, true, false, false, false));
+        assertTrue(AutomationDesiredState.requiresBackgroundContinuity(
+                false, false, true, false, false));
+        assertTrue(AutomationDesiredState.requiresBackgroundContinuity(
+                false, false, false, true, false));
+        assertTrue(AutomationDesiredState.requiresBackgroundContinuity(
+                false, false, false, false, true));
     }
 }
