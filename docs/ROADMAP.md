@@ -255,8 +255,8 @@ Goal: replace overlapping global Auto-Kill / Smart Lifecycle ownership with one 
 - [x] Rename the existing two time-window Auto-Kill presets to Automation Schedules and keep them separate from reusable per-app Policy Presets.
 - [x] Add `PACKAGE_ADDED` handling with a durable setup queue: `Ask after install`, `Apply default preset`, or `Leave unmanaged`; use a notification/deep link instead of launching an Activity over the foreground app.
 - [x] Add main-list policy badges and filters for Managed, Smart, Immediate, Protected and Needs setup.
-- [ ] Extend versioned backup/restore to include app policies, policy presets and new-app defaults transactionally.
-- [ ] Remove obsolete blacklist/whitelist/Smart Lifecycle settings UI only after migration and execution parity are proven.
+- [x] Extend versioned backup/restore to include app policies, policy presets and new-app defaults transactionally.
+- [x] Remove obsolete blacklist/whitelist/Smart Lifecycle settings UI only after migration and execution parity are proven.
 - [ ] Validate the completed model on API 37 plus physical/OEM devices, including install-notification flow and conflicting legacy configurations.
 
 ### Phase 9 migration evidence — 2026-09-26 to 2026-10-01
@@ -300,6 +300,25 @@ Goal: replace overlapping global Auto-Kill / Smart Lifecycle ownership with one 
 - `Needs setup` comes only from the durable new-app queue. Protected/persistent fail-safe status has priority over queue presentation.
 - Policy-filter selection is persisted independently of the legacy whitelist/blacklist/Smart controls, which remain available during the transition.
 - Final-head validation passed: standard `36926009009`, CodeQL `36935664025`, GitHub Advanced Security `36935665475`; PR review threads were empty.
+
+### Phase 9 backup v7 evidence — 2026-10-01
+
+- PR #68 / merge `227f11057a16c8f8b4bfc63217cb06dbfb449631` advances the bounded backup contract to v7 and adds canonical Phase 9 state without exporting migration-owned compatibility rows.
+- Backups include explicit `AppPolicy` rows, user-created `PolicyPreset` rows, new-app setup mode/default preset and the durable Needs-setup queue. Built-in preset IDs remain code-owned and are not imported as user data.
+- Restore validates package identifiers, strategies, preset relationships, trigger masks, lifecycle delays, restriction strength, timestamps and queue invariants before the first durable write.
+- Main preferences plus Phase 9 Room state are snapshotted and roll back together; an injected `AFTER_PHASE9_DB_COMMIT` failure proves recovery after the database commit. v6 and older backups preserve existing Phase 9 state rather than erasing data they could not encode.
+- The output path now enforces the same 2 MiB bound as input, preventing a locally generated configuration from bypassing the backup envelope limit.
+- Validation passed: standard `36937049584`, CodeQL `36937623249`, GitHub Advanced Security `36937624956`; PR review threads were empty.
+
+### Phase 9 legacy settings UI retirement evidence — 2026-10-02
+
+- PR #69 removes the user-facing kill-mode, whitelist, blacklist and global Smart Lifecycle controls after migration, execution, editor, new-app and backup parity were established. Historical preference keys remain compatibility/migration inputs and are not destructively deleted.
+- Canonical SMART policies no longer depend on the hidden legacy `KEY_SMART_LIFECYCLE_ENABLED` switch. Smart execution resolves effective Room ownership first and uses legacy blacklist state only as a bounded stale-migration fallback.
+- Smart WorkManager scheduling is reconciled from effective SMART ownership on process startup, Policy Editor saves, new-app decisions and backup restore/rollback. Devices with no effective SMART policy do not retain the 15-minute periodic worker.
+- A Smart pass computes the effective SMART package set before resolving shell permission or issuing dumpsys calls, avoiding privileged/background work when no package is owned by Smart.
+- The legacy Smart flag no longer counts as a main-process continuity blocker, so an invisible migrated setting cannot disable On-demand behavior after its UI is retired. Auto-Kill, Sleep Mode, active Automation Schedules and restriction schedules retain their existing continuity semantics.
+- Source-authoritative regressions lock both halves of the transition: retired controls cannot reappear accidentally, while legacy keys remain available to the migration/restore compatibility layer.
+- Implementation-head validation on `c7220467470540d04944674f24b2314d090f2430` passed: standard `36947595322`, CodeQL `36947595766`, GitHub Advanced Security `36947596442`; PR review threads were empty.
 
 ### Phase 9 migration principles
 
