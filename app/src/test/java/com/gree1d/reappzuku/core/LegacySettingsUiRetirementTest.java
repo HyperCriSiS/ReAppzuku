@@ -63,8 +63,21 @@ public class LegacySettingsUiRetirementTest {
         assertTrue(migrator.contains("case KEY_KILL_MODE:"));
         assertTrue(migrator.contains("case KEY_SMART_LIFECYCLE_ENABLED:"));
 
-        assertFalse(worker.contains("getBoolean(KEY_SMART_LIFECYCLE_ENABLED"));
-        assertFalse(backgroundPolicy.contains("prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED"));
+        int periodicStart = worker.indexOf("public static void schedulePeriodic(Context context)");
+        int reconcileStart = worker.indexOf("public static void reconcilePeriodic(Context context)");
+        assertTrue(periodicStart >= 0 && reconcileStart > periodicStart);
+        assertFalse(worker.substring(periodicStart, reconcileStart)
+                .contains("KEY_SMART_LIFECYCLE_ENABLED"));
+
+        int doWorkStart = worker.indexOf("public Result doWork()");
+        assertTrue(doWorkStart >= 0);
+        assertFalse(worker.substring(doWorkStart)
+                .contains("getBoolean(KEY_SMART_LIFECYCLE_ENABLED"));
+
+        // The legacy Smart bit may still be read by the worker's bounded stale-migration
+        // fallback, but it must no longer gate main-process continuity.
+        assertFalse(backgroundPolicy.contains(
+                "prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED"));
     }
 
     private static String readRepositoryFile(String relative) throws IOException {
