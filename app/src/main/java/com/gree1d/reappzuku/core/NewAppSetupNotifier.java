@@ -41,9 +41,7 @@ public final class NewAppSetupNotifier {
             return;
         }
 
-        Intent intent = new Intent(context, AppPolicyEditorActivity.class);
-        intent.putExtra(AppPolicyEditorActivity.EXTRA_PACKAGE_NAME, packageName);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        Intent intent = createPolicyEditorIntent(context, packageName);
 
         PendingIntent contentIntent = PendingIntent.getActivity(
                 context, notificationId(packageName), intent,
@@ -60,6 +58,13 @@ public final class NewAppSetupNotifier {
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT);
 
         manager.notify(notificationId(packageName), builder.build());
+    }
+
+    static Intent createPolicyEditorIntent(Context context, String packageName) {
+        Intent intent = new Intent(context, AppPolicyEditorActivity.class);
+        intent.putExtra(AppPolicyEditorActivity.EXTRA_PACKAGE_NAME, packageName);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        return intent;
     }
 
     public static void cancel(Context context, String packageName) {
