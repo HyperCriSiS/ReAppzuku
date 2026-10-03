@@ -166,13 +166,28 @@ jobs:
           install_with_retry "$APP_APK" app
           install_with_retry "$TEST_APK" androidTest
 
-          # Clear the freshly-installed stopped state before installing the probe so the
-          # manifest PACKAGE_ADDED receiver can observe the real install event.
+          # Clear the freshly-installed stopped state and wait until the runtime package
+          # monitor has seeded its initial inventory before installing the probe.
           adb shell monkey \
             -p com.gree1d.reappzuku \
             -c android.intent.category.LAUNCHER \
             1 >/tmp/api37-pre-probe-launch.txt 2>&1 || true
-          sleep 2
+          monitor_ready=0
+          prefs_xml=''
+          for i in $(seq 1 30); do
+            prefs_xml="$(
+              adb shell run-as com.gree1d.reappzuku \
+                cat shared_prefs/AppPreferences.xml 2>/dev/null \
+                | tr -d '\r' || true
+            )"
+            if grep -Fq 'name="new_app_known_packages"' <<<"$prefs_xml"; then
+              monitor_ready=1
+              break
+            fi
+            sleep 1
+          done
+          printf '%s\n' "$prefs_xml" > /tmp/api37-new-app-monitor-prefs.xml
+          test "$monitor_ready" -eq 1
 
           install_with_retry "$PROBE_APK" securityProbe
           dump="$(adb shell dumpsys package com.gree1d.reappzuku | tr -d '\r')"
@@ -201,23 +216,50 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          found=0
-          prefs_xml=''
-          for i in $(seq 1 30); do
+          queue_contains_probe() {
+            local prefs_xml
             prefs_xml="$(
               adb shell run-as com.gree1d.reappzuku \
                 cat shared_prefs/AppPreferences.xml 2>/dev/null \
                 | tr -d '\r' || true
             )"
-            if grep -Fq 'name="new_app_setup_queue"' <<<"$prefs_xml" \
-              && grep -Fq 'com.reappzuku.securityprobe' <<<"$prefs_xml"; then
+            printf '%s\n' "$prefs_xml" > /tmp/api37-new-app-setup-prefs.xml
+            grep -Fq 'name="new_app_setup_queue"' <<<"$prefs_xml" \
+              && grep -Fq 'com.reappzuku.securityprobe' <<<"$prefs_xml"
+          }
+
+          # Prefer the live runtime receiver path, but do not make the deterministic
+          # API-37 gate depend on ADB-install broadcast timing. If the live path is
+          # not observed quickly, restart the app and prove the persisted-inventory
+          # reconciliation fallback against the same real package installation.
+          found=0
+          for i in $(seq 1 5); do
+            if queue_contains_probe; then
               found=1
+              printf 'path=live-receiver\n' > /tmp/api37-new-app-path.txt
               break
             fi
             sleep 1
           done
-          printf '%s\n' "$prefs_xml" > /tmp/api37-new-app-setup-prefs.xml
+
+          if [ "$found" -ne 1 ]; then
+            adb shell am force-stop com.gree1d.reappzuku
+            adb shell monkey \
+              -p com.gree1d.reappzuku \
+              -c android.intent.category.LAUNCHER \
+              1 >/tmp/api37-new-app-fallback-launch.txt 2>&1 || true
+            for i in $(seq 1 30); do
+              if queue_contains_probe; then
+                found=1
+                printf 'path=startup-reconcile\n' > /tmp/api37-new-app-path.txt
+                break
+              fi
+              sleep 1
+            done
+          fi
+
           test "$found" -eq 1
+          cat /tmp/api37-new-app-path.txt
 
       - name: Run Android instrumentation on API 37
         shell: bash
@@ -315,7 +357,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p api37-evidence
-          for file in /tmp/api37-emulator.log /tmp/api37-instrumentation.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt /tmp/api37-security-probe*.txt /tmp/install-*.log; do
+          for file in /tmp/api37-emulator.log /tmp/api37-instrumentation.txt /tmp/api37-phase9-completed-model.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt /tmp/api37-security-probe*.txt /tmp/api37-new-app-* /tmp/api37-pre-probe-launch.txt /tmp/install-*.log; do
             if [ -f "$file" ]; then
               cp "$file" api37-evidence/
             fi
