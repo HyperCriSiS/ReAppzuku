@@ -53,7 +53,7 @@ public class BootReceiverIdempotencyInstrumentationTest {
     }
 
     @Test
-    public void repeatedBootReconciliationKeepsSingleActiveUniqueWorkers() throws Exception {
+    public void repeatedBootReconciliationKeepsOwnedBootWorkersUnique() throws Exception {
         assertTrue(prefs.edit()
                 .putBoolean(PreferenceKeys.KEY_AUTO_KILL_ENABLED, true)
                 .putBoolean(PreferenceKeys.KEY_SMART_LIFECYCLE_ENABLED, true)
@@ -69,7 +69,9 @@ public class BootReceiverIdempotencyInstrumentationTest {
 
         assertEquals(2, context.serviceStarts);
         assertEquals(1, activeWorkCount(AUTO_KILL_WORK));
-        assertEquals(1, activeWorkCount(SMART_PERIODIC_WORK));
+        // Phase 9 moved periodic Smart scheduling to canonical policy reconciliation.
+        // BootReceiver must not recreate the retired global-toggle ownership path.
+        assertEquals(0, activeWorkCount(SMART_PERIODIC_WORK));
         assertEquals(1, activeWorkCount(SMART_BOOT_WORK));
     }
 
