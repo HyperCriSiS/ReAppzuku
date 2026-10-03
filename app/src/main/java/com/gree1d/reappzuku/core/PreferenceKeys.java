@@ -75,6 +75,7 @@ public final class PreferenceKeys {
     public static final String KEY_NEW_APP_SETUP_MODE = "new_app_setup_mode";
     public static final String KEY_NEW_APP_DEFAULT_PRESET_ID = "new_app_default_preset_id";
     public static final String KEY_NEW_APP_SETUP_QUEUE = "new_app_setup_queue";
+    public static final String KEY_NEW_APP_KNOWN_PACKAGES = "new_app_known_packages";
 
     // Notifications
     public static final String KEY_NOTIFICATION_MODE = "notificationMode";
