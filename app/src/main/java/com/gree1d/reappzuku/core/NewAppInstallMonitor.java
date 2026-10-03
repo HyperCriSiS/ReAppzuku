@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
 
 import androidx.core.content.ContextCompat;
 import androidx.work.ExistingPeriodicWorkPolicy;
@@ -110,13 +109,18 @@ public final class NewAppInstallMonitor {
         }
 
         synchronized (LOCK) {
+            // Refresh the package snapshot while holding the same lock used by live-broadcast
+            // inventory updates. This preserves packages recorded concurrently by the receiver
+            // instead of overwriting them with the stale snapshot taken at reconciliation start.
+            Set<String> latestCurrent = readInstalledPackages(appContext);
             Set<String> latest = prefs.getStringSet(
                     KEY_NEW_APP_KNOWN_PACKAGES, Collections.emptySet());
             Set<String> updated = latest == null ? new HashSet<>() : new HashSet<>(latest);
-            updated.retainAll(current);
+            updated.retainAll(latestCurrent);
             updated.addAll(known);
-            updated.retainAll(current);
+            updated.retainAll(latestCurrent);
             updated.addAll(completed);
+            updated.retainAll(latestCurrent);
             if (!prefs.edit().putStringSet(KEY_NEW_APP_KNOWN_PACKAGES, updated).commit()) {
                 throw new IllegalStateException("Could not update new-app inventory");
             }
