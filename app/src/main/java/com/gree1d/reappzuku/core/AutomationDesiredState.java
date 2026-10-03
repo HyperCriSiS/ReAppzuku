@@ -14,7 +14,8 @@ public final class AutomationDesiredState {
             boolean sleepModeEnabled,
             boolean presetActive,
             boolean restrictionScheduleEnabled) {
-        return autoKillEnabled || smartLifecycleEnabled || sleepModeEnabled
-                || presetActive || restrictionScheduleEnabled;
+        // Smart lifecycle is WorkManager-backed. Its legacy global flag remains migration
+        // input, but no longer requires the main process to stay continuously alive.
+        return autoKillEnabled || sleepModeEnabled || presetActive || restrictionScheduleEnabled;
     }
 }

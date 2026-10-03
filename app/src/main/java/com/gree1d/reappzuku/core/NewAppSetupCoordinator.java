@@ -7,6 +7,7 @@ import android.content.pm.PackageManager;
 import com.gree1d.reappzuku.db.AppDatabase;
 import com.gree1d.reappzuku.db.AppPolicy;
 import com.gree1d.reappzuku.db.PolicyPreset;
+import com.gree1d.reappzuku.service.SmartLifecycleWorker;
 
 import java.util.List;
 
@@ -82,6 +83,7 @@ public final class NewAppSetupCoordinator {
                 }
                 break;
         }
+        SmartLifecycleWorker.reconcilePeriodic(context);
     }
 
     private static void ensureExplicitUnmanaged(AppDatabase db, String packageName) {

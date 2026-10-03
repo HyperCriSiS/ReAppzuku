@@ -25,6 +25,7 @@ import com.gree1d.reappzuku.core.NewAppSetupNotifier;
 import com.gree1d.reappzuku.core.NewAppSetupStore;
 import com.gree1d.reappzuku.core.PackageNameValidator;
 import com.gree1d.reappzuku.core.PolicyPresetSeeder;
+import com.gree1d.reappzuku.service.SmartLifecycleWorker;
 import com.gree1d.reappzuku.db.AppDatabase;
 import com.gree1d.reappzuku.db.AppPolicy;
 import com.gree1d.reappzuku.db.PolicyPreset;
@@ -330,6 +331,7 @@ public class AppPolicyEditorActivity extends BaseActivity {
             }
 
             database.appPolicyDao().upsert(AppPolicyEditorModel.normalize(policy));
+            SmartLifecycleWorker.reconcilePeriodic(this);
             NewAppSetupStore.removePending(this, packageName);
             NewAppSetupNotifier.cancel(this, packageName);
             mainHandler.post(() -> {

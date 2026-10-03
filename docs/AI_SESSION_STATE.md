@@ -1,6 +1,6 @@
 # AI Session State
 
-Updated: 2026-10-01
+Updated: 2026-10-02
 
 ## Last completed work blocks
 
@@ -99,6 +99,42 @@ Validation:
 - GitHub Advanced Security: `36935665475`
 - PR review threads: none at final review.
 
+
+### Phase 9 transactional policy backup v7
+
+Merged PR: #68  
+Merge commit: `227f11057a16c8f8b4bfc63217cb06dbfb449631`
+
+- Backup format v7 now carries explicit canonical `AppPolicy` rows, user-created `PolicyPreset` rows, new-app setup mode/default preset and the durable Needs-setup queue.
+- Migration-owned rows and built-in presets remain compatibility/code-owned state and are intentionally not exported as portable user policy.
+- Restore stages and validates Phase 9 relationships before durable writes, snapshots preferences plus Room policy state, and rolls both back after injected post-DB-commit failure.
+- v6/older restore preserves existing Phase 9 state; generated output is also capped by the 2 MiB backup bound.
+
+Validation:
+- Standard validation: `36937049584`
+- CodeQL: `36937623249`
+- GitHub Advanced Security: `36937624956`
+- PR review threads: none at final review.
+
+### Phase 9 legacy settings UI retirement
+
+PR: #69 (`phase9-remove-legacy-settings-ui`)  
+Implementation head: `c7220467470540d04944674f24b2314d090f2430`
+
+- Removed obsolete Settings UI for kill mode, whitelist, blacklist, global Smart Lifecycle enable, Smart app list, global Smart profile and global Smart boot cleanup.
+- Kept historical preference keys/data as migration and restore compatibility inputs; no destructive cleanup is performed in this block.
+- Canonical SMART execution is independent of the retired global Smart toggle.
+- Smart periodic WorkManager state is reconciled from effective SMART ownership instead of being scheduled unconditionally; reconciliation runs after startup migration, Policy Editor saves, new-app decisions and restore/rollback.
+- Smart manager exits before shell permission/dumpsys work when no package has effective SMART ownership.
+- Legacy Smart alone no longer blocks On-demand behavior because canonical Smart automation is WorkManager-backed.
+- Added source/JVM regressions for retired UI boundaries, retained compatibility keys, Smart worker reconciliation and updated continuity semantics.
+
+Validation:
+- Standard validation: `36947595322`
+- CodeQL: `36947595766`
+- GitHub Advanced Security: `36947596442`
+- PR review threads: none at implementation-head review.
+
 ## Current Phase 9 architecture state
 
 - Canonical strategies are `UNMANAGED`, `PROTECTED`, `SMART`, `IMMEDIATE`; `Custom` remains presentation/provenance state, not an execution engine.
@@ -110,19 +146,20 @@ Validation:
 - Newly installed apps now enter an explicit safe setup path: Ask/Leave are canonical `UNMANAGED`, while only an explicitly selected default preset can auto-manage an app.
 - A durable Needs-setup queue is replayed after legacy migration and cannot be suppressed by migration-owned legacy rows on reinstall.
 - The main app list now exposes effective canonical ownership from a per-scan snapshot; badges and filters use the same resolver/migration boundary as execution.
-- Legacy global settings remain transition controls/fallback and must not be removed until remaining Phase 9 parity work is complete.
-- Background-restriction strength is stored canonically, while exact manual AppOps/bucket/whitelist legacy details still remain in their existing per-package preference keys pending backup/UI parity work.
+- Legacy whitelist/blacklist/kill-mode/Smart settings are now compatibility-only migration/restore inputs; their obsolete Settings UI has been retired.
+- Background-restriction strength is stored canonically; exact manual AppOps/bucket/whitelist details remain in their existing per-package preference keys because they are device-operation detail rather than a second lifecycle ownership model.
+- Backup v7 transactionally round-trips portable Phase 9 policy/preset/new-app state.
+- Smart WorkManager scheduling follows effective SMART ownership and no longer turns a hidden legacy Smart bit into a permanent background-continuity requirement.
 
 ## Next work unit
 
-**Transactional backup/restore for Phase 9 policy state**
+**Completed-model Android 17 / API 37 validation**
 
-1. Extend the versioned backup format to include canonical `AppPolicy` rows, reusable `PolicyPreset` rows and new-app setup mode/default-preset/Needs-setup queue state.
-2. Preserve the existing transactional restore contract: stage and validate everything before the first durable write, then commit policy DB + preferences as one recoverable unit with rollback on failure.
-3. Validate package identifiers, strategies, preset IDs/relationships, trigger masks, delay bounds, restriction strength and queue contents before importing.
-4. Keep built-in preset IDs stable and prevent imported user presets from silently overwriting incompatible built-ins.
-5. Reconcile legacy migration fingerprint/new-app queue state after a successful restore without allowing Smart and Immediate dual ownership.
-6. Add focused parser/rollback/JVM coverage plus Android restore-path coverage before considering legacy settings UI removal.
+1. Exercise the finished Phase 9 model on API 37 with conflicting legacy Auto-Kill/Smart inputs and verify one canonical owner per package after reconciliation.
+2. Exercise new-app install handling end-to-end, including Needs-setup notification/deep link and safe fallback when notifications are unavailable.
+3. Verify policy edits reconfigure Smart periodic work without reviving retired legacy controls or requiring continuous main-process residency.
+4. Re-run backup v7 restore on Android runtime with canonical policy/preset/new-app state and confirm post-restore scheduling reconciliation.
+5. Keep physical/OEM coverage as release-diversity evidence after the deterministic API-37 gate.
 
 ## Guardrails
 
@@ -131,4 +168,4 @@ Validation:
 - Newly installed apps default to no privileged mutation unless the user explicitly selects an automatic default preset.
 - Protected/system/persistent packages continue to fail safe regardless of stored policy.
 - Policy presets describe per-app behavior; Automation Schedules describe when automation is active. Do not merge those concepts.
-- Keep legacy UI/settings until migration, execution and backup/restore parity are proven.
+- Keep retired legacy preference data only where migration/restore compatibility requires it; do not reintroduce retired lifecycle ownership UI.
