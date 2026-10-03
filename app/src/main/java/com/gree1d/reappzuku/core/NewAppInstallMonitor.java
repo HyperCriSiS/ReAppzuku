@@ -42,14 +42,14 @@ public final class NewAppInstallMonitor {
     public static void start(Context context) {
         Context appContext = context.getApplicationContext();
 
-        // Register first so a package installed during initial inventory seeding is still observed
-        // by the live receiver. Reconcile twice to close races with concurrent package changes.
+        // Seed the persisted inventory first. Register the live receiver afterwards, then
+        // reconcile once more so installs that raced with startup are still detected.
         try {
-            registerLiveReceiver(appContext);
+            reconcileInstalledPackages(appContext);
         } catch (RuntimeException ignored) {
         }
         try {
-            reconcileInstalledPackages(appContext);
+            registerLiveReceiver(appContext);
         } catch (RuntimeException ignored) {
         }
         try {
