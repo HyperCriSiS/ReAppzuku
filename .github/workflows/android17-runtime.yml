@@ -165,6 +165,15 @@ jobs:
           test -f "$PROBE_APK"
           install_with_retry "$APP_APK" app
           install_with_retry "$TEST_APK" androidTest
+
+          # Clear the freshly-installed stopped state before installing the probe so the
+          # manifest PACKAGE_ADDED receiver can observe the real install event.
+          adb shell monkey \
+            -p com.gree1d.reappzuku \
+            -c android.intent.category.LAUNCHER \
+            1 >/tmp/api37-pre-probe-launch.txt 2>&1 || true
+          sleep 2
+
           install_with_retry "$PROBE_APK" securityProbe
           dump="$(adb shell dumpsys package com.gree1d.reappzuku | tr -d '\r')"
           grep -Fq 'targetSdk=37' <<<"$dump"
@@ -188,6 +197,28 @@ jobs:
             printf 'external probe %s\n' "$probe_uid_line"
           } | tee /tmp/api37-security-probe-uids.txt
 
+      - name: Verify PACKAGE_ADDED new-app fallback
+        shell: bash
+        run: |
+          set -euo pipefail
+          found=0
+          prefs_xml=''
+          for i in $(seq 1 30); do
+            prefs_xml="$(
+              adb shell run-as com.gree1d.reappzuku \
+                cat shared_prefs/AppPreferences.xml 2>/dev/null \
+                | tr -d '\r' || true
+            )"
+            if grep -Fq 'name="new_app_setup_queue"' <<<"$prefs_xml" \
+              && grep -Fq 'com.reappzuku.securityprobe' <<<"$prefs_xml"; then
+              found=1
+              break
+            fi
+            sleep 1
+          done
+          printf '%s\n' "$prefs_xml" > /tmp/api37-new-app-setup-prefs.xml
+          test "$found" -eq 1
+
       - name: Run Android instrumentation on API 37
         shell: bash
         env:
@@ -204,10 +235,32 @@ jobs:
           args=()
           if [ -n "$TEST_CLASS" ]; then
             args=(-e class "$TEST_CLASS")
+          else
+            # The completed-model class is run separately after the general suite so it can
+            # rely on the fresh-install notification permission state deterministically.
+            args=(-e notClass com.gree1d.reappzuku.core.Phase9CompletedModelInstrumentationTest)
           fi
           adb shell am instrument -w -r "${args[@]}" "$INSTRUMENTATION" | tee /tmp/api37-instrumentation.txt
           grep -Eq 'OK \([0-9]+ tests?\)' /tmp/api37-instrumentation.txt
           ! grep -Fq 'FAILURES!!!' /tmp/api37-instrumentation.txt
+
+      - name: Run completed Phase 9 model validation
+        if: ${{ inputs.test_class == '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation \
+              | tr -d '\r' \
+              | sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' \
+              | head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r \
+            -e class com.gree1d.reappzuku.core.Phase9CompletedModelInstrumentationTest \
+            "$INSTRUMENTATION" | tee /tmp/api37-phase9-completed-model.txt
+          grep -Eq 'OK \([0-9]+ tests?\)' /tmp/api37-phase9-completed-model.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api37-phase9-completed-model.txt
 
       - name: Run external component abuse probe
         shell: bash
