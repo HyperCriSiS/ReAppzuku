@@ -1,6 +1,6 @@
 # AI Session State
 
-Updated: 2026-10-02
+Updated: 2026-10-04
 
 ## Last completed work blocks
 
@@ -135,6 +135,22 @@ Validation:
 - GitHub Advanced Security: `36947596442`
 - PR review threads: none at implementation-head review.
 
+### Phase 9 completed-model Android 17 / API 37 validation
+
+Branch: `phase9-api37-completed-model-validation`  
+Validated head before documentation refresh: `071186c8504541aea58345552923f1b1c8fcf3f1`
+
+- Added completed-model instrumentation covering conflicting legacy Auto-Kill/Smart inputs, canonical ownership, new-app setup behavior, notification/editor deep link, Smart WorkManager reconciliation and backup-v7 restore/reconciliation.
+- API 37 exposed that manifest-declared `PACKAGE_ADDED` is not a reliable modern-target delivery mechanism. Production now registers a process-lifetime package receiver and maintains a persisted installed-package inventory.
+- A unique 15-minute WorkManager reconciliation provides durable fallback for installs that occur while the process is not alive; live receiver updates and reconciliation share inventory locking to avoid lost concurrent package observations.
+- Startup order remains migration first, then new-app monitor/replay, then Smart scheduling reconciliation.
+- The final API-37 gate at head `071186c8504541aea58345552923f1b1c8fcf3f1` passed in run `37149945404`. Earlier failed/cancelled runs were used to close deterministic startup/inventory races and align the boot idempotency test with canonical Phase 9 scheduling ownership.
+- Physical/OEM coverage remains release-diversity evidence and is not yet recorded for this completed-model block.
+
+Validation:
+- Android 17 / API 37 runtime: `37149945404`
+- Fresh standard + CodeQL validation for the final documented branch head is being run before merge.
+
 ## Current Phase 9 architecture state
 
 - Canonical strategies are `UNMANAGED`, `PROTECTED`, `SMART`, `IMMEDIATE`; `Custom` remains presentation/provenance state, not an execution engine.
@@ -153,13 +169,11 @@ Validation:
 
 ## Next work unit
 
-**Completed-model Android 17 / API 37 validation**
+**Close completed-model validation and move to release-diversity evidence**
 
-1. Exercise the finished Phase 9 model on API 37 with conflicting legacy Auto-Kill/Smart inputs and verify one canonical owner per package after reconciliation.
-2. Exercise new-app install handling end-to-end, including Needs-setup notification/deep link and safe fallback when notifications are unavailable.
-3. Verify policy edits reconfigure Smart periodic work without reviving retired legacy controls or requiring continuous main-process residency.
-4. Re-run backup v7 restore on Android runtime with canonical policy/preset/new-app state and confirm post-restore scheduling reconciliation.
-5. Keep physical/OEM coverage as release-diversity evidence after the deterministic API-37 gate.
+1. Merge the API-37 completed-model validation branch after final standard/CodeQL gates are green.
+2. Record at least one physical/OEM pass for the install-notification/deep-link path and canonical conflict resolution as release-diversity evidence.
+3. Keep deterministic API-37 coverage as the implementation gate; do not block future source work on repeated emulator evidence already proven here.
 
 ## Guardrails
 
