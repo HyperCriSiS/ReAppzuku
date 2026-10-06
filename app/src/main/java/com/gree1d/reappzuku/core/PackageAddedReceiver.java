@@ -27,6 +27,7 @@ public final class PackageAddedReceiver extends BroadcastReceiver {
             shared.execute(() -> {
                 try {
                     NewAppSetupCoordinator.handlePackageAdded(context, packageName);
+                    NewAppInstallMonitor.recordInstalledPackage(context, packageName);
                 } finally {
                     pendingResult.finish();
                 }
@@ -38,6 +39,7 @@ public final class PackageAddedReceiver extends BroadcastReceiver {
         fallback.execute(() -> {
             try {
                 NewAppSetupCoordinator.handlePackageAdded(context, packageName);
+                NewAppInstallMonitor.recordInstalledPackage(context, packageName);
             } finally {
                 pendingResult.finish();
                 fallback.shutdown();

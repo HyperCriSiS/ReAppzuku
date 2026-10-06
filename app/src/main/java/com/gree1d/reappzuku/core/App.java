@@ -119,6 +119,7 @@ public class App extends Application {
         // the next process start rebuilds them without ever overriding explicit policies.
         executor.execute(() -> {
             AppPolicyLegacyMigrator.migrateIfNeeded(this);
+            NewAppInstallMonitor.start(this);
             NewAppSetupCoordinator.replayPending(this);
             SmartLifecycleWorker.reconcilePeriodic(this);
         });
