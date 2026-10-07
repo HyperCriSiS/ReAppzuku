@@ -21,6 +21,7 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           roadmap = Path("docs/ROADMAP.md")
           text = roadmap.read_text()
@@ -34,31 +35,30 @@ jobs:
           text = state.read_text()
           text = text.replace("Updated: 2026-10-04", "Updated: 2026-10-07", 1)
 
-          old = "Branch: `phase9-api37-completed-model-validation`  \\nValidated head before documentation refresh: `071186c8504541aea58345552923f1b1c8fcf3f1`"
-          new = "Merged PR: #73  \\nMerge commit: `8533894b9716030609b148c675e5049312e10ed4`  \\nValidated implementation head: `071186c8504541aea58345552923f1b1c8fcf3f1`"
-          if old not in text:
+          pattern = r"Branch: `phase9-api37-completed-model-validation`\s*\nValidated head before documentation refresh: `071186c8504541aea58345552923f1b1c8fcf3f1`"
+          replacement = "Merged PR: #73  \nMerge commit: `8533894b9716030609b148c675e5049312e10ed4`  \nValidated implementation head: `071186c8504541aea58345552923f1b1c8fcf3f1`"
+          text, count = re.subn(pattern, replacement, text, count=1)
+          if count != 1:
               raise SystemExit("AI state merge target not found")
-          text = text.replace(old, new, 1)
 
           old = "- Fresh standard + CodeQL validation for the final documented branch head is being run before merge."
-          new = "- Final standard validation and CodeQL passed on the PR head.\\n- GitHub Advanced Security agent execution failed only because the GitHub Copilot monthly quota was exhausted (HTTP 402); no code/security finding was reported, and `main` does not require that check as a merge gate."
+          new = "- Final standard validation and CodeQL passed on the PR head.\n- GitHub Advanced Security agent execution failed only because the GitHub Copilot monthly quota was exhausted (HTTP 402); no code/security finding was reported, and `main` does not require that check as a merge gate."
           if old not in text:
               raise SystemExit("AI state validation target not found")
           text = text.replace(old, new, 1)
 
-          old = """**Close completed-model validation and move to release-diversity evidence**
-
-          1. Merge the API-37 completed-model validation branch after final standard/CodeQL gates are green.
-          2. Record at least one physical/OEM pass for the install-notification/deep-link path and canonical conflict resolution as release-diversity evidence.
-          3. Keep deterministic API-37 coverage as the implementation gate; do not block future source work on repeated emulator evidence already proven here."""
-          new = """**Release-diversity evidence + dependency maintenance**
+          next_pattern = r"\*\*Close completed-model validation and move to release-diversity evidence\*\*.*?(?=\n## Guardrails)"
+          next_replacement = """**Release-diversity evidence + dependency maintenance**
 
           1. Record at least one physical/OEM pass for the install-notification/deep-link path and canonical conflict resolution as release-diversity evidence.
           2. Keep deterministic API-37 coverage as the implementation gate; do not block future source work on repeated emulator evidence already proven here.
-          3. Dependency PRs #71 (WorkManager 2.12.0) and #72 (Core KTX 1.19.1) currently fail only because strict Gradle verification metadata/locks have not been refreshed; update them through the reviewed dependency-assurance path before merge."""
-          if old not in text:
+          3. Dependency PRs #71 (WorkManager 2.12.0) and #72 (Core KTX 1.19.1) currently fail only because strict Gradle verification metadata/locks have not been refreshed; update them through the reviewed dependency-assurance path before merge.
+          """
+          text, count = re.subn(next_pattern, next_replacement.rstrip(), text, count=1, flags=re.S)
+          if count != 1:
               raise SystemExit("AI state next-unit target not found")
-          state.write_text(text.replace(old, new, 1))
+
+          state.write_text(text)
           PY
 
           git diff --check
