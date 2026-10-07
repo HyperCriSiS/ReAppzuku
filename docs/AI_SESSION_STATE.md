@@ -1,6 +1,6 @@
 # AI Session State
 
-Updated: 2026-10-04
+Updated: 2026-10-07
 
 ## Last completed work blocks
 
@@ -137,8 +137,9 @@ Validation:
 
 ### Phase 9 completed-model Android 17 / API 37 validation
 
-Branch: `phase9-api37-completed-model-validation`  
-Validated head before documentation refresh: `071186c8504541aea58345552923f1b1c8fcf3f1`
+Merged PR: #73
+Merge commit: `8533894b9716030609b148c675e5049312e10ed4`
+Validated implementation head: `071186c8504541aea58345552923f1b1c8fcf3f1`
 
 - Added completed-model instrumentation covering conflicting legacy Auto-Kill/Smart inputs, canonical ownership, new-app setup behavior, notification/editor deep link, Smart WorkManager reconciliation and backup-v7 restore/reconciliation.
 - API 37 exposed that manifest-declared `PACKAGE_ADDED` is not a reliable modern-target delivery mechanism. Production now registers a process-lifetime package receiver and maintains a persisted installed-package inventory.
@@ -149,7 +150,16 @@ Validated head before documentation refresh: `071186c8504541aea58345552923f1b1c8
 
 Validation:
 - Android 17 / API 37 runtime: `37149945404`
-- Fresh standard + CodeQL validation for the final documented branch head is being run before merge.
+- Final standard validation and CodeQL passed on the PR head.
+- GitHub Advanced Security agent execution failed only because the GitHub Copilot monthly quota was exhausted (HTTP 402); no code/security finding was reported, and `main` does not require that check as a merge gate.
+
+### Dependency assurance maintenance — 2026-10-07
+
+- WorkManager was updated from 2.11.1 to 2.12.0 in PR #76 / merge `2982d13a7814f93492660976241207e777aae015`.
+- Gradle 9.8.0 regenerated dependency locks and SHA-256 verification metadata from resolved artifacts before review; the final PR contains only the version change, two lockfile version replacements and the four new WorkManager artifact checksums.
+- Branch-exact validation passed: standard `37553836083`, Android 17 / API 37 runtime `37553682771`, and CodeQL. The API-37 lane passed PACKAGE_ADDED fallback, general instrumentation, completed Phase 9 model validation, external component abuse probing and launcher smoke.
+- GitHub Advanced Security agent execution again failed only because the Copilot monthly quota was exhausted (HTTP 402), not because of a code/security finding.
+- Dependabot PR #71 was closed as superseded by #76. Core KTX 1.19.1 PR #72 was intentionally closed/deferred because its transitive dependency churn is not justified on the current AGP 9.4.1 line.
 
 ## Current Phase 9 architecture state
 
@@ -169,12 +179,11 @@ Validation:
 
 ## Next work unit
 
-**Close completed-model validation and move to release-diversity evidence**
+**Release-diversity evidence + dependency maintenance**
 
-1. Merge the API-37 completed-model validation branch after final standard/CodeQL gates are green.
-2. Record at least one physical/OEM pass for the install-notification/deep-link path and canonical conflict resolution as release-diversity evidence.
-3. Keep deterministic API-37 coverage as the implementation gate; do not block future source work on repeated emulator evidence already proven here.
-
+1. Record at least one physical/OEM pass for the install-notification/deep-link path and canonical conflict resolution as release-diversity evidence.
+2. Keep deterministic API-37 coverage as the implementation gate; do not block future source work on repeated emulator evidence already proven here.
+3. WorkManager 2.12.0 is integrated through PR #76 / merge `2982d13a7814f93492660976241207e777aae015` with Gradle-generated lock/SHA-256 verification metadata and green standard/API-37/CodeQL gates. Core KTX 1.19.1 (#72) is intentionally deferred to a future AGP 9.5 toolchain evaluation because it causes broad transitive lock changes without a current product requirement.
 ## Guardrails
 
 - Never allow Smart and Immediate automation to own the same package simultaneously.
