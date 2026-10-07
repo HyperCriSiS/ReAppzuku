@@ -1,6 +1,6 @@
 # AI Session State
 
-Updated: 2026-10-07
+Updated: 2026-10-08
 
 ## Last completed work blocks
 
@@ -161,6 +161,13 @@ Validation:
 - GitHub Advanced Security agent execution again failed only because the Copilot monthly quota was exhausted (HTTP 402), not because of a code/security finding.
 - Dependabot PR #71 was closed as superseded by #76. Core KTX 1.19.1 PR #72 was intentionally closed/deferred because its transitive dependency churn is not justified on the current AGP 9.4.1 line.
 
+### Release evidence baseline refresh — 2026-10-08
+
+- Phase 9 checkpoint PR #75 merged to `main` as `3edb0f0f6f56cbba266339aa608f69fcb8591f4a`; CodeQL run `37554275820` passed.
+- Updated `CHECK_MATRIX.md` and `QUALITY_GATES.md` with the proven API-37/WorkManager 2.12.0 evidence and labeled older preview/backup/schema/toolchain facts as historical.
+- Added `PHYSICAL_DEVICE_VALIDATION.md` as a bounded real-device and stable-signing acceptance plan. This is **not** evidence that the device/root/signing tests have run.
+- Still open: real physical/OEM tests, actual Magisk/KernelSU root execution, stable signing identity, in-place same-key upgrade and proven rollback.
+
 ## Current Phase 9 architecture state
 
 - Canonical strategies are `UNMANAGED`, `PROTECTED`, `SMART`, `IMMEDIATE`; `Custom` remains presentation/provenance state, not an execution engine.
@@ -179,11 +186,13 @@ Validation:
 
 ## Next work unit
 
-**Release-diversity evidence + dependency maintenance**
+**Collect physical/OEM and stable-release evidence**
 
-1. Record at least one physical/OEM pass for the install-notification/deep-link path and canonical conflict resolution as release-diversity evidence.
-2. Keep deterministic API-37 coverage as the implementation gate; do not block future source work on repeated emulator evidence already proven here.
-3. WorkManager 2.12.0 is integrated through PR #76 / merge `2982d13a7814f93492660976241207e777aae015` with Gradle-generated lock/SHA-256 verification metadata and green standard/API-37/CodeQL gates. Core KTX 1.19.1 (#72) is intentionally deferred to a future AGP 9.5 toolchain evaluation because it causes broad transitive lock changes without a current product requirement.
+1. Execute `docs/PHYSICAL_DEVICE_VALIDATION.md` on a non-Pixel/OEM device and record observed outcomes for Phase 9 new-app notifications, editor deep links, disabled-notification fallback, canonical legacy conflict resolution and process-loss reconciliation.
+2. Run an independent reversible KernelSU/Magisk backend check on a disposable package; Shizuku emulator success is not root evidence.
+3. Establish production release signing identity offline, test same-key in-place update and the actual rollback/data migration plan before publishing.
+4. Preserve strict dependency verification and pinned CodeQL; defer Core KTX 1.19.1 until toolchain review.
+
 ## Guardrails
 
 - Never allow Smart and Immediate automation to own the same package simultaneously.
