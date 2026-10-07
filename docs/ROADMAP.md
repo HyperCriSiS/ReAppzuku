@@ -257,7 +257,7 @@ Goal: replace overlapping global Auto-Kill / Smart Lifecycle ownership with one 
 - [x] Add main-list policy badges and filters for Managed, Smart, Immediate, Protected and Needs setup.
 - [x] Extend versioned backup/restore to include app policies, policy presets and new-app defaults transactionally.
 - [x] Remove obsolete blacklist/whitelist/Smart Lifecycle settings UI only after migration and execution parity are proven.
-- [ ] Validate the completed model on API 37 plus physical/OEM devices, including install-notification flow and conflicting legacy configurations.
+- [~] Validate the completed model on API 37 plus physical/OEM devices, including install-notification flow and conflicting legacy configurations. Deterministic API-37 completed-model coverage passed in run `37149945404`; physical/OEM release-diversity evidence remains open.
 
 ### Phase 9 migration evidence — 2026-09-26 to 2026-10-01
 

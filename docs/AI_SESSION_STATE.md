@@ -1,6 +1,6 @@
 # AI Session State
 
-Updated: 2026-10-04
+Updated: 2026-10-07
 
 ## Last completed work blocks
 
@@ -137,8 +137,9 @@ Validation:
 
 ### Phase 9 completed-model Android 17 / API 37 validation
 
-Branch: `phase9-api37-completed-model-validation`  
-Validated head before documentation refresh: `071186c8504541aea58345552923f1b1c8fcf3f1`
+Merged PR: #73
+Merge commit: `8533894b9716030609b148c675e5049312e10ed4`
+Validated implementation head: `071186c8504541aea58345552923f1b1c8fcf3f1`
 
 - Added completed-model instrumentation covering conflicting legacy Auto-Kill/Smart inputs, canonical ownership, new-app setup behavior, notification/editor deep link, Smart WorkManager reconciliation and backup-v7 restore/reconciliation.
 - API 37 exposed that manifest-declared `PACKAGE_ADDED` is not a reliable modern-target delivery mechanism. Production now registers a process-lifetime package receiver and maintains a persisted installed-package inventory.
@@ -149,7 +150,8 @@ Validated head before documentation refresh: `071186c8504541aea58345552923f1b1c8
 
 Validation:
 - Android 17 / API 37 runtime: `37149945404`
-- Fresh standard + CodeQL validation for the final documented branch head is being run before merge.
+- Final standard validation and CodeQL passed on the PR head.
+- GitHub Advanced Security agent execution failed only because the GitHub Copilot monthly quota was exhausted (HTTP 402); no code/security finding was reported, and `main` does not require that check as a merge gate.
 
 ## Current Phase 9 architecture state
 
@@ -169,12 +171,11 @@ Validation:
 
 ## Next work unit
 
-**Close completed-model validation and move to release-diversity evidence**
+**Release-diversity evidence + dependency maintenance**
 
-1. Merge the API-37 completed-model validation branch after final standard/CodeQL gates are green.
-2. Record at least one physical/OEM pass for the install-notification/deep-link path and canonical conflict resolution as release-diversity evidence.
-3. Keep deterministic API-37 coverage as the implementation gate; do not block future source work on repeated emulator evidence already proven here.
-
+1. Record at least one physical/OEM pass for the install-notification/deep-link path and canonical conflict resolution as release-diversity evidence.
+2. Keep deterministic API-37 coverage as the implementation gate; do not block future source work on repeated emulator evidence already proven here.
+3. Dependency PRs #71 (WorkManager 2.12.0) and #72 (Core KTX 1.19.1) currently fail only because strict Gradle verification metadata/locks have not been refreshed; update them through the reviewed dependency-assurance path before merge.
 ## Guardrails
 
 - Never allow Smart and Immediate automation to own the same package simultaneously.
