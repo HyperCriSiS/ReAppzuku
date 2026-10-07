@@ -22,12 +22,12 @@ jobs:
           distribution: temurin
           cache: gradle
 
-      - name: Refresh locks and SHA-256 verification metadata
+      - name: Regenerate dependency locks and SHA-256 metadata only
         shell: bash
         run: |
           set -euo pipefail
           chmod +x gradlew
-          ./gradlew             clean             :app:testDebugUnitTest             :app:lintDebug             :app:assembleDebugAndroidTest             :app:assembleDebug             :securityProbe:assembleDebug             --write-locks             --write-verification-metadata sha256             --no-daemon             --no-build-cache             --rerun-tasks
+          ./gradlew :app:dependencies             --write-locks             --write-verification-metadata sha256             --no-daemon
           git diff --check
           git status --short
 
@@ -38,9 +38,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/gradle.lockfile gradle/verification-metadata.xml
-          if git diff --cached --quiet; then
-            echo "No dependency metadata changes generated."
-            exit 1
-          fi
+          git diff --cached --quiet && { echo "No dependency metadata changes generated."; exit 1; }
           git commit -m "Refresh WorkManager dependency assurance metadata"
           git push origin "HEAD:${{ github.ref_name }}"
