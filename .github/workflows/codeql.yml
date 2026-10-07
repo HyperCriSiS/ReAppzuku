@@ -36,7 +36,7 @@ jobs:
           text = text.replace("Updated: 2026-10-04", "Updated: 2026-10-07", 1)
 
           pattern = r"Branch: `phase9-api37-completed-model-validation`\s*\nValidated head before documentation refresh: `071186c8504541aea58345552923f1b1c8fcf3f1`"
-          replacement = "Merged PR: #73  \nMerge commit: `8533894b9716030609b148c675e5049312e10ed4`  \nValidated implementation head: `071186c8504541aea58345552923f1b1c8fcf3f1`"
+          replacement = "Merged PR: #73\nMerge commit: `8533894b9716030609b148c675e5049312e10ed4`\nValidated implementation head: `071186c8504541aea58345552923f1b1c8fcf3f1`"
           text, count = re.subn(pattern, replacement, text, count=1)
           if count != 1:
               raise SystemExit("AI state merge target not found")
