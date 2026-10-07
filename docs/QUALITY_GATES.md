@@ -178,7 +178,18 @@ For high-impact changes, DONE requires:
 - P1 risks have explicit owner/issue;
 - release provenance is preserved.
 
-## Current gate evidence — 2026-09-04
+## Current gate evidence — 2026-10-08
+
+The 2026-09-04 evidence kept below is **historical**, not the latest Android compatibility assessment.
+
+- Android 17/API 37 target-37 install/runtime compatibility is proven in the deterministic emulator lane. Completed Phase 9 model coverage passed `37149945404`, including new-app setup routing and backup-v7 reconciliation.
+- WorkManager 2.12.0 was merged through PR #76. Standard `37553836083`, Android 17/API 37 `37553682771`, and pinned Java/Kotlin CodeQL passed branch-exactly with reviewed Gradle locks and artifact SHA-256 metadata.
+- The earlier preview-emulator PackageManager `Broken pipe (32)` failure was superseded and is **not** a current blocker.
+- The earlier P0/P1 source/CI findings have been resolved at their audited scope, but device/OEM variation, real root execution, production signing identity, installed update and rollback remain **not proven**.
+- GitHub Advanced Security agent scanning failed due to exhausted Copilot monthly quota (HTTP 402). CodeQL passed separately; do not claim successful agentic security scanning.
+- For actual release-diversity acceptance and signature/rollback evidence see [PHYSICAL_DEVICE_VALIDATION.md](PHYSICAL_DEVICE_VALIDATION.md) and [RELEASE_SIGNING.md](RELEASE_SIGNING.md).
+
+## Historical gate evidence — 2026-09-04 (superseded by current evidence)
 
 - Assurance run `33577363239` completed with zero lint errors before baseline acceptance.
 - The committed lint baseline contains reviewed historical warnings only; security, compatibility,
@@ -200,7 +211,7 @@ For high-impact changes, DONE requires:
 - Dependency-assurance run `33832156664` generated the committed `app/gradle.lockfile` and `gradle/verification-metadata.xml`, then repeated unit, lint, AndroidTest compile and APK gates without write flags. Artifact `9922094160` has SHA-256 `43c53cc13431cd2b2513fb0d9108836d548dd4b33b5673e9ddd49e4b1954918c`.
 - Dependency refreshes must be explicit reviewed changes: update lock state with `./gradlew :app:dependencies --write-locks`, refresh verification metadata while running the validation task set with `--write-verification-metadata sha256`, then rerun the same validation tasks with no write flags.
 
-## Immediate conversion plan
+## Historical implementation plan (completed; current work is in ROADMAP.md)
 
 ### Phase 1 — P0 containment
 - guard `ShappkyService` restart against intentional disable;
