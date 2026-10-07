@@ -1,76 +1,60 @@
 name: CodeQL
 
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '17 4 * * 4'
   workflow_dispatch:
 
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  checkpoint-phase9:
+  analyze:
+    name: Analyze Java/Kotlin
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
     steps:
-      - name: Check out branch
+      - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ github.ref_name }}
+          persist-credentials: false
 
-      - name: Update roadmap and AI session checkpoint
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          languages: java-kotlin
+          build-mode: manual
+          queries: security-extended
+
+      - name: Build analyzed sources
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
+          chmod +x gradlew
+          # CodeQL manual mode must observe real compiler invocations; cached task outputs
+          # can otherwise produce a successful Gradle build with no extracted source.
+          ./gradlew clean :app:assembleDebug :securityProbe:assembleDebug \
+            --no-daemon --no-build-cache --rerun-tasks
 
-          roadmap = Path("docs/ROADMAP.md")
-          text = roadmap.read_text()
-          old = "- [ ] Validate the completed model on API 37 plus physical/OEM devices, including install-notification flow and conflicting legacy configurations."
-          new = "- [~] Validate the completed model on API 37 plus physical/OEM devices, including install-notification flow and conflicting legacy configurations. Deterministic API-37 completed-model coverage passed in run `37149945404`; physical/OEM release-diversity evidence remains open."
-          if old not in text:
-              raise SystemExit("ROADMAP target line not found")
-          roadmap.write_text(text.replace(old, new, 1))
-
-          state = Path("docs/AI_SESSION_STATE.md")
-          text = state.read_text()
-          text = text.replace("Updated: 2026-10-04", "Updated: 2026-10-07", 1)
-
-          pattern = r"Branch: `phase9-api37-completed-model-validation`\s*\nValidated head before documentation refresh: `071186c8504541aea58345552923f1b1c8fcf3f1`"
-          replacement = "Merged PR: #73\nMerge commit: `8533894b9716030609b148c675e5049312e10ed4`\nValidated implementation head: `071186c8504541aea58345552923f1b1c8fcf3f1`"
-          text, count = re.subn(pattern, replacement, text, count=1)
-          if count != 1:
-              raise SystemExit("AI state merge target not found")
-
-          old = "- Fresh standard + CodeQL validation for the final documented branch head is being run before merge."
-          new = "- Final standard validation and CodeQL passed on the PR head.\n- GitHub Advanced Security agent execution failed only because the GitHub Copilot monthly quota was exhausted (HTTP 402); no code/security finding was reported, and `main` does not require that check as a merge gate."
-          if old not in text:
-              raise SystemExit("AI state validation target not found")
-          text = text.replace(old, new, 1)
-
-          next_pattern = r"\*\*Close completed-model validation and move to release-diversity evidence\*\*.*?(?=\n## Guardrails)"
-          next_replacement = """**Release-diversity evidence + dependency maintenance**
-
-          1. Record at least one physical/OEM pass for the install-notification/deep-link path and canonical conflict resolution as release-diversity evidence.
-          2. Keep deterministic API-37 coverage as the implementation gate; do not block future source work on repeated emulator evidence already proven here.
-          3. Dependency PRs #71 (WorkManager 2.12.0) and #72 (Core KTX 1.19.1) currently fail only because strict Gradle verification metadata/locks have not been refreshed; update them through the reviewed dependency-assurance path before merge.
-          """
-          text, count = re.subn(next_pattern, next_replacement.rstrip(), text, count=1, flags=re.S)
-          if count != 1:
-              raise SystemExit("AI state next-unit target not found")
-
-          state.write_text(text)
-          PY
-
-          git diff --check
-          git diff -- docs/ROADMAP.md docs/AI_SESSION_STATE.md
-
-      - name: Commit checkpoint
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/ROADMAP.md docs/AI_SESSION_STATE.md
-          git diff --cached --quiet && { echo "No checkpoint changes generated."; exit 1; }
-          git commit -m "Checkpoint completed Phase 9 API 37 validation"
-          git push origin "HEAD:${{ github.ref_name }}"
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          category: /language:java-kotlin
