@@ -178,6 +178,14 @@ Validation:
 - CodeQL passed for both PR heads; PR #79 had no review threads.
 - **Scope boundary:** This is a minimum-SDK emulator *install/launch* smoke, not proof of API-24 lifecycle automation, privileged Shizuku/root operations, OEM compatibility, physical-device execution, production signing, in-place update or rollback.
 
+### Android 7 / API 24 local persistence instrumentation — 2026-10-08
+
+- PR #80 merged as `9972a9b9c2e450b4a06d2d966a3ec6ba9599816c`, extending the manual Android 7 / API 24 smoke workflow with the existing three bounded Android instrumentation suites: `BackupCodecTest`, `AppDatabaseMigrationTest` and `Phase9BackupRestoreTest`.
+- Branch-exact runtime `37788629739` passed **OK (10 tests)** and `API24_LOCAL_PERSISTENCE_PASS`: verified Room v2→v13 and v12→v13 migration on API 24, backup-v7 explicit policies/presets/new-app settings roundtrip, v6 restore compatibility, injected post-DB-commit rollback and backup envelope rejection/compatibility.
+- The same run additionally passed minSdk-24 build, pinned SDK tool digest, emulator boot, app APK install/targetSdk-37 check, launcher/crash smoke and AndroidTest APK install.
+- Standard source/build/lint/Room validation passed in `37788815971`; pinned Java/Kotlin CodeQL passed on PR #80, which had no review threads.
+- **Scope boundary:** API-24 local data compatibility and launcher startup are now runtime-tested. This is **not** evidence for API-24 Shizuku/root operations, periodic job/alarm execution, physical/OEM devices, stable signing, installed updates or rollback.
+
 ## Current Phase 9 architecture state
 
 - Canonical strategies are `UNMANAGED`, `PROTECTED`, `SMART`, `IMMEDIATE`; `Custom` remains presentation/provenance state, not an execution engine.
