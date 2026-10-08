@@ -221,18 +221,33 @@ jobs:
           AAPT="$(find "$SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -1)"
           APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -1)"
           candidate_badging="$("$AAPT" dump badging "$apk" | sed -n '1p')"
-          grep -Fq "name='com.gree1d.reappzuku'" <<< "$candidate_badging"
-          grep -Fq "versionCode='$UPGRADE_NEXT_CODE'" <<< "$candidate_badging"
+          printf 'Base versionCode=%s, expected upgrade=%s\n' "$UPGRADE_BASE_CODE" "$UPGRADE_NEXT_CODE"
+          printf 'Candidate badging: %s\n' "$candidate_badging"
+          grep -Fq "name='com.gree1d.reappzuku'" <<< "$candidate_badging" || {
+            echo 'UPGRADE_DIAGNOSTIC: Wrong candidate package.' >&2; exit 1;
+          }
+          grep -Fq "versionCode='$UPGRADE_NEXT_CODE'" <<< "$candidate_badging" || {
+            echo 'UPGRADE_DIAGNOSTIC: Debug variant versionCode override was not applied.' >&2; exit 1;
+          }
           signer() {
             "$APKSIGNER" verify --verbose --print-certs "$1" |
               sed -n 's/^Signer #1 certificate SHA-256 digest: *//p'
           }
           base_signer="$(signer /tmp/reappzuku-upgrade-base.apk)"
           next_signer="$(signer "$apk")"
-          [[ "$base_signer" =~ ^[[:xdigit:]]{64}$ ]]
-          test "$base_signer" = "$next_signer"
+          printf 'Base signing certificate SHA-256: %s\n' "$base_signer"
+          printf 'New signing certificate SHA-256: %s\n' "$next_signer"
+          [[ "$base_signer" =~ ^[[:xdigit:]]{64}$ ]] || {
+            echo 'UPGRADE_DIAGNOSTIC: Could not parse signer digest.' >&2; exit 1;
+          }
+          test "$base_signer" = "$next_signer" || {
+            echo 'UPGRADE_DIAGNOSTIC: Signing certificate changed.' >&2; exit 1;
+          }
           test "$(sha256sum /tmp/reappzuku-upgrade-base.apk | cut -d ' ' -f 1)" != \
-               "$(sha256sum "$apk" | cut -d ' ' -f 1)"
+               "$(sha256sum "$apk" | cut -d ' ' -f 1)" || {
+            echo 'UPGRADE_DIAGNOSTIC: Two APK artifacts are byte-identical.' >&2; exit 1;
+          }
+          echo 'Upgrade identity checks passed; invoking adb install -r'
           adb install -r -t "$apk"
           adb shell dumpsys package com.gree1d.reappzuku > /tmp/api24-upgrade-installed.txt
           grep -Fq "versionCode=$UPGRADE_NEXT_CODE" /tmp/api24-upgrade-installed.txt
