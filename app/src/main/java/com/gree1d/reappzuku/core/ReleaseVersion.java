@@ -24,10 +24,13 @@ public final class ReleaseVersion {
 
     static int[] parse(String value) {
         if (value == null) return null;
-        String v = value.trim();
+        // Metadata identifiers are URL path segments: reject whitespace and oversized tags.
+        if (value.isEmpty() || value.length() > 64 || !value.equals(value.trim())) return null;
+        String v = value;
         if (v.startsWith("v") || v.startsWith("V")) v = v.substring(1);
         if (v.isEmpty() || !v.matches("\\d+(\\.\\d+)*")) return null;
         String[] parts = v.split("\\.");
+        if (parts.length > 16) return null;
         int[] result = new int[parts.length];
         try {
             for (int i = 0; i < parts.length; i++) result[i] = Integer.parseInt(parts[i]);
