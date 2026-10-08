@@ -50,6 +50,12 @@ The workflow independently extracts the signing certificate from the produced AP
 
 A publication request without a tag or without the exact confirmation text fails before checkout/build.
 
+## Read-only compatibility check before an installed upgrade
+
+Run `bash scripts/release-upgrade-preflight.sh <candidate.apk> <expected-cert-sha256> [adb-serial]` on an authorized physical test device, with `adb`, `aapt`, and `apksigner` installed. It compares both APK signing certificates to an independently pinned expected release certificate, verifies the ReAppzuku package ID and that the candidate versionCode increases. It reads the installed base APK into a private, automatically cleaned local temporary directory and performs **no** on-device state changes.
+
+A failed result must block the in-place upgrade plan; in particular, previously distributed random-debug-signed builds cannot update directly to a differently signed stable release. Even a successful preflight does not prove Android's actual update/data-preservation behavior, and is not a replacement for offline key custody or the real installed update/rollback gate. The host script has mocked positive and negative tests in the normal read-only validation workflow.
+
 ## First stable-key release procedure
 
 Before the first stable-key release:
