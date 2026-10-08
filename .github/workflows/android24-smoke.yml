@@ -186,7 +186,7 @@ jobs:
       - name: Prove persisted WorkManager identity across actual app process death
         shell: bash
         run: |
-          set -euo pipefail
+          set -euxo pipefail
           PKG='com.gree1d.reappzuku'
           CLASS='com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest'
           INSTRUMENTATION="$(

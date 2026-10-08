@@ -303,7 +303,7 @@ jobs:
         if: ${{ inputs.test_class == 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' }}
         shell: bash
         run: |
-          set -euo pipefail
+          set -euxo pipefail
           PKG='com.gree1d.reappzuku'
           CLASS='com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest'
           INSTRUMENTATION="$(
