@@ -193,6 +193,8 @@ The 2026-09-04 evidence kept below is **historical**, not the latest Android com
 
 - App Behavior three-switch recovery: PR #81 / merge `c33cfede8344953f73444002e5b0331fe25216bc` stopped overwriting requested On-demand/Exit-on-Back/Prevent-Shizuku-autostart prefs on background-continuity blockers. The effective runtime gates remain fail-safe and app-process preference observation keeps the Shizuku wake receiver coherent. Standard `37792179324`, pinned CodeQL and Android 17/API 37 `37792190348` passed; targeted UI instrumentation reported `OK (1 test)`, and external security/launcher probes passed. Older persisted choices already overwritten require manual re-selection.
   
+- App Behavior UX simplification: PR #82 / `47e2254316bb78f8c5c4931b5b1d8dd07ced1aa3` replaced three equally prominent controls with a primary On-demand switch plus collapsed advanced Shizuku/Back options. Mixed choices visibly display Custom; the effective state remains fail-safe when background automation blocks on-demand. Saved preferences, restore format and canonical ownership are unchanged. Branch-exact standard `37795423767`, pinned CodeQL and API-37 `37795436115` passed, including the focused instrumentation `OK (1 test)`, external security probe and launcher smoke. UX diversity on physical/OEM devices is still unproven.
+
 ## Historical gate evidence — 2026-09-04 (superseded by current evidence)
 
 - Assurance run `33577363239` completed with zero lint errors before baseline acceptance.

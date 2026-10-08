@@ -197,6 +197,16 @@ Validation:
 - Standard CI `37792179324` and pinned Java/Kotlin CodeQL passed. Android 17/API 37 focused runtime `37792190348` passed `OK (1 test)` exercising all three switches, persisted choices during a blocker, restoration after unblock, and receiver enabled/disabled state. Its external security probe and launcher smoke also passed. No review threads.
 - **Upgrade caveat:** Choices already overwritten in an older installed build cannot be reconstructed automatically. The user must select them once after updating, unless their previous choice is available in a backup.
 
+### App Behavior simplified On-demand settings — 2026-10-08
+
+- Merged PR #82 as `47e2254316bb78f8c5c4931b5b1d8dd07ced1aa3` following user agreement that the three equally prominent App Behavior switches were redundant.
+- On-demand mode is now the sole prominent switch. The two independent controls — Prevent Shizuku auto-start and Exit on Back — are collapsed by default under a keyboard/TalkBack-focusable Advanced settings row, with expansion retained on Activity recreation.
+- The On-demand switch remains a convenience combination over the **existing** two SharedPreferences values. No third stored preference, migration or automation-execution semantics were introduced.
+- When saved fine-grained values differ, the primary UI explicitly shows **Custom** rather than suggesting that the unchecked On-demand switch represents ordinary off behavior. Active automation shows the **saved** requested mode while all effective switches remain blocked/disabled; restoring the automation blocker does not modify preferences.
+- Added localized strings in en/es/ru/uk/zh-CN, pure state-classification JVM tests, source/UI contract tests and API-37 Android UI instrumentation for expansion, custom state, retained choices and blocking/unblocking recovery.
+- Corrected an initially truncated layout push **before merge**; final diff preserves all 67 prior settings view IDs, adding only the five intended App Behavior views.
+- Final checks on `8e0ab34fe33d076091e97664aebe5d7de5d2c77d`: standard `37795423767`, CodeQL, API-37 runtime `37795436115` (`OK (1 test)`, external security probe PASS and launcher smoke). No PR review threads.
+
 ## Current Phase 9 architecture state
 
 - Canonical strategies are `UNMANAGED`, `PROTECTED`, `SMART`, `IMMEDIATE`; `Custom` remains presentation/provenance state, not an execution engine.
