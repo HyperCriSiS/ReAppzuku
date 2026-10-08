@@ -195,6 +195,8 @@ The 2026-09-04 evidence kept below is **historical**, not the latest Android com
   
 - App Behavior UX simplification: PR #82 / `47e2254316bb78f8c5c4931b5b1d8dd07ced1aa3` replaced three equally prominent controls with a primary On-demand switch plus collapsed advanced Shizuku/Back options. Mixed choices visibly display Custom; the effective state remains fail-safe when background automation blocks on-demand. Saved preferences, restore format and canonical ownership are unchanged. Branch-exact standard `37795423767`, pinned CodeQL and API-37 `37795436115` passed, including the focused instrumentation `OK (1 test)`, external security probe and launcher smoke. UX diversity on physical/OEM devices is still unproven.
 
+- Same-key installed-upgrade **preflight only**: PR #83 / `b5578b25a05a78de2a831c24f06d655623c5088e` introduced a read-only host script that rejects foreign/mismatched installed and candidate APK signing certificates, wrong package, equal/downgraded versionCode and unreadable installed APK before an attempted installation. Twelve mocked tests pass on standard `37797686424`; CodeQL `37797684433` passed. No actual physical-device check, configured production signing identity, installed update or rollback has run. See `PHYSICAL_DEVICE_VALIDATION.md` and `RELEASE_SIGNING.md`.
+
 ## Historical gate evidence — 2026-09-04 (superseded by current evidence)
 
 - Assurance run `33577363239` completed with zero lint errors before baseline acceptance.

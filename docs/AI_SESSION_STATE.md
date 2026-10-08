@@ -207,6 +207,14 @@ Validation:
 - Corrected an initially truncated layout push **before merge**; final diff preserves all 67 prior settings view IDs, adding only the five intended App Behavior views.
 - Final checks on `8e0ab34fe33d076091e97664aebe5d7de5d2c77d`: standard `37795423767`, CodeQL, API-37 runtime `37795436115` (`OK (1 test)`, external security probe PASS and launcher smoke). No PR review threads.
 
+### Read-only installed-APK signing/upgrade preflight — 2026-10-08
+
+- PR #83 merged as `b5578b25a05a78de2a831c24f06d655623c5088e`. It adds `scripts/release-upgrade-preflight.sh` for manually authorized physical-device update preparation, with no on-device mutation, uninstall, install, preference change or log upload.
+- The script verifies the candidate ReAppzuku package and higher versionCode, `apksigner`-verified single-signer certificate SHA-256 against an independently pinned expected digest, and the installed package's base-APK identity and signer. The installed APK is copied only into a private host temp directory that is deleted on exit.
+- It fails closed for wrong/mismatched signing identities (including historical random-debug-key installs), wrong package, equal/downgrade versionCode, absent installation, inaccessible/ambiguous installed APK or untrusted signing fingerprint.
+- `scripts/tests/test-release-upgrade-preflight.sh` covers twelve mocked positive/negative scenarios and runs in the read-only standard CI before Gradle. Branch-exact standard validation `37797686424` passed (including APK build), CodeQL `37797684433` passed, and PR review threads were empty.
+- `docs/PHYSICAL_DEVICE_VALIDATION.md` and `docs/RELEASE_SIGNING.md` specify the manual invocation and limitations. **No physical device was examined**. No production signing identity/secrets are present or validated, no in-place update was installed, and no data-survival or rollback scenario was exercised.
+
 ## Current Phase 9 architecture state
 
 - Canonical strategies are `UNMANAGED`, `PROTECTED`, `SMART`, `IMMEDIATE`; `Custom` remains presentation/provenance state, not an execution engine.
@@ -229,7 +237,7 @@ Validation:
 
 1. Execute `docs/PHYSICAL_DEVICE_VALIDATION.md` on a non-Pixel/OEM device and record observed outcomes for Phase 9 new-app notifications, editor deep links, disabled-notification fallback, canonical legacy conflict resolution and process-loss reconciliation.
 2. Run an independent reversible KernelSU/Magisk backend check on a disposable package; Shizuku emulator success is not root evidence.
-3. Establish production release signing identity offline, test same-key in-place update and the actual rollback/data migration plan before publishing.
+3. Establish production release signing identity offline, run the new **read-only APK upgrade preflight** on an authorized device, then test same-key in-place update and actual rollback/data migration before publishing.
 4. Preserve strict dependency verification and pinned CodeQL; defer Core KTX 1.19.1 until toolchain review.
 
 ## Guardrails
