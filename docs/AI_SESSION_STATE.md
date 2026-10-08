@@ -315,6 +315,19 @@ Phase 10 follow-up: bounded Android 24/37 process-death and delayed-permission r
 - API37 targeted runtime `37851880052` PASSED two distinct `OK (1 test)` instrumentation sessions: special-access AppOp `ignore` -> scheduler returned `BEST_EFFORT`; changing the AppOp to `allow` -> scheduler returned `EXACT`. Both requests were scheduled one day ahead and cancelled in `finally`; CI restored the original AppOp mode in an EXIT trap. External security-probe and launcher steps also passed.
 - Limitation: this is a deterministic emulator AppOp transition, not a real user's settings UI, background-delivery reliability, real process death/restart, physical/OEM compatibility, Shizuku/root or production release/signing evidence. Roadmap stays partial; check final documentation-head CodeQL before merge.
 
+## Previous next work unit (addressed by PR #95)
+
+Phase 10: persisted WorkManager UUID across process death and relaunch was tested on disposable API24/API37 emulators; Worker execution and OEM background eviction remain separate questions.
+
+### Phase 10: real PID death and WorkManager durable identity (2026-10-09)
+
+- PR #95, branch `phase10/api24-api37-real-process-restart`, adds two isolated non-privileged Android instrumentation phases and a CI-controlled PID transition on API24 and API37. No production Java, manifest permissions, data schema, migration, default configuration or dependency changes.
+- First instrumentation phase obtains a persisted `NewAppInstallReconcile` unique periodic WorkManager UUID and reports it with a test-owned ownership flag. The workflow launches MainActivity, records the debug app main PID, sends SIGKILL via `run-as` at the **app's own UID**, asserts that the original PID is gone, restarts MainActivity and asserts a new PID. A second instrumentation session reads the persisted WorkManager UUID **before** any test-induced enqueue, verifies the same UUID, checks idempotence after enqueue and only cancels a task if the test created it.
+- The first CI revisions failed because ActivityManager `am kill` did not kill the background app on API24, while API37's short Monkey launch/background step left no process. The next diagnostic revision exposed shell quoting that made `run-as sh -c` call `kill` incorrectly on API24. The final source-and-workflow revision `797f405b` instead launches MainActivity with `am start -W` and calls `run-as <package> /system/bin/kill -9 <pid>` directly.
+- **Green final evidence:** API24 run `37854926964` proved original PID 4314 terminated, replacement PID 4379, both `OK (1 test)` phases and `REAPPZUKU_PROCESS_RESTART_WORK_UUID_PRESERVED`, followed by green in-place same-debug-signer upgrade, wrong-signer and downgrade rejection. API37 targeted run `37854932411` proved PID 4975 -> 5039 and both `OK (1 test)` phases with UUID preserved, plus external security abuse probe and launcher. Standard unit/lint/schema/AndroidTest/APK run `37853204763` and functional-head CodeQL `37854923832` succeeded.
+- This is explicit **debug-app SIGKILL/relaunch**, not force-stop, low-memory killer (LMK) validation, OEM background eviction, real WorkManager `doWork()` delivery or periodic retry execution, root/Shizuku authorization, physical devices or production release signing. Preserve these external evidence limits.
+- Before merging #95, inspect the intended test/workflow/docs diff, check absence of review threads and require final documentation-head CodeQL SUCCESS.
+
 ## Next work unit
 
-Phase 10: isolated app process-death/restart evidence for persisted WorkManager unique state, distinguished from force-stop semantics. Only disposable API24/API37 emulators; no production configuration changes. Follow separately with backup-v7 corrupt/content-URI and export-boundary checks.
+Phase 10: isolated proof of actual Worker execution/retry after process loss or backup-v7 corrupt/content-URI restore rollback. Choose one bounded, non-destructive PR; physical/OEM/production signing remain outside software-only scope.
