@@ -233,15 +233,15 @@ jobs:
             local output digests cleaned
             output="$("$APKSIGNER" verify --verbose --print-certs "$1")" || return 1
             # Android build-tools can indent or prefix signer certificate lines.
-            digests="$(printf '%s\\n' "$output" |
-              sed -nE 's/^.*certificate SHA-256 digest:[[:space:]]*([[:xdigit:]:[:space:]]+)$/\\1/p')"
-            [ "$(printf '%s\\n' "$digests" | grep -c .)" -eq 1 ] || {
-              printf 'Unrecognized or ambiguous apksigner certificate output:\\n%s\\n' "$output" >&2
+            digests="$(printf '%s\n' "$output" |
+              sed -nE 's/^.*certificate SHA-256 digest:[[:space:]]*([[:xdigit:]:[:space:]]+)$/\1/p')"
+            [ "$(printf '%s\n' "$digests" | grep -c .)" -eq 1 ] || {
+              printf 'Unrecognized or ambiguous apksigner certificate output:\n%s\n' "$output" >&2
               return 1
             }
             cleaned="$(printf '%s' "$digests" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
             [[ "$cleaned" =~ ^[0-9a-f]{64}$ ]] || return 1
-            printf '%s\\n' "$cleaned"
+            printf '%s\n' "$cleaned"
           }
           base_signer="$(signer /tmp/reappzuku-upgrade-base.apk)"
           next_signer="$(signer "$apk")"
