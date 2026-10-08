@@ -261,7 +261,46 @@ jobs:
           test "$found" -eq 1
           cat /tmp/api37-new-app-path.txt
 
+      - name: Verify exact-alarm permission denied then granted on API 37
+        if: ${{ inputs.test_class == 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACKAGE='com.gree1d.reappzuku'
+          OP='SCHEDULE_EXACT_ALARM'
+          CLASS='com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest'
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation |
+              tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          original="$(adb shell cmd appops get "$PACKAGE" "$OP" | tr -d '\r')"
+          original_mode="$(sed -nE 's/^[[:space:]]*SCHEDULE_EXACT_ALARM: ([a-z_]+).*/\1/p' <<< "$original" | head -n 1)"
+          if [ -z "$original_mode" ]; then original_mode=default; fi
+          restore_alarm_mode() {
+            adb shell cmd appops set "$PACKAGE" "$OP" "$original_mode" >/dev/null 2>&1 || true
+          }
+          trap restore_alarm_mode EXIT
+
+          # Revocation may stop the app process, so use separate instrumentation sessions.
+          adb shell cmd appops set "$PACKAGE" "$OP" ignore
+          adb shell am instrument -w -r -e class "$CLASS#deniedUsesBestEffortFallback" "$INSTRUMENTATION" |
+            tee /tmp/api37-exact-alarm-denied.txt
+          grep -Fq 'OK (1 test)' /tmp/api37-exact-alarm-denied.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api37-exact-alarm-denied.txt
+          echo 'API37_EXACT_ALARM_DENIED_FALLBACK_PASS'
+
+          adb shell cmd appops set "$PACKAGE" "$OP" allow
+          adb shell am instrument -w -r -e class "$CLASS#grantedUsesExactAfterDelayedPermission" "$INSTRUMENTATION" |
+            tee /tmp/api37-exact-alarm-granted.txt
+          grep -Fq 'OK (1 test)' /tmp/api37-exact-alarm-granted.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api37-exact-alarm-granted.txt
+          echo 'API37_EXACT_ALARM_DELAYED_GRANT_PASS'
+
       - name: Run Android instrumentation on API 37
+        if: ${{ inputs.test_class != 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' }}
         shell: bash
         env:
           TEST_CLASS: ${{ inputs.test_class }}

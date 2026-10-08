@@ -176,7 +176,7 @@ jobs:
           test -n "$INSTRUMENTATION"
           # Deliberately scope this API-24 lane to local storage/codec and safe new-app queue invariants.
           # The Shizuku/root/runtime scheduling suite remains in dedicated API-36/37 lanes.
-          TEST_CLASSES='com.gree1d.reappzuku.core.BackupCodecTest,com.gree1d.reappzuku.db.AppDatabaseMigrationTest,com.gree1d.reappzuku.core.Phase9BackupRestoreTest,com.gree1d.reappzuku.core.Api24NewAppQueueInstrumentationTest,com.gree1d.reappzuku.core.Api24PolicyEditorNavigationInstrumentationTest,com.gree1d.reappzuku.core.Api24PolicyEditorSaveNotificationInstrumentationTest,com.gree1d.reappzuku.core.NewAppPeriodicRecoveryInstrumentationTest'
+          TEST_CLASSES='com.gree1d.reappzuku.core.BackupCodecTest,com.gree1d.reappzuku.db.AppDatabaseMigrationTest,com.gree1d.reappzuku.core.Phase9BackupRestoreTest,com.gree1d.reappzuku.core.Api24NewAppQueueInstrumentationTest,com.gree1d.reappzuku.core.Api24PolicyEditorNavigationInstrumentationTest,com.gree1d.reappzuku.core.Api24PolicyEditorSaveNotificationInstrumentationTest,com.gree1d.reappzuku.core.NewAppPeriodicRecoveryInstrumentationTest,com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest'
           adb shell am instrument -w -r -e class "$TEST_CLASSES" "$INSTRUMENTATION" \
             | tee /tmp/reappzuku-api24-instrumentation.txt
           grep -Eq 'OK \([0-9]+ tests?\)' /tmp/reappzuku-api24-instrumentation.txt
