@@ -27,6 +27,8 @@ jobs:
           cache: gradle
       - name: Grant execute permission
         run: chmod +x gradlew
+      - name: Validate fail-closed, read-only upgrade preflight
+        run: bash scripts/tests/test-release-upgrade-preflight.sh
       - name: Unit tests
         run: ./gradlew testDebugUnitTest
       - name: Lint

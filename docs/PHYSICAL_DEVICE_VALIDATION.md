@@ -29,6 +29,20 @@ On the host, record the tested APK SHA-256 (`sha256sum app.apk` or PowerShell `G
 
 Note **fresh fork install**, **upgrade from a previous fork**, and **upgrade from historical upstream** as different test cases. Do not mix their evidence.
 
+### Read-only same-key upgrade preflight
+
+Before attempting an in-place upgrade on a physical test device, use the repository's fail-closed host script. It does **not** install, uninstall, reset, modify app preferences, or send collected information anywhere. It requires Android SDK `adb`, `aapt`, and `apksigner` on `PATH`, an authorized connected device, and the **independently pinned expected signing-certificate SHA-256 fingerprint** from your chosen distribution channel.
+
+```sh
+bash scripts/release-upgrade-preflight.sh ./ReAppzuku-candidate.apk <expected-64-hex-certificate-sha256> [adb-device-serial]
+```
+
+The script verifies the candidate package and versionCode, its verified signing certificate, the installed package's `base.apk` identity and certificate (retrieved into a private temporary directory), and a strictly increasing candidate versionCode. The local installed APK copy is deleted on exit; the success report contains only package, versions and certificate digest—not the device serial, full package inventory, or device fingerprint.
+
+A result of `UPGRADE_PREFLIGHT_BLOCKED` means **do not try an in-place upgrade yet**. A mismatched historical debug-signing key is an expected blocking case. Do **not** uninstall a valuable existing installation merely to pass this check; back up and validate recovery first. If `adb pull` of the installed base APK is unavailable, the script fails closed rather than guessing the installed signature.
+
+`UPGRADE_PREFLIGHT_PASS` proves **only** the checked identities and versionCode relationship. It is *not* proof that Android accepted an update, application data survived, release secrets are configured, or rollback works. Actual install/update/backup-restore evidence must still be collected separately.
+
 ## 2. Canonical Phase 9 scenarios
 
 | ID | Real-device action | Acceptance criterion |
