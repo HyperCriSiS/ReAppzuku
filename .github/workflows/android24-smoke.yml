@@ -20,7 +20,7 @@ jobs:
   api24-smoke:
     name: Android 7 API 24 install and launch
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 50
     permissions:
       contents: read
     steps:
@@ -182,3 +182,97 @@ jobs:
           grep -Eq 'OK \([0-9]+ tests?\)' /tmp/reappzuku-api24-instrumentation.txt
           ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-api24-instrumentation.txt
           echo 'API24_LOCAL_PERSISTENCE_PASS'
+
+      - name: Seed canonical policy and preferences before an in-place update
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          cp "$apk" /tmp/reappzuku-upgrade-base.apk
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          AAPT="$(find "$SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$AAPT"
+          test -x "$APKSIGNER"
+          base_badging="$("$AAPT" dump badging /tmp/reappzuku-upgrade-base.apk | sed -n '1p')"
+          base_code="$(sed -nE "s/.*versionCode='([0-9]+)'.*/\1/p" <<< "$base_badging")"
+          [[ "$base_code" =~ ^[0-9]+$ ]]
+          echo "UPGRADE_BASE_CODE=$base_code" >> "$GITHUB_ENV"
+          echo "UPGRADE_NEXT_CODE=$((base_code + 1))" >> "$GITHUB_ENV"
+          runner="$(adb shell pm list instrumentation | tr -d '\r' |
+            sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' | sed -n '1p')"
+          test -n "$runner"
+          adb shell am instrument -w -r -e class \
+            com.gree1d.reappzuku.core.EmulatorUpgradePersistenceTest#seedBeforeUpgrade \
+            -e upgrade_smoke_stage seed "$runner" | tee /tmp/upgrade-seed.txt
+          grep -Fq 'OK (1 test)' /tmp/upgrade-seed.txt
+          echo 'API24_UPGRADE_SEEDED'
+
+      - name: Build and install higher-version APK under same ephemeral debug signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :app:assembleDebug \
+            "-PreappzukuUpgradeSmokeVersionCode=$UPGRADE_NEXT_CODE" \
+            --rerun-tasks --no-daemon
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          AAPT="$(find "$SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          candidate_badging="$("$AAPT" dump badging "$apk" | sed -n '1p')"
+          printf 'Base versionCode=%s, expected upgrade=%s\n' "$UPGRADE_BASE_CODE" "$UPGRADE_NEXT_CODE"
+          printf 'Candidate badging: %s\n' "$candidate_badging"
+          grep -Fq "name='com.gree1d.reappzuku'" <<< "$candidate_badging" || {
+            echo 'UPGRADE_DIAGNOSTIC: Wrong candidate package.' >&2; exit 1;
+          }
+          grep -Fq "versionCode='$UPGRADE_NEXT_CODE'" <<< "$candidate_badging" || {
+            echo 'UPGRADE_DIAGNOSTIC: Debug variant versionCode override was not applied.' >&2; exit 1;
+          }
+          signer() {
+            local output digests cleaned
+            output="$("$APKSIGNER" verify --verbose --print-certs "$1")" || return 1
+            # Android build-tools can indent or prefix signer certificate lines.
+            digests="$(printf '%s\n' "$output" |
+              sed -nE 's/^.*certificate SHA-256 digest:[[:space:]]*([[:xdigit:]:[:space:]]+)$/\1/p')"
+            [ "$(printf '%s\n' "$digests" | grep -c .)" -eq 1 ] || {
+              printf 'Unrecognized or ambiguous apksigner certificate output:\n%s\n' "$output" >&2
+              return 1
+            }
+            cleaned="$(printf '%s' "$digests" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+            [[ "$cleaned" =~ ^[0-9a-f]{64}$ ]] || return 1
+            printf '%s\n' "$cleaned"
+          }
+          base_signer="$(signer /tmp/reappzuku-upgrade-base.apk)"
+          next_signer="$(signer "$apk")"
+          printf 'Base signing certificate SHA-256: %s\n' "$base_signer"
+          printf 'New signing certificate SHA-256: %s\n' "$next_signer"
+          [[ "$base_signer" =~ ^[[:xdigit:]]{64}$ ]] || {
+            echo 'UPGRADE_DIAGNOSTIC: Could not parse signer digest.' >&2; exit 1;
+          }
+          test "$base_signer" = "$next_signer" || {
+            echo 'UPGRADE_DIAGNOSTIC: Signing certificate changed.' >&2; exit 1;
+          }
+          test "$(sha256sum /tmp/reappzuku-upgrade-base.apk | cut -d ' ' -f 1)" != \
+               "$(sha256sum "$apk" | cut -d ' ' -f 1)" || {
+            echo 'UPGRADE_DIAGNOSTIC: Two APK artifacts are byte-identical.' >&2; exit 1;
+          }
+          echo 'Upgrade identity checks passed; invoking adb install -r'
+          adb install -r -t "$apk"
+          adb shell dumpsys package com.gree1d.reappzuku > /tmp/api24-upgrade-installed.txt
+          grep -Fq "versionCode=$UPGRADE_NEXT_CODE" /tmp/api24-upgrade-installed.txt
+          echo 'API24_SAME_SIGNER_UPGRADE_INSTALLED'
+
+      - name: Verify in-place upgrade retained Room policy and preferences
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner="$(adb shell pm list instrumentation | tr -d '\r' |
+            sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' | sed -n '1p')"
+          test -n "$runner"
+          adb shell am instrument -w -r -e class \
+            com.gree1d.reappzuku.core.EmulatorUpgradePersistenceTest#verifyAfterUpgrade \
+            -e upgrade_smoke_stage verify "$runner" | tee /tmp/upgrade-verify.txt
+          grep -Fq 'OK (1 test)' /tmp/upgrade-verify.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/upgrade-verify.txt
+          echo 'API24_SAME_KEY_UPDATE_DATA_PASS'
