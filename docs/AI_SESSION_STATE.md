@@ -256,7 +256,7 @@ Validation:
 - Backup v7 transactionally round-trips portable Phase 9 policy/preset/new-app state.
 - Smart WorkManager scheduling follows effective SMART ownership and no longer turns a hidden legacy Smart bit into a permanent background-continuity requirement.
 
-## Next work unit
+## Previous API-24 work unit (completed by PRs #90-#92)
 
 **Phase 10 bounded API-24 policy-editor and new-app setup queue coverage**
 
@@ -296,3 +296,14 @@ Validation:
 - Standard unit/lint/AndroidTest/Room/APK run `37839043607` PASSED. Tested-code CodeQL `37839029338` and documentation-head CodeQL `37839838958` PASSED. Initial emulator run `37839036686` passed the 16 instrumentation tests but stalled during the second Gradle build and was explicitly cancelled; no application regression was identified there. Source-identical branch-exact retry `37841075862`, checking out commit `81779e2747e9288aeea0b185be5657ff6030f4e4`, PASSED `OK (16 tests)` and all remaining same-debug-signer upgrade, retained Room/preferences, rejected alternate-signer and downgrade checks. The replacement run completed green; its result does not provide physical-device or production signing evidence.
 - The test writes and cleans up only test-owned synthetic package policy/queue/notification state. Physical/OEM, real root/Shizuku, production signing, actual release update and rollback are still OUT OF SCOPE.
 - Review of the source/test/workflow changes and absence of PR review threads was completed. Final documentation-only head CodeQL must be rechecked before the squash merge; once merged, the checkpoint and Roadmap belong to `main`. Next bounded roadmap item is background scheduling recovery under failure injection, not a speculative production behavior change.
+
+### Phase 10: deterministic new-app reconciliation recovery (2026-10-08)
+
+- PR #93 (`phase10/new-app-reconcile-failure-recovery`) makes the existing inventory merge into a pure, package-local helper without changing its union/prune semantics. Four JVM tests inject a handler failure followed by successful retry, a concurrent live-package observation, duplicate event delivery and removed-package pruning; all input sets remain unmodified.
+- A new non-privileged Android instrumentation test checks that repeated `NewAppInstallMonitor.schedulePeriodic` calls retain one live persisted WorkManager task with the same UUID under `ExistingPeriodicWorkPolicy.KEEP`. It only cancels the test-created task when none existed at entry.
+- Branch-exact standard `37849871675` PASSED unit/lint/AndroidTest compilation/Room schema/APK. API 24 `37849877422` PASSED `OK (17 tests)` and its same-debug-key 28-to-29 update, wrong-signer and downgrade rejection checks. API 37 targeted run `37849884333` PASSED `OK (1 test)` plus its existing launcher/external security steps. Java/Kotlin CodeQL `37849864623` PASSED on functional head `53971aad`. Final documentation-only CodeQL remains to be reviewed before merge.
+- Evidence boundary: simulated processing errors + deterministic merge, repeated enqueues and durable unique WorkManager metadata. NOT proven: killing/restarting the process, actual periodic Worker retry execution, delayed special-permission grant, OEM/physical operation, root or stable release signing.
+
+## Next work unit
+
+Phase 10 follow-up: bounded Android 24/37 process-death and delayed-permission recovery tests with read-only state checks and no privileged mutation. Keep backup-v7 corrupt/content-URI testing as an independent later unit. Avoid destructive preference/Room resets and actual release-key/physical-device claims.
