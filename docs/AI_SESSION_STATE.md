@@ -275,3 +275,9 @@ Validation:
 - Protected/system/persistent packages continue to fail safe regardless of stored policy.
 - Policy presets describe per-app behavior; Automation Schedules describe when automation is active. Do not merge those concepts.
 - Keep retired legacy preference data only where migration/restore compatibility requires it; do not reintroduce retired lifecycle ownership UI.
+
+### Phase 10 in progress: API-24 new-app setup queue safety"éÝyø§yÔ 2026-10-08
+
+- PR #90 on `phase10/api24-newapp-queue-safety` introduces two scoped Android instrumentation tests for persistent needs-setup queue deduplication, invalid package rejection, isolated removal and safe missing-mode default. It restores the specific preferences it touches and does not clear Room state.
+- Existing `android24-smoke.yml` now executes the new tests beside the API-24 migration and backup suites. Branch-exact API-24 emulator run `37833638389` was dispatched; on-demand standard build/test was also dispatched. **Results are pending; do not merge solely on this checkpoint.**
+- Still not covered in this unit: full policy-editor UI, in-app queue recovery and notification/deeplink behavior on API-24. Do not confuse API-37 runtime notification permission semantics with API-24.
