@@ -233,6 +233,13 @@ Validation:
 - Branch-exact `37818081642` passed positive same-key update (`API24_SAME_KEY_UPDATE_DATA_PASS`), wrong-signer rejection (`API24_WRONG_SIGNER_REJECTED_DATA_PASS`) and downgrade rejection (`API24_DOWNGRADE_REJECTED_DATA_PASS`), each with `OK (1 test)` following its relevant stage; existing API-24 backup/Room suite passed.
 - Standard `37818073462` passed unit, lint, instrumentation compilation, Room schema check and APK build. CodeQL passed. No review threads. **Actual production signing identity, physical hardware, signature rotation and meaningful rollback/recovery remain untested.**
 
+### Phase 10: offline release-metadata selection and hostile fixtures — 2026-10-08
+
+- PR #89 merged as `8a839fc0be991fb141b3ea6c7e9360b81a160696` from `phase10/offline-release-metadata-assurance` and fixes an observed updater correctness bug: `UpdateChecker` previously picked the **first** eligible GitHub API release, not the highest numeric stable version. Unordered API metadata could hide a newer update. New pure-JVM `ReleaseMetadataPolicy` now chooses the highest valid stable release.
+- Malformed/whitespace-padded/overlong version tags are rejected; drafts, prereleases and invalid metadata booleans do not qualify. All displayed release page URLs are derived locally from the fork and validated tag; the direct APK URL requires exact signed-release name/tag/path equality. Foreign asset URLs cannot become direct notification downloads.
+- The API request now rejects HTTP redirects and bounds the metadata response before parsing (1 Mi chars), number of inspected releases (20), assets per release (64) and changelog text (16,384 chars). All checks are offline-JVM testable except network transport; no API endpoint, dependency locks, signing material or live device was changed.
+- Branch-exact normal validation `37827922518` passed unit, lint, AndroidTest compilation, Room schema verification and APK build. Pinned CodeQL `37827914054` passed, zero PR review threads. Tests prove pure source/metadata policies, **not** hostile live HTTP/TLS conditions, physical upgrades, production signing or rollback.
+
 ## Current Phase 9 architecture state
 
 - Canonical strategies are `UNMANAGED`, `PROTECTED`, `SMART`, `IMMEDIATE`; `Custom` remains presentation/provenance state, not an execution engine.
@@ -251,14 +258,14 @@ Validation:
 
 ## Next work unit
 
-**Phase 10 offline updater/release-metadata attack fixtures**
+**Phase 10 bounded API-24 policy-editor and new-app setup queue coverage**
 
-1. Audit the current fork-only update resolver, numeric version comparison and asset allowlist against malformed, hostile, stale and missing GitHub release metadata without network or device access.
-2. Add focused JVM fixtures for malformed tags, wrong repository identity, drafts/prereleases, confusing APK asset names, foreign download/release URLs and unexpected redirect/provenance edge cases where applicable.
-3. Strengthen only demonstrated gaps without weakening the signed-release workflow, pinned actions or strict dependency locks.
-4. Run normal branch-exact CI/CodeQL, review and merge; checkpoint this file and `docs/ROADMAP.md` before moving to the API-24 Policy Editor/setup-queue UX block.
+1. Audit existing API-37 policy-editor and completed-model instrumentation for reusable targeted tests on API-24, avoiding full privileged/root/Shizuku flows.
+2. Add Android 7/API-24 instrumentation for canonical per-app editor state and durable new-app queue operations, including explicit UNMANAGED safety, background notification/deeplink fallback where feasible, and data retention without clearing real user state.
+3. Run source-authoritative standard CI and a **branch-exact, disposable** API-24 emulator test; ensure the prior positive and rejected-upgrade gates still pass.
+4. Review security/CodeQL results, merge only passing work, and checkpoint documentation. Keep later Phase-10 scheduling/backup/UX assurance as separate PRs.
 
-**External tracks remain intentionally blocked:** OEM/physical devices, actual KernelSU/Magisk, offline stable-key custody, real release upgrade and verified rollback.
+**External evidence remains out of scope:** physical/OEM devices, real Magisk/KernelSU, secure production signing key, actual stable-release upgrade and rollback.
 
 ## Guardrails
 

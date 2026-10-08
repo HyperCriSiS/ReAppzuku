@@ -6,6 +6,8 @@
 
 ## Current evidence update — 2026-10-08
 
+- PR #89 / merge `8a839fc0be991fb141b3ea6c7e9360b81a160696` adds offline hostile/stale release-metadata fixtures and corrects the updater's first-match bug to select the numerically highest stable release. API metadata reads and iteration are bounded, cross-origin metadata redirects refused, and executable direct APK links remain exactly fork/tag/name constrained. Standard `37827922518` and CodeQL `37827914054` passed. Stable-key custody, physical-device upgrade, runtime TLS testing and rollback remain open.
+
 - PR #87 / merge `845838d7530bc61603710f51be278770588de0d9` expanded the real API-24 emulator update gate. Run `37818081642` passed deliberate wrong-signer `INSTALL_FAILED_UPDATE_INCOMPATIBLE` and downgrade `INSTALL_FAILED_VERSION_DOWNGRADE` denials; after **both** refusals, v29 remained installed and the explicit Room policy plus SharedPreferences marker remained intact. Standard `37818073462` and CodeQL passed. Production-key ownership, physical/OEM upgrades and actual rollback remain unproven.
 
 - PR #85 / merge `f72032e613436697e567bb8dd6a3658f38b20164` passed API-24 emulator same-signer higher-versionCode in-place update (28→29) in `37804848630`, including installed APK signature equality and preserved SharedPreferences + explicit Room policy across upgrade. Final-head CodeQL and standard `37803048460` passed. This is a **debug-key emulator positive-update gate**, not release signing, OEM/root or true rollback.

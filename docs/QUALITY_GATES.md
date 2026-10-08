@@ -201,6 +201,8 @@ The 2026-09-04 evidence kept below is **historical**, not the latest Android com
 
 - API-24 **emulator refusal/data-retention evidence**: PR #87 / merge `845838d7530bc61603710f51be278770588de0d9`, run `37818081642` passed wrong-key signature refusal `INSTALL_FAILED_UPDATE_INCOMPATIBLE` and ordinary lower-version refusal `INSTALL_FAILED_VERSION_DOWNGRADE`, each followed by `OK (1 test)` proving v29 and its explicit Room + SharedPreferences markers survived. The original positive update test also passed. Standard `37818073462` and CodeQL passed. This establishes neither physical OEM compatibility, true production signing/rotation, nor release rollback.
 
+- Phase-10 **offline release-metadata hardening**: PR #89 / merge `8a839fc0be991fb141b3ea6c7e9360b81a160696` fixed first-entry selection to choose the highest valid numeric stable release even for shuffled API results; caps parser input and release/asset/changelog work, rejects metadata redirects and enforces exact fork-owned APK asset links. JVM hostile/stale/malformed fixture tests, standard `37827922518` and CodeQL `37827914054` passed. This does not establish runtime TLS compromise protection, release signing, physical/OEM upgrades or rollback.
+
 ## Historical gate evidence — 2026-09-04 (superseded by current evidence)
 
 - Assurance run `33577363239` completed with zero lint errors before baseline acceptance.
