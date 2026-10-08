@@ -81,6 +81,22 @@ android {
     }
 }
 
+// CI-only override for reproducible same-key, higher-version *debug* upgrade
+// instrumentation. Does not alter release build versionCode or signing.
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        def upgradeCode = providers.gradleProperty("reappzukuUpgradeSmokeVersionCode").orNull
+        if (upgradeCode != null) {
+            if (!(upgradeCode ==~ /[1-9][0-9]{0,8}/)) {
+                throw new GradleException("Invalid upgrade smoke versionCode")
+            }
+            variant.outputs.each { output ->
+                output.versionCode.set(Integer.parseInt(upgradeCode))
+            }
+        }
+    }
+}
+
 dependencyLocking {
     lockAllConfigurations()
 }
