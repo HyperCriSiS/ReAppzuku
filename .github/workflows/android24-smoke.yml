@@ -44,7 +44,7 @@ jobs:
           chmod +x gradlew
           grep -Fx '        minSdk = 24' app/build.gradle
           git rev-parse HEAD
-          ./gradlew :app:assembleDebug --no-daemon
+          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon
 
       - name: Install pinned Android SDK command-line tools
         shell: bash
@@ -149,3 +149,36 @@ jobs:
           adb shell ps | tr -d '\r' | grep -F 'com.gree1d.reappzuku'
           adb shell dumpsys activity activities | grep -F 'com.gree1d.reappzuku'
           echo 'API24_LAUNCH_SMOKE_PASS'
+
+      - name: Install API 24 instrumentation package
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST_APK="$(find app/build/outputs/apk/androidTest -type f -name '*.apk' | head -n 1)"
+          test -n "$TEST_APK"
+          test -f "$TEST_APK"
+          sha256sum "$TEST_APK"
+          adb install -r -t "$TEST_APK"
+          adb shell pm list instrumentation | tr -d '\r' \
+            | grep -F '(target=com.gree1d.reappzuku)'
+          echo 'API24_INSTRUMENTATION_INSTALLED'
+
+      - name: Run API 24 Room migration and policy-backup instrumentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation \
+              | tr -d '\r' \
+              | sed -n 's/^instrumentation:\\([^ ]*\\) (target=com.gree1d.reappzuku)$/\\1/p' \
+              | head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          # Deliberately scope this API-24 lane to local storage/codec invariants.
+          # The Shizuku/root/runtime scheduling suite remains in dedicated API-36/37 lanes.
+          TEST_CLASSES='com.gree1d.reappzuku.core.BackupCodecTest,com.gree1d.reappzuku.db.AppDatabaseMigrationTest,com.gree1d.reappzuku.core.Phase9BackupRestoreTest'
+          adb shell am instrument -w -r -e class "$TEST_CLASSES" "$INSTRUMENTATION" \
+            | tee /tmp/reappzuku-api24-instrumentation.txt
+          grep -Eq 'OK \\([0-9]+ tests?\\)' /tmp/reappzuku-api24-instrumentation.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-api24-instrumentation.txt
+          echo 'API24_LOCAL_PERSISTENCE_PASS'
