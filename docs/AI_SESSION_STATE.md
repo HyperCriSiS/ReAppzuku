@@ -289,3 +289,10 @@ Validation:
 - Diagnostic API-24 run `37836212363` reached 13/14 tests: a synthetic uninstalled queue fixture was correctly pruned at settings startup. Repaired test head `e0faf466` uses the installed disposable instrumentation APK for review routing and restores its prior mode, queue membership and policy row instead of weakening production pruning.
 - Final branch-exact API-24 run `37836914489` PASSED `OK (14 tests)` including positive same-debug-key update, wrong-signer rejection and downgrade rejection with saved data retained. Standard `37836921627` and CodeQL `37836908527` PASSED; review threads were empty before documentation.
 - Still open: complete editor-save behavior, notification fallback and delayed delivery, process-death scheduling injection, physical/OEM and real Shizuku/root, actual release signing and rollback. No physical device or production signing key was used.
+
+### Phase 10 API24 editor-save and notification follow-up (2026-10-08)
+
+- PR #92 branch `phase10/api24-editor-save-notification` adds scoped Android 7 instrumentation for actual explicit PROTECTED policy persistence/reopening and isolated setup-queue removal, plus pre-Oreo notification tap routing without implicit policy saves. No production code, permissions, schema, or dependency changes.
+- Standard test/lint/AndroidTest/Room/APK workflow `37839043607` PASSED. CodeQL `37839029338` PASSED for the tested code. Emulator workflow `37839036686` passed its API-24 instrumentation step (new tests included), but as of this checkpoint its same-debug-signer upgrade stage is still IN PROGRESS; do not merge without a completed green full run and final head check.
+- The test writes and cleans up only test-owned synthetic package policy/queue/notification state. Physical/OEM, real root/Shizuku, production signing, actual release update and rollback are still OUT OF SCOPE.
+- If the emulator run finishes green, review its complete job steps and test count, verify final CodeQL/review threads, update the Phase 10 roadmap evidence, then squash-merge #92. If it fails, inspect only the failed job's logs before amending.
