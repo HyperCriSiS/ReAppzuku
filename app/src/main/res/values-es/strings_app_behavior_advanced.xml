@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_app_behavior_advanced_show">Ajustes avanzados</string>
+    <string name="settings_app_behavior_advanced_hide">Ocultar ajustes avanzados</string>
+    <string name="settings_app_behavior_mode_on_demand">Bajo demanda</string>
+    <string name="settings_app_behavior_mode_standard">Estándar</string>
+    <string name="settings_app_behavior_mode_custom">Personalizado</string>
+    <string name="settings_app_behavior_custom_status">Configuración personalizada activa · ajusta las opciones abajo</string>
+    <string name="settings_app_behavior_paused_status">Temporalmente no disponible · modo guardado: %1$s</string>
+</resources>
