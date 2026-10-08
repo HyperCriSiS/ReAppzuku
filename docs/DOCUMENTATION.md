@@ -8,3 +8,5 @@
 - [Current AI session state](AI_SESSION_STATE.md)
 
 Existing files remain at their original paths to avoid breaking references.
+
+- [Current work and handoff](engineering/CURRENT-WORK.md)
