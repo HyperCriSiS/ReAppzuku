@@ -328,6 +328,36 @@ Goal: replace overlapping global Auto-Kill / Smart Lifecycle ownership with one 
 - Newly installed apps default to no privileged mutation unless the user selected an automatic default preset.
 - System/persistent/protected packages continue to fail safe regardless of policy data.
 
+## Phase 10 — Software-only release and compatibility evidence
+
+This phase separates tests possible in hermetic CI/emulators from external release acceptance. A green emulator test must never be reported as physical/OEM, KernelSU/Magisk, production-key custody or genuine rollback evidence. Each item is independent and must be closed by branch-exact CI results.
+
+- [~] Prove in-place update semantics on the minimum API-24 emulator with two *different-versionCode* ReAppzuku debug APKs signed by the **same runner-local test key**. Verify candidate signer equality, OS acceptance and preservation of actual Room policy + app preferences, with no production-key material. CI workflow and instrumentation are in the PR #85 workstream; mark [x] only after a passing run.
+- [ ] Extend this emulator upgrade contract with fail-closed mismatched-signer rejection and explicit Android downgrade rejection, preserving app data after rejection.
+- [ ] Exercise updater/release metadata against malformed, stale or hostile asset combinations with offline fixtures; ensure the fork-only channel and no-untrusted-download invariants remain locked.
+- [ ] Add bounded API-24 instrumentation coverage for canonical policy editor and setup-queue interactions beyond the current install/launch and local-persistence tests.
+- [ ] Add deterministic failure-injection coverage for background scheduling recovery (process death, delayed permission and duplicate events) across API-24/API-37 where safe without root or hardware.
+- [ ] Recheck backup-v7 compatibility, restore rollback and content-URI handling for missing permissions/corrupt streams on emulators. Do not erase existing configurations or weaken size bounds.
+- [ ] Review software-only CI/audit coverage for app-list filters, Policy Editor accessibility, notification fallback and exported-component denial. Add targeted regressions for verified gaps only.
+- [ ] Keep action/dependency locks, no-secret validation, pin review, CodeQL and release provenance current; avoid speculative dependency upgrades with uncontrolled transitive churn.
+
+### Outside software-only scope — hardware and controlled release authority
+
+- [~] Physical/OEM Phase-9 matrix, real Magisk/KernelSU backend, OEM Accessibility/Doze/launcher/provider differences: **NOT RUN** until an authorized disposable real device is available.
+- [ ] Stable signing identity, secure offline keystore custody, actual same-key production release update, data-survival acceptance and tested rollback/forward-fix path: **BLOCKED** on release-key ownership and device access.
+- [ ] Publishing a stable release is prohibited until the external checks and required identity/signature evidence are complete.
+
+## Phase 11 — Product and UX follow-up (software-testable candidates)
+
+Scope new product work from a reproducible user problem or documented usability audit. Do not auto-enable privileged actions, silently change existing user policies or reintroduce parallel lifecycle ownership.
+
+- [ ] Audit the main app list, policy badges/filters and Policy Editor for unambiguous effective-versus-requested state, stable ordering, accessible touch targets and empty/error states; close findings individually.
+- [ ] Review new-app setup UX including multiple pending installs, denied notifications, review-next navigation, restore and lifecycle replay; add deterministic editor/notification tests.
+- [ ] Audit Automation Schedule terminology, clock edge cases, timezone/DST transitions and consistency with reusable Policy Presets; use pure JVM clock tests and emulator alarms where possible.
+- [ ] Profile in-memory app-list snapshot generation, repeated app scans and background work with synthetic workloads; optimize only documented regressions and preserve canonical policy ordering.
+- [ ] Extend localized/a11y runtime checks for EN/DE/ES/RU/UK/zh-CN where tool support exists; avoid adding user-visible strings without localization.
+- [ ] Triage outstanding maintainability issues and dependency updates in bounded PRs, preserving security and migration guarantees.
+
 ## Stable-release gate
 
 A candidate is not stable until all P0 findings are `PROVEN`, no P1 is unowned, reboot/permission/migration paths have repeatable Android evidence, update provenance is correct, exported privileged boundaries are reviewed, and release artifact/signing identity + rollback path are recorded.
