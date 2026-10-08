@@ -28,6 +28,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.ReleaseAssetPolicy;
+import com.gree1d.reappzuku.core.ReleaseMetadataPolicy;
 import com.gree1d.reappzuku.core.ReleaseVersion;
 import com.gree1d.reappzuku.service.UpdateCheckWorker;
 import static com.gree1d.reappzuku.core.AppConstants.*;
@@ -38,13 +39,9 @@ import io.noties.markwon.Markwon;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
-import java.net.SocketTimeoutException;
 import java.net.URL;
-import java.net.UnknownHostException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -116,80 +113,63 @@ public class UpdateChecker {
         try {
             URL url = new URL(GITHUB_API_URL);
             conn = (HttpURLConnection) url.openConnection();
+            // Do not follow a redirect to an untrusted metadata host.
+            conn.setInstanceFollowRedirects(false);
             conn.setRequestProperty("Accept", "application/vnd.github+json");
             conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
             conn.setReadTimeout(READ_TIMEOUT_MS);
 
-            int code = conn.getResponseCode();
-            if (code != 200) {
-
+            if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
                 return null;
             }
 
-            BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(conn.getInputStream()));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) sb.append(line);
-            reader.close();
+            String payload;
+            try (InputStreamReader reader = new InputStreamReader(
+                    conn.getInputStream(), java.nio.charset.StandardCharsets.UTF_8)) {
+                payload = ReleaseMetadataPolicy.readBoundedJson(reader);
+            }
 
-            JSONArray releases = new JSONArray(sb.toString());
-            for (int releaseIndex = 0; releaseIndex < releases.length(); releaseIndex++) {
-                JSONObject json = releases.optJSONObject(releaseIndex);
-                if (json == null || json.optBoolean("draft", false)
-                        || json.optBoolean("prerelease", false)) {
-                    continue;
-                }
-
+            JSONArray releases = new JSONArray(payload);
+            java.util.List<ReleaseMetadataPolicy.Release> candidates =
+                    new java.util.ArrayList<>();
+            for (int i = 0; i < Math.min(releases.length(), 20); i++) {
+                JSONObject json = releases.optJSONObject(i);
+                if (json == null) continue;
+                // Unknown or malformed flags cannot make a release stable.
+                Object draftFlag = json.opt("draft");
+                Object preFlag = json.opt("prerelease");
+                boolean draft = draftFlag != null && !Boolean.FALSE.equals(draftFlag);
+                boolean prerelease = preFlag != null && !Boolean.FALSE.equals(preFlag);
                 String rawTag = json.optString("tag_name", "");
-                if (!ReleaseVersion.isReleaseVersion(rawTag)) {
-                    continue;
+                String body = json.optString("body", "");
+                if (body.length() > ReleaseMetadataPolicy.MAX_CHANGELOG_CHARS) {
+                    body = body.substring(0, ReleaseMetadataPolicy.MAX_CHANGELOG_CHARS);
                 }
 
-                String tagName = rawTag.replaceFirst("^[vV]", "");
-                String body = json.optString("body", "");
-                String htmlUrl = ReleaseAssetPolicy.trustedReleasePageUrl(rawTag);
-                String downloadUrl = htmlUrl;
-                JSONArray assets = json.optJSONArray("assets");
-                if (assets != null) {
-                    for (int i = 0; i < assets.length(); i++) {
-                        JSONObject asset = assets.optJSONObject(i);
+                java.util.List<ReleaseMetadataPolicy.Asset> assets =
+                        new java.util.ArrayList<>();
+                JSONArray assetData = json.optJSONArray("assets");
+                if (assetData != null) {
+                    for (int j = 0; j < Math.min(assetData.length(), 64); j++) {
+                        JSONObject asset = assetData.optJSONObject(j);
                         if (asset == null) continue;
-                        String name = asset.optString("name", "");
-                        String browserDownloadUrl = asset.optString("browser_download_url", "");
-                        if (ReleaseAssetPolicy.isTrustedApkAsset(
-                                rawTag, name, browserDownloadUrl)) {
-                            downloadUrl = browserDownloadUrl;
-                            break;
-                        }
+                        assets.add(new ReleaseMetadataPolicy.Asset(
+                                asset.optString("name", ""),
+                                asset.optString("browser_download_url", "")));
                     }
                 }
-
-                return new ReleaseInfo(tagName, body.trim(), downloadUrl, htmlUrl);
+                candidates.add(new ReleaseMetadataPolicy.Release(
+                        rawTag, body, draft, prerelease, assets));
             }
 
-            // A repository may intentionally have only rolling/dev releases before the first
-            // production tag exists. That is a successful fetch with "no update", not a
-            // transport failure that should trigger WorkManager backoff/retries.
-
-            return new ReleaseInfo("0.0.0", "", RELEASES_URL, RELEASES_URL);
-
-        } catch (UnknownHostException e) {
-
-            return null;
-        } catch (SocketTimeoutException e) {
-
-            return null;
-        } catch (IOException e) {
-
-            return null;
+            ReleaseMetadataPolicy.Selection chosen =
+                    ReleaseMetadataPolicy.selectNewest(candidates);
+            return new ReleaseInfo(chosen.tagName, chosen.changelog,
+                    chosen.downloadUrl, chosen.releasePageUrl);
         } catch (Exception e) {
-
             return null;
         } finally {
-            if (conn != null) {
-                try { conn.disconnect(); } catch (Exception ignored) {}
-            }
+            if (conn != null) conn.disconnect();
         }
     }
 
