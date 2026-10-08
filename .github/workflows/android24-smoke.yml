@@ -186,7 +186,7 @@ jobs:
       - name: Prove persisted WorkManager identity across actual app process death
         shell: bash
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           PKG='com.gree1d.reappzuku'
           CLASS='com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest'
           INSTRUMENTATION="$(
@@ -204,24 +204,28 @@ jobs:
           [[ "$uuid" =~ ^[0-9a-f-]{36}$ ]]
           [[ "$created" == yes || "$created" == no ]]
       
-          # Place app in background, then ask ActivityManager to kill a disposable
-          # background process. Never use am force-stop, pm clear or uninstall.
+          # Kill only the currently running debug app PID under its OWN UID.
+          # This models abrupt process loss without root, force-stop or data clearing.
           adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 > /tmp/reappzuku-recovery-launch-before.txt 2>&1
           grep -Fq 'Events injected: 1' /tmp/reappzuku-recovery-launch-before.txt
-          adb shell input keyevent KEYCODE_HOME
-          sleep 2
-          old_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
-          [[ "$old_pid" =~ ^[0-9]+$ ]]
-          adb shell am kill "$PKG"
-          killed=0
-          for attempt in $(seq 1 20); do
-            remaining="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
-            if [ -z "$remaining" ]; then killed=1; break; fi
+          old_pid=''
+          for attempt in $(seq 1 15); do
+            old_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$old_pid" =~ ^[0-9]+$ ]]; then break; fi
             sleep 1
           done
-          test "$killed" -eq 1
-          echo 'REAPPZUKU_BACKGROUND_PROCESS_KILLED'
-      
+          [[ "$old_pid" =~ ^[0-9]+$ ]]
+          echo "REAPPZUKU_PRE_KILL_PID=$old_pid"
+          adb shell run-as "$PKG" sh -c "kill -9 $old_pid"
+          replaced=0
+          for attempt in $(seq 1 20); do
+            remaining="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [ "$remaining" != "$old_pid" ]; then replaced=1; break; fi
+            sleep 1
+          done
+          test "$replaced" -eq 1
+          echo 'REAPPZUKU_ORIGINAL_PID_TERMINATED'
+
           adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 > /tmp/reappzuku-recovery-launch-after.txt 2>&1
           grep -Fq 'Events injected: 1' /tmp/reappzuku-recovery-launch-after.txt
           new_pid=''
@@ -232,6 +236,7 @@ jobs:
           done
           [[ "$new_pid" =~ ^[0-9]+$ ]]
           test "$new_pid" != "$old_pid"
+          echo "REAPPZUKU_NEW_PROCESS_PID=$new_pid"
           echo 'REAPPZUKU_NEW_PROCESS_STARTED'
       
           adb shell am instrument -w -r -e class "$CLASS#verifySamePersistedWorkAfterActualProcessRestart" \
