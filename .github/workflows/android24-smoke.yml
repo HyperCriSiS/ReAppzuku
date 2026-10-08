@@ -174,9 +174,9 @@ jobs:
               | head -n 1
           )"
           test -n "$INSTRUMENTATION"
-          # Deliberately scope this API-24 lane to local storage/codec invariants.
+          # Deliberately scope this API-24 lane to local storage/codec and safe new-app queue invariants.
           # The Shizuku/root/runtime scheduling suite remains in dedicated API-36/37 lanes.
-          TEST_CLASSES='com.gree1d.reappzuku.core.BackupCodecTest,com.gree1d.reappzuku.db.AppDatabaseMigrationTest,com.gree1d.reappzuku.core.Phase9BackupRestoreTest'
+          TEST_CLASSES='com.gree1d.reappzuku.core.BackupCodecTest,com.gree1d.reappzuku.db.AppDatabaseMigrationTest,com.gree1d.reappzuku.core.Phase9BackupRestoreTest,com.gree1d.reappzuku.core.Api24NewAppQueueInstrumentationTest'
           adb shell am instrument -w -r -e class "$TEST_CLASSES" "$INSTRUMENTATION" \
             | tee /tmp/reappzuku-api24-instrumentation.txt
           grep -Eq 'OK \([0-9]+ tests?\)' /tmp/reappzuku-api24-instrumentation.txt
