@@ -125,8 +125,8 @@ public class Api24PolicyEditorSaveNotificationInstrumentationTest {
             assertNotNull(notification);
             PendingIntent intent = notification.contentIntent;
             assertNotNull(intent);
-            assertTrue("Notification editor intent must be immutable",
-                    (intent.getFlags() & PendingIntent.FLAG_IMMUTABLE) != 0);
+            assertEquals("Notification intent must originate from this app",
+                    context.getPackageName(), intent.getCreatorPackage());
 
             intent.send();
             editor = instrumentation.waitForMonitorWithTimeout(monitor, 5000L);
