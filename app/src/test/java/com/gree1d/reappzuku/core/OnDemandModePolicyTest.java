@@ -21,7 +21,10 @@ public class OnDemandModePolicyTest {
         assertTrue(source.contains("boolean onDemandMode = preventAutoStart && exitOnBack;"));
         assertTrue(source.contains(".putBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, isChecked)"));
         assertTrue(source.contains(".putBoolean(KEY_EXIT_ON_BACK, isChecked)"));
-        assertTrue(source.contains("updatingOnDemandModeSwitch"));
+        assertTrue(source.contains("updatingAppBehaviorSwitches"));
+        assertTrue(source.contains("if (updatingAppBehaviorSwitches) return;"));
+        assertTrue(source.contains("boolean preventAutoStart = enabled"));
+        assertTrue(source.contains("boolean exitOnBack = enabled"));
         assertFalse(source.contains("KEY_ON_DEMAND_MODE"));
     }
 

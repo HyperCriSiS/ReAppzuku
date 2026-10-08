@@ -5,8 +5,26 @@ import org.junit.Test;
 import java.util.EnumSet;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class BackgroundWorkPolicyTest {
+    @Test
+    public void shizukuWakeObserverTracksRelevantChangesOnly() {
+        assertTrue(BackgroundWorkPolicy.affectsShizukuWakePolicy(
+                PreferenceKeys.KEY_PREVENT_SHIZUKU_AUTOSTART));
+        assertTrue(BackgroundWorkPolicy.affectsShizukuWakePolicy(
+                PreferenceKeys.KEY_AUTO_KILL_ENABLED));
+        assertTrue(BackgroundWorkPolicy.affectsShizukuWakePolicy(
+                PreferenceKeys.KEY_SLEEP_MODE_ENABLED));
+        assertTrue(BackgroundWorkPolicy.affectsShizukuWakePolicy(
+                PreferenceKeys.KEY_ACTIVE_PRESET));
+        assertTrue(BackgroundWorkPolicy.affectsShizukuWakePolicy("restrictions_schedules"));
+        assertFalse(BackgroundWorkPolicy.affectsShizukuWakePolicy(
+                PreferenceKeys.KEY_EXIT_ON_BACK));
+        assertFalse(BackgroundWorkPolicy.affectsShizukuWakePolicy(null));
+    }
+
 
     @Test
     public void exhaustiveContinuityTruthTableMatchesBlockerSet() {

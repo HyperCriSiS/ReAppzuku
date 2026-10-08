@@ -126,28 +126,29 @@ public final class BackgroundWorkPolicy {
         }
     }
 
+    /** Keys that can change whether the main process must wake for background work. */
+    public static boolean affectsShizukuWakePolicy(String key) {
+        if (key == null) return false;
+        switch (key) {
+            case KEY_PREVENT_SHIZUKU_AUTOSTART:
+            case KEY_AUTO_KILL_ENABLED:
+            case KEY_SLEEP_MODE_ENABLED:
+            case KEY_ACTIVE_PRESET:
+            case KEY_RESTRICTIONS_SCHEDULES:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     /**
-     * Force conflicting options off when background automation becomes active.
-     * Returns true when the App Behavior options must be disabled in the UI.
+     * Temporarily inhibit App Behavior while automation needs the process.
+     * Keep requested preferences intact so they are restored after the blocker
+     * is removed. Both Back handling and Shizuku wake use effective, gated state.
+     * Returns true when all three UI switches must be disabled.
      */
     public static boolean enforceCompatibleBehavior(Context context) {
         boolean blocked = requiresBackgroundContinuity(context);
-        SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
-
-        boolean currentExitOnBack = prefs.getBoolean(KEY_EXIT_ON_BACK, false);
-        boolean currentPreventAutoStart = prefs.getBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, true);
-        boolean effectiveExitOnBack = resolveExitOnBack(blocked, currentExitOnBack);
-        boolean effectivePreventAutoStart = resolvePreventShizukuAutoStart(
-                blocked, currentPreventAutoStart);
-
-        if (effectiveExitOnBack != currentExitOnBack
-                || effectivePreventAutoStart != currentPreventAutoStart) {
-            prefs.edit()
-                    .putBoolean(KEY_EXIT_ON_BACK, effectiveExitOnBack)
-                    .putBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, effectivePreventAutoStart)
-                    .apply();
-        }
-
         syncShizukuWakeComponent(context);
         return blocked;
     }
