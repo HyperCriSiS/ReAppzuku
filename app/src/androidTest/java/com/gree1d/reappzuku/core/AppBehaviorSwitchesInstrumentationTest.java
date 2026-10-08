@@ -11,6 +11,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.view.View;
+import android.widget.TextView;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -60,23 +62,42 @@ public class AppBehaviorSwitchesInstrumentationTest {
             MaterialSwitch master = activity.findViewById(R.id.switch_on_demand_mode);
             MaterialSwitch prevent = activity.findViewById(R.id.switch_prevent_shizuku_autostart);
             MaterialSwitch exit = activity.findViewById(R.id.switch_exit_on_back);
+            View expander = activity.findViewById(R.id.layout_advanced_app_behavior_toggle);
+            View advanced = activity.findViewById(R.id.layout_advanced_app_behavior_options);
+            TextView status = activity.findViewById(R.id.text_on_demand_mode_status);
+            assertTrue(expander.isFocusable());
+            assertTrue(advanced.getVisibility() == View.GONE);
             assertFalse(master.isChecked());
             assertFalse(prevent.isChecked());
             assertFalse(exit.isChecked());
 
             instrumentation.runOnMainSync(master::performClick);
             instrumentation.waitForIdleSync();
+            assertTrue(advanced.getVisibility() == View.GONE);
             assertTrue(master.isChecked());
             assertTrue(prevent.isChecked());
             assertTrue(exit.isChecked());
             assertTrue(prefs.getBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, false));
             assertTrue(prefs.getBoolean(KEY_EXIT_ON_BACK, false));
 
+            instrumentation.runOnMainSync(expander::performClick);
+            instrumentation.waitForIdleSync();
+            assertTrue(advanced.getVisibility() == View.VISIBLE);
             instrumentation.runOnMainSync(prevent::performClick);
             instrumentation.waitForIdleSync();
+            assertTrue(status.getVisibility() == View.VISIBLE);
+            assertTrue(status.getText().toString().equals(
+                    context.getString(R.string.settings_app_behavior_custom_status)));
             assertFalse(master.isChecked());
             assertFalse(prevent.isChecked());
             assertTrue(exit.isChecked());
+            assertFalse(prefs.getBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, true));
+            assertTrue(prefs.getBoolean(KEY_EXIT_ON_BACK, false));
+
+            instrumentation.runOnMainSync(expander::performClick);
+            instrumentation.waitForIdleSync();
+            assertTrue(advanced.getVisibility() == View.GONE);
+            // Collapsing details never erases a custom preference combination.
             assertFalse(prefs.getBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, true));
             assertTrue(prefs.getBoolean(KEY_EXIT_ON_BACK, false));
 
@@ -96,6 +117,13 @@ public class AppBehaviorSwitchesInstrumentationTest {
             assertFalse(master.isChecked());
             assertFalse(prevent.isChecked());
             assertFalse(exit.isChecked());
+            assertTrue(status.getVisibility() == View.VISIBLE);
+            assertTrue(status.getText().toString().contains(
+                    context.getString(R.string.settings_app_behavior_mode_on_demand)));
+            // Advanced details remain inspectable even while behavior is disabled.
+            instrumentation.runOnMainSync(expander::performClick);
+            instrumentation.waitForIdleSync();
+            assertTrue(advanced.getVisibility() == View.VISIBLE);
             assertTrue(prefs.getBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, false));
             assertTrue(prefs.getBoolean(KEY_EXIT_ON_BACK, false));
             assertTrue(BackgroundWorkPolicy.requiresBackgroundContinuity(context));
