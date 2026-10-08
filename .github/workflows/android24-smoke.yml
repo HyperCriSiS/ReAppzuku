@@ -305,7 +305,7 @@ jobs:
           grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-after.txt
           ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-after.txt
           grep -Fq 'INSTRUMENTATION_STATUS: REAPPZUKU_RETRY_SUCCESS=yes' /tmp/reappzuku-process-restart-after.txt
-    echo 'REAPPZUKU_RETRY_WORKER_EXECUTED_AFTER_RESTART'
+          echo 'REAPPZUKU_RETRY_WORKER_EXECUTED_AFTER_RESTART'
       - name: Seed canonical policy and preferences before an in-place update
         shell: bash
         run: |
