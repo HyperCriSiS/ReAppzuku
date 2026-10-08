@@ -53,7 +53,11 @@ jobs:
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
           CLT_ZIP=/tmp/commandlinetools-linux-15859902_latest.zip
           CLT_HOME="$SDK_ROOT/cmdline-tools/reappzuku-15859902"
-          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 \
+          # Google CDN can terminate HTTP/2 streams mid-transfer (curl 92).
+          # Resume interrupted downloads; the pinned SHA-256 still gates extraction.
+          curl --http1.1 --fail --location --proto '=https' --tlsv1.2 \
+            --connect-timeout 30 --max-time 360 \
+            --retry 5 --retry-all-errors --retry-delay 3 --continue-at - \
             'https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip' \
             -o "$CLT_ZIP"
           echo '4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  /tmp/commandlinetools-linux-15859902_latest.zip' | sha256sum -c -
