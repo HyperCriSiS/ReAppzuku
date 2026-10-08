@@ -170,7 +170,7 @@ jobs:
           INSTRUMENTATION="$(
             adb shell pm list instrumentation \
               | tr -d '\r' \
-              | sed -n 's/^instrumentation:\\([^ ]*\\) (target=com.gree1d.reappzuku)$/\\1/p' \
+              | sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' \
               | head -n 1
           )"
           test -n "$INSTRUMENTATION"
@@ -179,6 +179,6 @@ jobs:
           TEST_CLASSES='com.gree1d.reappzuku.core.BackupCodecTest,com.gree1d.reappzuku.db.AppDatabaseMigrationTest,com.gree1d.reappzuku.core.Phase9BackupRestoreTest'
           adb shell am instrument -w -r -e class "$TEST_CLASSES" "$INSTRUMENTATION" \
             | tee /tmp/reappzuku-api24-instrumentation.txt
-          grep -Eq 'OK \\([0-9]+ tests?\\)' /tmp/reappzuku-api24-instrumentation.txt
+          grep -Eq 'OK \([0-9]+ tests?\)' /tmp/reappzuku-api24-instrumentation.txt
           ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-api24-instrumentation.txt
           echo 'API24_LOCAL_PERSISTENCE_PASS'
