@@ -299,8 +299,66 @@ jobs:
           ! grep -Fq 'FAILURES!!!' /tmp/api37-exact-alarm-granted.txt
           echo 'API37_EXACT_ALARM_DELAYED_GRANT_PASS'
 
+      - name: Prove persisted WorkManager identity across actual app process death
+        if: ${{ inputs.test_class == 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG='com.gree1d.reappzuku'
+          CLASS='com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest'
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e class "$CLASS#snapshotPersistedPeriodicWorkBeforeProcessDeath" "$INSTRUMENTATION" |
+            tee /tmp/reappzuku-process-restart-before.txt
+          grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-before.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-before.txt
+          uuid="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_ID=([0-9a-f-]{36})$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
+          created="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_CREATED=(yes|no)$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
+          [[ "$uuid" =~ ^[0-9a-f-]{36}$ ]]
+          [[ "$created" == yes || "$created" == no ]]
+      
+          # Place app in background, then ask ActivityManager to kill a disposable
+          # background process. Never use am force-stop, pm clear or uninstall.
+          adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 > /tmp/reappzuku-recovery-launch-before.txt 2>&1
+          grep -Fq 'Events injected: 1' /tmp/reappzuku-recovery-launch-before.txt
+          adb shell input keyevent KEYCODE_HOME
+          sleep 2
+          old_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+          [[ "$old_pid" =~ ^[0-9]+$ ]]
+          adb shell am kill "$PKG"
+          killed=0
+          for attempt in $(seq 1 20); do
+            remaining="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [ -z "$remaining" ]; then killed=1; break; fi
+            sleep 1
+          done
+          test "$killed" -eq 1
+          echo 'REAPPZUKU_BACKGROUND_PROCESS_KILLED'
+      
+          adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 > /tmp/reappzuku-recovery-launch-after.txt 2>&1
+          grep -Fq 'Events injected: 1' /tmp/reappzuku-recovery-launch-after.txt
+          new_pid=''
+          for attempt in $(seq 1 20); do
+            new_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$new_pid" =~ ^[0-9]+$ ]] && [ "$new_pid" != "$old_pid" ]; then break; fi
+            sleep 1
+          done
+          [[ "$new_pid" =~ ^[0-9]+$ ]]
+          test "$new_pid" != "$old_pid"
+          echo 'REAPPZUKU_NEW_PROCESS_STARTED'
+      
+          adb shell am instrument -w -r -e class "$CLASS#verifySamePersistedWorkAfterActualProcessRestart" \
+            -e expected_uuid "$uuid" -e created_by_test "$created" "$INSTRUMENTATION" |
+            tee /tmp/reappzuku-process-restart-after.txt
+          grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-after.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-after.txt
+          echo 'REAPPZUKU_PROCESS_RESTART_WORK_UUID_PRESERVED'
       - name: Run Android instrumentation on API 37
-        if: ${{ inputs.test_class != 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' }}
+        if: ${{ inputs.test_class != 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' }}
         shell: bash
         env:
           TEST_CLASS: ${{ inputs.test_class }}
