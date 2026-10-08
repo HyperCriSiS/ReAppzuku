@@ -6,7 +6,9 @@
 
 ## Current evidence update — 2026-10-08
 
-- PR #85 / merge `f72032e613436697e567bb8dd6a3658f38b20164` passed API-24 emulator same-signer higher-versionCode in-place update (28→29) in `37804848630`, including installed APK signature equality and preserved SharedPreferences + explicit Room policy across upgrade. Final-head CodeQL and standard `37803048460` passed. This is a **debug-key emulator gate**, not release signing, OEM/root, downgrade acceptance or true rollback.
+- PR #87 / merge `845838d7530bc61603710f51be278770588de0d9` expanded the real API-24 emulator update gate. Run `37818081642` passed deliberate wrong-signer `INSTALL_FAILED_UPDATE_INCOMPATIBLE` and downgrade `INSTALL_FAILED_VERSION_DOWNGRADE` denials; after **both** refusals, v29 remained installed and the explicit Room policy plus SharedPreferences marker remained intact. Standard `37818073462` and CodeQL passed. Production-key ownership, physical/OEM upgrades and actual rollback remain unproven.
+
+- PR #85 / merge `f72032e613436697e567bb8dd6a3658f38b20164` passed API-24 emulator same-signer higher-versionCode in-place update (28→29) in `37804848630`, including installed APK signature equality and preserved SharedPreferences + explicit Room policy across upgrade. Final-head CodeQL and standard `37803048460` passed. This is a **debug-key emulator positive-update gate**, not release signing, OEM/root or true rollback.
 
 - Phase 9 canonical ownership and backup v7 were merged in PR #73. Android 17 / API 37 completed-model run `37149945404` passed legacy-conflict resolution, new-app notification/editor routing, WorkManager reconciliation and restore.
 - WorkManager 2.12.0 was merged in PR #76 (`2982d13a7814f93492660976241207e777aae015`) with regenerated lock/SHA-256 metadata. Branch-exact standard `37553836083`, API 37 `37553682771` and CodeQL passed.

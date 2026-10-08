@@ -225,6 +225,14 @@ Validation:
 - Final branch-exact API-24 run `37804848630` passed, with `OK (1 test)` and `API24_SAME_KEY_UPDATE_DATA_PASS` after the positive in-place update. Existing ten API-24 backup/Room tests also passed. Source-equivalent standard `37803048460` passed unit/lint/AndroidTest/Room/APK and final-head CodeQL passed; no review threads.
 - **Scope:** This proves an ephemeral-debug-key **emulator** in-place update and local data persistence, not stable production signing identity, physical/OEM behavior, downgrade recovery, release artifact upgrade or real rollback.
 
+### Phase 10: negative Android-7 upgrade guards — 2026-10-08
+
+- PR #87 merged as `845838d7530bc61603710f51be278770588de0d9` and extends the disposable API-24 CI lane after the existing verified same-signer debug update.
+- A short-lived alternate test keystore resigns a candidate APK; Android must reject it with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. A normal attempted install of the earlier versionCode must independently fail with `INSTALL_FAILED_VERSION_DOWNGRADE`.
+- After **each** failed install, the test verifies installed version 29 and reruns dedicated Android instrumentation over actual SharedPreferences and an explicit `PROTECTED` Room `AppPolicy`. No downgrade override, uninstall, clear-data, actual release key or external device is involved.
+- Branch-exact `37818081642` passed positive same-key update (`API24_SAME_KEY_UPDATE_DATA_PASS`), wrong-signer rejection (`API24_WRONG_SIGNER_REJECTED_DATA_PASS`) and downgrade rejection (`API24_DOWNGRADE_REJECTED_DATA_PASS`), each with `OK (1 test)` following its relevant stage; existing API-24 backup/Room suite passed.
+- Standard `37818073462` passed unit, lint, instrumentation compilation, Room schema check and APK build. CodeQL passed. No review threads. **Actual production signing identity, physical hardware, signature rotation and meaningful rollback/recovery remain untested.**
+
 ## Current Phase 9 architecture state
 
 - Canonical strategies are `UNMANAGED`, `PROTECTED`, `SMART`, `IMMEDIATE`; `Custom` remains presentation/provenance state, not an execution engine.
@@ -243,14 +251,14 @@ Validation:
 
 ## Next work unit
 
-**Phase 10 negative-upgrade emulator assurance**
+**Phase 10 offline updater/release-metadata attack fixtures**
 
-1. Using a disposable API-24 emulator, check that an APK signed by a **different** ephemeral test certificate is rejected by Android without touching existing ReAppzuku data or its stored explicit policy.
-2. Test that an ordinary lower-versionCode installation is rejected, likewise preserving data. Never use `adb install -d`, uninstall or clear-data to force a passing result.
-3. Add separate branch-exact pass markers for expected rejections and post-rejection policy persistence. Keep the existing positive same-key upgrade gate.
-4. Then continue Phase 10 updater/release-metadata fixture coverage and API-24 policy-editor/setup-queue regressions in separate bounded PRs.
+1. Audit the current fork-only update resolver, numeric version comparison and asset allowlist against malformed, hostile, stale and missing GitHub release metadata without network or device access.
+2. Add focused JVM fixtures for malformed tags, wrong repository identity, drafts/prereleases, confusing APK asset names, foreign download/release URLs and unexpected redirect/provenance edge cases where applicable.
+3. Strengthen only demonstrated gaps without weakening the signed-release workflow, pinned actions or strict dependency locks.
+4. Run normal branch-exact CI/CodeQL, review and merge; checkpoint this file and `docs/ROADMAP.md` before moving to the API-24 Policy Editor/setup-queue UX block.
 
-**External hardware/release-key tracks remain intentionally blocked:** non-Pixel OEM, actual KernelSU/Magisk, production signing custody, real production upgrade and tested rollback. See `docs/PHYSICAL_DEVICE_VALIDATION.md`.
+**External tracks remain intentionally blocked:** OEM/physical devices, actual KernelSU/Magisk, offline stable-key custody, real release upgrade and verified rollback.
 
 ## Guardrails
 

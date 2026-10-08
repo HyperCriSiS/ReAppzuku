@@ -199,6 +199,8 @@ The 2026-09-04 evidence kept below is **historical**, not the latest Android com
 
 - API-24 **emulator same-key in-place update**: PR #85 merge `f72032e613436697e567bb8dd6a3658f38b20164`, branch-exact run `37804848630` passed positive versionCode 28→29 `adb install -r` under an identical runner-local debug signer certificate, then verified real SharedPreferences and explicit Room policy survived (`OK (1 test)`, `API24_SAME_KEY_UPDATE_DATA_PASS`). Standard `37803048460`, final-head CodeQL and original API24 persistence suite passed. This is **not** production key custody, physical-device upgrade or rollback acceptance.
 
+- API-24 **emulator refusal/data-retention evidence**: PR #87 / merge `845838d7530bc61603710f51be278770588de0d9`, run `37818081642` passed wrong-key signature refusal `INSTALL_FAILED_UPDATE_INCOMPATIBLE` and ordinary lower-version refusal `INSTALL_FAILED_VERSION_DOWNGRADE`, each followed by `OK (1 test)` proving v29 and its explicit Room + SharedPreferences markers survived. The original positive update test also passed. Standard `37818073462` and CodeQL passed. This establishes neither physical OEM compatibility, true production signing/rotation, nor release rollback.
+
 ## Historical gate evidence — 2026-09-04 (superseded by current evidence)
 
 - Assurance run `33577363239` completed with zero lint errors before baseline acceptance.
