@@ -191,6 +191,8 @@ The 2026-09-04 evidence kept below is **historical**, not the latest Android com
 - GitHub Advanced Security agent scanning failed due to exhausted Copilot monthly quota (HTTP 402). CodeQL passed separately; do not claim successful agentic security scanning.
 - For actual release-diversity acceptance and signature/rollback evidence see [PHYSICAL_DEVICE_VALIDATION.md](PHYSICAL_DEVICE_VALIDATION.md) and [RELEASE_SIGNING.md](RELEASE_SIGNING.md).
 
+- App Behavior three-switch recovery: PR #81 / merge `c33cfede8344953f73444002e5b0331fe25216bc` stopped overwriting requested On-demand/Exit-on-Back/Prevent-Shizuku-autostart prefs on background-continuity blockers. The effective runtime gates remain fail-safe and app-process preference observation keeps the Shizuku wake receiver coherent. Standard `37792179324`, pinned CodeQL and Android 17/API 37 `37792190348` passed; targeted UI instrumentation reported `OK (1 test)`, and external security/launcher probes passed. Older persisted choices already overwritten require manual re-selection.
+  
 ## Historical gate evidence — 2026-09-04 (superseded by current evidence)
 
 - Assurance run `33577363239` completed with zero lint errors before baseline acceptance.

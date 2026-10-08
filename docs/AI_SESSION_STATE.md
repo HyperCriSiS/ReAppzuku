@@ -186,6 +186,17 @@ Validation:
 - Standard source/build/lint/Room validation passed in `37788815971`; pinned Java/Kotlin CodeQL passed on PR #80, which had no review threads.
 - **Scope boundary:** API-24 local data compatibility and launcher startup are now runtime-tested. This is **not** evidence for API-24 Shizuku/root operations, periodic job/alarm execution, physical/OEM devices, stable signing, installed updates or rollback.
 
+### App Behavior three-switch intent recovery — 2026-10-08
+
+- Merged PR #81 as `c33cfede8344953f73444002e5b0331fe25216bc`, following a user report that the three App Behavior switches behaved inconsistently on an older installed build.
+- Confirmed the destructive source behavior: activating an Auto-Kill/Sleep/schedule continuity blocker rewrote the persisted `exit_on_back` / `prevent_shizuku_autostart` choices to false. Clearing the blocker could not recover the user's prior choices.
+- `BackgroundWorkPolicy.enforceCompatibleBehavior` now applies only **effective** blocking and Shizuku receiver synchronization, not destructive SharedPreferences writes. Requested settings survive blocker activation and are effective again after it clears.
+- `SettingsActivity` shows the three **effective** On-demand / Prevent Shizuku auto-start / Exit on Back values and gates all three checked-change callbacks during programmatic refreshes. The On-demand master remains derived from the two fine-grained settings; it does not introduce a separate preference.
+- The app-lifetime main-process preference listener re-synchronizes the Shizuku wake component for Auto-Kill, Sleep Mode, active Automation Schedule, restriction scheduler and user preference changes even while Settings is closed.
+- Safety invariants remain: Back cannot terminate the main process while background continuity is needed; Shizuku wake stays enabled for blocked automation even if the user requested prevention; the isolated `:shizuku` provider stays minimal.
+- Standard CI `37792179324` and pinned Java/Kotlin CodeQL passed. Android 17/API 37 focused runtime `37792190348` passed `OK (1 test)` exercising all three switches, persisted choices during a blocker, restoration after unblock, and receiver enabled/disabled state. Its external security probe and launcher smoke also passed. No review threads.
+- **Upgrade caveat:** Choices already overwritten in an older installed build cannot be reconstructed automatically. The user must select them once after updating, unless their previous choice is available in a backup.
+
 ## Current Phase 9 architecture state
 
 - Canonical strategies are `UNMANAGED`, `PROTECTED`, `SMART`, `IMMEDIATE`; `Custom` remains presentation/provenance state, not an execution engine.
