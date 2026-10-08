@@ -276,3 +276,12 @@ jobs:
           grep -Fq 'OK (1 test)' /tmp/upgrade-verify.txt
           ! grep -Fq 'FAILURES!!!' /tmp/upgrade-verify.txt
           echo 'API24_SAME_KEY_UPDATE_DATA_PASS'
+
+      - name: Reject mismatched signer and downgrade without losing saved policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/tests/api24-rejected-upgrade-guards.sh \
+            /tmp/reappzuku-upgrade-base.apk \
+            app/build/outputs/apk/debug/app-debug.apk \
+            "$UPGRADE_NEXT_CODE"
