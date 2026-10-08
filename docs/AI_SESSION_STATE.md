@@ -275,3 +275,10 @@ Validation:
 - Protected/system/persistent packages continue to fail safe regardless of stored policy.
 - Policy presets describe per-app behavior; Automation Schedules describe when automation is active. Do not merge those concepts.
 - Keep retired legacy preference data only where migration/restore compatibility requires it; do not reintroduce retired lifecycle ownership UI.
+
+### Phase 10: API-24 new-app setup queue persistence (2026-10-08)
+
+- PR #90 on `phase10/api24-newapp-queue-safety` adds two scoped instrumentation checks for durable setup queue persistence, duplicate prevention, invalid package rejection, isolated removal, and safe ASK default mode; touched preferences are restored without Room deletes or privileged actions.
+- Branch-exact API-24 emulator run `37833638389` passed all steps: launcher/install, migration/backup/new-app instrumentation, same-debug-key version upgrade, rejected alternate-signer install, and rejected downgrade, preserving policy state.
+- Standard run `37833699742` passed unit, lint, AndroidTest compilation, Room schema, APK and read-only release preflight. CodeQL `37833755180` passed with no review threads.
+- Not yet covered: API-24 Policy Editor UI, in-app review-next recovery, notification/intent delivery, real physical devices, Shizuku/root, or production signing. Continue separately.
