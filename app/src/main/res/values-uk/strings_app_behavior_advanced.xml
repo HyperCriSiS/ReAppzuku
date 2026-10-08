@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_app_behavior_advanced_show">Додаткові налаштування</string>
+    <string name="settings_app_behavior_advanced_hide">Приховати додаткові налаштування</string>
+    <string name="settings_app_behavior_mode_on_demand">На вимогу</string>
+    <string name="settings_app_behavior_mode_standard">Стандартний</string>
+    <string name="settings_app_behavior_mode_custom">Власний</string>
+    <string name="settings_app_behavior_custom_status">Увімкнено власні налаштування · змініть параметри нижче</string>
+    <string name="settings_app_behavior_paused_status">Тимчасово недоступно · збережений режим: %1$s</string>
+</resources>

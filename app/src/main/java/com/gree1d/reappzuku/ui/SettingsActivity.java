@@ -24,6 +24,7 @@ import com.gree1d.reappzuku.databinding.ActivitySettingsBinding;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.BackupManager;
 import com.gree1d.reappzuku.core.BackgroundWorkPolicy;
+import com.gree1d.reappzuku.core.AppBehaviorUiMode;
 import com.gree1d.reappzuku.manager.AdditionalScenariosManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
@@ -121,6 +122,8 @@ public class SettingsActivity extends SettingsActivityDialogs
     @Override protected ActivityResultLauncher<String[]> getRestoreBackupLauncher() { return restoreBackupLauncher; }
 
     private boolean updatingAppBehaviorSwitches;
+    private static final String STATE_ADVANCED_BEHAVIOR_EXPANDED = "advanced_app_behavior_expanded";
+    private boolean advancedAppBehaviorExpanded;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -146,7 +149,15 @@ public class SettingsActivity extends SettingsActivityDialogs
         loadSettings();
         setupListeners();
         setupBottomNavigation();
+        advancedAppBehaviorExpanded = savedInstanceState != null
+                && savedInstanceState.getBoolean(STATE_ADVANCED_BEHAVIOR_EXPANDED, false);
+        updateAdvancedAppBehaviorVisibility();
+    }
 
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putBoolean(STATE_ADVANCED_BEHAVIOR_EXPANDED, advancedAppBehaviorExpanded);
+        super.onSaveInstanceState(outState);
     }
 
     @Override
@@ -433,6 +444,10 @@ public class SettingsActivity extends SettingsActivityDialogs
                 binding.switchOnDemandMode.toggle();
             }
         });
+        binding.layoutAdvancedAppBehaviorToggle.setOnClickListener(v -> {
+            advancedAppBehaviorExpanded = !advancedAppBehaviorExpanded;
+            updateAdvancedAppBehaviorVisibility();
+        });
 
         binding.switchPreventShizukuAutostart.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (updatingAppBehaviorSwitches) return;
@@ -650,18 +665,33 @@ public class SettingsActivity extends SettingsActivityDialogs
                 : String.join(", ", selected));
     }
 
+    private void updateAdvancedAppBehaviorVisibility() {
+        binding.layoutAdvancedAppBehaviorOptions.setVisibility(
+                advancedAppBehaviorExpanded ? View.VISIBLE : View.GONE);
+        binding.textAdvancedAppBehaviorToggle.setText(advancedAppBehaviorExpanded
+                ? R.string.settings_app_behavior_advanced_hide
+                : R.string.settings_app_behavior_advanced_show);
+        binding.textAdvancedAppBehaviorChevron.setText(advancedAppBehaviorExpanded ? "▴" : "▾");
+        binding.layoutAdvancedAppBehaviorToggle.setContentDescription(getString(
+                advancedAppBehaviorExpanded
+                        ? R.string.settings_app_behavior_advanced_hide
+                        : R.string.settings_app_behavior_advanced_show));
+    }
+
     private void updateAppBehaviorAvailability() {
         boolean blocked = BackgroundWorkPolicy.enforceCompatibleBehavior(this);
         Set<BackgroundWorkPolicy.Blocker> blockers = BackgroundWorkPolicy.getActiveBlockers(this);
         boolean enabled = !blocked;
         float alpha = enabled ? 1.0f : 0.5f;
+        boolean requestedPreventAutoStart =
+                sharedPreferences.getBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, true);
+        boolean requestedExitOnBack = sharedPreferences.getBoolean(KEY_EXIT_ON_BACK, false);
+        AppBehaviorUiMode.Mode requestedMode = AppBehaviorUiMode.fromRequested(
+                requestedPreventAutoStart, requestedExitOnBack);
 
-        // Show what is effective now without overwriting the requested choices.
-        // During an automation blocker these are OFF/disabled, and recover afterward.
-        boolean preventAutoStart = enabled
-                && sharedPreferences.getBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, true);
-        boolean exitOnBack = enabled
-                && sharedPreferences.getBoolean(KEY_EXIT_ON_BACK, false);
+        // Effective values are temporarily blocked, but saved preferences are untouched.
+        boolean preventAutoStart = enabled && requestedPreventAutoStart;
+        boolean exitOnBack = enabled && requestedExitOnBack;
         boolean onDemandMode = preventAutoStart && exitOnBack;
 
         updatingAppBehaviorSwitches = true;
@@ -678,6 +708,22 @@ public class SettingsActivity extends SettingsActivityDialogs
         binding.layoutOnDemandMode.setAlpha(alpha);
         binding.layoutPreventShizukuAutostart.setAlpha(alpha);
         binding.layoutExitOnBack.setAlpha(alpha);
+
+        if (blocked) {
+            int label = requestedMode == AppBehaviorUiMode.Mode.ON_DEMAND
+                    ? R.string.settings_app_behavior_mode_on_demand
+                    : requestedMode == AppBehaviorUiMode.Mode.STANDARD
+                            ? R.string.settings_app_behavior_mode_standard
+                            : R.string.settings_app_behavior_mode_custom;
+            binding.textOnDemandModeStatus.setText(getString(
+                    R.string.settings_app_behavior_paused_status, getString(label)));
+            binding.textOnDemandModeStatus.setVisibility(View.VISIBLE);
+        } else if (requestedMode == AppBehaviorUiMode.Mode.CUSTOM) {
+            binding.textOnDemandModeStatus.setText(R.string.settings_app_behavior_custom_status);
+            binding.textOnDemandModeStatus.setVisibility(View.VISIBLE);
+        } else {
+            binding.textOnDemandModeStatus.setVisibility(View.GONE);
+        }
 
         if (blocked && !blockers.isEmpty()) {
             binding.textAppBehaviorBlocked.setText(getString(

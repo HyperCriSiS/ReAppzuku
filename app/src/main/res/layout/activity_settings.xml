@@ -375,84 +375,134 @@
                             android:focusable="true" />
                     </LinearLayout>
 
+                    <TextView
+                        android:id="@+id/text_on_demand_mode_status"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingHorizontal="8dp"
+                        android:paddingBottom="8dp"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"
+                        android:accessibilityLiveRegion="polite"
+                        android:visibility="gone" />
+
                     <LinearLayout
-                        android:id="@+id/layout_prevent_shizuku_autostart"
+                        android:id="@+id/layout_advanced_app_behavior_toggle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
                         android:paddingHorizontal="8dp"
                         android:paddingVertical="12dp"
+                        android:clickable="true"
+                        android:focusable="true"
                         android:background="?attr/selectableItemBackground">
 
-                        <LinearLayout
+                        <TextView
+                            android:id="@+id/text_advanced_app_behavior_toggle"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:orientation="vertical">
+                            android:text="@string/settings_app_behavior_advanced_show"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp" />
 
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/settings_prevent_shizuku_autostart_title"
-                                android:textColor="@color/text_primary"
-                                android:textSize="16sp" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:text="@string/settings_prevent_shizuku_autostart_subtitle"
-                                android:textColor="@color/text_secondary"
-                                android:textSize="12sp" />
-                        </LinearLayout>
-
-                        <com.google.android.material.materialswitch.MaterialSwitch
-                            android:id="@+id/switch_prevent_shizuku_autostart"
+                        <TextView
+                            android:id="@+id/text_advanced_app_behavior_chevron"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:clickable="true"
-                            android:focusable="true" />
+                            android:importantForAccessibility="no"
+                            android:text="▾"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="18sp" />
                     </LinearLayout>
 
                     <LinearLayout
-                        android:id="@+id/layout_exit_on_back"
+                        android:id="@+id/layout_advanced_app_behavior_options"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:paddingHorizontal="8dp"
-                        android:paddingVertical="12dp"
-                        android:background="?attr/selectableItemBackground">
-
+                        android:orientation="vertical"
+                        android:visibility="gone">
                         <LinearLayout
-                            android:layout_width="0dp"
+                            android:id="@+id/layout_prevent_shizuku_autostart"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="8dp"
+                            android:paddingVertical="12dp"
+                            android:background="?attr/selectableItemBackground">
+    
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+    
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/settings_prevent_shizuku_autostart_title"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="16sp" />
+    
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="@string/settings_prevent_shizuku_autostart_subtitle"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+    
+                            <com.google.android.material.materialswitch.MaterialSwitch
+                                android:id="@+id/switch_prevent_shizuku_autostart"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="@string/settings_exit_on_back_title"
-                                android:textColor="@color/text_primary"
-                                android:textSize="16sp" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:text="@string/settings_exit_on_back_subtitle"
-                                android:textColor="@color/text_secondary"
-                                android:textSize="12sp" />
+                                android:clickable="true"
+                                android:focusable="true" />
                         </LinearLayout>
-
-                        <com.google.android.material.materialswitch.MaterialSwitch
-                            android:id="@+id/switch_exit_on_back"
-                            android:layout_width="wrap_content"
+    
+                        <LinearLayout
+                            android:id="@+id/layout_exit_on_back"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:clickable="true"
-                            android:focusable="true" />
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="8dp"
+                            android:paddingVertical="12dp"
+                            android:background="?attr/selectableItemBackground">
+    
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+    
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/settings_exit_on_back_title"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="16sp" />
+    
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="@string/settings_exit_on_back_subtitle"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+    
+                            <com.google.android.material.materialswitch.MaterialSwitch
+                                android:id="@+id/switch_exit_on_back"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:clickable="true"
+                                android:focusable="true" />
+                        </LinearLayout>
+    
                     </LinearLayout>
 
                 </LinearLayout>

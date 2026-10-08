@@ -25,6 +25,9 @@ public class OnDemandModePolicyTest {
         assertTrue(source.contains("if (updatingAppBehaviorSwitches) return;"));
         assertTrue(source.contains("boolean preventAutoStart = enabled"));
         assertTrue(source.contains("boolean exitOnBack = enabled"));
+        assertTrue(source.contains("updateAdvancedAppBehaviorVisibility()"));
+        assertTrue(source.contains("STATE_ADVANCED_BEHAVIOR_EXPANDED"));
+        assertTrue(source.contains("AppBehaviorUiMode.fromRequested("));
         assertFalse(source.contains("KEY_ON_DEMAND_MODE"));
     }
 
@@ -36,6 +39,9 @@ public class OnDemandModePolicyTest {
         assertTrue(layout.contains("@+id/switch_on_demand_mode"));
         assertTrue(layout.contains("@+id/layout_prevent_shizuku_autostart"));
         assertTrue(layout.contains("@+id/layout_exit_on_back"));
+        assertTrue(layout.contains("@+id/layout_advanced_app_behavior_toggle"));
+        assertTrue(layout.contains("@+id/layout_advanced_app_behavior_options"));
+        assertTrue(layout.contains("@+id/text_on_demand_mode_status"));
     }
 
     private static String readRepositoryFile(String relative) throws IOException {

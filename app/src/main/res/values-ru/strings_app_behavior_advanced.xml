@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_app_behavior_advanced_show">Дополнительные настройки</string>
+    <string name="settings_app_behavior_advanced_hide">Скрыть дополнительные настройки</string>
+    <string name="settings_app_behavior_mode_on_demand">По запросу</string>
+    <string name="settings_app_behavior_mode_standard">Стандартный</string>
+    <string name="settings_app_behavior_mode_custom">Пользовательский</string>
+    <string name="settings_app_behavior_custom_status">Пользовательский режим · настройте параметры ниже</string>
+    <string name="settings_app_behavior_paused_status">Временно недоступно · сохранённый режим: %1$s</string>
+</resources>

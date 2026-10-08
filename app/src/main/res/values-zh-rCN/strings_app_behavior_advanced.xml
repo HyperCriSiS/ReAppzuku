@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_app_behavior_advanced_show">高级设置</string>
+    <string name="settings_app_behavior_advanced_hide">收起高级设置</string>
+    <string name="settings_app_behavior_mode_on_demand">按需</string>
+    <string name="settings_app_behavior_mode_standard">标准</string>
+    <string name="settings_app_behavior_mode_custom">自定义</string>
+    <string name="settings_app_behavior_custom_status">已启用自定义配置 · 请在下方调整选项</string>
+    <string name="settings_app_behavior_paused_status">暂时不可用 · 已保存模式：%1$s</string>
+</resources>
