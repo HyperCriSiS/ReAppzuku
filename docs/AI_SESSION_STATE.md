@@ -304,6 +304,17 @@ Validation:
 - Branch-exact standard `37849871675` PASSED unit/lint/AndroidTest compilation/Room schema/APK. API 24 `37849877422` PASSED `OK (17 tests)` and its same-debug-key 28-to-29 update, wrong-signer and downgrade rejection checks. API 37 targeted run `37849884333` PASSED `OK (1 test)` plus its existing launcher/external security steps. Java/Kotlin CodeQL `37849864623` PASSED on functional head `53971aad`. Final documentation-only CodeQL remains to be reviewed before merge.
 - Evidence boundary: simulated processing errors + deterministic merge, repeated enqueues and durable unique WorkManager metadata. NOT proven: killing/restarting the process, actual periodic Worker retry execution, delayed special-permission grant, OEM/physical operation, root or stable release signing.
 
-## Next work unit
+## Previous next work unit (permission transition addressed; process loss still open)
 
 Phase 10 follow-up: bounded Android 24/37 process-death and delayed-permission recovery tests with read-only state checks and no privileged mutation. Keep backup-v7 corrupt/content-URI testing as an independent later unit. Avoid destructive preference/Room resets and actual release-key/physical-device claims.
+
+### Phase 10: exact-alarm permission transition on API 37 (2026-10-08)
+
+- PR #94, branch `phase10/exact-alarm-delayed-grant`, adds a test-only scheduler regression class and two scoped workflow changes. No production code, permissions, dependencies, Room state or user policies were modified.
+- API24 emulator `37851874765` PASSED `OK (20 tests)` including the pre-Android-12 exact-alarm control, same-debug-key in-place upgrade with preserved data and rejected wrong signer/downgrade. Standard unit/lint/AndroidTest/schema/APK `37851868722` PASSED. Tested-functional-head CodeQL `37851863510` PASSED.
+- API37 targeted runtime `37851880052` PASSED two distinct `OK (1 test)` instrumentation sessions: special-access AppOp `ignore` -> scheduler returned `BEST_EFFORT`; changing the AppOp to `allow` -> scheduler returned `EXACT`. Both requests were scheduled one day ahead and cancelled in `finally`; CI restored the original AppOp mode in an EXIT trap. External security-probe and launcher steps also passed.
+- Limitation: this is a deterministic emulator AppOp transition, not a real user's settings UI, background-delivery reliability, real process death/restart, physical/OEM compatibility, Shizuku/root or production release/signing evidence. Roadmap stays partial; check final documentation-head CodeQL before merge.
+
+## Next work unit
+
+Phase 10: isolated app process-death/restart evidence for persisted WorkManager unique state, distinguished from force-stop semantics. Only disposable API24/API37 emulators; no production configuration changes. Follow separately with backup-v7 corrupt/content-URI and export-boundary checks.
