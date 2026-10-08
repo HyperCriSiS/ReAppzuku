@@ -183,6 +183,7 @@ For high-impact changes, DONE requires:
 The 2026-09-04 evidence kept below is **historical**, not the latest Android compatibility assessment.
 
 - Android 17/API 37 target-37 install/runtime compatibility is proven in the deterministic emulator lane. Completed Phase 9 model coverage passed `37149945404`, including new-app setup routing and backup-v7 reconciliation.
+- Android 7/API 24 minimum-SDK install/launch smoke passed on the corrected, branch-exact workflow in `37786168734`: pinned-tool download digest, API-24 emulator boot, `targetSdk=37` APK install, live process, resumed/focused `MainActivity` and no immediate app `AndroidRuntime` crash. PR #78 introduced the manual lane; PR #79 fixed an initial CDN HTTP/2 download interruption (`37785733842`) without relaxing SHA-256 verification. **This does not establish Shizuku/root, deeper API-24 feature parity, physical/OEM behavior, signing or rollback.**
 - WorkManager 2.12.0 was merged through PR #76. Standard `37553836083`, Android 17/API 37 `37553682771`, and pinned Java/Kotlin CodeQL passed branch-exactly with reviewed Gradle locks and artifact SHA-256 metadata.
 - The earlier preview-emulator PackageManager `Broken pipe (32)` failure was superseded and is **not** a current blocker.
 - The earlier P0/P1 source/CI findings have been resolved at their audited scope, but device/OEM variation, real root execution, production signing identity, installed update and rollback remain **not proven**.

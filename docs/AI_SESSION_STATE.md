@@ -168,6 +168,16 @@ Validation:
 - Added `PHYSICAL_DEVICE_VALIDATION.md` as a bounded real-device and stable-signing acceptance plan. This is **not** evidence that the device/root/signing tests have run.
 - Still open: real physical/OEM tests, actual Magisk/KernelSU root execution, stable signing identity, in-place same-key upgrade and proven rollback.
 
+### Android 7 / API 24 minimum-SDK launch evidence — 2026-10-08
+
+- PR #78 merged as `f50bf3451bf66953eb231d170f67ae1cf9efdf29` and added an isolated, manually dispatched Android 7/API 24 install-and-launch smoke workflow (`.github/workflows/android24-smoke.yml`). The lane uses read-only GitHub permissions, immutable checkout/JDK action SHAs, strict Gradle dependency verification and SHA-256-pinned Android command-line tools; it does not publish or change the existing API-37 lane.
+- Initial run `37785733842` built the APK but did not reach emulator startup: Google CDN aborted the pinned command-line-tools download with `curl (92) HTTP/2 INTERNAL_ERROR`. This is infrastructure evidence, not an Android-7 application failure.
+- PR #79 merged as `57ae109fec521886012642532e4f84ff4f7e043f` and hardened only the SDK download with HTTP/1.1, resumable transfer and bounded transient-error retries; pinned SHA-256 verification is unchanged.
+- Corrected branch-exact run `37786168734` **PASSED**. It built the product APK, verified the pinned SDK archive, installed the API-24 Google APIs emulator image, booted and checked `ro.build.version.sdk=24`, installed the `targetSdk=37` debug APK, injected a launcher event, detected no immediate `AndroidRuntime` fatal for ReAppzuku, observed a live app process and verified `MainActivity` resumed/focused. Runtime log emitted `API24_INSTALL_PASS` and `API24_LAUNCH_SMOKE_PASS`.
+- The tested APK SHA-256 was `aefbe950c70287749e05de8e4ac23cd3f02aac3e5ff0d8edebf197e2cf6eb0b5`.
+- CodeQL passed for both PR heads; PR #79 had no review threads.
+- **Scope boundary:** This is a minimum-SDK emulator *install/launch* smoke, not proof of API-24 lifecycle automation, privileged Shizuku/root operations, OEM compatibility, physical-device execution, production signing, in-place update or rollback.
+
 ## Current Phase 9 architecture state
 
 - Canonical strategies are `UNMANAGED`, `PROTECTED`, `SMART`, `IMMEDIATE`; `Custom` remains presentation/provenance state, not an execution engine.
