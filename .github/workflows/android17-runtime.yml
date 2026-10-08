@@ -323,8 +323,7 @@ jobs:
       
           # Kill only the currently running debug app PID under its OWN UID.
           # This models abrupt process loss without root, force-stop or data clearing.
-          adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 > /tmp/reappzuku-recovery-launch-before.txt 2>&1
-          grep -Fq 'Events injected: 1' /tmp/reappzuku-recovery-launch-before.txt
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" > /tmp/reappzuku-recovery-launch-before.txt 2>&1
           old_pid=''
           for attempt in $(seq 1 15); do
             old_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
@@ -333,7 +332,8 @@ jobs:
           done
           [[ "$old_pid" =~ ^[0-9]+$ ]]
           echo "REAPPZUKU_PRE_KILL_PID=$old_pid"
-          adb shell run-as "$PKG" sh -c "kill -9 $old_pid"
+          # ADB's argument serialization strips nested sh -c quoting. Invoke kill directly.
+          adb shell "run-as $PKG /system/bin/kill -9 $old_pid"
           replaced=0
           for attempt in $(seq 1 20); do
             remaining="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
@@ -343,8 +343,7 @@ jobs:
           test "$replaced" -eq 1
           echo 'REAPPZUKU_ORIGINAL_PID_TERMINATED'
 
-          adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 > /tmp/reappzuku-recovery-launch-after.txt 2>&1
-          grep -Fq 'Events injected: 1' /tmp/reappzuku-recovery-launch-after.txt
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" > /tmp/reappzuku-recovery-launch-after.txt 2>&1
           new_pid=''
           for attempt in $(seq 1 20); do
             new_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
