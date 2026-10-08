@@ -282,3 +282,10 @@ Validation:
 - Branch-exact API-24 emulator run `37833638389` passed all steps: launcher/install, migration/backup/new-app instrumentation, same-debug-key version upgrade, rejected alternate-signer install, and rejected downgrade, preserving policy state.
 - Standard run `37833699742` passed unit, lint, AndroidTest compilation, Room schema, APK and read-only release preflight. CodeQL `37833755180` passed with no review threads.
 - Not yet covered: API-24 Policy Editor UI, in-app review-next recovery, notification/intent delivery, real physical devices, Shizuku/root, or production signing. Continue separately.
+
+### Phase 10: API-24 policy-editor cancel and review navigation (2026-10-08)
+
+- PR #91 on `phase10/api24-policy-editor-navigation` adds targeted non-privileged Android instrumentation for per-app Editor deep links, cancellation without saving/dismissing setup, and Review-next navigation to the correct pending package. Production code, dependencies and data schema are unchanged.
+- Diagnostic API-24 run `37836212363` reached 13/14 tests: a synthetic uninstalled queue fixture was correctly pruned at settings startup. Repaired test head `e0faf466` uses the installed disposable instrumentation APK for review routing and restores its prior mode, queue membership and policy row instead of weakening production pruning.
+- Final branch-exact API-24 run `37836914489` PASSED `OK (14 tests)` including positive same-debug-key update, wrong-signer rejection and downgrade rejection with saved data retained. Standard `37836921627` and CodeQL `37836908527` PASSED; review threads were empty before documentation.
+- Still open: complete editor-save behavior, notification fallback and delayed delivery, process-death scheduling injection, physical/OEM and real Shizuku/root, actual release signing and rollback. No physical device or production signing key was used.
