@@ -115,12 +115,8 @@ public final class NewAppInstallMonitor {
             Set<String> latestCurrent = readInstalledPackages(appContext);
             Set<String> latest = prefs.getStringSet(
                     KEY_NEW_APP_KNOWN_PACKAGES, Collections.emptySet());
-            Set<String> updated = latest == null ? new HashSet<>() : new HashSet<>(latest);
-            updated.retainAll(latestCurrent);
-            updated.addAll(known);
-            updated.retainAll(latestCurrent);
-            updated.addAll(completed);
-            updated.retainAll(latestCurrent);
+            Set<String> updated = mergeKnownAfterPass(
+                    latest, known, completed, latestCurrent);
             if (!prefs.edit().putStringSet(KEY_NEW_APP_KNOWN_PACKAGES, updated).commit()) {
                 throw new IllegalStateException("Could not update new-app inventory");
             }
@@ -130,6 +126,21 @@ public final class NewAppInstallMonitor {
     static Set<String> findNewPackages(Set<String> known, Set<String> current) {
         Set<String> result = new HashSet<>(current);
         result.removeAll(known);
+        return result;
+    }
+
+    /**
+     * The inventory update is a commutative union constrained to currently installed packages.
+     * Keep a successfully processed install and any concurrent live-receiver observations;
+     * leave failed packages absent so the next reconciliation retries them. Do not mutate inputs.
+     */
+    static Set<String> mergeKnownAfterPass(Set<String> latestRecorded,
+            Set<String> knownAtStart, Set<String> completed, Set<String> installedNow) {
+        Set<String> result = latestRecorded == null
+                ? new HashSet<>() : new HashSet<>(latestRecorded);
+        if (knownAtStart != null) result.addAll(knownAtStart);
+        if (completed != null) result.addAll(completed);
+        result.retainAll(installedNow);
         return result;
     }
 
