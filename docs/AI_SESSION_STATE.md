@@ -26,7 +26,7 @@ Merge commit: `56797a6c0d66b8d127c08da2fbee3d3afd524fa7`
 - Saving writes an explicit `AppPolicy`, so user edits override migration-owned legacy materialization without changing Room schema 13.
 - Built-in presets use stable IDs with localized display names; user-created presets are supported with `Save as preset`.
 - Existing customized preset-backed policies are preserved during spinner initialization instead of being overwritten by the selected preset.
-- Policy normalization rejects unknown strategy/restriction/kill values, strips unknown trigger bits, preserves Smart “never force-stop”, and clamps Smart force-stop delay so it cannot precede standby.
+- Policy normalization rejects unknown strategy/restriction/kill values, strips unknown trigger bits, preserves Smart â€œnever force-stopâ€, and clamps Smart force-stop delay so it cannot precede standby.
 - Added focused JVM regressions for preset application, normalization, never-force-stop semantics and preset round trips.
 - Added Policy Editor localization for Spanish, Russian, Ukrainian and Simplified Chinese.
 - Existing app-option checkbox behavior/tint is intentionally unchanged; an incidental draft change was detected in diff review and reverted before merge.
@@ -85,7 +85,7 @@ Validation:
 Merged PR: #67  
 Merge commit: `c4bdeeae1a87cf8343410fcd83c30bf134f5e78d`
 
-- Added canonical policy-status badges to the main running-app list: Managed · Smart, Managed · Immediate, Protected and Needs setup.
+- Added canonical policy-status badges to the main running-app list: Managed Â· Smart, Managed Â· Immediate, Protected and Needs setup.
 - Added Managed, Smart, Immediate, Protected and Needs setup filters to the existing sort dialog with OR semantics and persisted selection.
 - Captures one immutable `AppPolicyListSnapshot` per scan on a background executor; Room and preferences are not queried per row.
 - Display status follows the same explicit/migration/fallback boundary as execution through `AppPolicyLegacyMigrator` and `AppPolicyResolver`.
@@ -153,7 +153,7 @@ Validation:
 - Final standard validation and CodeQL passed on the PR head.
 - GitHub Advanced Security agent execution failed only because the GitHub Copilot monthly quota was exhausted (HTTP 402); no code/security finding was reported, and `main` does not require that check as a merge gate.
 
-### Dependency assurance maintenance — 2026-10-07
+### Dependency assurance maintenance â€” 2026-10-07
 
 - WorkManager was updated from 2.11.1 to 2.12.0 in PR #76 / merge `2982d13a7814f93492660976241207e777aae015`.
 - Gradle 9.8.0 regenerated dependency locks and SHA-256 verification metadata from resolved artifacts before review; the final PR contains only the version change, two lockfile version replacements and the four new WorkManager artifact checksums.
@@ -161,14 +161,14 @@ Validation:
 - GitHub Advanced Security agent execution again failed only because the Copilot monthly quota was exhausted (HTTP 402), not because of a code/security finding.
 - Dependabot PR #71 was closed as superseded by #76. Core KTX 1.19.1 PR #72 was intentionally closed/deferred because its transitive dependency churn is not justified on the current AGP 9.4.1 line.
 
-### Release evidence baseline refresh — 2026-10-08
+### Release evidence baseline refresh â€” 2026-10-08
 
 - Phase 9 checkpoint PR #75 merged to `main` as `3edb0f0f6f56cbba266339aa608f69fcb8591f4a`; CodeQL run `37554275820` passed.
 - Updated `CHECK_MATRIX.md` and `QUALITY_GATES.md` with the proven API-37/WorkManager 2.12.0 evidence and labeled older preview/backup/schema/toolchain facts as historical.
 - Added `PHYSICAL_DEVICE_VALIDATION.md` as a bounded real-device and stable-signing acceptance plan. This is **not** evidence that the device/root/signing tests have run.
 - Still open: real physical/OEM tests, actual Magisk/KernelSU root execution, stable signing identity, in-place same-key upgrade and proven rollback.
 
-### Android 7 / API 24 minimum-SDK launch evidence — 2026-10-08
+### Android 7 / API 24 minimum-SDK launch evidence â€” 2026-10-08
 
 - PR #78 merged as `f50bf3451bf66953eb231d170f67ae1cf9efdf29` and added an isolated, manually dispatched Android 7/API 24 install-and-launch smoke workflow (`.github/workflows/android24-smoke.yml`). The lane uses read-only GitHub permissions, immutable checkout/JDK action SHAs, strict Gradle dependency verification and SHA-256-pinned Android command-line tools; it does not publish or change the existing API-37 lane.
 - Initial run `37785733842` built the APK but did not reach emulator startup: Google CDN aborted the pinned command-line-tools download with `curl (92) HTTP/2 INTERNAL_ERROR`. This is infrastructure evidence, not an Android-7 application failure.
@@ -178,15 +178,15 @@ Validation:
 - CodeQL passed for both PR heads; PR #79 had no review threads.
 - **Scope boundary:** This is a minimum-SDK emulator *install/launch* smoke, not proof of API-24 lifecycle automation, privileged Shizuku/root operations, OEM compatibility, physical-device execution, production signing, in-place update or rollback.
 
-### Android 7 / API 24 local persistence instrumentation — 2026-10-08
+### Android 7 / API 24 local persistence instrumentation â€” 2026-10-08
 
 - PR #80 merged as `9972a9b9c2e450b4a06d2d966a3ec6ba9599816c`, extending the manual Android 7 / API 24 smoke workflow with the existing three bounded Android instrumentation suites: `BackupCodecTest`, `AppDatabaseMigrationTest` and `Phase9BackupRestoreTest`.
-- Branch-exact runtime `37788629739` passed **OK (10 tests)** and `API24_LOCAL_PERSISTENCE_PASS`: verified Room v2→v13 and v12→v13 migration on API 24, backup-v7 explicit policies/presets/new-app settings roundtrip, v6 restore compatibility, injected post-DB-commit rollback and backup envelope rejection/compatibility.
+- Branch-exact runtime `37788629739` passed **OK (10 tests)** and `API24_LOCAL_PERSISTENCE_PASS`: verified Room v2â†’v13 and v12â†’v13 migration on API 24, backup-v7 explicit policies/presets/new-app settings roundtrip, v6 restore compatibility, injected post-DB-commit rollback and backup envelope rejection/compatibility.
 - The same run additionally passed minSdk-24 build, pinned SDK tool digest, emulator boot, app APK install/targetSdk-37 check, launcher/crash smoke and AndroidTest APK install.
 - Standard source/build/lint/Room validation passed in `37788815971`; pinned Java/Kotlin CodeQL passed on PR #80, which had no review threads.
 - **Scope boundary:** API-24 local data compatibility and launcher startup are now runtime-tested. This is **not** evidence for API-24 Shizuku/root operations, periodic job/alarm execution, physical/OEM devices, stable signing, installed updates or rollback.
 
-### App Behavior three-switch intent recovery — 2026-10-08
+### App Behavior three-switch intent recovery â€” 2026-10-08
 
 - Merged PR #81 as `c33cfede8344953f73444002e5b0331fe25216bc`, following a user report that the three App Behavior switches behaved inconsistently on an older installed build.
 - Confirmed the destructive source behavior: activating an Auto-Kill/Sleep/schedule continuity blocker rewrote the persisted `exit_on_back` / `prevent_shizuku_autostart` choices to false. Clearing the blocker could not recover the user's prior choices.
@@ -197,17 +197,17 @@ Validation:
 - Standard CI `37792179324` and pinned Java/Kotlin CodeQL passed. Android 17/API 37 focused runtime `37792190348` passed `OK (1 test)` exercising all three switches, persisted choices during a blocker, restoration after unblock, and receiver enabled/disabled state. Its external security probe and launcher smoke also passed. No review threads.
 - **Upgrade caveat:** Choices already overwritten in an older installed build cannot be reconstructed automatically. The user must select them once after updating, unless their previous choice is available in a backup.
 
-### App Behavior simplified On-demand settings — 2026-10-08
+### App Behavior simplified On-demand settings â€” 2026-10-08
 
 - Merged PR #82 as `47e2254316bb78f8c5c4931b5b1d8dd07ced1aa3` following user agreement that the three equally prominent App Behavior switches were redundant.
-- On-demand mode is now the sole prominent switch. The two independent controls — Prevent Shizuku auto-start and Exit on Back — are collapsed by default under a keyboard/TalkBack-focusable Advanced settings row, with expansion retained on Activity recreation.
+- On-demand mode is now the sole prominent switch. The two independent controls â€” Prevent Shizuku auto-start and Exit on Back â€” are collapsed by default under a keyboard/TalkBack-focusable Advanced settings row, with expansion retained on Activity recreation.
 - The On-demand switch remains a convenience combination over the **existing** two SharedPreferences values. No third stored preference, migration or automation-execution semantics were introduced.
 - When saved fine-grained values differ, the primary UI explicitly shows **Custom** rather than suggesting that the unchecked On-demand switch represents ordinary off behavior. Active automation shows the **saved** requested mode while all effective switches remain blocked/disabled; restoring the automation blocker does not modify preferences.
 - Added localized strings in en/es/ru/uk/zh-CN, pure state-classification JVM tests, source/UI contract tests and API-37 Android UI instrumentation for expansion, custom state, retained choices and blocking/unblocking recovery.
 - Corrected an initially truncated layout push **before merge**; final diff preserves all 67 prior settings view IDs, adding only the five intended App Behavior views.
 - Final checks on `8e0ab34fe33d076091e97664aebe5d7de5d2c77d`: standard `37795423767`, CodeQL, API-37 runtime `37795436115` (`OK (1 test)`, external security probe PASS and launcher smoke). No PR review threads.
 
-### Read-only installed-APK signing/upgrade preflight — 2026-10-08
+### Read-only installed-APK signing/upgrade preflight â€” 2026-10-08
 
 - PR #83 merged as `b5578b25a05a78de2a831c24f06d655623c5088e`. It adds `scripts/release-upgrade-preflight.sh` for manually authorized physical-device update preparation, with no on-device mutation, uninstall, install, preference change or log upload.
 - The script verifies the candidate ReAppzuku package and higher versionCode, `apksigner`-verified single-signer certificate SHA-256 against an independently pinned expected digest, and the installed package's base-APK identity and signer. The installed APK is copied only into a private host temp directory that is deleted on exit.
@@ -215,7 +215,7 @@ Validation:
 - `scripts/tests/test-release-upgrade-preflight.sh` covers twelve mocked positive/negative scenarios and runs in the read-only standard CI before Gradle. Branch-exact standard validation `37797686424` passed (including APK build), CodeQL `37797684433` passed, and PR review threads were empty.
 - `docs/PHYSICAL_DEVICE_VALIDATION.md` and `docs/RELEASE_SIGNING.md` specify the manual invocation and limitations. **No physical device was examined**. No production signing identity/secrets are present or validated, no in-place update was installed, and no data-survival or rollback scenario was exercised.
 
-### Phase 10: emulator in-place same-signer upgrade — 2026-10-08
+### Phase 10: emulator in-place same-signer upgrade â€” 2026-10-08
 
 - PR #85 merged as `f72032e613436697e567bb8dd6a3658f38b20164` and extended `docs/ROADMAP.md` with independent software-only Phase 10 and UX/maintenance Phase 11 tasks. Physical/OEM, real Magisk/KernelSU and stable-release signing remain separate external acceptance.
 - An opt-in `reappzukuUpgradeSmokeVersionCode` Gradle property modifies **debug variant output** versionCode only. Release version, signing identity and product automation semantics are unchanged.
@@ -225,7 +225,7 @@ Validation:
 - Final branch-exact API-24 run `37804848630` passed, with `OK (1 test)` and `API24_SAME_KEY_UPDATE_DATA_PASS` after the positive in-place update. Existing ten API-24 backup/Room tests also passed. Source-equivalent standard `37803048460` passed unit/lint/AndroidTest/Room/APK and final-head CodeQL passed; no review threads.
 - **Scope:** This proves an ephemeral-debug-key **emulator** in-place update and local data persistence, not stable production signing identity, physical/OEM behavior, downgrade recovery, release artifact upgrade or real rollback.
 
-### Phase 10: negative Android-7 upgrade guards — 2026-10-08
+### Phase 10: negative Android-7 upgrade guards â€” 2026-10-08
 
 - PR #87 merged as `845838d7530bc61603710f51be278770588de0d9` and extends the disposable API-24 CI lane after the existing verified same-signer debug update.
 - A short-lived alternate test keystore resigns a candidate APK; Android must reject it with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. A normal attempted install of the earlier versionCode must independently fail with `INSTALL_FAILED_VERSION_DOWNGRADE`.
@@ -233,7 +233,7 @@ Validation:
 - Branch-exact `37818081642` passed positive same-key update (`API24_SAME_KEY_UPDATE_DATA_PASS`), wrong-signer rejection (`API24_WRONG_SIGNER_REJECTED_DATA_PASS`) and downgrade rejection (`API24_DOWNGRADE_REJECTED_DATA_PASS`), each with `OK (1 test)` following its relevant stage; existing API-24 backup/Room suite passed.
 - Standard `37818073462` passed unit, lint, instrumentation compilation, Room schema check and APK build. CodeQL passed. No review threads. **Actual production signing identity, physical hardware, signature rotation and meaningful rollback/recovery remain untested.**
 
-### Phase 10: offline release-metadata selection and hostile fixtures — 2026-10-08
+### Phase 10: offline release-metadata selection and hostile fixtures â€” 2026-10-08
 
 - PR #89 merged as `8a839fc0be991fb141b3ea6c7e9360b81a160696` from `phase10/offline-release-metadata-assurance` and fixes an observed updater correctness bug: `UpdateChecker` previously picked the **first** eligible GitHub API release, not the highest numeric stable version. Unordered API metadata could hide a newer update. New pure-JVM `ReleaseMetadataPolicy` now chooses the highest valid stable release.
 - Malformed/whitespace-padded/overlong version tags are rejected; drafts, prereleases and invalid metadata booleans do not qualify. All displayed release page URLs are derived locally from the fork and validated tag; the direct APK URL requires exact signed-release name/tag/path equality. Foreign asset URLs cannot become direct notification downloads.
@@ -276,8 +276,9 @@ Validation:
 - Policy presets describe per-app behavior; Automation Schedules describe when automation is active. Do not merge those concepts.
 - Keep retired legacy preference data only where migration/restore compatibility requires it; do not reintroduce retired lifecycle ownership UI.
 
-### Phase 10 in progress: API-24 new-app setup queue safety"��y��y� 2026-10-08
+### Phase 10: API-24 new-app setup queue persistence (2026-10-08)
 
-- PR #90 on `phase10/api24-newapp-queue-safety` introduces two scoped Android instrumentation tests for persistent needs-setup queue deduplication, invalid package rejection, isolated removal and safe missing-mode default. It restores the specific preferences it touches and does not clear Room state.
-- Existing `android24-smoke.yml` now executes the new tests beside the API-24 migration and backup suites. Branch-exact API-24 emulator run `37833638389` was dispatched; on-demand standard build/test was also dispatched. **Results are pending; do not merge solely on this checkpoint.**
-- Still not covered in this unit: full policy-editor UI, in-app queue recovery and notification/deeplink behavior on API-24. Do not confuse API-37 runtime notification permission semantics with API-24.
+- PR #90 / branch `phase10/api24-newapp-queue-safety` adds two scoped instrumentation checks for durable setup queue persistence, duplicate prevention, invalid package rejection, isolated removal, and safe ASK default mode; only touched preferences are restored, without Room deletes or privileged actions.
+- Branch-exact API-24 emulator run `37833638389` passed all steps: launcher/install, migration/backup/new-app instrumentation, verified same-debug-key version upgrade, rejected alternate-signer install, and rejected downgrade, preserving saved policy state.
+- Standard run `37833699742` passed unit, lint, AndroidTest compilation, Room schema, APK and read-only release preflight. Head CodeQL `37833755180` passed with no review threads.
+- This unit does not validate API-24 Policy Editor UI, in-app review-next recovery, notification/intent delivery, real physical devices, Shizuku/root, or production signing. Continue in a separate bounded PR.
