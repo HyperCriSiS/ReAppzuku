@@ -197,6 +197,8 @@ The 2026-09-04 evidence kept below is **historical**, not the latest Android com
 
 - Same-key installed-upgrade **preflight only**: PR #83 / `b5578b25a05a78de2a831c24f06d655623c5088e` introduced a read-only host script that rejects foreign/mismatched installed and candidate APK signing certificates, wrong package, equal/downgraded versionCode and unreadable installed APK before an attempted installation. Twelve mocked tests pass on standard `37797686424`; CodeQL `37797684433` passed. No actual physical-device check, configured production signing identity, installed update or rollback has run. See `PHYSICAL_DEVICE_VALIDATION.md` and `RELEASE_SIGNING.md`.
 
+- API-24 **emulator same-key in-place update**: PR #85 merge `f72032e613436697e567bb8dd6a3658f38b20164`, branch-exact run `37804848630` passed positive versionCode 28→29 `adb install -r` under an identical runner-local debug signer certificate, then verified real SharedPreferences and explicit Room policy survived (`OK (1 test)`, `API24_SAME_KEY_UPDATE_DATA_PASS`). Standard `37803048460`, final-head CodeQL and original API24 persistence suite passed. This is **not** production key custody, physical-device upgrade or rollback acceptance.
+
 ## Historical gate evidence — 2026-09-04 (superseded by current evidence)
 
 - Assurance run `33577363239` completed with zero lint errors before baseline acceptance.

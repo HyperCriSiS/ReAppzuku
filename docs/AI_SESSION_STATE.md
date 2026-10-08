@@ -215,6 +215,16 @@ Validation:
 - `scripts/tests/test-release-upgrade-preflight.sh` covers twelve mocked positive/negative scenarios and runs in the read-only standard CI before Gradle. Branch-exact standard validation `37797686424` passed (including APK build), CodeQL `37797684433` passed, and PR review threads were empty.
 - `docs/PHYSICAL_DEVICE_VALIDATION.md` and `docs/RELEASE_SIGNING.md` specify the manual invocation and limitations. **No physical device was examined**. No production signing identity/secrets are present or validated, no in-place update was installed, and no data-survival or rollback scenario was exercised.
 
+### Phase 10: emulator in-place same-signer upgrade — 2026-10-08
+
+- PR #85 merged as `f72032e613436697e567bb8dd6a3658f38b20164` and extended `docs/ROADMAP.md` with independent software-only Phase 10 and UX/maintenance Phase 11 tasks. Physical/OEM, real Magisk/KernelSU and stable-release signing remain separate external acceptance.
+- An opt-in `reappzukuUpgradeSmokeVersionCode` Gradle property modifies **debug variant output** versionCode only. Release version, signing identity and product automation semantics are unchanged.
+- A pair of API-24 APKs built from one source revision using the runner's single ephemeral debug signing key were installed sequentially with different versionCodes (28 then 29). The workflow verifies candidate APK identity, single certificate SHA-256 agreement, different artifact SHA-256, actual `adb install -r` success and post-update APK version.
+- Dedicated Android instrumentation seeds a durable SharedPreferences marker and explicit `PROTECTED` Room `AppPolicy` before the upgrade, then verifies the marker, source and Room policy survive after the in-place update in a new instrumentation process.
+- Earlier diagnostic runs `37803066958` and `37804111029` built APKs but exposed an overly strict CI-only `apksigner` output parser; no Android update was attempted before these parser checks failed. The parser was corrected without weakening the signer-equality gate.
+- Final branch-exact API-24 run `37804848630` passed, with `OK (1 test)` and `API24_SAME_KEY_UPDATE_DATA_PASS` after the positive in-place update. Existing ten API-24 backup/Room tests also passed. Source-equivalent standard `37803048460` passed unit/lint/AndroidTest/Room/APK and final-head CodeQL passed; no review threads.
+- **Scope:** This proves an ephemeral-debug-key **emulator** in-place update and local data persistence, not stable production signing identity, physical/OEM behavior, downgrade recovery, release artifact upgrade or real rollback.
+
 ## Current Phase 9 architecture state
 
 - Canonical strategies are `UNMANAGED`, `PROTECTED`, `SMART`, `IMMEDIATE`; `Custom` remains presentation/provenance state, not an execution engine.
@@ -233,12 +243,14 @@ Validation:
 
 ## Next work unit
 
-**Collect physical/OEM and stable-release evidence**
+**Phase 10 negative-upgrade emulator assurance**
 
-1. Execute `docs/PHYSICAL_DEVICE_VALIDATION.md` on a non-Pixel/OEM device and record observed outcomes for Phase 9 new-app notifications, editor deep links, disabled-notification fallback, canonical legacy conflict resolution and process-loss reconciliation.
-2. Run an independent reversible KernelSU/Magisk backend check on a disposable package; Shizuku emulator success is not root evidence.
-3. Establish production release signing identity offline, run the new **read-only APK upgrade preflight** on an authorized device, then test same-key in-place update and actual rollback/data migration before publishing.
-4. Preserve strict dependency verification and pinned CodeQL; defer Core KTX 1.19.1 until toolchain review.
+1. Using a disposable API-24 emulator, check that an APK signed by a **different** ephemeral test certificate is rejected by Android without touching existing ReAppzuku data or its stored explicit policy.
+2. Test that an ordinary lower-versionCode installation is rejected, likewise preserving data. Never use `adb install -d`, uninstall or clear-data to force a passing result.
+3. Add separate branch-exact pass markers for expected rejections and post-rejection policy persistence. Keep the existing positive same-key upgrade gate.
+4. Then continue Phase 10 updater/release-metadata fixture coverage and API-24 policy-editor/setup-queue regressions in separate bounded PRs.
+
+**External hardware/release-key tracks remain intentionally blocked:** non-Pixel OEM, actual KernelSU/Magisk, production signing custody, real production upgrade and tested rollback. See `docs/PHYSICAL_DEVICE_VALIDATION.md`.
 
 ## Guardrails
 

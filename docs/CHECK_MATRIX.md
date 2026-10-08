@@ -6,6 +6,8 @@
 
 ## Current evidence update — 2026-10-08
 
+- PR #85 / merge `f72032e613436697e567bb8dd6a3658f38b20164` passed API-24 emulator same-signer higher-versionCode in-place update (28→29) in `37804848630`, including installed APK signature equality and preserved SharedPreferences + explicit Room policy across upgrade. Final-head CodeQL and standard `37803048460` passed. This is a **debug-key emulator gate**, not release signing, OEM/root, downgrade acceptance or true rollback.
+
 - Phase 9 canonical ownership and backup v7 were merged in PR #73. Android 17 / API 37 completed-model run `37149945404` passed legacy-conflict resolution, new-app notification/editor routing, WorkManager reconciliation and restore.
 - WorkManager 2.12.0 was merged in PR #76 (`2982d13a7814f93492660976241207e777aae015`) with regenerated lock/SHA-256 metadata. Branch-exact standard `37553836083`, API 37 `37553682771` and CodeQL passed.
 - Android 7/API 24 minSdk smoke PR #78/#79 passed install and foreground launch in `37786168734`. Follow-up PR #80 added branch-exact AndroidTest coverage: `37788629739` passed `OK (10 tests)` for backup codec, Room v2/v12→v13 migration and Phase 9 backup/restore/rollback; standard `37788815971` and CodeQL passed. **Only** API-24 startup/local-persistence scope is proven; physical/OEM, actual root backend, background lifecycle and stable release signing/installed rollback remain unproven.
