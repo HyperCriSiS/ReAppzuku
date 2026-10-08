@@ -4,6 +4,7 @@ import android.app.ActivityManager;
 import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.Handler;
@@ -29,6 +30,8 @@ public class App extends Application {
     private ExecutorService shellExecutor;
     private ShellManager shellManager;
     private LruCache<String, Bitmap> iconCache;
+    // SharedPreferences retains listeners weakly: hold this observer for app lifetime.
+    private SharedPreferences.OnSharedPreferenceChangeListener appBehaviorChangeListener;
 
     private static final int ICON_CACHE_MAX_BYTES = 24 * 1024 * 1024;
 
@@ -94,6 +97,15 @@ public class App extends Application {
         // Reconcile App Behavior whenever the normal process starts (including
         // upgrades from builds that predate the configurable option).
         BackgroundWorkPolicy.enforceCompatibleBehavior(this);
+        // Schedules and Sleep Mode can change continuity while Settings is closed.
+        // Keep the Shizuku wake receiver aligned with the effective policy at all times.
+        appBehaviorChangeListener = (prefs, key) -> {
+            if (BackgroundWorkPolicy.affectsShizukuWakePolicy(key)) {
+                BackgroundWorkPolicy.syncShizukuWakeComponent(this);
+            }
+        };
+        getSharedPreferences(PreferenceKeys.PREFERENCES_NAME, Context.MODE_PRIVATE)
+                .registerOnSharedPreferenceChangeListener(appBehaviorChangeListener);
 
         handler = new Handler(Looper.getMainLooper());
         executor = Executors.newSingleThreadExecutor();

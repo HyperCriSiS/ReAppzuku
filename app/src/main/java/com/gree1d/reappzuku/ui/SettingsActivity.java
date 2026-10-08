@@ -120,7 +120,7 @@ public class SettingsActivity extends SettingsActivityDialogs
     @Override protected ActivityResultLauncher<String>   getCreateBackupLauncher()  { return createBackupLauncher; }
     @Override protected ActivityResultLauncher<String[]> getRestoreBackupLauncher() { return restoreBackupLauncher; }
 
-    private boolean updatingOnDemandModeSwitch;
+    private boolean updatingAppBehaviorSwitches;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -412,11 +412,11 @@ public class SettingsActivity extends SettingsActivityDialogs
         binding.layoutNotificationMode.setOnClickListener(v -> showNotificationModeDialog());
 
         binding.switchOnDemandMode.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (updatingOnDemandModeSwitch) return;
+            if (updatingAppBehaviorSwitches) return;
             if (isChecked && !BackgroundWorkPolicy.isOnDemandBehaviorAllowed(this)) {
-                updatingOnDemandModeSwitch = true;
+                updatingAppBehaviorSwitches = true;
                 buttonView.setChecked(false);
-                updatingOnDemandModeSwitch = false;
+                updatingAppBehaviorSwitches = false;
                 Toast.makeText(this, R.string.settings_app_behavior_blocked, Toast.LENGTH_LONG).show();
                 return;
             }
@@ -435,6 +435,7 @@ public class SettingsActivity extends SettingsActivityDialogs
         });
 
         binding.switchPreventShizukuAutostart.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (updatingAppBehaviorSwitches) return;
             if (isChecked && !BackgroundWorkPolicy.isOnDemandBehaviorAllowed(this)) {
                 buttonView.setChecked(false);
                 Toast.makeText(this, R.string.settings_app_behavior_blocked, Toast.LENGTH_LONG).show();
@@ -449,6 +450,7 @@ public class SettingsActivity extends SettingsActivityDialogs
         });
 
         binding.switchExitOnBack.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (updatingAppBehaviorSwitches) return;
             if (isChecked && !BackgroundWorkPolicy.isOnDemandBehaviorAllowed(this)) {
                 buttonView.setChecked(false);
                 Toast.makeText(this, R.string.settings_app_behavior_blocked, Toast.LENGTH_LONG).show();
@@ -654,15 +656,19 @@ public class SettingsActivity extends SettingsActivityDialogs
         boolean enabled = !blocked;
         float alpha = enabled ? 1.0f : 0.5f;
 
-        boolean preventAutoStart = sharedPreferences.getBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, true);
-        boolean exitOnBack = sharedPreferences.getBoolean(KEY_EXIT_ON_BACK, false);
+        // Show what is effective now without overwriting the requested choices.
+        // During an automation blocker these are OFF/disabled, and recover afterward.
+        boolean preventAutoStart = enabled
+                && sharedPreferences.getBoolean(KEY_PREVENT_SHIZUKU_AUTOSTART, true);
+        boolean exitOnBack = enabled
+                && sharedPreferences.getBoolean(KEY_EXIT_ON_BACK, false);
         boolean onDemandMode = preventAutoStart && exitOnBack;
 
-        updatingOnDemandModeSwitch = true;
+        updatingAppBehaviorSwitches = true;
         binding.switchOnDemandMode.setChecked(onDemandMode);
-        updatingOnDemandModeSwitch = false;
         binding.switchPreventShizukuAutostart.setChecked(preventAutoStart);
         binding.switchExitOnBack.setChecked(exitOnBack);
+        updatingAppBehaviorSwitches = false;
         binding.switchOnDemandMode.setEnabled(enabled);
         binding.switchPreventShizukuAutostart.setEnabled(enabled);
         binding.switchExitOnBack.setEnabled(enabled);
