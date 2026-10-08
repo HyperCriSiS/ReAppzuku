@@ -328,6 +328,18 @@ Phase 10: persisted WorkManager UUID across process death and relaunch was teste
 - This is explicit **debug-app SIGKILL/relaunch**, not force-stop, low-memory killer (LMK) validation, OEM background eviction, real WorkManager `doWork()` delivery or periodic retry execution, root/Shizuku authorization, physical devices or production release signing. Preserve these external evidence limits.
 - Before merging #95, inspect the intended test/workflow/docs diff, check absence of review threads and require final documentation-head CodeQL SUCCESS.
 
+## Previous next work unit (debug Worker retry covered by PR #96)
+
+An isolated debug-only WorkManager retry and successful resumed execution were validated. The actual production worker is not yet failure-injected, and physical devices remain untested.
+
+### Phase 10: debug WorkManager retry execution after process death (2026-10-09)
+
+- PR #96 (`phase10/debug-worker-retry-after-process-loss`) adds `app/src/debug/java/com/gree1d/reappzuku/core/DebugWorkRetryProbeWorker.java` **only to the debug build**. Its first `doWork()` invocation returns `Result.retry()`; a subsequent run returns `Result.success()` with distinctive output `executed_after_retry`. No release-variant worker, production schema, permissions, user preferences, release signing or dependency changes.
+- The dedicated Android instrumentation starts unique test-only one-time work with 30-second linear backoff, verifies the FIRST `Result.retry()` before process death, then CI executes a verified **same-app-UID SIGKILL** and MainActivity relaunch (not Android Force-Stop), checks a new PID, and starts separate instrumentation that verifies the same persistent UUID, a nonzero run attempt count, SUCCEEDED state and worker-produced output. The entire workflow asserts the independent `REAPPZUKU_RETRY_SUCCESS=yes` result marker. It cancels only the dedicated CI work on completion; all real app policies and jobs are untouched.
+- The initial workflow commit `4beba5e` had a YAML indentation error and never dispatched emulator tests; corrected at `9c7cc0a` before validation. Branch-exact API24 run `37861331700` PASSED with PID 4142 -> 4204, retry success marker and full same-debug-key upgrade, alternate-signer rejection and downgrade tests. Branch-exact API37 run `37861336462` PASSED with PID 4946 -> 5024, retry success marker, security-probe and launcher checks.
+- Standard unit/lint/AndroidTest compile/Room schema/debug APK run `37861273310` PASSED (functional code on source-identical `4beba5e`). Functional final-head CodeQL `37861329026` PASSED. Require CodeQL on documentation-only head before squash merging.
+- Evidence boundary: **WorkManager scheduling + retry dispatch is real but the Worker is a synthetic debug-only worker**, not `NewAppInstallReconcileWorker` running with a real installed-app inventory. Still unproven: actual production worker retry after injected package-processing failure, exact 15-minute periodic execution, device/OEM LMK behavior, root/Shizuku, production signing and rollback.
+
 ## Next work unit
 
-Phase 10: isolated proof of actual Worker execution/retry after process loss or backup-v7 corrupt/content-URI restore rollback. Choose one bounded, non-destructive PR; physical/OEM/production signing remain outside software-only scope.
+Phase 10 follow-up: decide whether a safe injectable, non-privileged test seam for production NewAppInstallReconcileWorker is worth the change, or independently test backup-v7 malformed streams, content-URI permission failures and restore rollback without deleting user data. Keep distinct small PRs and document evidence boundaries.
