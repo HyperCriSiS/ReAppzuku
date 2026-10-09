@@ -59,6 +59,16 @@ public final class Api24Api37PackageHandlerRetryInstrumentationTest {
 
         String self = context.getPackageName();
         context.getPackageManager().getApplicationInfo(self, 0);
+        boolean listed = false;
+        for (android.content.pm.ApplicationInfo info
+                : context.getPackageManager().getInstalledApplications(0)) {
+            if (self.equals(info.packageName)) {
+                listed = true;
+                break;
+            }
+        }
+        assertTrue("Self must appear in the same installed-app enumeration as production",
+                listed);
         SharedPreferences prefs = context.getSharedPreferences(
                 PreferenceKeys.PREFERENCES_NAME, Context.MODE_PRIVATE);
 
@@ -80,6 +90,8 @@ public final class Api24Api37PackageHandlerRetryInstrumentationTest {
         missingSelf.remove(self);
         assertTrue(prefs.edit().putStringSet(
                 PreferenceKeys.KEY_NEW_APP_KNOWN_PACKAGES, missingSelf).commit());
+        assertFalse("Test fixture must be absent immediately before enqueuing",
+                knownPackages(prefs).contains(self));
 
         try {
             OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(
