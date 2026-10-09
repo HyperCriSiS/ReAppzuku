@@ -31,6 +31,7 @@
 
         <TextView
             style="@style/PolicyEditorLabel"
+            android:labelFor="@id/policy_preset"
             android:text="@string/policy_editor_preset" />
 
         <Spinner
@@ -40,6 +41,7 @@
 
         <TextView
             style="@style/PolicyEditorLabel"
+            android:labelFor="@id/policy_strategy"
             android:text="@string/policy_editor_strategy" />
 
         <Spinner
@@ -78,6 +80,7 @@
 
         <TextView
             style="@style/PolicyEditorLabel"
+            android:labelFor="@id/policy_kill_method"
             android:text="@string/policy_editor_kill_method" />
 
         <Spinner
@@ -87,6 +90,7 @@
 
         <TextView
             style="@style/PolicyEditorLabel"
+            android:labelFor="@id/policy_background_restriction"
             android:text="@string/policy_editor_background_restriction" />
 
         <Spinner
