@@ -351,7 +351,7 @@ This phase separates tests possible in hermetic CI/emulators from external relea
 
 Scope new product work from a reproducible user problem or documented usability audit. Do not auto-enable privileged actions, silently change existing user policies or reintroduce parallel lifecycle ownership.
 
-- [ ] Audit the main app list, policy badges/filters and Policy Editor for unambiguous effective-versus-requested state, stable ordering, accessible touch targets and empty/error states; close findings individually.
+- [~] Audit the main app list, policy badges/filters and Policy Editor for unambiguous effective-versus-requested state, stable ordering, accessible touch targets and empty/error states. PR #108 added Spinner label associations; PR #109 distinguished finished scans with zero apps from filtered zero matches; PR #110 removed sticky Policy Editor customization and visibly labels real deviations from the selected preset (standard `38002492744`, CodeQL `38002497898`, targeted API37 `38002496323` all SUCCESS). Manual TalkBack/touch-target, further physical/OEM and broader UX checks remain open.
 - [ ] Review new-app setup UX including multiple pending installs, denied notifications, review-next navigation, restore and lifecycle replay; add deterministic editor/notification tests.
 - [ ] Audit Automation Schedule terminology, clock edge cases, timezone/DST transitions and consistency with reusable Policy Presets; use pure JVM clock tests and emulator alarms where possible.
 - [ ] Profile in-memory app-list snapshot generation, repeated app scans and background work with synthetic workloads; optimize only documented regressions and preserve canonical policy ordering.
