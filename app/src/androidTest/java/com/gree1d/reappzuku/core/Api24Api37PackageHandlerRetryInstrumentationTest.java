@@ -48,6 +48,15 @@ public final class Api24Api37PackageHandlerRetryInstrumentationTest {
                 "verify".equals(InstrumentationRegistry.getArguments()
                         .getString("ci_package_handler_retry")));
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        // App.onCreate queues legacy migration, inventory reconciliation and
+        // pending replay on this single-thread executor. The old test raced with
+        // that startup task and let it re-record our synthetic missing entry.
+        // Wait for the queue barrier BEFORE preparing the test-owned fixture.
+        App app = (App) context.getApplicationContext();
+        assertNotNull("App executor required for deterministic startup barrier",
+                app.getSharedExecutor());
+        app.getSharedExecutor().submit(() -> {}).get(60, TimeUnit.SECONDS);
+
         String self = context.getPackageName();
         context.getPackageManager().getApplicationInfo(self, 0);
         SharedPreferences prefs = context.getSharedPreferences(
