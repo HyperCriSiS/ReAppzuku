@@ -340,6 +340,10 @@ jobs:
           ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-after.txt
           grep -Fq 'INSTRUMENTATION_STATUS: REAPPZUKU_RETRY_SUCCESS=yes' /tmp/reappzuku-process-restart-after.txt
           echo 'REAPPZUKU_RETRY_WORKER_EXECUTED_AFTER_RESTART'
+      - name: Prove real new-app Reconcile Worker retry after app SIGKILL on API 24
+        shell: bash
+        run: bash scripts/tests/ci-real-reconcile-worker-retry.sh
+
       - name: Seed canonical policy and preferences before an in-place update
         shell: bash
         run: |
