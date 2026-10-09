@@ -29,7 +29,7 @@ public final class BackupFileStore {
     }
 
     public void write(Uri uri, String payload) throws IOException {
-        Objects.requireNonNull(uri, "uri");
+        requireContentUri(uri);
         Objects.requireNonNull(payload, "payload");
         requireWithinLimit(payload.length());
 
@@ -43,12 +43,23 @@ public final class BackupFileStore {
     }
 
     public String read(Uri uri) throws IOException {
-        Objects.requireNonNull(uri, "uri");
+        requireContentUri(uri);
         try (InputStream input = resolver.openInputStream(uri)) {
             if (input == null) {
                 throw new FileNotFoundException("Backup input stream is unavailable");
             }
             return readBounded(new InputStreamReader(input, StandardCharsets.UTF_8));
+        }
+    }
+
+    // Both SAF pickers (ACTION_CREATE_DOCUMENT/ACTION_OPEN_DOCUMENT) return
+    // content:// URIs. Never let a future caller use this boundary to access
+    // an arbitrary file:// path or another unsupported scheme.
+    private static void requireContentUri(Uri uri) throws IOException {
+        Objects.requireNonNull(uri, "uri");
+        if (!ContentResolver.SCHEME_CONTENT.equals(uri.getScheme())
+                || uri.getAuthority() == null || uri.getAuthority().isEmpty()) {
+            throw new IOException("Backup requires a selected content URI");
         }
     }
 

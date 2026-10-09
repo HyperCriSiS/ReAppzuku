@@ -457,6 +457,9 @@ jobs:
             if [ "$TEST_CLASS" = 'com.gree1d.reappzuku.core.Api24Api37BackupV7StreamingFaultInstrumentationTest' ]; then
               args=(-e ci_backup_v7_stream verify "${args[@]}")
             fi
+            if [ "$TEST_CLASS" = 'com.gree1d.reappzuku.core.Api24Api37SafUriBoundaryInstrumentationTest' ]; then
+              args=(-e ci_saf_uri_boundary verify "${args[@]}")
+            fi
           else
             # The completed-model class is run separately after the general suite so it can
             # rely on the fresh-install notification permission state deterministically.

@@ -4,6 +4,12 @@
 >
 > Historical audit baseline: `main` as of 2026-09-21. Current evidence refresh: 2026-10-08; dated findings below remain audit history.
 
+## Phase 10 software-only SAF boundary evidence — 2026-10-09
+
+- PR #104 explicitly rejects `file://`, HTTP and malformed backup URIs before ContentResolver I/O and verifies that ordinary user-picker-style one-shot `content://` backup reads never silently acquire persisted URI grants. Negative tests deny private foreign-provider read/write and reject persistable grant take/release **without a prior user grant**, while preserving all portable preferences and existing policy/preset counts.
+- API24 full workflow `37941174674`, API37 targeted workflow `37941182174`, standard source and release-Java `37941165730`, CodeQL `37941149917`: SUCCESS on functional source head `7cf96156`.
+- **Not validated:** real DocumentsUI selection, granted persistable access surviving restart, revocation/expiry by provider or user, storage/OEM diversity. External manual acceptance remains open in `docs/SAF_DOCUMENTSUI_ACCEPTANCE.md`.
+
 ## Current evidence update — 2026-10-08
 
 - PR #89 / merge `8a839fc0be991fb141b3ea6c7e9360b81a160696` adds offline hostile/stale release-metadata fixtures and corrects the updater's first-match bug to select the numerically highest stable release. API metadata reads and iteration are bounded, cross-origin metadata redirects refused, and executable direct APK links remain exactly fork/tag/name constrained. Standard `37827922518` and CodeQL `37827914054` passed. Stable-key custody, physical-device upgrade, runtime TLS testing and rollback remain open.
