@@ -12,6 +12,7 @@ import android.app.Instrumentation;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.service.notification.StatusBarNotification;
@@ -30,7 +31,9 @@ import com.gree1d.reappzuku.ui.NewAppSetupSettingsActivity;
 import org.junit.Assume;
 import org.junit.Test;
 
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -66,6 +69,10 @@ public final class Api37NotificationDeniedSetupFallbackInstrumentationTest {
         AppDatabase db = AppDatabase.getInstance(context);
         AppPolicy policyBefore = db.appPolicyDao().getByPackage(fixture);
         Set<String> queueBefore = new HashSet<>(NewAppSetupStore.getPending(context));
+        SharedPreferences preferences = context.getSharedPreferences(
+                PreferenceKeys.PREFERENCES_NAME, Context.MODE_PRIVATE);
+        boolean hadMode = preferences.contains(PreferenceKeys.KEY_NEW_APP_SETUP_MODE);
+        int previousMode = NewAppSetupStore.getMode(context);
         NotificationManager notifications = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         assertNotNull(notifications);
@@ -79,6 +86,9 @@ public final class Api37NotificationDeniedSetupFallbackInstrumentationTest {
                 AppPolicyEditorActivity.class.getName(), null, false);
         instrumentation.addMonitor(monitor);
         try {
+            // Pin Ask while exercising the notification fallback. A user-chosen
+            // auto-preset mode is not the state under test and must be restored.
+            NewAppSetupStore.setMode(context, NewAppSetupPolicy.MODE_ASK_AFTER_INSTALL);
             NewAppSetupStore.addPending(context, fixture);
             Set<String> expected = new HashSet<>(queueBefore);
             expected.add(fixture);
@@ -101,6 +111,12 @@ public final class Api37NotificationDeniedSetupFallbackInstrumentationTest {
             assertNotNull(review);
             assertNotNull(pendingCount);
             waitUntilEnabled(instrumentation, review);
+            // Settings can legitimately replay a queued install and create the
+            // explicit UNMANAGED safety placeholder in the background. Compare
+            // the policy directly before/after opening the editor, not against
+            // a too-early pre-settings snapshot.
+            app.getSharedExecutor().submit(() -> {}).get(60, TimeUnit.SECONDS);
+            AppPolicy policyBeforeReview = db.appPolicyDao().getByPackage(fixture);
             assertEquals(context.getString(R.string.new_app_setup_pending_count,
                     NewAppSetupStore.getPending(context).size()),
                     pendingCount.getText().toString());
@@ -116,15 +132,9 @@ public final class Api37NotificationDeniedSetupFallbackInstrumentationTest {
 
             assertEquals("Opening review must not remove unconfigured packages",
                     expected, new HashSet<>(NewAppSetupStore.getPending(context)));
-            AppPolicy policyAfter = db.appPolicyDao().getByPackage(fixture);
-            if (policyBefore == null) {
-                assertNull("Review alone must not create an explicit policy", policyAfter);
-            } else {
-                assertNotNull(policyAfter);
-                assertEquals(policyBefore.source, policyAfter.source);
-                assertEquals(policyBefore.strategy, policyAfter.strategy);
-                assertEquals(policyBefore.updatedAt, policyAfter.updatedAt);
-            }
+            assertEquals("Opening review must not save or modify any policy fields",
+                    policyFields(policyBeforeReview),
+                    policyFields(db.appPolicyDao().getByPackage(fixture)));
             assertFalse("Permission must still be denied after review",
                     ContextCompat.checkSelfPermission(context,
                             Manifest.permission.POST_NOTIFICATIONS)
@@ -133,11 +143,32 @@ public final class Api37NotificationDeniedSetupFallbackInstrumentationTest {
             instrumentation.removeMonitor(monitor);
             finish(instrumentation, editor);
             finish(instrumentation, settings);
+            // Wait out asynchronous setup replay before reversing any change to
+            // the installed fixture package. Never delete unrelated policies.
+            app.getSharedExecutor().submit(() -> {}).get(60, TimeUnit.SECONDS);
+            if (policyBefore == null) db.appPolicyDao().deleteByPackage(fixture);
+            else db.appPolicyDao().upsert(policyBefore);
             if (queueBefore.contains(fixture)) NewAppSetupStore.addPending(context, fixture);
             else NewAppSetupStore.removePending(context, fixture);
+            SharedPreferences.Editor restore = preferences.edit();
+            if (hadMode) restore.putInt(PreferenceKeys.KEY_NEW_APP_SETUP_MODE, previousMode);
+            else restore.remove(PreferenceKeys.KEY_NEW_APP_SETUP_MODE);
+            assertTrue("Restore original setup mode", restore.commit());
             assertEquals("Test must restore the original pending set",
                     queueBefore, new HashSet<>(NewAppSetupStore.getPending(context)));
+            assertEquals("Test must restore preexisting fixture policy",
+                    policyFields(policyBefore),
+                    policyFields(db.appPolicyDao().getByPackage(fixture)));
         }
+    }
+
+    private static List<Object> policyFields(AppPolicy p) {
+        if (p == null) return null;
+        return Arrays.asList(p.packageName, p.strategy, p.source, p.presetId,
+                p.customized, p.standbyDelayMs, p.forceStopDelayMs,
+                p.killMethod, p.bootCleanup, p.backgroundRestriction,
+                p.protectMedia, p.protectForegroundServices, p.protectWidgets,
+                p.triggerMask, p.createdAt, p.updatedAt);
     }
 
     private static StatusBarNotification findNotification(NotificationManager manager, int id) {
