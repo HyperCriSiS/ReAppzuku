@@ -36,6 +36,8 @@ Purpose: every `android:exported="true"` component must have an explicit princip
 - `PackageAddedReceiver` accepts only fresh `PACKAGE_ADDED` events, ignores replacement/update broadcasts, validates the package name, and delegates asynchronously without launching UI over the foreground app.
 - `AppzukuWidgetReceiver` delegates only to the read-only Glance widget data path.
 
+- Android 7/API24 `37873206394` and Android 17/API37 `37873211270` passed the read-only `ExportedComponentManifestInstrumentationTest` against installed, merged package metadata: non-exported internal activities/receivers (including intentionally disabled Shizuku wake), exported platform/widget/shortcut entry points, Accessibility/Quick Tile binding permissions, and the Shizuku provider authority/read/write permissions. Existing separate-UID API37 abuse probing also passed; this metadata test is not itself a foreign-principal attack attempt.
+
 ## Remaining hardening
 
 The principal-boundary review is complete for the current manifest. Remaining privileged-surface work is at the command boundary itself: package validation, typed privileged operations where practical, and parser fixtures for OEM/Android variations.
