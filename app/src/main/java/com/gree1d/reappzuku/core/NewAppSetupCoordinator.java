@@ -23,10 +23,13 @@ public final class NewAppSetupCoordinator {
         AppDatabase db = AppDatabase.getInstance(context);
         boolean queued = NewAppSetupStore.isPending(context, packageName);
         AppPolicy existing = db.appPolicyDao().getByPackage(packageName);
-        boolean explicitlyConfigured = existing != null
-                && existing.source == AppPolicy.SOURCE_EXPLICIT
-                && !queued;
-        if (explicitlyConfigured) return;
+        boolean explicitlyConfigured = isCompletedExplicitSetup(existing, queued);
+        if (explicitlyConfigured) {
+            clearPendingBeforeCancel(
+                    () -> NewAppSetupStore.removePending(context, packageName),
+                    () -> NewAppSetupNotifier.cancel(context, packageName));
+            return;
+        }
 
         boolean eligible = isEligible(context, packageName);
         int mode = NewAppSetupStore.getMode(context);
