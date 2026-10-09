@@ -3,6 +3,8 @@ package com.gree1d.reappzuku.ui;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.text.InputType;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -48,10 +50,11 @@ public class AppPolicyEditorActivity extends BaseActivity {
     private final List<PolicyPreset> presets = new ArrayList<>();
     private boolean bindingUi;
     private boolean presetSelectionReady;
-    private boolean customized = true;
+    private int lastPresetPosition = -1;
 
     private TextView packageView;
     private Spinner presetSpinner;
+    private TextView presetStatus;
     private Spinner strategySpinner;
     private EditText standbyMinutes;
     private EditText forceStopMinutes;
@@ -93,6 +96,7 @@ public class AppPolicyEditorActivity extends BaseActivity {
     private void bindViews() {
         packageView = findViewById(R.id.policy_package);
         presetSpinner = findViewById(R.id.policy_preset);
+        presetStatus = findViewById(R.id.policy_preset_status);
         strategySpinner = findViewById(R.id.policy_strategy);
         standbyMinutes = findViewById(R.id.policy_standby_minutes);
         forceStopMinutes = findViewById(R.id.policy_force_stop_minutes);
@@ -131,36 +135,40 @@ public class AppPolicyEditorActivity extends BaseActivity {
 
     private void configureListeners() {
         presetSpinner.setOnItemSelectedListener(new SimpleItemSelectedListener(position -> {
-            if (!presetSelectionReady
-                    || bindingUi
-                    || position <= 0
-                    || position - 1 >= presets.size()) {
-                return;
+            // Deferred callbacks for the bound position must not overwrite edited policies.
+            if (!presetSelectionReady || bindingUi || position == lastPresetPosition) return;
+            lastPresetPosition = position;
+            if (position > 0 && position - 1 < presets.size()) {
+                PolicyPreset preset = presets.get(position - 1);
+                AppPolicy preview = AppPolicyEditorModel.fromPreset(
+                        packageName, preset, System.currentTimeMillis());
+                bindPolicyValues(preview);
             }
-            PolicyPreset preset = presets.get(position - 1);
-            AppPolicy preview = AppPolicyEditorModel.fromPreset(
-                    packageName, preset, System.currentTimeMillis());
-            customized = false;
-            bindPolicyValues(preview);
+            updatePresetStatus();
         }));
 
-        View.OnFocusChangeListener markCustomOnEdit = (v, hasFocus) -> {
-            if (hasFocus && !bindingUi) markCustomized();
+        // Only current values determine customization; focus is not an edit.
+        TextWatcher updateOnTextChange = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(
+                    CharSequence s, int start, int before, int count) {
+                if (!bindingUi) updatePresetStatus();
+            }
+            @Override public void afterTextChanged(Editable s) {}
         };
-        standbyMinutes.setOnFocusChangeListener(markCustomOnEdit);
-        forceStopMinutes.setOnFocusChangeListener(markCustomOnEdit);
+        standbyMinutes.addTextChangedListener(updateOnTextChange);
+        forceStopMinutes.addTextChangedListener(updateOnTextChange);
 
-        android.widget.AdapterView.OnItemSelectedListener markCustomSelection =
+        android.widget.AdapterView.OnItemSelectedListener updateOnSelection =
                 new SimpleItemSelectedListener(position -> {
-                    if (!bindingUi) markCustomized();
+                    if (!bindingUi) updatePresetStatus();
                 });
-        strategySpinner.setOnItemSelectedListener(markCustomSelection);
-        killMethodSpinner.setOnItemSelectedListener(markCustomSelection);
-        restrictionSpinner.setOnItemSelectedListener(markCustomSelection);
-
+        strategySpinner.setOnItemSelectedListener(updateOnSelection);
+        killMethodSpinner.setOnItemSelectedListener(updateOnSelection);
+        restrictionSpinner.setOnItemSelectedListener(updateOnSelection);
         for (CheckBox box : allChecks()) {
             box.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                if (!bindingUi) markCustomized();
+                if (!bindingUi) updatePresetStatus();
             });
         }
 
@@ -202,9 +210,12 @@ public class AppPolicyEditorActivity extends BaseActivity {
                 bindPresetAdapter(finalPolicy);
                 bindPolicyValues(finalPolicy);
                 loadedPolicy = finalPolicy;
-                customized = finalPolicy.customized || finalPolicy.presetId == null;
                 setEnabled(true);
-                presetSpinner.post(() -> presetSelectionReady = true);
+                presetSpinner.post(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    presetSelectionReady = true;
+                    updatePresetStatus();
+                });
             });
         });
     }
@@ -227,6 +238,7 @@ public class AppPolicyEditorActivity extends BaseActivity {
             }
         }
         presetSpinner.setSelection(selection, false);
+        lastPresetPosition = selection;
         bindingUi = false;
     }
 
@@ -273,8 +285,21 @@ public class AppPolicyEditorActivity extends BaseActivity {
         bindingUi = false;
     }
 
-    private void markCustomized() {
-        customized = true;
+    private void updatePresetStatus() {
+        if (bindingUi || !presetSelectionReady) return;
+        int position = presetSpinner.getSelectedItemPosition();
+        if (position <= 0 || position > presets.size()) {
+            presetStatus.setVisibility(View.GONE);
+            return;
+        }
+        boolean modified;
+        try {
+            modified = readPolicyFromUi().customized;
+        } catch (IllegalArgumentException invalidDraft) {
+            // Incomplete or invalid delay input is not an exact preset match.
+            modified = true;
+        }
+        presetStatus.setVisibility(modified ? View.VISIBLE : View.GONE);
     }
 
     private void promptSaveAsPreset() {
@@ -369,8 +394,7 @@ public class AppPolicyEditorActivity extends BaseActivity {
         if (presetPosition > 0 && presetPosition - 1 < presets.size()) {
             PolicyPreset selected = presets.get(presetPosition - 1);
             policy.presetId = selected.id;
-            policy.customized =
-                    customized || !AppPolicyEditorModel.matchesPreset(policy, selected);
+            policy.customized = !AppPolicyEditorModel.matchesPreset(policy, selected);
         } else {
             policy.presetId = null;
             policy.customized = true;
