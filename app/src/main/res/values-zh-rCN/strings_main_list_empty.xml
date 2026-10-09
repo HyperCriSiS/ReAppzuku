@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="main_list_empty_running">未发现正在运行的应用。</string>
+    <string name="main_list_empty_filtered">没有应用符合当前搜索或筛选条件。</string>
+</resources>
