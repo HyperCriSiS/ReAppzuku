@@ -799,8 +799,7 @@ public class MainActivity extends BaseActivity {
                 return;
         }
 
-        boolean wasInList = currentSet.contains(packageName);
-        if (wasInList) {
+        boolean wasInList = currentSet.contains(packageName);        if (wasInList) {
             currentSet.remove(packageName);
         } else {
             currentSet.add(packageName);
@@ -898,7 +897,6 @@ public class MainActivity extends BaseActivity {
         }
         return getString(R.string.main_restriction_menu_default);
     }
-
     private void showShellAccessUnavailable() {
         if (binding == null || isFinishing() || isDestroyed()) return;
         if (shellAccessSnackbar != null && shellAccessSnackbar.isShown()) return;
@@ -936,6 +934,9 @@ public class MainActivity extends BaseActivity {
                 loadBackgroundApps();
                 return;
             }
+            // A lost, denied or still-binding shell cannot prove that zero apps are running.
+            hasCompletedAppLoad = false;
+            updateEmptyState();
             binding.swiperefreshlayout1.setRefreshing(false);
             if (state.needsPermissionRequest()) {
                 dismissShellAccessStatus();
