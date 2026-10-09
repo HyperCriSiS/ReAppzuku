@@ -1,6 +1,6 @@
 # AI Session State
 
-Updated: 2026-10-09
+Updated: 2026-10-10
 
 ## Last completed work blocks
 
@@ -434,6 +434,13 @@ A test-only provider with partial data delivery followed by a real I/O failure n
 - **Passing functional head `be9b94da`:** standard unit/lint/AndroidTest compilation/Room/debug APK and nonpublishing release-Java `37966939829` SUCCESS; CodeQL `37966924070` SUCCESS; full Android 7/API24 `37966948354` SUCCESS (including backup-v7, real Worker retries and same-debug-key upgrade with wrong-signer/downgrade denial); targeted Android 17/API37 `37967280592` SUCCESS (installed manifest boundary, separate-UID external security probe and launcher).
 - An initial Android17 dispatch aimed at the API24-only notification-tap class was cancelled in favor of the suitable manifest-boundary class; the replacement passed. **Evidence boundary:** Select-all behavior is verified by JVM policy and source wiring, not by actual end-to-end Android UI tapping or screen-reader use. Emulator runs verify the product still builds, installs and passes established runtime safety gates. No policy ownership, Room schema, permissions, deps, default state, root/Shizuku operations or signing changed.
 
+### Phase 10: Policy Editor field labels and honest main-list empty states (2026-10-10)
+
+- PR #108 (`phase10/policy-editor-label-associations`) merged to main at `2100cf801c31afd874777a87d79eaadcfb6b5dde`. Four Policy Editor Spinner captions now use Android `labelFor` on their respective controls. PR-head CodeQL and branch-exact standard `37998700671` SUCCESS; no TalkBack/device reading-order acceptance was performed.
+- PR #109 (`phase10/main-list-empty-state`), functional head `ccf96859107b0e855232ce553e99349e4bad50d3`, adds an accessible non-touch-blocking text overlay while keeping the RecyclerView inside the existing SwipeRefreshLayout. A pure `AppListEmptyStatePolicy` distinguishes unfinished scans, completed scans with no running apps, and zero matches under search/policy filters. Shell permission/waiting/lost states clear prior completion to avoid a false empty assertion. Strings are provided in base EN and existing ES/RU/UK/zh-CN locales. JVM state tests and an authoritative source/layout wiring test guard the behavior. No app strategy, persisted policy/Room schema, privileges, dependencies or signing changes.
+- **Passing final functional-head evidence:** standard unit/Lint/AndroidTest/release-Java/Room/debug APK run `37999654864` SUCCESS; Java/Kotlin CodeQL PR head SUCCESS; Android 17/API37 targeted `37999660002` SUCCESS, including installed-component instrumentation, separate-UID security probe and launcher smoke. The earlier API37 `37999192705` FAILED during Gradle test-classpath resolution of Maven `junit:4.13.2`/`hamcrest-core:1.3` before APK install; the clean full retry is the valid replacement evidence.
+- **Scope boundary:** JVM decision logic and source wiring plus emulator build/launch are verified; no actual on-device typed search/filter gesture, view-overlay/screen-reader announcement, physical/OEM hardware, real Shizuku/root, production signing, release update or rollback acceptance is claimed.
+
 ## Next work unit
 
-Audit main-list zero-match/empty-state UX and Policy Editor accessibility/effective-state labeling as a separate bounded unit; add targeted tests only for real findings. Real DocumentsUI grant/revocation, OEM/physical, root and production-signing acceptance remain separate.
+Audit Policy Editor preset/customization provenance and actual changed-field detection as one bounded work unit: `AppPolicyEditorActivity` currently sets `customized` when a delay field merely receives focus, even if its value is unchanged. Check initialization callbacks and effective-versus-requested preset labeling before changing behavior. Real DocumentsUI grant/revocation, OEM/physical, root and production-signing acceptance remain separate.
