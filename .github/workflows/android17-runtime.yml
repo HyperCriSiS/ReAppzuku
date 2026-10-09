@@ -460,6 +460,28 @@ jobs:
             if [ "$TEST_CLASS" = 'com.gree1d.reappzuku.core.Api24Api37SafUriBoundaryInstrumentationTest' ]; then
               args=(-e ci_saf_uri_boundary verify "${args[@]}")
             fi
+            if [ "$TEST_CLASS" = 'com.gree1d.reappzuku.core.Api37NotificationDeniedSetupFallbackInstrumentationTest' ]; then
+              # A disposable emulator owns this package; never modify real user grants.
+              package=com.gree1d.reappzuku
+              permission=android.permission.POST_NOTIFICATIONS
+              original="$(adb shell dumpsys package "$package" | tr -d '\r' |
+                grep -m1 -F "$permission: granted=" || true)"
+              case "$original" in
+                *granted=true*) initially_granted=true ;;
+                *granted=false*) initially_granted=false ;;
+                *) echo "Cannot establish initial notification permission state" >&2; exit 1 ;;
+              esac
+              restore_notification_grant() {
+                if [ "$initially_granted" = true ]; then
+                  adb shell pm grant "$package" "$permission"
+                else
+                  adb shell pm revoke "$package" "$permission"
+                fi
+              }
+              trap restore_notification_grant EXIT
+              adb shell pm revoke "$package" "$permission"
+              args=(-e ci_notification_denied verify "${args[@]}")
+            fi
           else
             # The completed-model class is run separately after the general suite so it can
             # rely on the fresh-install notification permission state deterministically.

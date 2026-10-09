@@ -4,6 +4,12 @@
 >
 > Historical audit baseline: `main` as of 2026-09-21. Current evidence refresh: 2026-10-08; dated findings below remain audit history.
 
+## Phase 10 Android-17 notification-denial fallback evidence — 2026-10-09
+
+- PR #106 uses a disposable Android 17/API37 emulator with a **real revoked `POST_NOTIFICATIONS` runtime grant** and an EXIT-trap restoration of its prior state. The test confirms that the notifier does not post, the installed test package remains queued, Settings shows the pending count, and Review next routes to Policy Editor without changing its policy. The original fixture queue/mode/policy are restored; no production Java/manifest changes.
+- The first diagnostic `37961686159` failed because an unrelated legitimate asynchronous startup replay created an explicit safe `UNMANAGED` placeholder. Repaired test waits for startup executor, compares the complete policy immediately around review navigation, and passed targeted API37 `37962375502` (including separate-UID abuse probe and launcher); standard `37962369169` and CodeQL `37962353988` also passed.
+- Still unverified: actual user grant dialog or later permission transitions, delayed installer/worker dispatch under OEM/Doze/LMK, physical devices, root/Shizuku or signed release rollback.
+
 ## Phase 10 post-Phase9 Room-commit rollback evidence — 2026-10-09
 
 - PR #105 extends non-destructive v7 restoration fault coverage beyond `AFTER_MAIN_COMMIT`: a valid incoming backup adds one synthetic explicit unmanaged policy and flips a portable preference, a real `AFTER_PHASE9_DB_COMMIT` callback observes the newly committed policy, then throws; the rollback must remove it and precisely restore all original policy/preset Room columns, portable main preferences and both Automation Schedule stores.
