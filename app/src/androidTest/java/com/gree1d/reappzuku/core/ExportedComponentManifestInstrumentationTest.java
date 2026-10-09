@@ -62,7 +62,9 @@ public class ExportedComponentManifestInstrumentationTest {
         assertTrue(shizuku.exported);
         assertEquals(context().getPackageName() + ".shizuku", shizuku.authority);
         assertEquals("android.permission.INTERACT_ACROSS_USERS_FULL",
-                shizuku.permission);
+                shizuku.readPermission);
+        assertEquals("android.permission.INTERACT_ACROSS_USERS_FULL",
+                shizuku.writePermission);
     }
 
     @Test
