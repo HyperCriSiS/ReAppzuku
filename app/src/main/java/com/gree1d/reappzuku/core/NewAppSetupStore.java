@@ -41,25 +41,42 @@ public final class NewAppSetupStore {
     }
 
     public static void addPending(Context context, String packageName) {
+        addPending(prefs(context), packageName);
+    }
+
+    // Package-private SharedPreferences overloads permit reliable injected
+    // commit(false) tests without touching real user preferences.
+    static void addPending(SharedPreferences preferences, String packageName) {
         if (!PackageNameValidator.isValid(packageName)) return;
         synchronized (LOCK) {
-            SharedPreferences prefs = prefs(context);
             Set<String> pending = new HashSet<>(
-                    prefs.getStringSet(KEY_NEW_APP_SETUP_QUEUE, Collections.emptySet()));
-            pending.add(packageName);
-            prefs.edit().putStringSet(KEY_NEW_APP_SETUP_QUEUE, pending).commit();
+                    preferences.getStringSet(KEY_NEW_APP_SETUP_QUEUE, Collections.emptySet()));
+            if (pending.add(packageName)) {
+                requireCommit(preferences.edit()
+                        .putStringSet(KEY_NEW_APP_SETUP_QUEUE, pending).commit());
+            }
         }
     }
 
     public static void removePending(Context context, String packageName) {
+        removePending(prefs(context), packageName);
+    }
+
+    static void removePending(SharedPreferences preferences, String packageName) {
         if (packageName == null) return;
         synchronized (LOCK) {
-            SharedPreferences prefs = prefs(context);
             Set<String> pending = new HashSet<>(
-                    prefs.getStringSet(KEY_NEW_APP_SETUP_QUEUE, Collections.emptySet()));
+                    preferences.getStringSet(KEY_NEW_APP_SETUP_QUEUE, Collections.emptySet()));
             if (pending.remove(packageName)) {
-                prefs.edit().putStringSet(KEY_NEW_APP_SETUP_QUEUE, pending).commit();
+                requireCommit(preferences.edit()
+                        .putStringSet(KEY_NEW_APP_SETUP_QUEUE, pending).commit());
             }
+        }
+    }
+
+    private static void requireCommit(boolean committed) {
+        if (!committed) {
+            throw new IllegalStateException("Could not persist new-app pending queue");
         }
     }
 
