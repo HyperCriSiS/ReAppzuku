@@ -40,6 +40,16 @@
             android:layout_height="48dp" />
 
         <TextView
+            android:id="@+id/policy_preset_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/policy_editor_preset_modified"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
+        <TextView
             style="@style/PolicyEditorLabel"
             android:labelFor="@id/policy_strategy"
             android:text="@string/policy_editor_strategy" />
