@@ -4,10 +4,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
-import android.content.pm.ServiceInfo;
 import android.content.pm.ComponentInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.ProviderInfo;
+import android.content.pm.ServiceInfo;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
@@ -23,10 +26,13 @@ public class ExportedComponentManifestInstrumentationTest {
         return InstrumentationRegistry.getInstrumentation().getTargetContext();
     }
 
+    // ShizukuWakeReceiver is intentionally runtime-disabled in On-demand mode.
+    // Include disabled manifest entries to audit their declared export boundary.
     private ComponentInfo receiver(String name) throws Exception {
         Context context = context();
         return context.getPackageManager().getReceiverInfo(
-                new android.content.ComponentName(context.getPackageName(), name), 0);
+                new ComponentName(context.getPackageName(), name),
+                PackageManager.MATCH_DISABLED_COMPONENTS);
     }
 
     private ActivityInfo activity(String name) throws Exception {
@@ -39,6 +45,24 @@ public class ExportedComponentManifestInstrumentationTest {
         Context context = context();
         return context.getPackageManager().getServiceInfo(
                 new android.content.ComponentName(context.getPackageName(), name), 0);
+    }
+
+    private ProviderInfo provider(String name) throws Exception {
+        Context context = context();
+        return context.getPackageManager().getProviderInfo(
+                new ComponentName(context.getPackageName(), name),
+                PackageManager.MATCH_DISABLED_COMPONENTS);
+    }
+
+    @Test
+    public void widgetAndShizukuBootstrapKeepTheirReviewedBoundaries() throws Exception {
+        assertTrue(receiver("com.gree1d.reappzuku.utils.AppzukuWidgetReceiver").exported);
+
+        ProviderInfo shizuku = provider("rikka.shizuku.ShizukuProvider");
+        assertTrue(shizuku.exported);
+        assertEquals(context().getPackageName() + ".shizuku", shizuku.authority);
+        assertEquals("android.permission.INTERACT_ACROSS_USERS_FULL",
+                shizuku.permission);
     }
 
     @Test
