@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="new_app_setup_next_app">Siguiente en la cola: %1$s</string>
+    <string name="new_app_setup_review_app">Revisar %1$s</string>
+    <string name="new_app_setup_more_pending">%1$d aplicaciones más pendientes de configuración</string>
+    <string name="new_app_setup_pending_reprocess_title">¿Aplicar a las aplicaciones pendientes?</string>
+    <string name="new_app_setup_pending_reprocess_message">Se volverán a evaluar inmediatamente %1$d aplicaciones pendientes con el nuevo ajuste. Algunas podrían recibir una política automática o salir de la cola de revisión.</string>
+    <string name="new_app_setup_pending_reprocess_confirm">Aplicar a las pendientes</string>
+</resources>
