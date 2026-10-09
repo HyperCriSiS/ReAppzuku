@@ -25,8 +25,13 @@ public final class NewAppSetupCoordinator {
         AppPolicy existing = db.appPolicyDao().getByPackage(packageName);
         boolean explicitlyConfigured = existing != null
                 && existing.source == AppPolicy.SOURCE_EXPLICIT
-                && !queued;
-        if (explicitlyConfigured) return;
+                && isCompletedExplicitSetup(existing, queued);
+        if (explicitlyConfigured) {
+            clearPendingBeforeCancel(
+                    () -> NewAppSetupStore.removePending(context, packageName),
+                    () -> NewAppSetupNotifier.cancel(context, packageName));
+            return;
+        }
 
         boolean eligible = isEligible(context, packageName);
         int mode = NewAppSetupStore.getMode(context);
@@ -60,8 +65,9 @@ public final class NewAppSetupCoordinator {
                 if (preset != null) {
                     db.appPolicyDao().upsert(AppPolicyEditorModel.fromPreset(
                             packageName, preset, System.currentTimeMillis()));
-                    NewAppSetupStore.removePending(context, packageName);
-                    NewAppSetupNotifier.cancel(context, packageName);
+                    clearPendingBeforeCancel(
+                            () -> NewAppSetupStore.removePending(context, packageName),
+                            () -> NewAppSetupNotifier.cancel(context, packageName));
                 }
                 break;
             case NewAppSetupPolicy.ACTION_QUEUE_PRESET_MISSING:
@@ -100,6 +106,35 @@ public final class NewAppSetupCoordinator {
         persistPending.run();
         ensureUnmanaged.run();
         notifyUser.run();
+    }
+
+    // A temporary unmanaged row created for Ask is not a completed decision.
+    // A preset-backed or user-modified explicit policy is; never overwrite it
+    // solely to retry a pending-queue removal.
+    static boolean isCompletedExplicitSetup(AppPolicy policy, boolean queued) {
+        if (policy == null || policy.source != AppPolicy.SOURCE_EXPLICIT) return false;
+        return !queued || !isUnmanagedPlaceholder(policy);
+    }
+
+    private static boolean isUnmanagedPlaceholder(AppPolicy policy) {
+        return policy.strategy == AppPolicy.STRATEGY_UNMANAGED
+                && policy.presetId == null
+                && policy.customized
+                && policy.standbyDelayMs == AppPolicy.DEFAULT_SMART_STANDBY_DELAY_MS
+                && policy.forceStopDelayMs == AppPolicy.DEFAULT_SMART_FORCE_STOP_DELAY_MS
+                && policy.killMethod == AppPolicy.KILL_METHOD_FORCE_STOP
+                && policy.bootCleanup
+                && policy.backgroundRestriction == AppPolicy.RESTRICTION_NONE
+                && policy.protectMedia
+                && policy.protectForegroundServices
+                && policy.protectWidgets
+                && policy.triggerMask == 0L;
+    }
+
+    // Always persist cleanup before cancelling a potentially visible prompt.
+    static void clearPendingBeforeCancel(Runnable remove, Runnable cancel) {
+        remove.run();
+        cancel.run();
     }
 
     private static void ensureExplicitUnmanaged(AppDatabase db, String packageName) {
