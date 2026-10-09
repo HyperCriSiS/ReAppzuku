@@ -20,7 +20,10 @@ public final class NewAppInstallReconcileWorker extends Worker {
     public Result doWork() {
         try {
             NewAppInstallMonitor.reconcileInstalledPackages(getApplicationContext());
-            return Result.success();
+            // Debug builds may inject an isolated, one-time *post-reconciliation* fault.
+            // The release variant implements this hook as a permanent no-op.
+            NewAppReconcileWorkerProbe.afterReconcile(getInputData(), getRunAttemptCount());
+            return Result.success(NewAppReconcileWorkerProbe.successOutput(getInputData()));
         } catch (RuntimeException e) {
             return Result.retry();
         }
