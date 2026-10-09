@@ -95,9 +95,18 @@ public final class NewAppSetupReviewInstrumentationTest {
 
             List<String> remaining = NewAppSetupStore.getPending(context);
             String expectedNext = remaining.get(0);
-            instrumentation.runOnMainSync(reviewNext::performClick);
-            editor = instrumentation.waitForMonitorWithTimeout(monitor, 5000L);
-            assertNotNull(editor);
+            // waitForMonitorWithTimeout removes its monitor after the first match.
+            // The second launch must be observed by a newly registered monitor.
+            Instrumentation.ActivityMonitor nextMonitor = new Instrumentation.ActivityMonitor(
+                    AppPolicyEditorActivity.class.getName(), null, false);
+            instrumentation.addMonitor(nextMonitor);
+            try {
+                instrumentation.runOnMainSync(reviewNext::performClick);
+                editor = instrumentation.waitForMonitorWithTimeout(nextMonitor, 5000L);
+            } finally {
+                instrumentation.removeMonitor(nextMonitor);
+            }
+            assertNotNull("Review-next must launch a second editor", editor);
             assertEquals("Review next must use the current durable sorted queue",
                     expectedNext, editor.getIntent().getStringExtra(
                             AppPolicyEditorActivity.EXTRA_PACKAGE_NAME));
