@@ -424,8 +424,13 @@ jobs:
           ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-after.txt
           grep -Fq 'INSTRUMENTATION_STATUS: REAPPZUKU_RETRY_SUCCESS=yes' /tmp/reappzuku-process-restart-after.txt
           echo 'REAPPZUKU_RETRY_WORKER_EXECUTED_AFTER_RESTART'
+      - name: Prove real new-app Reconcile Worker retry after app SIGKILL on API 37
+        if: ${{ inputs.test_class == 'com.gree1d.reappzuku.core.Api24Api37RealReconcileWorkerRetryInstrumentationTest' }}
+        shell: bash
+        run: bash scripts/tests/ci-real-reconcile-worker-retry.sh
+
       - name: Run Android instrumentation on API 37
-        if: ${{ inputs.test_class != 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RetryWorkerInstrumentationTest' }}
+        if: ${{ inputs.test_class != 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RetryWorkerInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RealReconcileWorkerRetryInstrumentationTest' }}
         shell: bash
         env:
           TEST_CLASS: ${{ inputs.test_class }}
