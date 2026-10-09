@@ -3,6 +3,8 @@ package com.gree1d.reappzuku.core;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.content.Context;
@@ -10,14 +12,23 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.gree1d.reappzuku.db.AppDatabase;
+import com.gree1d.reappzuku.db.AppPolicy;
+import com.gree1d.reappzuku.db.PolicyPreset;
+import com.gree1d.reappzuku.manager.PresetManager;
+import com.gree1d.reappzuku.utils.PresetModel;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.Assume;
 import org.junit.Test;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Guarded, non-destructive v7 import regression checks on disposable emulators. */
 public final class Api24Api37BackupV7BoundaryInstrumentationTest {
@@ -109,6 +120,117 @@ public final class Api24Api37BackupV7BoundaryInstrumentationTest {
                 before, snapshot(prefs));
         assertEquals(policyCount, db.appPolicyDao().getAll().size());
         assertEquals(presetCount, db.policyPresetDao().getAll().size());
+    }
+
+    /**
+     * Non-destructive counterpart to Phase9BackupRestoreTest's isolated fixture:
+     * the incoming v7 JSON adds one synthetic UNMANAGED row without ever
+     * pre-seeding or clearing the real Room/preference stores.
+     *
+     * A failure AFTER the committed Phase 9 DB replacement must restore every
+     * original Room row and the complete main + schedule preference snapshots.
+     */
+    @Test public void postPhase9DatabaseCommitFaultRestoresEveryOriginalRow()
+            throws Exception {
+        requireCi();
+        Context c = target();
+        AppDatabase db = AppDatabase.getInstance(c);
+        SharedPreferences prefs = preferences(c);
+        PresetManager schedules = new PresetManager(c);
+
+        final String syntheticPackage = "com.reappzuku.ci.backuprollback";
+        assertNull("Fixture package must not have an existing user policy",
+                db.appPolicyDao().getByPackage(syntheticPackage));
+
+        Map<String, Object> mainBefore = snapshot(prefs);
+        Map<String, Object> schedule1Before = snapshotMap(
+                schedules.snapshotPresetStorage(PresetModel.PRESET_1));
+        Map<String, Object> schedule2Before = snapshotMap(
+                schedules.snapshotPresetStorage(PresetModel.PRESET_2));
+        Map<String, List<Object>> policiesBefore = snapshotPolicies(db);
+        Map<Long, List<Object>> presetsBefore = snapshotPresets(db);
+
+        String originalBackup = new BackupManager(c).createBackupJson();
+        assertNotNull("An unmodified backup should be serializable", originalBackup);
+        JSONObject incoming = new JSONObject(originalBackup);
+        Phase9BackupCodec.Snapshot current =
+                Phase9BackupCodec.parse(incoming, BackupCodec.CURRENT_VERSION);
+        List<AppPolicy> importedPolicies = new ArrayList<>(current.appPolicies);
+        AppPolicy fake = new AppPolicy(syntheticPackage);
+        fake.source = AppPolicy.SOURCE_EXPLICIT;
+        fake.strategy = AppPolicy.STRATEGY_UNMANAGED;
+        fake.customized = true;
+        importedPolicies.add(fake);
+        Phase9BackupCodec.putPhase9(incoming, importedPolicies, current.userPresets,
+                current.newAppSetupMode, current.defaultPresetId, current.pendingSetup);
+
+        // Ensure the incoming main preferences and Phase9 DB actually differ.
+        incoming.put(PreferenceKeys.KEY_EXIT_ON_BACK,
+                !incoming.getBoolean(PreferenceKeys.KEY_EXIT_ON_BACK));
+        AtomicBoolean faultReached = new AtomicBoolean(false);
+        AtomicBoolean committedRowWasVisible = new AtomicBoolean(false);
+        BackupManager injected = new BackupManager(c, new BackupCodec(), point -> {
+            if (point == BackupManager.RestoreCommitPoint.AFTER_PHASE9_DB_COMMIT) {
+                faultReached.set(true);
+                committedRowWasVisible.set(
+                        db.appPolicyDao().getByPackage(syntheticPackage) != null);
+                throw new IllegalStateException("synthetic fault after Phase9 Room commit");
+            }
+        });
+
+        assertFalse("Injected late commit failure must reject the restore",
+                injected.restoreBackupJson(incoming.toString()));
+        assertTrue("The injection must run after actual Phase9 DB commit",
+                faultReached.get());
+        assertTrue("Committed synthetic policy must be observable at the fault point",
+                committedRowWasVisible.get());
+        assertNull("Rollback must remove the injected synthetic policy",
+                db.appPolicyDao().getByPackage(syntheticPackage));
+        assertEquals("Rollback changed complete explicit/migrated Room policies",
+                policiesBefore, snapshotPolicies(db));
+        assertEquals("Rollback changed built-in/user Room policy presets",
+                presetsBefore, snapshotPresets(db));
+        assertEquals("Rollback must restore all portable main preference values/absence",
+                mainBefore, snapshot(prefs));
+        assertEquals("Rollback must restore first schedule store",
+                schedule1Before, snapshotMap(schedules.snapshotPresetStorage(PresetModel.PRESET_1)));
+        assertEquals("Rollback must restore second schedule store",
+                schedule2Before, snapshotMap(schedules.snapshotPresetStorage(PresetModel.PRESET_2)));
+    }
+
+    private static Map<String, Object> snapshotMap(Map<String, ?> source) {
+        Map<String, Object> copy = new HashMap<>();
+        for (Map.Entry<String, ?> entry : source.entrySet()) {
+            Object value = entry.getValue();
+            copy.put(entry.getKey(),
+                    value instanceof Set ? new HashSet<>((Set<?>) value) : value);
+        }
+        return copy;
+    }
+
+    private static Map<String, List<Object>> snapshotPolicies(AppDatabase db) {
+        Map<String, List<Object>> rows = new TreeMap<>();
+        for (AppPolicy p : db.appPolicyDao().getAll()) {
+            rows.put(p.packageName, Arrays.asList(
+                    p.strategy, p.source, p.presetId, p.customized,
+                    p.standbyDelayMs, p.forceStopDelayMs, p.killMethod, p.bootCleanup,
+                    p.backgroundRestriction, p.protectMedia,
+                    p.protectForegroundServices, p.protectWidgets,
+                    p.triggerMask, p.createdAt, p.updatedAt));
+        }
+        return rows;
+    }
+
+    private static Map<Long, List<Object>> snapshotPresets(AppDatabase db) {
+        Map<Long, List<Object>> rows = new TreeMap<>();
+        for (PolicyPreset p : db.policyPresetDao().getAll()) {
+            rows.put(p.id, Arrays.asList(
+                    p.name, p.strategy, p.standbyDelayMs, p.forceStopDelayMs,
+                    p.killMethod, p.bootCleanup, p.backgroundRestriction,
+                    p.protectMedia, p.protectForegroundServices, p.protectWidgets,
+                    p.triggerMask, p.builtIn, p.createdAt, p.updatedAt));
+        }
+        return rows;
     }
 
     private static JSONObject phase9() throws Exception {
