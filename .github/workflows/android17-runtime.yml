@@ -429,8 +429,13 @@ jobs:
         shell: bash
         run: bash scripts/tests/ci-real-reconcile-worker-retry.sh
 
+      - name: Verify failed package handler triggers actual WorkManager retry on API 37
+        if: ${{ inputs.test_class == 'com.gree1d.reappzuku.core.Api24Api37PackageHandlerRetryInstrumentationTest' }}
+        shell: bash
+        run: bash scripts/tests/ci-package-handler-retry.sh
+
       - name: Run Android instrumentation on API 37
-        if: ${{ inputs.test_class != 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RetryWorkerInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RealReconcileWorkerRetryInstrumentationTest' }}
+        if: ${{ inputs.test_class != 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RetryWorkerInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RealReconcileWorkerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37PackageHandlerRetryInstrumentationTest' }}
         shell: bash
         env:
           TEST_CLASS: ${{ inputs.test_class }}
