@@ -64,6 +64,7 @@ import com.gree1d.reappzuku.core.ShellBackendState;
 import com.gree1d.reappzuku.core.BackgroundWorkPolicy;
 import com.gree1d.reappzuku.core.AppPolicyListSnapshot;
 import com.gree1d.reappzuku.core.AppPolicyListState;
+import com.gree1d.reappzuku.core.AppListBulkSelectionPolicy;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
@@ -1153,31 +1154,20 @@ public class MainActivity extends BaseActivity {
     }
 
     private void selectAll() {
-        for (AppModel app : fullAppsList) {
-            if (!app.isProtected() && !app.isWhitelisted()) {
-                app.setSelected(true);
-            }
-        }
+        // Search and policy filters must not silently select off-screen apps.
+        // Earlier individual selections persist until explicitly deselected.
+        AppListBulkSelectionPolicy.selectVisible(appsDataList);
         listAdapter.submitList(new ArrayList<>(appsDataList));
         updateSelectMenuVisibility();
-        if (selectAllMenuItem != null) {
-            selectAllMenuItem.setIcon(R.drawable.ic_unselect_all);
-            selectAllMenuItem.setTitle(getString(R.string.menu_deselect_all));
-            tintMenuItem(selectAllMenuItem);
-        }
     }
 
     private void unselectAll() {
+        // Clear even selections made before the currently active filter.
         for (AppModel app : fullAppsList) {
             app.setSelected(false);
         }
         listAdapter.submitList(new ArrayList<>(appsDataList));
         updateSelectMenuVisibility();
-        if (selectAllMenuItem != null) {
-            selectAllMenuItem.setIcon(R.drawable.ic_select_all);
-            selectAllMenuItem.setTitle(getString(R.string.menu_select_all));
-            tintMenuItem(selectAllMenuItem);
-        }
     }
 
     private void tintMenuItem(MenuItem item) {
