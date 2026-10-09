@@ -81,4 +81,72 @@ public class NewAppInstallMonitorInventoryRecoveryTest {
                 null, Collections.emptySet(), Collections.emptySet(),
                 Collections.emptySet()));
     }
+
+    @Test
+    public void packageLocalExceptionDoesNotSuppressOtherPackagesAndTriggersRetry() {
+        Set<String> known = set("old.app");
+        Set<String> installed = set("old.app", "good.app", "transient.app", "other.app");
+        Set<String> added = NewAppInstallMonitor.findNewPackages(known, installed);
+        Set<String> invoked = new HashSet<>();
+
+        NewAppInstallMonitor.PackagePass first = NewAppInstallMonitor.processNewPackages(
+                added, name -> {
+                    invoked.add(name);
+                    if ("transient.app".equals(name)) {
+                        throw new IllegalStateException("simulated package-handler exception");
+                    }
+                });
+        assertEquals("Every candidate must get a chance even after an exception", added, invoked);
+        assertEquals(1, first.failedCount);
+        assertEquals(set("good.app", "other.app"), first.completed);
+
+        Set<String> durable = NewAppInstallMonitor.mergeKnownAfterPass(
+                known, known, first.completed, installed);
+        assertEquals(set("old.app", "good.app", "other.app"), durable);
+        assertEquals(set("transient.app"),
+                NewAppInstallMonitor.findNewPackages(durable, installed));
+
+        Set<String> retried = new HashSet<>();
+        NewAppInstallMonitor.PackagePass second = NewAppInstallMonitor.processNewPackages(
+                NewAppInstallMonitor.findNewPackages(durable, installed), retried::add);
+        assertEquals(set("transient.app"), retried);
+        assertEquals(0, second.failedCount);
+        assertEquals(set("transient.app"), second.completed);
+        assertEquals(installed, NewAppInstallMonitor.mergeKnownAfterPass(
+                durable, durable, second.completed, installed));
+    }
+
+    @Test
+    public void everyFailedHandlerStaysEligibleForRetryAndInputsRemainUnchanged() {
+        Set<String> candidates = set("first.app", "second.app");
+        Set<String> observed = new HashSet<>();
+        NewAppInstallMonitor.PackagePass result = NewAppInstallMonitor.processNewPackages(
+                candidates, name -> {
+                    observed.add(name);
+                    throw new IllegalArgumentException("transient test failure");
+                });
+        assertEquals(candidates, observed);
+        assertEquals(candidates, set("first.app", "second.app"));
+        assertEquals(2, result.failedCount);
+        assertTrue(result.completed.isEmpty());
+        assertEquals(candidates, NewAppInstallMonitor.findNewPackages(
+                Collections.emptySet(), candidates));
+    }
+
+    @Test
+    public void successfulOrEmptyPackagePassNeedsNoRetry() {
+        NewAppInstallMonitor.PackagePass empty = NewAppInstallMonitor.processNewPackages(
+                Collections.emptySet(), name -> {
+                    throw new AssertionError("Handler must not run for empty input");
+                });
+        assertEquals(0, empty.failedCount);
+        assertTrue(empty.completed.isEmpty());
+
+        Set<String> candidates = set("single.app");
+        NewAppInstallMonitor.PackagePass success = NewAppInstallMonitor.processNewPackages(
+                candidates, name -> assertEquals("single.app", name));
+        assertEquals(0, success.failedCount);
+        assertEquals(candidates, success.completed);
+    }
+
 }
