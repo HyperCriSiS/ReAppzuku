@@ -799,7 +799,8 @@ public class MainActivity extends BaseActivity {
                 return;
         }
 
-        boolean wasInList = currentSet.contains(packageName);        if (wasInList) {
+        boolean wasInList = currentSet.contains(packageName);
+        if (wasInList) {
             currentSet.remove(packageName);
         } else {
             currentSet.add(packageName);
