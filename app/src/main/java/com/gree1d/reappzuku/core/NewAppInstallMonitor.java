@@ -78,6 +78,14 @@ public final class NewAppInstallMonitor {
 
     public static void reconcileInstalledPackages(Context context) {
         Context appContext = context.getApplicationContext();
+        reconcileInstalledPackages(appContext,
+                packageName -> NewAppSetupCoordinator.handlePackageAdded(appContext, packageName));
+    }
+
+    // The handler overload also allows a narrowly scoped debug-only fault at the
+    // per-package dispatch boundary. Normal/release callers use the method above.
+    public static void reconcileInstalledPackages(Context context, PackageHandler handler) {
+        Context appContext = context.getApplicationContext();
         SharedPreferences prefs = appContext.getSharedPreferences(
                 PREFERENCES_NAME, Context.MODE_PRIVATE);
         Set<String> current = readInstalledPackages(appContext);
@@ -98,8 +106,7 @@ public final class NewAppInstallMonitor {
         }
 
         Set<String> added = findNewPackages(known, current);
-        PackagePass pass = processNewPackages(added,
-                packageName -> NewAppSetupCoordinator.handlePackageAdded(appContext, packageName));
+        PackagePass pass = processNewPackages(added, handler);
 
         synchronized (LOCK) {
             // Refresh the package snapshot while holding the same lock used by live-broadcast
@@ -124,7 +131,7 @@ public final class NewAppInstallMonitor {
     }
 
     @FunctionalInterface
-    interface PackageHandler {
+    public interface PackageHandler {
         void handle(String packageName);
     }
 
