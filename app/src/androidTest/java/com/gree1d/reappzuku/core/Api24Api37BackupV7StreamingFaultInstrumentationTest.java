@@ -129,6 +129,9 @@ public final class Api24Api37BackupV7StreamingFaultInstrumentationTest {
         Map<String, Object> copy = new HashMap<>();
         for (Map.Entry<String, ?> entry : c.getSharedPreferences(
                 PreferenceKeys.PREFERENCES_NAME, Context.MODE_PRIVATE).getAll().entrySet()) {
+            // A concurrent WorkManager inventory pass can update this nonportable cache.
+            // Compare every other preference, including absent keys and backup settings.
+            if (PreferenceKeys.KEY_NEW_APP_KNOWN_PACKAGES.equals(entry.getKey())) continue;
             Object value = entry.getValue();
             copy.put(entry.getKey(),
                     value instanceof Set ? new HashSet<>((Set<?>) value) : value);
