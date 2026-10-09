@@ -132,6 +132,9 @@ public final class NewAppSetupReviewInstrumentationTest {
             Spinner mode = settings.findViewById(R.id.new_app_setup_mode);
             Button next = settings.findViewById(R.id.new_app_setup_review_next);
             waitForEnabled(instrumentation, next);
+            // A pending count becomes visible on onResume before preset loading ends.
+            // Only change the mode after its asynchronous initialization is complete.
+            waitForSpinnerReady(instrumentation, mode);
             final int alternate = originalMode == 0 ? 1 : 0;
             instrumentation.runOnMainSync(() -> mode.setSelection(alternate));
             instrumentation.waitForIdleSync();
@@ -155,6 +158,19 @@ public final class NewAppSetupReviewInstrumentationTest {
             restore(context, SECOND, before.contains(SECOND));
             assertEquals(before, new HashSet<>(NewAppSetupStore.getPending(context)));
         }
+    }
+
+    private static void waitForSpinnerReady(Instrumentation instrumentation, Spinner spinner)
+            throws Exception {
+        long deadline = System.currentTimeMillis() + 8000L;
+        while (System.currentTimeMillis() < deadline) {
+            AtomicInteger ready = new AtomicInteger();
+            instrumentation.runOnMainSync(
+                    () -> ready.set(spinner.isEnabled() ? 1 : 0));
+            if (ready.get() == 1) return;
+            Thread.sleep(50L);
+        }
+        throw new AssertionError("New-app setup mode never finished initializing");
     }
 
     private static Button findRow(LinearLayout list, String packageName) {

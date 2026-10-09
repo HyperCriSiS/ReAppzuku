@@ -65,6 +65,9 @@ public class NewAppSetupSettingsActivity extends BaseActivity {
         overflowText = findViewById(R.id.new_app_setup_pending_overflow);
         reviewNext = findViewById(R.id.new_app_setup_review_next);
         executor = ((App) getApplication()).getSharedExecutor();
+        // The initial asynchronous preset fetch must not accept visible but ignored edits.
+        modeSpinner.setEnabled(false);
+        presetSpinner.setEnabled(false);
 
         modeSpinner.setAdapter(new ArrayAdapter<>(
                 this, android.R.layout.simple_spinner_dropdown_item,
@@ -164,6 +167,7 @@ public class NewAppSetupSettingsActivity extends BaseActivity {
                 presetSpinner.setSelection(selected, false);
                 selectedPresetPosition = selected;
                 bindingUi = false;
+                modeSpinner.setEnabled(true);
                 updatePresetEnabled();
                 updatePending();
             });
