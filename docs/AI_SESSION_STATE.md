@@ -340,6 +340,17 @@ An isolated debug-only WorkManager retry and successful resumed execution were v
 - Standard unit/lint/AndroidTest compile/Room schema/debug APK run `37861273310` PASSED (functional code on source-identical `4beba5e`). Functional final-head CodeQL `37861329026` PASSED. Require CodeQL on documentation-only head before squash merging.
 - Evidence boundary: **WorkManager scheduling + retry dispatch is real but the Worker is a synthetic debug-only worker**, not `NewAppInstallReconcileWorker` running with a real installed-app inventory. Still unproven: actual production worker retry after injected package-processing failure, exact 15-minute periodic execution, device/OEM LMK behavior, root/Shizuku, production signing and rollback.
 
+## Previous next work unit (backup-v7 coverage addressed by PR #97)
+
+Targeted malformed-v7 restore, private content-URI denial and first-commit rollback were verified on disposable emulators. Production-worker fault injection remains open.
+
+### Phase 10: non-destructive backup-v7 import and private URI boundaries (2026-10-09)
+
+- PR #97, branch `phase10/api24-api37-backup-v7-boundary`, adds a dedicated CI-gated Android instrumentation class plus an **androidTest-only nonexported ContentProvider**. It does not change the production Java code, production manifest, permissions, Room schema, dependency versions, keys or release signing.
+- The first test feeds truncated JSON, missing/inconsistent v7 Phase9 sections and invalid fields to `BackupManager.restoreBackupJson`, expecting rejection **before any durable commit** and asserting unchanged complete SharedPreferences key/value snapshots plus unchanged Room policy/preset counts. The private URI test verifies the target app cannot read or write a `content://` provider in the separately installed test APK (different UID, `exported=false`); existing preferences remain unchanged. The rollback test injects a fault at `AFTER_MAIN_COMMIT` during a structurally valid v7 import and verifies all original preference values/key presence and unchanged Room row counts. No `clear()`, package uninstall or blanket Room delete occurs in the three new probes.
+- Evidence: branch-exact standard unit/lint/AndroidTest/schema/APK `37864010656` SUCCESS and tested-source CodeQL `37864004476` SUCCESS; Android 7/API24 workflow `37864015667` SUCCESS including the dedicated three tests plus preserved same-key update, wrong-signer and downgrade rejection; Android 17/API37 targeted workflow `37864020498` SUCCESS, `OK (3 tests)`, followed by unchanged security-probe and launcher checks. Check final **documentation-head CodeQL** before merging.
+- Scope boundary: source-format and test-provider permission denial plus rollback immediately after MAIN commit, not a full SAF/DocumentsUI permission flow, provider failures after partial successful bytes, physical/OEM grant handling, or newly tested after-Phase9-DB rollback. The previously existing destructive-isolated `Phase9BackupRestoreTest` covers the deeper rollback independently, but its fixture is not reused here.
+
 ## Next work unit
 
-Phase 10 follow-up: decide whether a safe injectable, non-privileged test seam for production NewAppInstallReconcileWorker is worth the change, or independently test backup-v7 malformed streams, content-URI permission failures and restore rollback without deleting user data. Keep distinct small PRs and document evidence boundaries.
+Choose one bounded, non-destructive follow-up: SAF/content provider partial-read fault with a test-only exported restricted provider on API24/API37, or an injection seam for the real NewAppInstallReconcileWorker; avoid broad CI scans and real privileged operations.

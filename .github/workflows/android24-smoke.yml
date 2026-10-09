@@ -183,6 +183,23 @@ jobs:
           ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-api24-instrumentation.txt
           echo 'API24_LOCAL_PERSISTENCE_PASS'
 
+      - name: Verify v7 backup rejection rollback and denied content URI on API 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e ci_backup_v7_boundary verify \
+            -e class 'com.gree1d.reappzuku.core.Api24Api37BackupV7BoundaryInstrumentationTest' "$INSTRUMENTATION" |
+            tee /tmp/api24-backup-v7-boundary.txt
+          grep -Fq 'OK (3 tests)' /tmp/api24-backup-v7-boundary.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api24-backup-v7-boundary.txt
+          echo 'API24_BACKUP_V7_BOUNDARY_PASS'
+
       - name: Prove persisted WorkManager identity across actual app process death
         shell: bash
         run: |
