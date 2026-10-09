@@ -23,7 +23,9 @@ public final class NewAppSetupCoordinator {
         AppDatabase db = AppDatabase.getInstance(context);
         boolean queued = NewAppSetupStore.isPending(context, packageName);
         AppPolicy existing = db.appPolicyDao().getByPackage(packageName);
-        boolean explicitlyConfigured = isCompletedExplicitSetup(existing, queued);
+        boolean explicitlyConfigured = existing != null
+                && existing.source == AppPolicy.SOURCE_EXPLICIT
+                && isCompletedExplicitSetup(existing, queued);
         if (explicitlyConfigured) {
             clearPendingBeforeCancel(
                     () -> NewAppSetupStore.removePending(context, packageName),
