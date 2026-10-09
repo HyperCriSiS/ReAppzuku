@@ -66,9 +66,10 @@ public final class NewAppSetupCoordinator {
                 break;
             case NewAppSetupPolicy.ACTION_QUEUE_PRESET_MISSING:
             case NewAppSetupPolicy.ACTION_QUEUE_UNMANAGED:
-                ensureExplicitUnmanaged(db, packageName);
-                NewAppSetupStore.addPending(context, packageName);
-                NewAppSetupNotifier.notifyNeedsSetup(context, packageName);
+                queueBeforePolicy(
+                        () -> NewAppSetupStore.addPending(context, packageName),
+                        () -> ensureExplicitUnmanaged(db, packageName),
+                        () -> NewAppSetupNotifier.notifyNeedsSetup(context, packageName));
                 break;
             case NewAppSetupPolicy.ACTION_LEAVE_UNMANAGED:
                 ensureExplicitUnmanaged(db, packageName);
@@ -84,6 +85,21 @@ public final class NewAppSetupCoordinator {
                 break;
         }
         SmartLifecycleWorker.reconcilePeriodic(context);
+    }
+
+    /**
+     * The durable pending marker is the recovery anchor for Ask/preset-missing.
+     * An explicit unmanaged Room row must never be created before its pending
+     * marker can be committed: otherwise a retry sees SOURCE_EXPLICIT + !queued
+     * and incorrectly concludes the user already configured the app.
+     *
+     * Do not emit a notification until both durable operations succeeded.
+     */
+    static void queueBeforePolicy(Runnable persistPending, Runnable ensureUnmanaged,
+            Runnable notifyUser) {
+        persistPending.run();
+        ensureUnmanaged.run();
+        notifyUser.run();
     }
 
     private static void ensureExplicitUnmanaged(AppDatabase db, String packageName) {
