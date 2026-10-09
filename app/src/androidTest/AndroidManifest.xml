@@ -5,5 +5,11 @@
             android:name="com.gree1d.reappzuku.core.PrivateBackupProbeProvider"
             android:authorities="com.gree1d.reappzuku.test.privatebackup"
             android:exported="false" />
+        <!-- Synthetic read-only fixtures: exported only by the disposable test APK. -->
+        <provider
+            android:name="com.gree1d.reappzuku.core.FaultyBackupStreamProvider"
+            android:authorities="com.gree1d.reappzuku.test.streamfault"
+            android:grantUriPermissions="false"
+            android:exported="true" />
     </application>
 </manifest>

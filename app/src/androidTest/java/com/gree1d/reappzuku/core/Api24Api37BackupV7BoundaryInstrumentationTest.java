@@ -129,6 +129,9 @@ public final class Api24Api37BackupV7BoundaryInstrumentationTest {
     private static Map<String, Object> snapshot(SharedPreferences prefs) {
         Map<String, Object> copy = new HashMap<>();
         for (Map.Entry<String, ?> e : prefs.getAll().entrySet()) {
+            // Periodic inventory reconciliation may populate this non-backup key asynchronously.
+            // All portable configuration fields must still match exactly.
+            if (PreferenceKeys.KEY_NEW_APP_KNOWN_PACKAGES.equals(e.getKey())) continue;
             Object x = e.getValue();
             copy.put(e.getKey(), x instanceof Set ? new HashSet<>((Set<?>) x) : x);
         }

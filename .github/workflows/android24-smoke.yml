@@ -200,6 +200,23 @@ jobs:
           ! grep -Fq 'FAILURES!!!' /tmp/api24-backup-v7-boundary.txt
           echo 'API24_BACKUP_V7_BOUNDARY_PASS'
 
+      - name: Verify partial content URI failure and v7 rollback safety on API 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e ci_backup_v7_stream verify \
+            -e class 'com.gree1d.reappzuku.core.Api24Api37BackupV7StreamingFaultInstrumentationTest' "$INSTRUMENTATION" |
+            tee /tmp/api24-backup-v7-stream.txt
+          grep -Fq 'OK (3 tests)' /tmp/api24-backup-v7-stream.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api24-backup-v7-stream.txt
+          echo 'API24_BACKUP_V7_STREAM_ABORT_PASS'
+
       - name: Prove persisted WorkManager identity across actual app process death
         shell: bash
         run: |
