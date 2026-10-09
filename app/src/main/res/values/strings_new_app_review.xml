@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="new_app_setup_next_app">Next in queue: %1$s</string>
+    <string name="new_app_setup_review_app">Review %1$s</string>
+    <string name="new_app_setup_more_pending">%1$d more apps awaiting setup</string>
+    <string name="new_app_setup_pending_reprocess_title">Apply to pending apps?</string>
+    <string name="new_app_setup_pending_reprocess_message">%1$d pending apps will be re-evaluated immediately using the new setting. Some may receive an automatic lifecycle policy or be removed from the review queue.</string>
+    <string name="new_app_setup_pending_reprocess_confirm">Apply to pending apps</string>
+</resources>

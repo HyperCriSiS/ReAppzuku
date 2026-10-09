@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="new_app_setup_next_app">Наступний у черзі: %1$s</string>
+    <string name="new_app_setup_review_app">Налаштувати %1$s</string>
+    <string name="new_app_setup_more_pending">Ще %1$d застосунків очікують налаштування</string>
+    <string name="new_app_setup_pending_reprocess_title">Застосувати до застосунків у черзі?</string>
+    <string name="new_app_setup_pending_reprocess_message">%1$d застосунків у черзі буде негайно перевірено за новим параметром. Деякі можуть отримати автоматичну політику або бути вилучені з черги.</string>
+    <string name="new_app_setup_pending_reprocess_confirm">Застосувати до черги</string>
+</resources>

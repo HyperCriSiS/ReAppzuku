@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="new_app_setup_next_app">队列中的下一个：%1$s</string>
+    <string name="new_app_setup_review_app">配置 %1$s</string>
+    <string name="new_app_setup_more_pending">还有 %1$d 个应用等待设置</string>
+    <string name="new_app_setup_pending_reprocess_title">应用到待处理应用？</string>
+    <string name="new_app_setup_pending_reprocess_message">将立即按新设置重新评估 %1$d 个待处理应用。部分应用可能自动获得生命周期策略或从待审核队列移除。</string>
+    <string name="new_app_setup_pending_reprocess_confirm">应用到待处理应用</string>
+</resources>

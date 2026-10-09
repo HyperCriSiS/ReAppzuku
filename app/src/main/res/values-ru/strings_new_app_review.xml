@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="new_app_setup_next_app">Следующее в очереди: %1$s</string>
+    <string name="new_app_setup_review_app">Настроить %1$s</string>
+    <string name="new_app_setup_more_pending">Ещё %1$d приложений ожидают настройки</string>
+    <string name="new_app_setup_pending_reprocess_title">Применить к ожидающим приложениям?</string>
+    <string name="new_app_setup_pending_reprocess_message">%1$d ожидающих приложений будут немедленно пересмотрены с новым параметром. Некоторым может быть назначена автоматическая политика или они будут удалены из очереди.</string>
+    <string name="new_app_setup_pending_reprocess_confirm">Применить к ожидающим</string>
+</resources>

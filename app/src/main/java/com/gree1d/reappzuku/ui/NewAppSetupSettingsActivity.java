@@ -1,6 +1,10 @@
 package com.gree1d.reappzuku.ui;
 
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.widget.LinearLayout;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import android.os.Bundle;
 import android.view.MenuItem;
 import android.view.View;
@@ -17,6 +21,7 @@ import com.gree1d.reappzuku.core.BaseActivity;
 import com.gree1d.reappzuku.core.NewAppSetupCoordinator;
 import com.gree1d.reappzuku.core.NewAppSetupPolicy;
 import com.gree1d.reappzuku.core.NewAppSetupStore;
+import com.gree1d.reappzuku.core.NewAppSetupReviewPolicy;
 import com.gree1d.reappzuku.core.PolicyPresetSeeder;
 import com.gree1d.reappzuku.db.AppDatabase;
 import com.gree1d.reappzuku.db.PolicyPreset;
@@ -30,6 +35,12 @@ public class NewAppSetupSettingsActivity extends BaseActivity {
     private Spinner modeSpinner;
     private Spinner presetSpinner;
     private TextView pendingText;
+    private TextView nextAppText;
+    private TextView overflowText;
+    private LinearLayout pendingApps;
+    private int selectedModePosition = -1;
+    private int selectedPresetPosition = -1;
+    private boolean changeDialogOpen;
     private Button reviewNext;
     private ExecutorService executor;
     private boolean bindingUi = true;
@@ -49,6 +60,9 @@ public class NewAppSetupSettingsActivity extends BaseActivity {
         modeSpinner = findViewById(R.id.new_app_setup_mode);
         presetSpinner = findViewById(R.id.new_app_setup_preset);
         pendingText = findViewById(R.id.new_app_setup_pending);
+        nextAppText = findViewById(R.id.new_app_setup_next_app);
+        pendingApps = findViewById(R.id.new_app_setup_pending_apps);
+        overflowText = findViewById(R.id.new_app_setup_pending_overflow);
         reviewNext = findViewById(R.id.new_app_setup_review_next);
         executor = ((App) getApplication()).getSharedExecutor();
 
@@ -61,27 +75,51 @@ public class NewAppSetupSettingsActivity extends BaseActivity {
                 }));
 
         modeSpinner.setOnItemSelectedListener(new SimpleItemSelectedListener(position -> {
-            if (bindingUi) return;
-            NewAppSetupStore.setMode(this, position);
-            updatePresetEnabled();
-            replayPending();
+            if (bindingUi || position == selectedModePosition || changeDialogOpen) return;
+            final int previous = selectedModePosition;
+            if (NewAppSetupReviewPolicy.confirmModeChange(
+                    previous, position, NewAppSetupStore.getPending(this).size())) {
+                confirmPendingReplay(() -> {
+                    selectedModePosition = position;
+                    NewAppSetupStore.setMode(this, position);
+                    updatePresetEnabled();
+                    replayPending();
+                }, () -> restoreSelection(modeSpinner, previous));
+            } else {
+                selectedModePosition = position;
+                NewAppSetupStore.setMode(this, position);
+                updatePresetEnabled();
+                replayPending();
+            }
         }));
 
         presetSpinner.setOnItemSelectedListener(new SimpleItemSelectedListener(position -> {
-            if (bindingUi || position < 0 || position >= presets.size()) return;
-            NewAppSetupStore.setDefaultPresetId(this, presets.get(position).id);
-            if (NewAppSetupStore.getMode(this)
-                    == NewAppSetupPolicy.MODE_APPLY_DEFAULT_PRESET) {
-                replayPending();
+            if (bindingUi || changeDialogOpen || position == selectedPresetPosition
+                    || position < 0 || position >= presets.size()) return;
+            int previous = selectedPresetPosition;
+            long newPresetId = presets.get(position).id;
+            if (NewAppSetupReviewPolicy.confirmPresetChange(
+                    NewAppSetupStore.getMode(this),
+                    NewAppSetupStore.getDefaultPresetId(this),
+                    newPresetId, NewAppSetupStore.getPending(this).size())) {
+                confirmPendingReplay(() -> {
+                    selectedPresetPosition = position;
+                    NewAppSetupStore.setDefaultPresetId(this, newPresetId);
+                    replayPending();
+                }, () -> restoreSelection(presetSpinner, previous));
+            } else {
+                selectedPresetPosition = position;
+                NewAppSetupStore.setDefaultPresetId(this, newPresetId);
             }
         }));
 
         reviewNext.setOnClickListener(v -> {
             List<String> pending = NewAppSetupStore.getPending(this);
-            if (pending.isEmpty()) return;
-            Intent intent = new Intent(this, AppPolicyEditorActivity.class);
-            intent.putExtra(AppPolicyEditorActivity.EXTRA_PACKAGE_NAME, pending.get(0));
-            startActivity(intent);
+            if (pending.isEmpty()) {
+                updatePending();
+                return;
+            }
+            openPendingApp(pending.get(0));
         });
 
         loadPresets();
@@ -101,7 +139,8 @@ public class NewAppSetupSettingsActivity extends BaseActivity {
     }
 
     private void loadPresets() {
-        modeSpinner.setSelection(NewAppSetupStore.getMode(this), false);
+        selectedModePosition = NewAppSetupStore.getMode(this);
+        modeSpinner.setSelection(selectedModePosition, false);
         executor.execute(() -> {
             AppDatabase db = AppDatabase.getInstance(this);
             PolicyPresetSeeder.seedBuiltIns(db);
@@ -123,6 +162,7 @@ public class NewAppSetupSettingsActivity extends BaseActivity {
                     }
                 }
                 presetSpinner.setSelection(selected, false);
+                selectedPresetPosition = selected;
                 bindingUi = false;
                 updatePresetEnabled();
                 updatePending();
@@ -149,16 +189,100 @@ public class NewAppSetupSettingsActivity extends BaseActivity {
     }
 
     private void updatePending() {
-        int count = NewAppSetupStore.getPending(this).size();
+        if (isFinishing() || isDestroyed()) return;
+        List<String> pending = NewAppSetupStore.getPending(this);
+        int count = pending.size();
         pendingText.setText(getString(R.string.new_app_setup_pending_count, count));
         reviewNext.setEnabled(count > 0);
         reviewNext.setAlpha(count > 0 ? 1.0f : 0.5f);
+        nextAppText.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
+        pendingApps.removeAllViews();
+        if (count > 0) {
+            nextAppText.setText(getString(R.string.new_app_setup_next_app,
+                    displayAppLabel(pending.get(0))));
+        }
+        // Bound the number of view allocations for a large restored queue.
+        for (String packageName : NewAppSetupReviewPolicy.preview(pending)) {
+            Button row = new Button(this);
+            row.setAllCaps(false);
+            String description = getString(
+                    R.string.new_app_setup_review_app, displayAppLabel(packageName));
+            row.setText(description);
+            row.setContentDescription(description);
+            row.setMinHeight(Math.round(48 * getResources().getDisplayMetrics().density));
+            row.setOnClickListener(v -> openPendingApp(packageName));
+            pendingApps.addView(row, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
+        }
+        int remaining = count - NewAppSetupReviewPolicy.preview(pending).size();
+        overflowText.setVisibility(remaining > 0 ? View.VISIBLE : View.GONE);
+        if (remaining > 0) {
+            overflowText.setText(getString(R.string.new_app_setup_more_pending, remaining));
+        }
+    }
+
+    private String displayAppLabel(String packageName) {
+        try {
+            ApplicationInfo info = getPackageManager().getApplicationInfo(packageName, 0);
+            CharSequence name = getPackageManager().getApplicationLabel(info);
+            if (name != null && name.length() > 0
+                    && !name.toString().equals(packageName)) {
+                return name + " (" + packageName + ")";
+            }
+        } catch (PackageManager.NameNotFoundException ignored) {
+            // A pending package may have been removed before durable reconciliation.
+        }
+        return packageName;
+    }
+
+    private void openPendingApp(String packageName) {
+        // Another activity or Worker may have resolved the item since it was drawn.
+        if (!NewAppSetupStore.isPending(this, packageName)) {
+            updatePending();
+            return;
+        }
+        Intent intent = new Intent(this, AppPolicyEditorActivity.class);
+        intent.putExtra(AppPolicyEditorActivity.EXTRA_PACKAGE_NAME, packageName);
+        startActivity(intent);
+    }
+
+    private void restoreSelection(Spinner spinner, int position) {
+        bindingUi = true;
+        spinner.setSelection(position, false);
+        bindingUi = false;
+        updatePresetEnabled();
+    }
+
+    private void confirmPendingReplay(Runnable confirmed, Runnable cancelled) {
+        changeDialogOpen = true;
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.new_app_setup_pending_reprocess_title)
+                .setMessage(getString(R.string.new_app_setup_pending_reprocess_message,
+                        NewAppSetupStore.getPending(this).size()))
+                .setPositiveButton(R.string.new_app_setup_pending_reprocess_confirm,
+                        (dialog, which) -> {
+                            changeDialogOpen = false;
+                            confirmed.run();
+                        })
+                .setNegativeButton(android.R.string.cancel,
+                        (dialog, which) -> {
+                            changeDialogOpen = false;
+                            cancelled.run();
+                        })
+                .setOnCancelListener(dialog -> {
+                    changeDialogOpen = false;
+                    cancelled.run();
+                })
+                .show();
     }
 
     private void replayPending() {
         executor.execute(() -> {
             NewAppSetupCoordinator.replayPending(this);
-            runOnUiThread(this::updatePending);
+            runOnUiThread(() -> {
+                if (!isFinishing() && !isDestroyed()) updatePending();
+            });
         });
     }
 

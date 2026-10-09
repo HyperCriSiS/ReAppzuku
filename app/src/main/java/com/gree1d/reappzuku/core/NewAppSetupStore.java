@@ -91,11 +91,9 @@ public final class NewAppSetupStore {
 
     public static List<String> getPending(Context context) {
         synchronized (LOCK) {
-            List<String> result = new ArrayList<>(
+            return NewAppSetupReviewPolicy.sortedSnapshot(
                     prefs(context).getStringSet(
                             KEY_NEW_APP_SETUP_QUEUE, Collections.emptySet()));
-            Collections.sort(result, String.CASE_INSENSITIVE_ORDER);
-            return result;
         }
     }
 }
