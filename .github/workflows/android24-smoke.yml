@@ -344,6 +344,10 @@ jobs:
         shell: bash
         run: bash scripts/tests/ci-real-reconcile-worker-retry.sh
 
+      - name: Verify failed package handler triggers actual WorkManager retry on API 24
+        shell: bash
+        run: bash scripts/tests/ci-package-handler-retry.sh
+
       - name: Seed canonical policy and preferences before an in-place update
         shell: bash
         run: |

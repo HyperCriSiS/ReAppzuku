@@ -78,6 +78,14 @@ public final class NewAppInstallMonitor {
 
     public static void reconcileInstalledPackages(Context context) {
         Context appContext = context.getApplicationContext();
+        reconcileInstalledPackages(appContext,
+                packageName -> NewAppSetupCoordinator.handlePackageAdded(appContext, packageName));
+    }
+
+    // The handler overload also allows a narrowly scoped debug-only fault at the
+    // per-package dispatch boundary. Normal/release callers use the method above.
+    public static void reconcileInstalledPackages(Context context, PackageHandler handler) {
+        Context appContext = context.getApplicationContext();
         SharedPreferences prefs = appContext.getSharedPreferences(
                 PREFERENCES_NAME, Context.MODE_PRIVATE);
         Set<String> current = readInstalledPackages(appContext);
@@ -98,15 +106,7 @@ public final class NewAppInstallMonitor {
         }
 
         Set<String> added = findNewPackages(known, current);
-        Set<String> completed = new HashSet<>();
-        for (String packageName : added) {
-            try {
-                NewAppSetupCoordinator.handlePackageAdded(appContext, packageName);
-                completed.add(packageName);
-            } catch (RuntimeException ignored) {
-                // Leave the package absent from the inventory so the next reconciliation retries.
-            }
-        }
+        PackagePass pass = processNewPackages(added, handler);
 
         synchronized (LOCK) {
             // Refresh the package snapshot while holding the same lock used by live-broadcast
@@ -116,11 +116,50 @@ public final class NewAppInstallMonitor {
             Set<String> latest = prefs.getStringSet(
                     KEY_NEW_APP_KNOWN_PACKAGES, Collections.emptySet());
             Set<String> updated = mergeKnownAfterPass(
-                    latest, known, completed, latestCurrent);
+                    latest, known, pass.completed, latestCurrent);
             if (!prefs.edit().putStringSet(KEY_NEW_APP_KNOWN_PACKAGES, updated).commit()) {
                 throw new IllegalStateException("Could not update new-app inventory");
             }
         }
+        // Commit successful package outcomes BEFORE returning failure to WorkManager.
+        // A transient handler failure then retries with backoff rather than waiting
+        // for the next periodic interval; completed packages stay recorded.
+        if (pass.failedCount > 0) {
+            throw new IllegalStateException(
+                    "New-app reconciliation failed for " + pass.failedCount + " package(s)");
+        }
+    }
+
+    @FunctionalInterface
+    public interface PackageHandler {
+        void handle(String packageName);
+    }
+
+    static final class PackagePass {
+        final Set<String> completed;
+        final int failedCount;
+
+        private PackagePass(Set<String> completed, int failedCount) {
+            this.completed = Collections.unmodifiableSet(new HashSet<>(completed));
+            this.failedCount = failedCount;
+        }
+    }
+
+    // Pure, package-local processing for deterministic partial-failure tests.
+    // Do not expose package identifiers or handler exceptions to logs.
+    static PackagePass processNewPackages(Set<String> added, PackageHandler handler) {
+        Set<String> completed = new HashSet<>();
+        int failures = 0;
+        for (String packageName : added) {
+            try {
+                handler.handle(packageName);
+                completed.add(packageName);
+            } catch (RuntimeException ignored) {
+                // Keep processing unrelated packages; retry this one next pass.
+                failures++;
+            }
+        }
+        return new PackagePass(completed, failures);
     }
 
     static Set<String> findNewPackages(Set<String> known, Set<String> current) {
