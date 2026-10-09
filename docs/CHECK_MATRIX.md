@@ -4,6 +4,12 @@
 >
 > Historical audit baseline: `main` as of 2026-09-21. Current evidence refresh: 2026-10-08; dated findings below remain audit history.
 
+## Phase 10 post-Phase9 Room-commit rollback evidence — 2026-10-09
+
+- PR #105 extends non-destructive v7 restoration fault coverage beyond `AFTER_MAIN_COMMIT`: a valid incoming backup adds one synthetic explicit unmanaged policy and flips a portable preference, a real `AFTER_PHASE9_DB_COMMIT` callback observes the newly committed policy, then throws; the rollback must remove it and precisely restore all original policy/preset Room columns, portable main preferences and both Automation Schedule stores.
+- Full API24 `37959472090`, targeted API37 `37959480269`, standard including release Java `37959461441`, and functional-head CodeQL `37959441221` were SUCCESS on `ee00f2ea`. No productive Java, manifest, schema, dependency or signing change.
+- Scope remains injected software failure after Room commit, **not** real flash/power-loss atomicity, physical/OEM variants or signed-release recovery. DocumentsUI user-grant/revocation remains untested in `docs/SAF_DOCUMENTSUI_ACCEPTANCE.md`.
+
 ## Phase 10 software-only SAF boundary evidence — 2026-10-09
 
 - PR #104 explicitly rejects `file://`, HTTP and malformed backup URIs before ContentResolver I/O and verifies that ordinary user-picker-style one-shot `content://` backup reads never silently acquire persisted URI grants. Negative tests deny private foreign-provider read/write and reject persistable grant take/release **without a prior user grant**, while preserving all portable preferences and existing policy/preset counts.
