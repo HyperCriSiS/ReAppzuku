@@ -24,6 +24,20 @@ public class AppPolicyListSourcePolicyTest {
     }
 
     @Test
+    public void bulkSelectionOnlyUsesFilteredVisibleRows() throws Exception {
+        String main = readRepositoryFile(
+                "app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java");
+        assertTrue(main.contains("AppListBulkSelectionPolicy.selectVisible(appsDataList);"));
+        int start = main.indexOf("private void selectAll()");
+        int end = main.indexOf("private void unselectAll()", start);
+        assertTrue(start >= 0 && end > start);
+        assertTrue(!main.substring(start, end).contains("fullAppsList"));
+        // Toolbar state is already derived from actual selection and should not
+        // be overwritten to "Deselect all" if visible rows were protected.
+        assertTrue(!main.substring(start, end).contains("setTitle("));
+    }
+
+    @Test
     public void snapshotUsesRuntimeMigrationBoundaryAndDurableSetupQueue() throws Exception {
         String snapshot = readRepositoryFile(
                 "app/src/main/java/com/gree1d/reappzuku/core/AppPolicyListSnapshot.java");
