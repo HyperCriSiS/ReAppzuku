@@ -120,8 +120,17 @@ public final class Api24Api37BackupV7BoundaryInstrumentationTest {
                         .put("default_preset_id", PolicyPresetSeeder.PRESET_BALANCED)
                         .put("pending", new JSONArray()));
     }
-    private static Context target() {
-        return InstrumentationRegistry.getInstrumentation().getTargetContext();
+    private static Context target() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        // App.onCreate processes migration, installed-package reconciliation and
+        // replayPending on a single executor. Let its startup tasks finish before
+        // taking a backup-integrity snapshot; otherwise the legitimate replay
+        // can remove a stale pending entry in the middle of this unrelated test.
+        App app = (App) context.getApplicationContext();
+        assertNotNull("Startup executor is required for a stable fixture",
+                app.getSharedExecutor());
+        app.getSharedExecutor().submit(() -> {}).get(60, java.util.concurrent.TimeUnit.SECONDS);
+        return context;
     }
     private static SharedPreferences preferences(Context c) {
         return c.getSharedPreferences(PreferenceKeys.PREFERENCES_NAME, Context.MODE_PRIVATE);
