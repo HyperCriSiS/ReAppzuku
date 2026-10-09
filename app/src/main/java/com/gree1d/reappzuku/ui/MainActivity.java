@@ -997,8 +997,8 @@ public class MainActivity extends BaseActivity {
             boolean failSafe = app.isProtected() || app.isPersistentApp();
             app.setPolicyListStatus(policySnapshot.resolveStatus(
                     app.getPackageName(), failSafe));
-        }
-    }
+        }    }
+
     private void applyLoadedAppsList(List<AppModel> result, Set<String> selectedPackages, boolean finished) {
         if (binding == null || isFinishing() || isDestroyed()) return;
 

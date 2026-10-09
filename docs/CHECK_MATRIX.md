@@ -4,6 +4,12 @@
 >
 > Historical audit baseline: `main` as of 2026-09-21. Current evidence refresh: 2026-10-08; dated findings below remain audit history.
 
+## Phase 10 main-list visible-only bulk selection — 2026-10-09
+
+- PR #107 corrects `MainActivity.selectAll()`: bulk selection now applies only to the currently filtered `appsDataList`, not the full inventory hidden behind search or Policy Status filters. It still excludes protected/whitelisted apps. Explicit prior selections persist until Deselect all. Toolbar Select/Deselect label remains derived from actual selection and is not forced to Deselect all when no visible row is selectable.
+- Four JVM tests + source-authoritative MainActivity delegation test passed; standard/release-Java `37966939829`, CodeQL `37966924070`, full API24 `37966948354`, targeted API37 with installed manifest/security probe and launcher `37967280592`: SUCCESS on source head `be9b94da`.
+- Boundary: JVM/source and general emulator regression evidence, **not** actual filtered-screen bulk taps, screen-reader/touch-target acceptance, OEM/physical or root/production signing. Empty/error-state UX remains open.
+
 ## Phase 10 Android-17 notification-denial fallback evidence — 2026-10-09
 
 - PR #106 uses a disposable Android 17/API37 emulator with a **real revoked `POST_NOTIFICATIONS` runtime grant** and an EXIT-trap restoration of its prior state. The test confirms that the notifier does not post, the installed test package remains queued, Settings shows the pending count, and Review next routes to Policy Editor without changing its policy. The original fixture queue/mode/policy are restored; no production Java/manifest changes.
