@@ -19,9 +19,31 @@ public class BootReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        if (intent == null) return;
         String action = intent.getAction();
         if (action == null) {
 
+            return;
+        }
+
+        // Android sends these protected broadcasts after clock/time-zone changes.
+        // Rebuild both wall-clock alarm families without starting AutoKill or
+        // Smart boot workers. The work is asynchronous to avoid receiver ANRs.
+        if (Intent.ACTION_TIME_CHANGED.equals(action)
+                || Intent.ACTION_TIMEZONE_CHANGED.equals(action)) {
+            PendingResult pending = goAsync();
+            try {
+                ((App) context.getApplicationContext()).getSharedExecutor().execute(() -> {
+                    try {
+                        RestrictionsScheduler.scheduleNextStatic(context);
+                        new PresetManager(context).restoreAfterBoot();
+                    } finally {
+                        pending.finish();
+                    }
+                });
+            } catch (RuntimeException rejected) {
+                pending.finish();
+            }
             return;
         }
 
