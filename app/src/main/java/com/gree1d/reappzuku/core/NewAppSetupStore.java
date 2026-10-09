@@ -51,10 +51,11 @@ public final class NewAppSetupStore {
         synchronized (LOCK) {
             Set<String> pending = new HashSet<>(
                     preferences.getStringSet(KEY_NEW_APP_SETUP_QUEUE, Collections.emptySet()));
-            if (pending.add(packageName)) {
-                requireCommit(preferences.edit()
-                        .putStringSet(KEY_NEW_APP_SETUP_QUEUE, pending).commit());
-            }
+            pending.add(packageName);
+            // commit(false) can still update SharedPreferences' in-memory map.
+            // Always retry a real disk commit, even if membership looks unchanged.
+            requireCommit(preferences.edit()
+                    .putStringSet(KEY_NEW_APP_SETUP_QUEUE, pending).commit());
         }
     }
 
@@ -67,10 +68,10 @@ public final class NewAppSetupStore {
         synchronized (LOCK) {
             Set<String> pending = new HashSet<>(
                     preferences.getStringSet(KEY_NEW_APP_SETUP_QUEUE, Collections.emptySet()));
-            if (pending.remove(packageName)) {
-                requireCommit(preferences.edit()
-                        .putStringSet(KEY_NEW_APP_SETUP_QUEUE, pending).commit());
-            }
+            pending.remove(packageName);
+            // A prior failed removal may look complete in memory but not on disk.
+            requireCommit(preferences.edit()
+                    .putStringSet(KEY_NEW_APP_SETUP_QUEUE, pending).commit());
         }
     }
 
