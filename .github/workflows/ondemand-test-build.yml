@@ -35,6 +35,8 @@ jobs:
         run: ./gradlew lintDebug
       - name: Compile instrumentation tests
         run: ./gradlew assembleDebugAndroidTest
+      - name: Compile release-variant Java without signing or publishing
+        run: ./gradlew :app:compileReleaseJavaWithJavac
       - name: Verify current Room schema export
         run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/13.json
       - name: Build debug APK
