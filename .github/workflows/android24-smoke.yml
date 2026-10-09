@@ -200,6 +200,22 @@ jobs:
           ! grep -Fq 'FAILURES!!!' /tmp/api24-backup-v7-boundary.txt
           echo 'API24_BACKUP_V7_BOUNDARY_PASS'
 
+      - name: Verify one-shot SAF content URI and ungranted permission boundaries on API 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e ci_saf_uri_boundary verify \
+            -e class 'com.gree1d.reappzuku.core.Api24Api37SafUriBoundaryInstrumentationTest' "$INSTRUMENTATION" |
+            tee /tmp/api24-saf-uri-boundary.txt
+          grep -Fq 'OK (4 tests)' /tmp/api24-saf-uri-boundary.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api24-saf-uri-boundary.txt
+
       - name: Verify partial content URI failure and v7 rollback safety on API 24
         shell: bash
         run: |
