@@ -65,6 +65,7 @@ import com.gree1d.reappzuku.core.BackgroundWorkPolicy;
 import com.gree1d.reappzuku.core.AppPolicyListSnapshot;
 import com.gree1d.reappzuku.core.AppPolicyListState;
 import com.gree1d.reappzuku.core.AppListBulkSelectionPolicy;
+import com.gree1d.reappzuku.core.AppListEmptyStatePolicy;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.manager.AutoKillManager;
@@ -96,6 +97,7 @@ public class MainActivity extends BaseActivity {
     private final List<AppModel> appsDataList = new ArrayList<>();
     private final List<AppModel> fullAppsList = new ArrayList<>();
     private String currentSearchQuery = "";
+    private boolean hasCompletedAppLoad = false;
     private int currentSortMode = AppConstants.SORT_MODE_DEFAULT;
     private int currentPolicyFilterMask = AppPolicyListState.FILTER_NONE;
     private MenuItem selectAllMenuItem;
@@ -797,8 +799,7 @@ public class MainActivity extends BaseActivity {
                 return;
         }
 
-        boolean wasInList = currentSet.contains(packageName);
-        if (wasInList) {
+        boolean wasInList = currentSet.contains(packageName);        if (wasInList) {
             currentSet.remove(packageName);
         } else {
             currentSet.add(packageName);
@@ -953,6 +954,8 @@ public class MainActivity extends BaseActivity {
         // Permission is necessary but not sufficient for Shizuku. Every scan is
         // gated on an actually executable backend.
         if (!shellManager.isAnyShellReady()) {
+            hasCompletedAppLoad = false;
+            updateEmptyState();
             ShellBackendState state = shellManager.getBackendState();
 
             if (binding != null) binding.swiperefreshlayout1.setRefreshing(false);
@@ -965,7 +968,8 @@ public class MainActivity extends BaseActivity {
             return;
         }
         loadInFlight = true;
-
+        hasCompletedAppLoad = false;
+        updateEmptyState();
 
         binding.swiperefreshlayout1.setRefreshing(true);
 
@@ -1012,6 +1016,7 @@ public class MainActivity extends BaseActivity {
             }
         }
 
+        if (finished) hasCompletedAppLoad = true;
         filterApps(currentSearchQuery);
         binding.runningApps.setText(getString(R.string.main_active_apps_count, fullAppsList.size()));
         if (finished) {
@@ -1041,7 +1046,22 @@ public class MainActivity extends BaseActivity {
 
         appManager.sortAppList(appsDataList, currentSortMode);
         listAdapter.submitList(new ArrayList<>(appsDataList));
+        updateEmptyState();
         updateSelectMenuVisibility();
+    }
+
+    private void updateEmptyState() {
+        if (binding == null) return;
+        AppListEmptyStatePolicy.State state = AppListEmptyStatePolicy.resolve(
+                hasCompletedAppLoad, fullAppsList.size(), appsDataList.size());
+        if (state == AppListEmptyStatePolicy.State.HIDDEN) {
+            binding.mainListEmptyState.setVisibility(View.GONE);
+            return;
+        }
+        binding.mainListEmptyState.setText(state == AppListEmptyStatePolicy.State.NO_RUNNING_APPS
+                ? R.string.main_list_empty_running
+                : R.string.main_list_empty_filtered);
+        binding.mainListEmptyState.setVisibility(View.VISIBLE);
     }
 
     private void killSelectedApps() {
