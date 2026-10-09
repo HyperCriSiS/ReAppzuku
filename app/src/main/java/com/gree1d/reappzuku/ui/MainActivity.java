@@ -898,6 +898,7 @@ public class MainActivity extends BaseActivity {
         }
         return getString(R.string.main_restriction_menu_default);
     }
+
     private void showShellAccessUnavailable() {
         if (binding == null || isFinishing() || isDestroyed()) return;
         if (shellAccessSnackbar != null && shellAccessSnackbar.isShown()) return;
