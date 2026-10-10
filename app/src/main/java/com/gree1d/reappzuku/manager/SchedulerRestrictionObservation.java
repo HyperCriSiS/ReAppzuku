@@ -22,7 +22,7 @@ import java.util.Set;
 public final class SchedulerRestrictionObservation {
     private SchedulerRestrictionObservation() {}
 
-    public enum Status { COMPLETE, INVALID_INPUT, UNREADABLE, UNSUPPORTED_VALUE }
+    public enum Status { COMPLETE, INVALID_INPUT, BACKEND_NOT_READY, UNREADABLE, UNSUPPORTED_VALUE }
     public enum AppOpMode { ALLOW, IGNORE, DEFAULT, FOREGROUND, ERRORED, ASK }
     public enum WhitelistKind { NONE, USER, SYSTEM, BOTH }
 
@@ -72,6 +72,10 @@ public final class SchedulerRestrictionObservation {
         }
     }
 
+    public static Result notReady() {
+        return failed(Status.BACKEND_NOT_READY);
+    }
+
     private static Result failed(Status reason) {
         return new Result(reason, null);
     }
@@ -83,8 +87,8 @@ public final class SchedulerRestrictionObservation {
      */
     public static Result capture(String packageName, String[] supportedOps, Source source) {
         if (!PackageNameValidator.isValid(packageName) || source == null
-                || supportedOps == null || supportedOps.length == 0
-                || supportedOps.length > BackgroundAppManager.ALL_OPS.length) {
+                || supportedOps == null
+                || supportedOps.length > 16) {
             return failed(Status.INVALID_INPUT);
         }
         Set<String> seen = new HashSet<>();

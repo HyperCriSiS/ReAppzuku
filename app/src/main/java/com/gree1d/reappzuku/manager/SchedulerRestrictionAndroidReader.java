@@ -40,8 +40,7 @@ public final class SchedulerRestrictionAndroidReader
      */
     public SchedulerRestrictionObservation.Result observe(String packageName) {
         if (!shell.isAnyShellReady()) {
-            return SchedulerRestrictionObservation.capture(
-                    packageName, new String[]{}, this);
+            return SchedulerRestrictionObservation.notReady();
         }
         List<String> supported = new ArrayList<>();
         for (int i = 0; i < BackgroundAppManager.ALL_OPS.length; i++) {
@@ -77,7 +76,8 @@ public final class SchedulerRestrictionAndroidReader
         try {
             // minSdk 24 provides isPackageSuspended; it can throw if invisible.
             return packageManager.isPackageSuspended(packageName);
-        } catch (IllegalArgumentException | SecurityException failure) {
+        } catch (IllegalArgumentException | PackageManager.NameNotFoundException
+                 | SecurityException failure) {
             return null;
         }
     }
