@@ -13,6 +13,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.Collections;
+import java.lang.reflect.Proxy;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Disposable API 24/37 real SharedPreferences verification; no app policies,
@@ -22,6 +25,69 @@ import java.util.Collections;
 public final class SchedulerRecoveryJournalInstrumentationTest {
     private static final String TEST_FILE = "scheduler_recovery_ci_journal_only";
     private static final String PROCESS_FILE = "scheduler_recovery_ci_process_only";
+
+    @Test public void falseCommitPoisonsEveryAdapterForTheSamePreferenceObject() {
+        AtomicReference<String> memoryOnlyJournal = new AtomicReference<>();
+        AtomicInteger writes = new AtomicInteger();
+        // Test-only preferences implementation: commit(false) mutates its
+        // process-local value without acknowledging a durable disk write.
+        SharedPreferences prefs = (SharedPreferences) Proxy.newProxyInstance(
+                SharedPreferences.class.getClassLoader(),
+                new Class<?>[]{SharedPreferences.class},
+                (proxy, method, args) -> {
+                    switch (method.getName()) {
+                        case "hashCode":
+                            return System.identityHashCode(proxy);
+                        case "equals":
+                            return proxy == args[0];
+                        case "getString":
+                            return memoryOnlyJournal.get() == null
+                                    ? args[1] : memoryOnlyJournal.get();
+                        case "edit":
+                            return Proxy.newProxyInstance(
+                                    SharedPreferences.Editor.class.getClassLoader(),
+                                    new Class<?>[]{SharedPreferences.Editor.class},
+                                    (editorProxy, editorMethod, editorArgs) -> {
+                                        switch (editorMethod.getName()) {
+                                            case "putString":
+                                                memoryOnlyJournal.set((String) editorArgs[1]);
+                                                return editorProxy;
+                                            case "commit":
+                                                writes.incrementAndGet();
+                                                return false;
+                                            case "hashCode":
+                                                return System.identityHashCode(editorProxy);
+                                            case "equals":
+                                                return editorProxy == editorArgs[0];
+                                            default:
+                                                throw new AssertionError("unexpected editor operation");
+                                        }
+                                    });
+                        default:
+                            throw new AssertionError("unexpected preferences operation");
+                    }
+                });
+        SchedulerRecoverySharedPreferencesStore first =
+                new SchedulerRecoverySharedPreferencesStore(prefs);
+        SchedulerRecoverySharedPreferencesStore second =
+                new SchedulerRecoverySharedPreferencesStore(prefs);
+        SchedulerRecoveryTransaction.Record record = SchedulerRecoveryTransaction.prepare(
+                "com.example.recoveryfake", Collections.singleton(11L),
+                new SchedulerRecoveryTransaction.OriginalRestrictions(
+                        3, 40, false, false, true), 1);
+        assertFalse(first.commit(record));
+        assertEquals(1, writes.get());
+        assertTrue("failure may already be visible in prefs memory",
+                memoryOnlyJournal.get() != null);
+        assertTrue(second.isPoisoned());
+        assertThrows(IllegalStateException.class, second::snapshot);
+        SchedulerRecoverySharedPreferencesStore third =
+                new SchedulerRecoverySharedPreferencesStore(prefs);
+        assertTrue(third.isPoisoned());
+        assertFalse(third.commit(record));
+        assertEquals("no new attempt may follow a memory-only false commit",
+                1, writes.get());
+    }
 
     @Test public void synchronousReopenAndResolvedPrune() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
