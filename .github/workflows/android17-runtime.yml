@@ -351,6 +351,50 @@ jobs:
           ! grep -Fq 'FAILURES!!!' /tmp/scheduler-journal-verify.txt
           echo 'SCHEDULER_JOURNAL_REAL_PROCESS_DEATH_PASS'
 
+      - name: Prove RZJ2 durability across real app PID death
+        if: ${{ inputs.test_class == 'com.gree1d.reappzuku.manager.SchedulerRecoveryEvidenceV2InstrumentationTest' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG='com.gree1d.reappzuku'
+          CLASS='com.gree1d.reappzuku.manager.SchedulerRecoveryEvidenceV2InstrumentationTest'
+          INSTRUMENTATION="$(adb shell pm list instrumentation | tr -d '\r' |
+            sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' | head -n 1)"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e class "$CLASS#seedForRealProcessDeath" -e ci_recovery_v2_phase seed "$INSTRUMENTATION" | tee /tmp/rzj2-seed.txt
+          grep -Fq 'OK (1 test)' /tmp/rzj2-seed.txt
+          grep -Fq 'RECOVERY_V2_STATUS=SEEDED' /tmp/rzj2-seed.txt
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" >/tmp/rzj2-launch-before.txt 2>&1
+          old=''
+          for attempt in $(seq 1 15); do
+            old="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$old" =~ ^[0-9]+$ ]]; then break; fi
+            sleep 1
+          done
+          [[ "$old" =~ ^[0-9]+$ ]]
+          adb shell "run-as $PKG /system/bin/kill -9 $old"
+          for attempt in $(seq 1 20); do
+            current="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [ "$current" != "$old" ]; then break; fi
+            sleep 1
+          done
+          test "$current" != "$old"
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" >/tmp/rzj2-launch-after.txt 2>&1
+          new=''
+          for attempt in $(seq 1 20); do
+            new="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$new" =~ ^[0-9]+$ ]] && [ "$new" != "$old" ]; then break; fi
+            sleep 1
+          done
+          [[ "$new" =~ ^[0-9]+$ ]]
+          test "$new" != "$old"
+          echo "RZJ2_PID_CHANGED=$old->$new"
+          adb shell am instrument -w -r -e class "$CLASS#verifyAfterRealProcessDeath" -e ci_recovery_v2_phase verify "$INSTRUMENTATION" | tee /tmp/rzj2-verify.txt
+          grep -Fq 'OK (1 test)' /tmp/rzj2-verify.txt
+          grep -Fq 'RECOVERY_V2_STATUS=VERIFIED' /tmp/rzj2-verify.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/rzj2-verify.txt
+          echo 'RZJ2_REAL_PROCESS_DEATH_PASS'
+
       - name: Prove persisted WorkManager identity across actual app process death
         if: ${{ inputs.test_class == 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' }}
         shell: bash
