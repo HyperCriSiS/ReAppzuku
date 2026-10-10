@@ -1213,8 +1213,8 @@ public class BackgroundAppManager {
     public String liftRestrictionsForScheduler(String packageName) {
         if (!getBackgroundRestrictedApps().contains(packageName)) return "skipped";
         RestrictionType type = getRestrictionType(packageName);
-        resetBucket(packageName);
-        restoreBatteryWhitelist(packageName);
+        boolean bucketSucceeded = resetBucket(packageName);
+        boolean whitelistSucceeded = restoreBatteryWhitelist(packageName);
         int[] counts;
         switch (type) {
             case HARD:
@@ -1234,32 +1234,37 @@ public class BackgroundAppManager {
                 counts = ok ? new int[]{1, 0} : new int[]{0, 1};
                 break;
         }
-        if (counts[0] == 0) return "error";
-        if (counts[1] == 0) return "ok";
-        return "partial";
+        return SchedulerRestrictionOutcomePolicy.fromCounts(
+                counts, bucketSucceeded, whitelistSucceeded);
     }
 
 
     public String restoreRestrictionsForScheduler(String packageName) {
         if (!getBackgroundRestrictedApps().contains(packageName)) return "skipped";
         RestrictionType type = getRestrictionType(packageName);
+        boolean bucketSucceeded = true;
+        boolean whitelistSucceeded = true;
         int[] counts;
         switch (type) {
             case HARD:
                 counts = applyAllHardOps(packageName, "ignore");
-                applyBucket(packageName, STANDBY_BUCKET_RESTRICTED);
-                applyBatteryWhitelistRemoval(packageName);
+                bucketSucceeded = applyBucket(packageName, STANDBY_BUCKET_RESTRICTED);
+                whitelistSucceeded = applyBatteryWhitelistRemoval(packageName);
                 break;
             case MEDIUM:
                 counts = applyMediumOps(packageName, "ignore");
-                applyBucket(packageName, STANDBY_BUCKET_RARE);
+                bucketSucceeded = applyBucket(packageName, STANDBY_BUCKET_RARE);
                 break;
             case MANUAL:
                 int opsMask = getManualOpsMask(packageName);
                 counts = applyManualOps(packageName, opsMask, "ignore");
                 int manualBucket = getManualBucket(packageName);
-                if (manualBucket != 0) applyBucket(packageName, manualBucket);
-                if (getManualWhitelistRemoval(packageName)) applyBatteryWhitelistRemoval(packageName);
+                if (manualBucket != 0) {
+                    bucketSucceeded = applyBucket(packageName, manualBucket);
+                }
+                if (getManualWhitelistRemoval(packageName)) {
+                    whitelistSucceeded = applyBatteryWhitelistRemoval(packageName);
+                }
                 break;
             case SOFT:
             default:
@@ -1268,18 +1273,15 @@ public class BackgroundAppManager {
                 counts = ok ? new int[]{1, 0} : new int[]{0, 1};
                 break;
         }
-        if (counts[0] == 0) return "error";
-        if (counts[1] == 0) return "ok";
-        return "partial";
+        return SchedulerRestrictionOutcomePolicy.fromCounts(
+                counts, bucketSucceeded, whitelistSucceeded);
     }
 
 
-    private boolean isInBatteryWhitelist(String packageName) {
+    /** An unavailable shell response is unknown, not evidence of absence. */
+    private Boolean isInBatteryWhitelist(String packageName) {
         String output = shellManager.runShellCommandAndGetFullOutput("dumpsys deviceidle whitelist");
-        if (output == null) {
-
-            return false;
-        }
+        if (output == null || output.trim().isEmpty()) return null;
         for (String line : output.split("\n")) {
             String trimmed = line.trim();
             if (trimmed.startsWith("user,") && trimmed.contains("," + packageName + ",")) {
@@ -1289,29 +1291,35 @@ public class BackgroundAppManager {
         return false;
     }
 
-    private void applyBatteryWhitelistRemoval(String packageName) {
-        if (!isInBatteryWhitelist(packageName)) return;
+    private boolean applyBatteryWhitelistRemoval(String packageName) {
+        Boolean whitelisted = isInBatteryWhitelist(packageName);
+        if (whitelisted == null) return false;
+        if (!whitelisted) return true;
         ShellManager.ShellResult result = privilegedShell.updateDeviceIdleWhitelist(
                 packageName, PrivilegedShell.DeviceIdleWhitelistAction.REMOVE);
-        if (result.succeeded()) {
-            Set<String> removed = getBatteryWhitelistRemoved();
-            removed.add(packageName);
-            saveBatteryWhitelistRemoved(removed);
-            BackgroundRestrictionLog.log(context, packageName, "restrict-hard",
-                    "battery-whitelist-removed", "removed from deviceidle whitelist");
-        }
+        if (!result.succeeded()) return false;
+        Set<String> removed = getBatteryWhitelistRemoved();
+        removed.add(packageName);
+        saveBatteryWhitelistRemoved(removed);
+        BackgroundRestrictionLog.log(context, packageName, "restrict-hard",
+                "battery-whitelist-removed", "removed from deviceidle whitelist");
+        return true;
     }
 
-    private void restoreBatteryWhitelist(String packageName) {
+    private boolean restoreBatteryWhitelist(String packageName) {
         Set<String> removed = getBatteryWhitelistRemoved();
-        if (!removed.contains(packageName)) return;
-        privilegedShell.updateDeviceIdleWhitelist(
+        if (!removed.contains(packageName)) return true;
+        ShellManager.ShellResult result = privilegedShell.updateDeviceIdleWhitelist(
                 packageName, PrivilegedShell.DeviceIdleWhitelistAction.ADD);
+        if (!result.succeeded()) return false;
+        // Do not discard the durable ownership marker on a failed ADD.
         removed.remove(packageName);
         saveBatteryWhitelistRemoved(removed);
         BackgroundRestrictionLog.log(context, packageName, "allow",
                 "battery-whitelist-restored", "restored to deviceidle whitelist");
+        return true;
     }
+
 
     public void ensureBatteryWhitelistRestriction(String packageName) {
         applyBatteryWhitelistRemoval(packageName);
