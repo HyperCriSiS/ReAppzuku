@@ -299,6 +299,58 @@ jobs:
           ! grep -Fq 'FAILURES!!!' /tmp/api37-exact-alarm-granted.txt
           echo 'API37_EXACT_ALARM_DELAYED_GRANT_PASS'
 
+      - name: Prove scheduler journal survives real app PID death
+        if: ${{ inputs.test_class == 'com.gree1d.reappzuku.manager.SchedulerRecoveryJournalInstrumentationTest' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG='com.gree1d.reappzuku'
+          CLASS='com.gree1d.reappzuku.manager.SchedulerRecoveryJournalInstrumentationTest'
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' | head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e class "$CLASS#seedForProcessDeath" \
+            -e ci_scheduler_journal_phase seed "$INSTRUMENTATION" |
+            tee /tmp/scheduler-journal-seed.txt
+          grep -Fq 'OK (1 test)' /tmp/scheduler-journal-seed.txt
+          grep -Fq 'SCHEDULER_JOURNAL_STATUS=SEEDED' /tmp/scheduler-journal-seed.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/scheduler-journal-seed.txt
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" >/tmp/journal-launch-before.txt 2>&1
+          old=''
+          for attempt in $(seq 1 15); do
+            old="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$old" =~ ^[0-9]+$ ]]; then break; fi
+            sleep 1
+          done
+          [[ "$old" =~ ^[0-9]+$ ]]
+          adb shell "run-as $PKG /system/bin/kill -9 $old"
+          gone=0
+          for attempt in $(seq 1 20); do
+            pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [ "$pid" != "$old" ]; then gone=1; break; fi
+            sleep 1
+          done
+          test "$gone" -eq 1
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" >/tmp/journal-launch-after.txt 2>&1
+          new=''
+          for attempt in $(seq 1 20); do
+            new="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$new" =~ ^[0-9]+$ ]] && [ "$new" != "$old" ]; then break; fi
+            sleep 1
+          done
+          [[ "$new" =~ ^[0-9]+$ ]]
+          test "$new" != "$old"
+          echo "SCHEDULER_JOURNAL_PID_CHANGED=$old->$new"
+          adb shell am instrument -w -r -e class "$CLASS#verifyAfterProcessDeath" \
+            -e ci_scheduler_journal_phase verify "$INSTRUMENTATION" |
+            tee /tmp/scheduler-journal-verify.txt
+          grep -Fq 'OK (1 test)' /tmp/scheduler-journal-verify.txt
+          grep -Fq 'SCHEDULER_JOURNAL_STATUS=RECOVERED' /tmp/scheduler-journal-verify.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/scheduler-journal-verify.txt
+          echo 'SCHEDULER_JOURNAL_REAL_PROCESS_DEATH_PASS'
+
       - name: Prove persisted WorkManager identity across actual app process death
         if: ${{ inputs.test_class == 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' }}
         shell: bash
