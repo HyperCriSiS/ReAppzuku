@@ -180,6 +180,52 @@ public final class SchedulerRecoveryTransactionTest {
                 () -> SchedulerRecoveryTransaction.retryDelayMillis(0));
     }
 
+    @Test public void throwingStoreCannotExecutePrivilegedLift() {
+        AtomicInteger calls = new AtomicInteger();
+        assertEquals(SchedulerRecoveryTransaction.Outcome.PERSISTENCE_FAILED,
+                SchedulerRecoveryTransaction.beginLift(fresh(11L), record -> {
+                    throw new IllegalStateException("I/O failed");
+                }, () -> { calls.incrementAndGet(); return true; }));
+        assertEquals(0, calls.get());
+    }
+
+    @Test public void throwingLiftLeavesPersistedApplyingState() {
+        Disk disk = new Disk();
+        assertEquals(SchedulerRecoveryTransaction.Outcome.OPERATION_UNCERTAIN,
+                SchedulerRecoveryTransaction.beginLift(fresh(11L), disk,
+                        () -> { throw new IllegalStateException("backend lost"); }));
+        assertEquals(SchedulerRecoveryTransaction.Phase.APPLYING, disk.persisted.phase);
+    }
+
+    @Test public void throwingRestoreLeavesPersistedRestoringState() {
+        Disk disk = new Disk();
+        assertEquals(SchedulerRecoveryTransaction.Outcome.OPERATION_UNCERTAIN,
+                SchedulerRecoveryTransaction.restore(activeToRestore(), true, disk,
+                        () -> { throw new IllegalStateException("backend lost"); }));
+        assertEquals(SchedulerRecoveryTransaction.Phase.RESTORING, disk.persisted.phase);
+    }
+
+    @Test public void recordCopiesOwnersAndForbidsExternalMutation() {
+        Set<Long> original = new HashSet<>(Collections.singleton(11L));
+        SchedulerRecoveryTransaction.Record record = SchedulerRecoveryTransaction.prepare(
+                "com.example.target", original,
+                new SchedulerRecoveryTransaction.OriginalRestrictions(1, 40, false, false, true), 1);
+        original.clear();
+        assertEquals(Collections.singleton(11L), record.owners);
+        assertThrows(UnsupportedOperationException.class, () -> record.owners.clear());
+    }
+
+    @Test public void exhaustedSequenceCannotWrapOrApply() {
+        SchedulerRecoveryTransaction.Record record = SchedulerRecoveryTransaction.prepare(
+                "com.example.target", Collections.singleton(11L),
+                new SchedulerRecoveryTransaction.OriginalRestrictions(1, 40, false, false, true),
+                Long.MAX_VALUE);
+        Disk disk = new Disk();
+        assertThrows(IllegalStateException.class, () ->
+                SchedulerRecoveryTransaction.beginLift(record, disk, () -> true));
+        assertEquals(0, disk.writes);
+    }
+
     private static SchedulerRecoveryTransaction.Record activeToRestore() {
         Disk disk = new Disk();
         SchedulerRecoveryTransaction.beginLift(fresh(11L), disk, () -> true);

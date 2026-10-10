@@ -153,9 +153,9 @@ public final class SchedulerRecoveryTransaction {
     public static Outcome beginLift(Record record, DurableStore store, Operation lift) {
         require(record, Phase.PREPARED, store, lift);
         Record applying = record.next(record.owners, Phase.APPLYING);
-        if (!store.commit(applying)) return Outcome.PERSISTENCE_FAILED;
-        if (!lift.execute()) return Outcome.OPERATION_UNCERTAIN;
-        return store.commit(applying.next(applying.owners, Phase.ACTIVE))
+        if (!commitSafely(store, applying)) return Outcome.PERSISTENCE_FAILED;
+        if (!executeSafely(lift)) return Outcome.OPERATION_UNCERTAIN;
+        return commitSafely(store, applying.next(applying.owners, Phase.ACTIVE))
                 ? Outcome.COMPLETED : Outcome.PERSISTENCE_FAILED;
     }
 
@@ -168,13 +168,13 @@ public final class SchedulerRecoveryTransaction {
                                   DurableStore store, Operation operation) {
         require(record, Phase.RESTORE_REQUIRED, store, operation);
         if (!actualStateMatches) {
-            return store.commit(record.next(record.owners, Phase.REVIEW_REQUIRED))
+            return commitSafely(store, record.next(record.owners, Phase.REVIEW_REQUIRED))
                     ? Outcome.CONFLICT_REQUIRES_REVIEW : Outcome.PERSISTENCE_FAILED;
         }
         Record restoring = record.next(record.owners, Phase.RESTORING);
-        if (!store.commit(restoring)) return Outcome.PERSISTENCE_FAILED;
-        if (!operation.execute()) return Outcome.OPERATION_UNCERTAIN;
-        return store.commit(restoring.next(restoring.owners, Phase.RESOLVED))
+        if (!commitSafely(store, restoring)) return Outcome.PERSISTENCE_FAILED;
+        if (!executeSafely(operation)) return Outcome.OPERATION_UNCERTAIN;
+        return commitSafely(store, restoring.next(restoring.owners, Phase.RESOLVED))
                 ? Outcome.COMPLETED : Outcome.PERSISTENCE_FAILED;
     }
 
@@ -185,6 +185,24 @@ public final class SchedulerRecoveryTransaction {
             delay = Math.min(MAX_RETRY_MILLIS, delay * 2);
         }
         return delay;
+    }
+
+    // Runtime failures have the same indeterminate effects as boolean failures.
+    // In particular a failed persistence attempt may already change the visible map.
+    private static boolean commitSafely(DurableStore store, Record record) {
+        try {
+            return store.commit(record);
+        } catch (RuntimeException failure) {
+            return false;
+        }
+    }
+
+    private static boolean executeSafely(Operation operation) {
+        try {
+            return operation.execute();
+        } catch (RuntimeException failure) {
+            return false;
+        }
     }
 
     private static void require(Record record, Phase phase, DurableStore store, Operation op) {

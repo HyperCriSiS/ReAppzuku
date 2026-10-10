@@ -1,6 +1,6 @@
 # Phase 11 — fail-safe Restrictions Scheduler recovery design
 
-Status: design only (2026-10-10). **No production behavior changed.**
+Status: pure recovery-transaction foundation in PR #117 (2026-10-10). **Not integrated with the live scheduler; no privileged behavior changed.**
 
 ## Problem and current boundaries
 
@@ -29,6 +29,12 @@ Retry only eligible failed lift/restore operations. Use capped exponential backo
 3. API24/API37 emulator acceptance: persistence, worker/alarm wake-ups, permission denial, process restart, multiple schedules, backup compatibility, and no component launches/force-stops from recovery.
 4. Run `docs/QUALITY_GATES.md` checks and separate CodeQL/security review before merge of implementation.
 5. Real root/Shizuku, OEM/physical device, actual power loss and clock changes, production signing and rollback stay distinct external acceptance; do not claim these from synthetic emulator tests.
+
+## Implemented model boundary (PR #117)
+
+`SchedulerRecoveryTransaction` provides an immutable, bounded package-scoped record, a typed original-restriction snapshot, tracked schedule owners and explicit `APPLYING` / `RESTORING` phases. Its injected store must acknowledge a fully durable write *before* the corresponding injected operation is invoked. Uncertain outcomes retain the record; conflicting observed state moves to manual review. JUnit fault scenarios simulate a memory-only false commit, failed writes before/after an operation, operator exceptions, overlap and deletion. A retry-delay helper is capped at 30 minutes but **does not schedule retries**.
+
+The new class has **no production call sites**, no Android-backed durable codec or store, no real restriction capture, no recovery alarm and no root/Shizuku execution. These are future units subject to the gates above. No untrusted record deserializer or cross-process concurrency guarantee is asserted at this stage.
 
 ## Sequencing
 
