@@ -595,8 +595,7 @@ public class RestrictionsScheduler {
                                     method == SleepModeManager.FreezeMethod.SUSPEND
                                             ? PrivilegedShell.PackageStateAction.UNSUSPEND
                                             : PrivilegedShell.PackageStateAction.ENABLE;
-                            successful = privilegedShell.applyPackageStateBlocking(pkg, action)
-                                    .succeeded();
+                            successful = privilegedShell.applyPackageStateBlocking(pkg, action);
                         }
                         if (successful && entry.setBucketActive) {
                             successful = setAppBucketActive(pkg);
