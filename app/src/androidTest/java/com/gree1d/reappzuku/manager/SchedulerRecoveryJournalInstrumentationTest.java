@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class SchedulerRecoveryJournalInstrumentationTest {
     private static final String TEST_FILE = "scheduler_recovery_ci_journal_only";
     private static final String PROCESS_FILE = "scheduler_recovery_ci_process_only";
+    private static final String CORRUPT_FILE = "scheduler_recovery_ci_corrupt_only";
 
     @Test public void falseCommitPoisonsEveryAdapterForTheSamePreferenceObject() {
         AtomicReference<String> memoryOnlyJournal = new AtomicReference<>();
@@ -133,7 +134,7 @@ public final class SchedulerRecoveryJournalInstrumentationTest {
 
     @Test public void badDiskStringCannotBeSilentlyReplaced() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        SharedPreferences prefs = context.getSharedPreferences(TEST_FILE, Context.MODE_PRIVATE);
+        SharedPreferences prefs = context.getSharedPreferences(CORRUPT_FILE, Context.MODE_PRIVATE);
         String old = prefs.getString(SchedulerRecoverySharedPreferencesStore.KEY, null);
         try {
             assertTrue(prefs.edit().putString(
