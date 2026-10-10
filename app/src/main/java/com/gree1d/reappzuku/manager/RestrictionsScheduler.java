@@ -477,8 +477,7 @@ public class RestrictionsScheduler {
                 JSONArray array = new JSONArray(json);
                 if (array.length() > MAX_SCHEDULES) return false;
                 for (int i = 0; i < array.length(); i++) {
-                    schedules.add(ScheduleEntry.fromJson(array.getJSONObject(i)));
-                }
+                    schedules.add(ScheduleEntry.fromJson(array.getJSONObject(i)));                }
             }
             Set<String> previous = new HashSet<>(
                     preferences.getStringSet(KEY_TEMP_PROTECTED, new HashSet<>()));
@@ -498,17 +497,22 @@ public class RestrictionsScheduler {
         SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         String json = prefs.getString(KEY_SCHEDULES, null);
         if (json == null || json.isEmpty()) {
+            alarmScheduler.cancel(getAlarmIntent(context));
             return;
         }
 
         List<ScheduleEntry> schedules = new ArrayList<>();
         try {
             JSONArray arr = new JSONArray(json);
+            if (arr.length() > MAX_SCHEDULES) {
+                alarmScheduler.cancel(getAlarmIntent(context));
+                return;
+            }
             for (int i = 0; i < arr.length(); i++) {
                 schedules.add(ScheduleEntry.fromJson(arr.getJSONObject(i)));
             }
         } catch (JSONException e) {
-
+            alarmScheduler.cancel(getAlarmIntent(context));
             return;
         }
 
@@ -524,7 +528,10 @@ public class RestrictionsScheduler {
             if (candidate < nearest) nearest = candidate;
         }
 
-        if (nearest == Long.MAX_VALUE || nearest <= now) return;
+        if (nearest == Long.MAX_VALUE || nearest <= now) {
+            alarmScheduler.cancel(getAlarmIntent(context));
+            return;
+        }
 
         AlarmScheduler.ScheduleResult result =
                 alarmScheduler.scheduleRtcWakeup(nearest, getAlarmIntent(context), true);
@@ -569,6 +576,7 @@ public class RestrictionsScheduler {
                 int minuteOfHour = minute % 60;
                 List<ScheduleEntry> schedules = getSchedules();
                 Set<String> previous = getTempProtectedPackages();
+                boolean hadPreviousMarker = prefs.contains(KEY_TEMP_PROTECTED);
                 Set<String> desired =
                         RestrictionsClockReconciliationPolicy.expectedPackages(schedules, minute);
                 if (desired.equals(previous)) return;
@@ -633,10 +641,19 @@ public class RestrictionsScheduler {
                 }
 
                 if (!completed.equals(previous)) {
-                    // Synchronous persistence only after verified operations.
-                    // A failed commit may leave in-memory state changed; the
-                    // next reconciliation can still reapply idempotent actions.
-                    prefs.edit().putStringSet(KEY_TEMP_PROTECTED, completed).commit();
+                    // Persist only after the requested operations succeed.
+                    // Android may change the in-memory map even on commit(false).
+                    if (!prefs.edit().putStringSet(KEY_TEMP_PROTECTED, completed).commit()) {
+                        SharedPreferences.Editor rollback = prefs.edit();
+                        if (hadPreviousMarker) {
+                            rollback.putStringSet(KEY_TEMP_PROTECTED, previous);
+                        } else {
+                            rollback.remove(KEY_TEMP_PROTECTED);
+                        }
+                        // Best effort: retain the previous visible state for a
+                        // future reconciliation rather than claiming success.
+                        rollback.commit();
+                    }
                 }
             } finally {
                 scheduleNext();
