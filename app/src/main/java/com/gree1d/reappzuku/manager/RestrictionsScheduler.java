@@ -661,85 +661,124 @@ public class RestrictionsScheduler {
         });
     }
 
+    /**
+     * Normal RTC-boundary execution. Never claim an app protection transition
+     * before all corresponding privileged operations have succeeded. A failed
+     * package is left at its previous durable marker and can be retried by a
+     * later reconciliation; one failure must not abort other packages.
+     */
     public void tick() {
         executor.execute(() -> {
-            int nowMinutes = ScheduleTime.currentMinutesOfDay(clock);
-            int hour = nowMinutes / 60;
-            int minute = nowMinutes % 60;
+            try {
+                int nowMinutes = ScheduleTime.currentMinutesOfDay(clock);
+                int hour = nowMinutes / 60;
+                int minute = nowMinutes % 60;
+                List<ScheduleEntry> schedules = getSchedules();
+                Set<String> wasProtected = getTempProtectedPackages();
+                boolean hadPreviousMarker = prefs.contains(KEY_TEMP_PROTECTED);
+                Set<String> shouldBeProtected =
+                        RestrictionsClockReconciliationPolicy.expectedPackages(schedules, nowMinutes);
+                Set<String> succeededActivations = new HashSet<>();
+                Set<String> succeededDeactivations = new HashSet<>();
+                boolean use24h = android.text.format.DateFormat.is24HourFormat(context);
 
-            List<ScheduleEntry> schedules    = getSchedules();
-            Set<String>         wasProtected = getTempProtectedPackages();
+                for (String pkg : diff(shouldBeProtected, wasProtected)) {
+                    ScheduleEntry entry = findActiveEntry(schedules, pkg, hour, minute);
+                    if (entry == null) continue;
 
-
-
-            Set<String> shouldBeProtected = new HashSet<>();
-            for (ScheduleEntry e : schedules) {
-                if (e.isActiveNow(hour, minute)) shouldBeProtected.add(e.packageName);
-            }
-
-            Set<String> newlyActivated   = diff(shouldBeProtected, wasProtected);
-            Set<String> newlyDeactivated = diff(wasProtected, shouldBeProtected);
-
-
-            saveTempProtectedPackages(shouldBeProtected);
-
-            boolean use24h = android.text.format.DateFormat.is24HourFormat(context);
-
-
-            for (String pkg : newlyActivated) {
-                ScheduleEntry entry = findActiveEntry(schedules, pkg, hour, minute);
-                if (entry == null) continue;
-
-
-                if ((entry.protectFlags & PROTECT_BG_RESTRICTIONS) != 0) {
-                    String outcome = backgroundAppManager.liftRestrictionsForScheduler(pkg);
-                    SchedulerLog.logLift(context, pkg, outcome, entry.componentName, use24h);
-                }
-
-                if ((entry.protectFlags & PROTECT_SLEEP_MODE) != 0
-                        && sleepModeManager.getFreezeType(pkg) == SleepModeManager.FreezeType.TIMER) {
-                    SleepModeManager.FreezeMethod method = sleepModeManager.getFreezeMethod(pkg);
-                    PrivilegedShell.PackageStateAction action =
-                            method == SleepModeManager.FreezeMethod.SUSPEND
-                                    ? PrivilegedShell.PackageStateAction.UNSUSPEND
-                                    : PrivilegedShell.PackageStateAction.ENABLE;
-                    privilegedShell.applyPackageStateBlocking(pkg, action);
-                }
-
-                if (entry.onActivateAction != ON_ACTIVATE_NOTHING && entry.componentName != null) {
-                    final String component = entry.componentName;
-                    final int    action    = entry.onActivateAction;
-
-                    handler.postDelayed(() -> launchComponent(component, action), 500);
-                }
-
-                if (entry.setBucketActive) {
-                    setAppBucketActive(pkg);
-                }
-            }
-
-
-            for (String pkg : newlyDeactivated) {
-                ScheduleEntry entry = findEntryForPackage(schedules, pkg);
-                if (entry == null) continue;
-
-
-                boolean forceStop = isForceStopMode();
-
-                if ((entry.protectFlags & PROTECT_BG_RESTRICTIONS) != 0) {
-                    String outcome = backgroundAppManager.restoreRestrictionsForScheduler(pkg);
-                    if (!entry.setBucketActive) {
-                        restoreRestrictionBucket(pkg);
+                    boolean successful = true;
+                    String outcome = null;
+                    try {
+                        if ((entry.protectFlags & PROTECT_BG_RESTRICTIONS) != 0) {
+                            outcome = backgroundAppManager.liftRestrictionsForScheduler(pkg);
+                            successful = "ok".equals(outcome) || "skipped".equals(outcome);
+                        }
+                        if (successful && (entry.protectFlags & PROTECT_SLEEP_MODE) != 0
+                                && sleepModeManager.getFreezeType(pkg)
+                                == SleepModeManager.FreezeType.TIMER) {
+                            SleepModeManager.FreezeMethod method =
+                                    sleepModeManager.getFreezeMethod(pkg);
+                            PrivilegedShell.PackageStateAction action =
+                                    method == SleepModeManager.FreezeMethod.SUSPEND
+                                            ? PrivilegedShell.PackageStateAction.UNSUSPEND
+                                            : PrivilegedShell.PackageStateAction.ENABLE;
+                            successful = privilegedShell.applyPackageStateBlocking(pkg, action);
+                        }
+                        if (successful && entry.setBucketActive) {
+                            successful = setAppBucketActive(pkg);
+                        }
+                        if (successful && entry.onActivateAction != ON_ACTIVATE_NOTHING
+                                && entry.componentName != null) {
+                            final String component = entry.componentName;
+                            final int action = entry.onActivateAction;
+                            successful = handler.postDelayed(
+                                    () -> launchComponent(component, action), 500);
+                        }
+                    } catch (RuntimeException failure) {
+                        successful = false;
                     }
-                    SchedulerLog.logRestore(context, pkg, outcome, forceStop, use24h);
-                } else if ((entry.protectFlags & PROTECT_AUTO_KILL) != 0) {
-                    stopApp(pkg, forceStop);
-                    SchedulerLog.logRestore(context, pkg, "ok", forceStop, use24h);
+                    if (outcome != null) {
+                        try {
+                            SchedulerLog.logLift(context, pkg,
+                                    successful ? outcome : "partial", entry.componentName, use24h);
+                        } catch (RuntimeException ignored) {
+                            // Logging must not change the outcome of a completed action.
+                        }
+                    }
+                    if (successful) succeededActivations.add(pkg);
                 }
+
+                for (String pkg : diff(wasProtected, shouldBeProtected)) {
+                    ScheduleEntry entry = findEntryForPackage(schedules, pkg);
+                    // The former policy for a removed schedule is unavailable.
+                    // Do not guess its restriction strength or force-stop the app.
+                    if (entry == null) continue;
+
+                    boolean successful = true;
+                    String outcome = null;
+                    boolean forceStop = isForceStopMode();
+                    try {
+                        if ((entry.protectFlags & PROTECT_BG_RESTRICTIONS) != 0) {
+                            outcome = backgroundAppManager.restoreRestrictionsForScheduler(pkg);
+                            successful = "ok".equals(outcome) || "skipped".equals(outcome);
+                            if (successful && !entry.setBucketActive) {
+                                successful = restoreRestrictionBucket(pkg);
+                            }
+                        } else if ((entry.protectFlags & PROTECT_AUTO_KILL) != 0) {
+                            successful = stopApp(pkg, forceStop);
+                            outcome = successful ? "ok" : "error";
+                        }
+                    } catch (RuntimeException failure) {
+                        successful = false;
+                    }
+                    if (outcome != null) {
+                        try {
+                            SchedulerLog.logRestore(context, pkg,
+                                    successful ? outcome : "partial", forceStop, use24h);
+                        } catch (RuntimeException ignored) {
+                            // Logging must not misreport the real transition state.
+                        }
+                    }
+                    if (successful) succeededDeactivations.add(pkg);
+                }
+
+                Set<String> completed = RestrictionsTickMarkerPolicy.afterCompletedTransitions(
+                        wasProtected, succeededActivations, succeededDeactivations);
+                if (!completed.equals(wasProtected)) {
+                    if (!prefs.edit().putStringSet(KEY_TEMP_PROTECTED, completed).commit()) {
+                        SharedPreferences.Editor rollback = prefs.edit();
+                        if (hadPreviousMarker) {
+                            rollback.putStringSet(KEY_TEMP_PROTECTED, wasProtected);
+                        } else {
+                            rollback.remove(KEY_TEMP_PROTECTED);
+                        }
+                        rollback.commit();
+                    }
+                }
+            } finally {
+                // Keep future boundaries armed even if a package operation fails.
+                scheduleNext();
             }
-
-
-            scheduleNext();
         });
     }
 
@@ -774,12 +813,11 @@ public class RestrictionsScheduler {
                 packageName, PrivilegedShell.StandbyBucket.fromLegacyValue(bucket)).succeeded();
     }
 
-    private void stopApp(String packageName, boolean forceStop) {
+    private boolean stopApp(String packageName, boolean forceStop) {
         PrivilegedShell.KillMode mode = forceStop
                 ? PrivilegedShell.KillMode.FORCE_STOP
                 : PrivilegedShell.KillMode.KILL;
-        privilegedShell.stopPackage(packageName, mode);
-
+        return privilegedShell.stopPackage(packageName, mode).succeeded();
     }
 
 
@@ -844,7 +882,4 @@ public class RestrictionsScheduler {
         return null;
     }
 
-    private void saveTempProtectedPackages(Set<String> packages) {
-        prefs.edit().putStringSet(KEY_TEMP_PROTECTED, new HashSet<>(packages)).apply();
-    }
 }
