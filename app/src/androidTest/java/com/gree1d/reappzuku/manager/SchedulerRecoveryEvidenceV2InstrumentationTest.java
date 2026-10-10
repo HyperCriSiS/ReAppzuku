@@ -130,8 +130,8 @@ public final class SchedulerRecoveryEvidenceV2InstrumentationTest {
             assertEquals(original.whitelistKind, loaded.whitelistKind);
             assertEquals(original.appOps, loaded.appOps);
             assertEquals(original.owners, loaded.owners);
-            assertEquals(original.captureTimestampMillis, loaded.captureTimestampMillis);
-            assertEquals(original.revision, loaded.revision);
+            assertEquals(original.capturedAtMillis, loaded.capturedAtMillis);
+            assertEquals(original.sequence, loaded.sequence);
             assertEquals(SchedulerRecoveryEvidenceV2.Phase.OBSERVED, loaded.phase);
             assertTrue(store.requireManualReview(loaded.requireManualReview()));
             assertEquals(SchedulerRecoveryEvidenceV2.Phase.REVIEW_REQUIRED,
