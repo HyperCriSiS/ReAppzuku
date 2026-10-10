@@ -95,4 +95,55 @@ public final class SchedulerRecoveryEvidenceV2InstrumentationTest {
             assertTrue("test-owned corrupt fixture cleanup failed", cleanup.commit());
         }
     }
+    private static final String PROCESS_FILE = "scheduler_recovery_v2_ci_process_death_only";
+
+    @Test public void seedForRealProcessDeath() {
+        org.junit.Assume.assumeTrue("seed".equals(
+                InstrumentationRegistry.getArguments().getString("ci_recovery_v2_phase")));
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        SharedPreferences prefs = context.getSharedPreferences(PROCESS_FILE, Context.MODE_PRIVATE);
+        assertTrue(prefs.edit().remove(SchedulerRecoveryEvidenceSharedPreferencesStoreV2.KEY).commit());
+        SchedulerRecoveryEvidenceV2 row = record();
+        assertTrue(new SchedulerRecoveryEvidenceSharedPreferencesStoreV2(prefs).commitCaptured(row));
+        assertEquals(row.uid, new SchedulerRecoveryEvidenceSharedPreferencesStoreV2(prefs)
+                .snapshot().get(row.packageName).uid);
+        android.os.Bundle status = new android.os.Bundle();
+        status.putString("RECOVERY_V2_STATUS", "SEEDED");
+        InstrumentationRegistry.getInstrumentation().sendStatus(0, status);
+    }
+
+    @Test public void verifyAfterRealProcessDeath() {
+        org.junit.Assume.assumeTrue("verify".equals(
+                InstrumentationRegistry.getArguments().getString("ci_recovery_v2_phase")));
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        SharedPreferences prefs = context.getSharedPreferences(PROCESS_FILE, Context.MODE_PRIVATE);
+        try {
+            SchedulerRecoveryEvidenceSharedPreferencesStoreV2 store =
+                    new SchedulerRecoveryEvidenceSharedPreferencesStoreV2(prefs);
+            SchedulerRecoveryEvidenceV2 original = record();
+            SchedulerRecoveryEvidenceV2 loaded = store.snapshot().get(original.packageName);
+            assertNotNull("RZJ2 record missing after app PID death", loaded);
+            assertEquals(original.uid, loaded.uid);
+            assertEquals(original.enabledSetting, loaded.enabledSetting);
+            assertEquals(original.suspended, loaded.suspended);
+            assertEquals(original.standbyBucket, loaded.standbyBucket);
+            assertEquals(original.whitelistKind, loaded.whitelistKind);
+            assertEquals(original.appOps, loaded.appOps);
+            assertEquals(original.owners, loaded.owners);
+            assertEquals(original.captureTimestampMillis, loaded.captureTimestampMillis);
+            assertEquals(original.revision, loaded.revision);
+            assertEquals(SchedulerRecoveryEvidenceV2.Phase.OBSERVED, loaded.phase);
+            assertTrue(store.requireManualReview(loaded.requireManualReview()));
+            assertEquals(SchedulerRecoveryEvidenceV2.Phase.REVIEW_REQUIRED,
+                    new SchedulerRecoveryEvidenceSharedPreferencesStoreV2(prefs)
+                            .snapshot().get(original.packageName).phase);
+            android.os.Bundle status = new android.os.Bundle();
+            status.putString("RECOVERY_V2_STATUS", "VERIFIED");
+            InstrumentationRegistry.getInstrumentation().sendStatus(0, status);
+        } finally {
+            assertTrue("CI-only RZJ2 process fixture cleanup failed", prefs.edit()
+                    .remove(SchedulerRecoveryEvidenceSharedPreferencesStoreV2.KEY).commit());
+        }
+    }
+
 }
