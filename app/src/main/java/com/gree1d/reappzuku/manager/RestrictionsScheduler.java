@@ -498,7 +498,6 @@ public class RestrictionsScheduler {
         SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         String json = prefs.getString(KEY_SCHEDULES, null);
         if (json == null || json.isEmpty()) {
-
             return;
         }
 
@@ -581,10 +580,10 @@ public class RestrictionsScheduler {
                     if (entry == null) continue;
                     boolean successful = true;
                     try {
+                        String liftOutcome = null;
                         if ((entry.protectFlags & PROTECT_BG_RESTRICTIONS) != 0) {
-                            String outcome = backgroundAppManager.liftRestrictionsForScheduler(pkg);
-                            successful = "ok".equals(outcome) || "skipped".equals(outcome);
-                            SchedulerLog.logLift(context, pkg, outcome, null, use24h);
+                            liftOutcome = backgroundAppManager.liftRestrictionsForScheduler(pkg);
+                            successful = "ok".equals(liftOutcome) || "skipped".equals(liftOutcome);
                         }
                         if (successful && (entry.protectFlags & PROTECT_SLEEP_MODE) != 0
                                 && sleepModeManager.getFreezeType(pkg)
@@ -599,6 +598,10 @@ public class RestrictionsScheduler {
                         }
                         if (successful && entry.setBucketActive) {
                             successful = setAppBucketActive(pkg);
+                        }
+                        if (liftOutcome != null) {
+                            SchedulerLog.logLift(context, pkg,
+                                    successful ? liftOutcome : "partial", null, use24h);
                         }
                     } catch (RuntimeException failed) {
                         successful = false;
@@ -619,7 +622,8 @@ public class RestrictionsScheduler {
                             if (successful && !entry.setBucketActive) {
                                 successful = restoreRestrictionBucket(pkg);
                             }
-                            SchedulerLog.logRestore(context, pkg, outcome, false, use24h);
+                            SchedulerLog.logRestore(context, pkg,
+                                    successful ? outcome : "partial", false, use24h);
                         }
                         // Never call stopApp(pkg) on a manual clock jump.
                     } catch (RuntimeException failed) {
