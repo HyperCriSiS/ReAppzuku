@@ -12,7 +12,6 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import com.gree1d.reappzuku.manager.RestrictionsScheduler;
 
 import org.json.JSONArray;
-import org.junit.Assume;
 import org.junit.Test;
 
 import java.util.Calendar;
@@ -21,16 +20,13 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Opt-in disposable API37 read-only clock recovery decision probe.
+ * Read-only API37 clock recovery decision probe.
  * Never invokes a service, sends a protected broadcast or changes system time.
  * Temporarily writes only two scheduler preference keys and restores them.
  */
 public final class Api37RestrictionsClockDriftInstrumentationTest {
     @Test
     public void detectsClockDriftWithoutMutatingMarkersOrLaunchingService() throws Exception {
-        Assume.assumeTrue("Only disposable test emulator",
-                "verify".equals(InstrumentationRegistry.getArguments()
-                        .getString("ci_clock_reconcile")));
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         SharedPreferences prefs = context.getSharedPreferences(
                 PreferenceKeys.PREFERENCES_NAME, Context.MODE_PRIVATE);
