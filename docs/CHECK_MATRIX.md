@@ -439,3 +439,9 @@ A release candidate is only **PROVEN** when:
 - lint has zero errors and no CI step rewrites lint acceptance;
 - immutable external Action pins and least-privilege job permissions are in place;
 - release APK/AAB identity, signing provenance and rollback procedure are recorded.
+
+### Phase 11 scheduler recovery evidence — 2026-10-10
+
+- **Recovery model: partial.** PR #117 (`e08a8386`) adds an immutable, bounded pure transaction model and 19 JVM fault tests; standard `38018609834` and CodeQL `38018587965` passed. No durable Android store, live scheduler integration or privilege/device acceptance is claimed.
+- **Failure result reporting: fixed at source + emulator regression scope.** PR #118 (`b7929498`) preserves the whitelist restoration marker when a privileged ADD fails and reports bucket/whitelist failures as unsuccessful scheduler outcomes. Six pure JVM and three source guards, standard `38019141214`, CodeQL `38019122766` and targeted API37 `38019144059` passed. The emulator fixture itself was non-privileged; **real Root/Shizuku failure injection and power-loss marker persistence remain open**.
+- Existing scheduler/delayed retry, device/OEM diversity and real `TIME_SET` acceptance retain their prior risk status; neither PR is evidence of automatic deleted-schedule rollback.
