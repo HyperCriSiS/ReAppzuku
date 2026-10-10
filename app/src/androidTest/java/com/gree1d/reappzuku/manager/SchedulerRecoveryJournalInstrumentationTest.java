@@ -4,6 +4,8 @@ import static org.junit.Assert.*;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Bundle;
+import org.junit.Assume;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
@@ -19,6 +21,7 @@ import java.util.Collections;
 @RunWith(AndroidJUnit4.class)
 public final class SchedulerRecoveryJournalInstrumentationTest {
     private static final String TEST_FILE = "scheduler_recovery_ci_journal_only";
+    private static final String PROCESS_FILE = "scheduler_recovery_ci_process_only";
 
     @Test public void synchronousReopenAndResolvedPrune() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
@@ -86,4 +89,56 @@ public final class SchedulerRecoveryJournalInstrumentationTest {
             assertTrue("test-owned journal cleanup failed", editor.commit());
         }
     }
+
+    @Test public void seedForProcessDeath() {
+        Assume.assumeTrue("seed".equals(InstrumentationRegistry.getArguments()
+                .getString("ci_scheduler_journal_phase")));
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        SharedPreferences prefs = context.getSharedPreferences(PROCESS_FILE, Context.MODE_PRIVATE);
+        assertTrue(prefs.edit().remove(SchedulerRecoverySharedPreferencesStore.KEY).commit());
+        SchedulerRecoverySharedPreferencesStore store =
+                new SchedulerRecoverySharedPreferencesStore(prefs);
+        SchedulerRecoveryTransaction.Record record = SchedulerRecoveryTransaction.prepare(
+                "com.example.processprobe", Collections.singleton(741L),
+                new SchedulerRecoveryTransaction.OriginalRestrictions(13, 45, true, false, true), 1);
+        assertEquals(SchedulerRecoveryTransaction.Outcome.COMPLETED,
+                SchedulerRecoveryTransaction.beginLift(record, store, () -> true));
+        assertEquals(SchedulerRecoveryTransaction.Phase.ACTIVE,
+                new SchedulerRecoverySharedPreferencesStore(prefs).snapshot()
+                        .get("com.example.processprobe").phase);
+        Bundle b = new Bundle();
+        b.putString("SCHEDULER_JOURNAL_STATUS", "SEEDED");
+        InstrumentationRegistry.getInstrumentation().sendStatus(0, b);
+    }
+
+    @Test public void verifyAfterProcessDeath() {
+        Assume.assumeTrue("verify".equals(InstrumentationRegistry.getArguments()
+                .getString("ci_scheduler_journal_phase")));
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        SharedPreferences prefs = context.getSharedPreferences(PROCESS_FILE, Context.MODE_PRIVATE);
+        SchedulerRecoverySharedPreferencesStore store =
+                new SchedulerRecoverySharedPreferencesStore(prefs);
+        try {
+            SchedulerRecoveryTransaction.Record active =
+                    store.snapshot().get("com.example.processprobe");
+            assertNotNull("record absent after real process death", active);
+            assertEquals(SchedulerRecoveryTransaction.Phase.ACTIVE, active.phase);
+            assertEquals(13, active.original.appOpsMask);
+            assertEquals(45, active.original.standbyBucket);
+            assertTrue(active.original.deviceIdleWhitelisted);
+            assertEquals(Collections.singleton(741L), active.owners);
+            SchedulerRecoveryTransaction.Record restore = active.removeOwner(741L);
+            assertTrue(store.commit(restore));
+            assertEquals(SchedulerRecoveryTransaction.Outcome.COMPLETED,
+                    SchedulerRecoveryTransaction.restore(restore, true, store, () -> true));
+            assertTrue(store.removeResolved("com.example.processprobe"));
+            assertTrue(new SchedulerRecoverySharedPreferencesStore(prefs).snapshot().isEmpty());
+            Bundle b = new Bundle();
+            b.putString("SCHEDULER_JOURNAL_STATUS", "RECOVERED");
+            InstrumentationRegistry.getInstrumentation().sendStatus(0, b);
+        } finally {
+            assertTrue(prefs.edit().remove(SchedulerRecoverySharedPreferencesStore.KEY).commit());
+        }
+    }
+
 }
