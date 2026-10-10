@@ -512,8 +512,13 @@ jobs:
           test "$(adb shell getprop persist.sys.timezone | tr -d '\r')" = 'Pacific/Honolulu'
           echo 'API37_REAL_TIMEZONE_CHANGED_BROADCAST_DELIVERED'
 
+      - name: Verify installed BootReceiver arms RTC alarm after real timezone change
+        if: ${{ inputs.test_class == 'com.gree1d.reappzuku.core.Api37ManifestClockRearmInstrumentationTest' }}
+        shell: bash
+        run: bash scripts/tests/ci-api37-manifest-clock-rearm.sh
+
       - name: Run Android instrumentation on API 37
-        if: ${{ inputs.test_class != 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RetryWorkerInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RealReconcileWorkerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37PackageHandlerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api37RealClockBroadcastDeliveryInstrumentationTest' }}
+        if: ${{ inputs.test_class != 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RetryWorkerInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RealReconcileWorkerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37PackageHandlerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api37RealClockBroadcastDeliveryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api37ManifestClockRearmInstrumentationTest' }}
         shell: bash
         env:
           TEST_CLASS: ${{ inputs.test_class }}
