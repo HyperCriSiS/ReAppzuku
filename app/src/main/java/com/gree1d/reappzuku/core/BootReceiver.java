@@ -37,6 +37,20 @@ public class BootReceiver extends BroadcastReceiver {
                     try {
                         RestrictionsScheduler.scheduleNextStatic(context);
                         new PresetManager(context).restoreAfterBoot();
+                        // No service wake-up on a clock broadcast. Request a safe
+                        // repair only if the privileged service is already alive.
+                        if (ShappkyService.isRunning()
+                                && RestrictionsScheduler.needsClockReconciliation(context)) {
+                            Intent repair = new Intent(context, ShappkyService.class);
+                            repair.setAction(
+                                    RestrictionsScheduler.ACTION_SCHEDULER_CLOCK_RECONCILE);
+                            try {
+                                context.startService(repair);
+                            } catch (IllegalStateException | SecurityException ignored) {
+                                // Background-start policy or service teardown: alarms
+                                // remain armed, protection marker stays unchanged.
+                            }
+                        }
                     } finally {
                         pending.finish();
                     }

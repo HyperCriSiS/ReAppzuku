@@ -474,6 +474,10 @@ public class ShappkyService extends Service {
                 scheduler.tick();
                 break;
 
+            case RestrictionsScheduler.ACTION_SCHEDULER_CLOCK_RECONCILE:
+                scheduler.reconcileAfterClockChange();
+                break;
+
             case "WIDGET_KILL":
                 ramKillShortcutManager.performKillAndUpdate(autoKillManager);
                 break;
@@ -998,23 +1002,3 @@ public class ShappkyService extends Service {
     }
 
     public static class RestartReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (!BackgroundWorkPolicy.shouldRunForegroundService(context)) {
-
-                return;
-            }
-            if (!ShappkyService.isRunning()) {
-
-                Intent service = new Intent(context, ShappkyService.class);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(service);
-                } else {
-                    context.startService(service);
-                }
-            } else {
-
-            }
-        }
-    }
-}
