@@ -12,6 +12,7 @@ import org.junit.runner.RunWith;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Disposable API24/API37 test-owned v2 preferences; no production recovery
@@ -23,11 +24,13 @@ public final class SchedulerRecoveryEvidenceV2InstrumentationTest {
     private static final String CORRUPT_FILE = "scheduler_recovery_v2_ci_corrupt_only";
 
     private static SchedulerRecoveryEvidenceV2 record() {
+        Map<String, SchedulerRestrictionObservation.AppOpMode> modes = new TreeMap<>();
+        modes.put("RUN_IN_BACKGROUND", SchedulerRestrictionObservation.AppOpMode.ALLOW);
+        modes.put("WAKE_LOCK", SchedulerRestrictionObservation.AppOpMode.DEFAULT);
         return SchedulerRecoveryEvidenceV2.rehydrate(
                 "com.example.recoveryv2", 10921, 0, false, 40,
                 SchedulerRestrictionObservation.WhitelistKind.USER,
-                Collections.singletonMap("WAKE_LOCK",
-                        SchedulerRestrictionObservation.AppOpMode.DEFAULT),
+                modes,
                 Collections.singleton(911L), 1781000000000L, 1,
                 SchedulerRecoveryEvidenceV2.Phase.OBSERVED);
     }
@@ -48,8 +51,11 @@ public final class SchedulerRecoveryEvidenceV2InstrumentationTest {
             Map<String, SchedulerRecoveryEvidenceV2> snapshot = reopened.snapshot();
             assertEquals(1, snapshot.size());
             assertEquals(10921, snapshot.get(row.packageName).uid);
+            assertEquals(2, snapshot.get(row.packageName).appOps.size());
             assertEquals(SchedulerRestrictionObservation.AppOpMode.DEFAULT,
                     snapshot.get(row.packageName).appOps.get("WAKE_LOCK"));
+            assertEquals(SchedulerRestrictionObservation.AppOpMode.ALLOW,
+                    snapshot.get(row.packageName).appOps.get("RUN_IN_BACKGROUND"));
             assertEquals(SchedulerRestrictionObservation.WhitelistKind.USER,
                     snapshot.get(row.packageName).whitelistKind);
             assertTrue(reopened.requireManualReview(row.requireManualReview()));
@@ -129,14 +135,25 @@ public final class SchedulerRecoveryEvidenceV2InstrumentationTest {
             assertEquals(original.standbyBucket, loaded.standbyBucket);
             assertEquals(original.whitelistKind, loaded.whitelistKind);
             assertEquals(original.appOps, loaded.appOps);
+            assertEquals(2, loaded.appOps.size());
+            assertEquals(SchedulerRestrictionObservation.AppOpMode.DEFAULT,
+                    loaded.appOps.get("WAKE_LOCK"));
+            assertEquals(SchedulerRestrictionObservation.AppOpMode.ALLOW,
+                    loaded.appOps.get("RUN_IN_BACKGROUND"));
             assertEquals(original.owners, loaded.owners);
             assertEquals(original.capturedAtMillis, loaded.capturedAtMillis);
             assertEquals(original.sequence, loaded.sequence);
             assertEquals(SchedulerRecoveryEvidenceV2.Phase.OBSERVED, loaded.phase);
             assertTrue(store.requireManualReview(loaded.requireManualReview()));
-            assertEquals(SchedulerRecoveryEvidenceV2.Phase.REVIEW_REQUIRED,
+            SchedulerRecoveryEvidenceV2 reviewed =
                     new SchedulerRecoveryEvidenceSharedPreferencesStoreV2(prefs)
-                            .snapshot().get(original.packageName).phase);
+                            .snapshot().get(original.packageName);
+            assertNotNull(reviewed);
+            assertEquals(SchedulerRecoveryEvidenceV2.Phase.REVIEW_REQUIRED, reviewed.phase);
+            assertEquals(2, reviewed.sequence);
+            assertEquals(original.appOps, reviewed.appOps);
+            assertEquals(original.owners, reviewed.owners);
+            assertEquals(original.capturedAtMillis, reviewed.capturedAtMillis);
             android.os.Bundle status = new android.os.Bundle();
             status.putString("RECOVERY_V2_STATUS", "VERIFIED");
             InstrumentationRegistry.getInstrumentation().sendStatus(0, status);
