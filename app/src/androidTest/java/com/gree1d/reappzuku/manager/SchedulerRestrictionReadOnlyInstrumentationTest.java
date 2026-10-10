@@ -3,6 +3,7 @@ package com.gree1d.reappzuku.manager;
 import static org.junit.Assert.*;
 
 import android.content.Context;
+import android.os.Build;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -31,7 +32,12 @@ public final class SchedulerRestrictionReadOnlyInstrumentationTest {
         Integer enabled = reader.enabledSetting(packageName);
         assertNotNull("exact enabledSetting must be readable", enabled);
         assertTrue(enabled >= 0 && enabled <= 4);
-        assertNotNull("own suspended state must be readable", reader.suspended(packageName));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            assertNotNull("own suspended state must be readable", reader.suspended(packageName));
+        } else {
+            assertNull("API24–28 cannot provide a trusted suspension value",
+                    reader.suspended(packageName));
+        }
 
         assertNull("reject untrusted package before any shell read",
                 reader.uid("com.example;echo-not-safe"));

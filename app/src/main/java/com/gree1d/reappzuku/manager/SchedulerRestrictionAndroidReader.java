@@ -3,6 +3,7 @@ package com.gree1d.reappzuku.manager;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.os.Build;
 
 import com.gree1d.reappzuku.core.PackageNameValidator;
 import com.gree1d.reappzuku.core.ShellManager;
@@ -72,6 +73,9 @@ public final class SchedulerRestrictionAndroidReader
     }
 
     @Override public Boolean suspended(String packageName) {
+        // PackageManager.isPackageSuspended is API 29+. Android 7–9 must
+        // remain unknown instead of guessing false or relying on hidden APIs.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null;
         if (!PackageNameValidator.isValid(packageName)) return null;
         try {
             // minSdk 24 provides isPackageSuspended; it can throw if invisible.
