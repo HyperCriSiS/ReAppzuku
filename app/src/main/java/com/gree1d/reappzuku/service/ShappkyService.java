@@ -314,7 +314,15 @@ public class ShappkyService extends Service {
         scheduleWidgetUpdate();
 
 
-        appManager.reapplySavedBackgroundRestrictions(null);
+        // When an earlier clock change could not run privileged work, catch up
+        // after the normal restoration of saved restrictions finishes. This
+        // callback runs only after shell readiness and does not force-stop apps.
+        appManager.reapplySavedBackgroundRestrictions(() -> {
+            if (scheduler != null
+                    && RestrictionsScheduler.needsClockReconciliation(this)) {
+                scheduler.reconcileAfterClockChange();
+            }
+        });
         watchdog.startIfNeeded();
 
         UpdateChecker.schedulePeriodicCheck(getApplicationContext());
@@ -474,6 +482,10 @@ public class ShappkyService extends Service {
                 scheduler.tick();
                 break;
 
+            case RestrictionsScheduler.ACTION_SCHEDULER_CLOCK_RECONCILE:
+                scheduler.reconcileAfterClockChange();
+                break;
+
             case "WIDGET_KILL":
                 ramKillShortcutManager.performKillAndUpdate(autoKillManager);
                 break;
@@ -494,11 +506,9 @@ public class ShappkyService extends Service {
                 break;
 
             case "UPDATE_NOTIFICATION_MODE":
-
                 if (isRamMonitorNotificationEnabled()) {
                     startRamMonitorNotification();
-                } else {
-                    stopRamMonitorNotification();
+                } else {                    stopRamMonitorNotification();
                 }
                 break;
 
