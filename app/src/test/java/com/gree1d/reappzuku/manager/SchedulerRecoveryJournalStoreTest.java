@@ -32,7 +32,12 @@ public final class SchedulerRecoveryJournalStoreTest {
             return true;
         }
 
-        void restart() { visible = durable; }
+        MemoryBackend freshProcess() {
+            MemoryBackend fresh = new MemoryBackend();
+            fresh.durable = durable;
+            fresh.visible = durable;
+            return fresh;
+        }
     }
 
     private static SchedulerRecoveryTransaction.Record prepared(String pkg) {
@@ -54,9 +59,9 @@ public final class SchedulerRecoveryJournalStoreTest {
                     return true;
                 }));
         assertEquals(1, calls.get());
-        backend.restart();
+        MemoryBackend restarted = backend.freshProcess();
         assertEquals(SchedulerRecoveryTransaction.Phase.ACTIVE,
-                new SchedulerRecoveryJournalStore(backend).snapshot().get("com.example.one").phase);
+                new SchedulerRecoveryJournalStore(restarted).snapshot().get("com.example.one").phase);
     }
 
     @Test public void failedFirstCommitPreventsOperationAndPoisonStopsFollowingWrites() {
@@ -90,9 +95,9 @@ public final class SchedulerRecoveryJournalStoreTest {
                 }, () -> { operations.incrementAndGet(); return true; }));
         assertEquals(1, operations.get());
         assertTrue(store.isPoisoned());
-        backend.restart();
+        MemoryBackend restarted = backend.freshProcess();
         assertEquals(SchedulerRecoveryTransaction.Phase.APPLYING,
-                new SchedulerRecoveryJournalStore(backend).snapshot().get("com.example.one").phase);
+                new SchedulerRecoveryJournalStore(restarted).snapshot().get("com.example.one").phase);
     }
 
     @Test public void throwingBackendPoisonsStoreAndPreservesLastDurableValue() {
@@ -102,9 +107,9 @@ public final class SchedulerRecoveryJournalStoreTest {
         backend.throwNext = true;
         assertFalse(store.commit(prepared("com.example.one").addOwner(2L)));
         assertTrue(store.isPoisoned());
-        backend.restart();
+        MemoryBackend restarted = backend.freshProcess();
         assertEquals(Collections.singleton(1L),
-                new SchedulerRecoveryJournalStore(backend).snapshot().get("com.example.one").owners);
+                new SchedulerRecoveryJournalStore(restarted).snapshot().get("com.example.one").owners);
     }
 
     @Test public void staleOrSameSequenceCannotReplaceExistingEntry() {
@@ -157,9 +162,125 @@ public final class SchedulerRecoveryJournalStoreTest {
         backend.failNext = true;
         assertFalse(store.removeResolved("com.example.one"));
         assertTrue(store.isPoisoned());
-        backend.restart();
+        MemoryBackend restarted = backend.freshProcess();
         assertEquals(SchedulerRecoveryTransaction.Phase.RESOLVED,
-                new SchedulerRecoveryJournalStore(backend).snapshot().get("com.example.one").phase);
+                new SchedulerRecoveryJournalStore(restarted).snapshot().get("com.example.one").phase);
+    }
+
+    @Test public void aFailedCommitPoisonsOtherExistingAndFutureStoreInstances() {
+        MemoryBackend backend = new MemoryBackend();
+        SchedulerRecoveryJournalStore before = new SchedulerRecoveryJournalStore(backend);
+        SchedulerRecoveryJournalStore sibling = new SchedulerRecoveryJournalStore(backend);
+        backend.failNext = true;
+        assertFalse(before.commit(prepared("com.example.one")));
+        assertTrue(sibling.isPoisoned());
+        assertThrows(IllegalStateException.class, sibling::snapshot);
+        SchedulerRecoveryJournalStore after = new SchedulerRecoveryJournalStore(backend);
+        assertTrue(after.isPoisoned());
+        assertFalse(after.commit(prepared("com.example.two")));
+        assertEquals(1, backend.writes);
+        assertTrue(new SchedulerRecoveryJournalStore(backend.freshProcess()).snapshot().isEmpty());
+    }
+
+    @Test public void poisonedSnapshotBlocksNewStoreEvenWhenMemoryLooksValid() {
+        MemoryBackend backend = new MemoryBackend();
+        SchedulerRecoveryJournalStore writer = new SchedulerRecoveryJournalStore(backend);
+        assertTrue(writer.commit(prepared("com.example.one")));
+        backend.failNext = true;
+        assertFalse(writer.commit(prepared("com.example.one").addOwner(2L)));
+        assertThrows(IllegalStateException.class,
+                () -> new SchedulerRecoveryJournalStore(backend).snapshot());
+        assertEquals(Collections.singleton(1L), new SchedulerRecoveryJournalStore(
+                backend.freshProcess()).snapshot().get("com.example.one").owners);
+    }
+
+    @Test public void transitioningMustNotRewriteOriginallyCapturedRestrictions() {
+        MemoryBackend backend = new MemoryBackend();
+        SchedulerRecoveryJournalStore journal = new SchedulerRecoveryJournalStore(backend);
+        SchedulerRecoveryTransaction.Record captured = prepared("com.example.one");
+        assertTrue(journal.commit(captured));
+        SchedulerRecoveryTransaction.Record forged = SchedulerRecoveryTransaction.rehydrate(
+                captured.version, captured.packageName,
+                new SchedulerRecoveryTransaction.OriginalRestrictions(999, 40, true, false, true),
+                captured.owners, SchedulerRecoveryTransaction.Phase.APPLYING, 2);
+        assertFalse(journal.commit(forged));
+        assertEquals(5, journal.snapshot().get(captured.packageName).original.appOpsMask);
+        assertFalse(journal.isPoisoned());
+    }
+
+    @Test public void unconfirmedPhaseSkippingCannotFalselyClaimCompletion() {
+        MemoryBackend backend = new MemoryBackend();
+        SchedulerRecoveryJournalStore journal = new SchedulerRecoveryJournalStore(backend);
+        SchedulerRecoveryTransaction.Record base = prepared("com.example.one");
+        assertTrue(journal.commit(base));
+        SchedulerRecoveryTransaction.Record forged = SchedulerRecoveryTransaction.rehydrate(
+                base.version, base.packageName, base.original,
+                base.owners, SchedulerRecoveryTransaction.Phase.ACTIVE, 2);
+        assertFalse(journal.commit(forged));
+        assertEquals(SchedulerRecoveryTransaction.Phase.PREPARED,
+                journal.snapshot().get(base.packageName).phase);
+    }
+
+    @Test public void equalSizeOwnerSubstitutionIsForbidden() {
+        MemoryBackend backend = new MemoryBackend();
+        SchedulerRecoveryJournalStore journal = new SchedulerRecoveryJournalStore(backend);
+        SchedulerRecoveryTransaction.Record base = prepared("com.example.one");
+        assertTrue(journal.commit(base));
+        SchedulerRecoveryTransaction.Record forged = SchedulerRecoveryTransaction.rehydrate(
+                base.version, base.packageName, base.original, Collections.singleton(2L),
+                SchedulerRecoveryTransaction.Phase.PREPARED, 2);
+        assertFalse(journal.commit(forged));
+        assertEquals(Collections.singleton(1L), journal.snapshot().get(base.packageName).owners);
+    }
+
+    @Test public void manualReviewAndResolvedRowsCannotResumeAutomation() {
+        MemoryBackend backend = new MemoryBackend();
+        SchedulerRecoveryJournalStore journal = new SchedulerRecoveryJournalStore(backend);
+        SchedulerRecoveryTransaction.Record prepared = prepared("com.example.one");
+        assertTrue(journal.commit(prepared));
+        SchedulerRecoveryTransaction.Record applying = SchedulerRecoveryTransaction.rehydrate(
+                prepared.version, prepared.packageName, prepared.original, prepared.owners,
+                SchedulerRecoveryTransaction.Phase.APPLYING, 2);
+        assertTrue(journal.commit(applying));
+        SchedulerRecoveryTransaction.Record review = applying.removeOwner(1L);
+        assertTrue(journal.commit(review));
+        SchedulerRecoveryTransaction.Record forged = SchedulerRecoveryTransaction.rehydrate(
+                review.version, review.packageName, review.original, Collections.emptySet(),
+                SchedulerRecoveryTransaction.Phase.RESOLVED, review.sequence + 1);
+        assertFalse(journal.commit(forged));
+        assertEquals(SchedulerRecoveryTransaction.Phase.REVIEW_REQUIRED,
+                journal.snapshot().get(prepared.packageName).phase);
+    }
+
+    @Test public void firstRecordCannotInventAnAdvancedRevision() {
+        MemoryBackend backend = new MemoryBackend();
+        SchedulerRecoveryJournalStore journal = new SchedulerRecoveryJournalStore(backend);
+        SchedulerRecoveryTransaction.Record one = prepared("com.example.one");
+        assertFalse(journal.commit(SchedulerRecoveryTransaction.rehydrate(
+                one.version, one.packageName, one.original, one.owners,
+                SchedulerRecoveryTransaction.Phase.PREPARED, 900)));
+        assertEquals(0, backend.writes);
+    }
+
+    @Test public void validOverlappingOwnerAndRestorePhasesStillWork() {
+        MemoryBackend backend = new MemoryBackend();
+        SchedulerRecoveryJournalStore journal = new SchedulerRecoveryJournalStore(backend);
+        SchedulerRecoveryTransaction.Record base = prepared("com.example.one");
+        assertTrue(journal.commit(base));
+        SchedulerRecoveryTransaction.Record extra = base.addOwner(2L);
+        assertTrue(journal.commit(extra));
+        assertEquals(SchedulerRecoveryTransaction.Outcome.COMPLETED,
+                SchedulerRecoveryTransaction.beginLift(extra, journal, () -> true));
+        SchedulerRecoveryTransaction.Record active = journal.snapshot().get(base.packageName);
+        assertTrue(journal.commit(active.removeOwner(1L)));
+        SchedulerRecoveryTransaction.Record remaining = journal.snapshot().get(base.packageName);
+        assertEquals(SchedulerRecoveryTransaction.Phase.ACTIVE, remaining.phase);
+        assertTrue(journal.commit(remaining.removeOwner(2L)));
+        SchedulerRecoveryTransaction.Record restore = journal.snapshot().get(base.packageName);
+        assertEquals(SchedulerRecoveryTransaction.Outcome.COMPLETED,
+                SchedulerRecoveryTransaction.restore(restore, true, journal, () -> true));
+        assertEquals(SchedulerRecoveryTransaction.Phase.RESOLVED,
+                journal.snapshot().get(base.packageName).phase);
     }
 
     @Test public void corruptStateFailsBeforeAnyExternalOperation() {
