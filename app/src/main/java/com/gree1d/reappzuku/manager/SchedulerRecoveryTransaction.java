@@ -131,6 +131,13 @@ public final class SchedulerRecoveryTransaction {
         }
     }
 
+    /** Decode only through the bounded validated journal codec. */
+    static Record rehydrate(int version, String packageName, OriginalRestrictions original,
+                            Set<Long> owners, Phase phase, long sequence) {
+        if (version != FORMAT_VERSION) throw new IllegalArgumentException("unknown recovery version");
+        return new Record(packageName, original, owners, phase, sequence);
+    }
+
     public interface DurableStore {
         /** true ONLY after the complete record is persisted, not just visible in memory. */
         boolean commit(Record record);
