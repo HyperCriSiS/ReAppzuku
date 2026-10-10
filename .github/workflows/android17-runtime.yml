@@ -317,8 +317,7 @@ jobs:
           grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-before.txt
           ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-before.txt
           uuid="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_ID=([0-9a-f-]{36})$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
-          created="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_CREATED=(yes|no)$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
-          [[ "$uuid" =~ ^[0-9a-f-]{36}$ ]]
+          created="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_CREATED=(yes|no)$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"          [[ "$uuid" =~ ^[0-9a-f-]{36}$ ]]
           [[ "$created" == yes || "$created" == no ]]
       
           # Kill only the currently running debug app PID under its OWN UID.
@@ -434,8 +433,86 @@ jobs:
         shell: bash
         run: bash scripts/tests/ci-package-handler-retry.sh
 
+      - name: Prove real platform TIMEZONE_CHANGED delivery on disposable API37 emulator
+        if: ${{ inputs.test_class == 'com.gree1d.reappzuku.core.Api37RealClockBroadcastDeliveryInstrumentationTest' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG='com.gree1d.reappzuku'
+          CLASS='com.gree1d.reappzuku.core.Api37RealClockBroadcastDeliveryInstrumentationTest'
+          original_zone="$(adb shell getprop persist.sys.timezone | tr -d '\r')"
+          original_auto="$(adb shell settings get global auto_time_zone | tr -d '\r')"
+          test -n "$original_zone"
+          instrument_pid=''
+          restore_emulator_clock() {
+            local original_rc=$?
+            trap - EXIT
+            if [ -n "$instrument_pid" ]; then
+              kill "$instrument_pid" >/dev/null 2>&1 || true
+              wait "$instrument_pid" >/dev/null 2>&1 || true
+            fi
+            if ! adb shell cmd alarm set-timezone "$original_zone" >>/tmp/api37-clock-restore.txt 2>&1; then
+              echo 'CRITICAL: restoring original emulator timezone failed' >&2
+              original_rc=1
+            fi
+            if [ "$original_auto" = null ]; then
+              adb shell settings delete global auto_time_zone >>/tmp/api37-clock-restore.txt 2>&1 || original_rc=1
+            else
+              adb shell settings put global auto_time_zone "$original_auto" >>/tmp/api37-clock-restore.txt 2>&1 || original_rc=1
+            fi
+            local restored_zone
+            restored_zone="$(adb shell getprop persist.sys.timezone | tr -d '\r' || true)"
+            if [ "$restored_zone" != "$original_zone" ]; then
+              echo "CRITICAL: timezone restore mismatch: $restored_zone != $original_zone" >&2
+              original_rc=1
+            fi
+            exit "$original_rc"
+          }
+          trap restore_emulator_clock EXIT
+
+          # Use the platform's timezone service, not am broadcast or a synthesized intent.
+          # No app policy, package state, root/Shizuku shell or user data is touched.
+          adb shell settings put global auto_time_zone 0
+          adb shell cmd alarm set-timezone Etc/UTC
+          adb logcat -c
+          INSTRUMENTATION="$(adb shell pm list instrumentation | tr -d '\r' |
+            sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+            head -n 1)"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r \
+            -e ci_expected_timezone Pacific/Honolulu \
+            -e class "$CLASS" "$INSTRUMENTATION" \
+            >/tmp/api37-real-clock-instrumentation.txt 2>&1 &
+          instrument_pid=$!
+          observed_ready=0
+          for i in $(seq 1 45); do
+            adb logcat -d -s ReAppzukuClockProbe:I '*:S' > /tmp/api37-real-clock-logcat.txt || true
+            if grep -Fq 'READY: system-only timezone observer registered' /tmp/api37-real-clock-logcat.txt; then
+              observed_ready=1
+              break
+            fi
+            if ! kill -0 "$instrument_pid" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          if [ "$observed_ready" -ne 1 ]; then
+            cat /tmp/api37-real-clock-instrumentation.txt
+            echo 'Clock observer registration was not confirmed' >&2
+            exit 1
+          fi
+
+          adb shell cmd alarm set-timezone Pacific/Honolulu
+          wait "$instrument_pid"
+          instrument_pid=''
+          cat /tmp/api37-real-clock-instrumentation.txt
+          grep -Fq 'OK (1 test)' /tmp/api37-real-clock-instrumentation.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api37-real-clock-instrumentation.txt
+          adb logcat -d -s ReAppzukuClockProbe:I '*:S' > /tmp/api37-real-clock-logcat.txt
+          grep -Fq 'DELIVERED: real system timezone broadcast, zone=Pacific/Honolulu' /tmp/api37-real-clock-logcat.txt
+          test "$(adb shell getprop persist.sys.timezone | tr -d '\r')" = 'Pacific/Honolulu'
+          echo 'API37_REAL_TIMEZONE_CHANGED_BROADCAST_DELIVERED'
+
       - name: Run Android instrumentation on API 37
-        if: ${{ inputs.test_class != 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RetryWorkerInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RealReconcileWorkerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37PackageHandlerRetryInstrumentationTest' }}
+        if: ${{ inputs.test_class != 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RetryWorkerInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RealReconcileWorkerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37PackageHandlerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api37RealClockBroadcastDeliveryInstrumentationTest' }}
         shell: bash
         env:
           TEST_CLASS: ${{ inputs.test_class }}
@@ -562,7 +639,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p api37-evidence
-          for file in /tmp/api37-emulator.log /tmp/api37-instrumentation.txt /tmp/api37-phase9-completed-model.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt /tmp/api37-security-probe*.txt /tmp/api37-new-app-* /tmp/api37-pre-probe-launch.txt /tmp/install-*.log; do
+          for file in /tmp/api37-emulator.log /tmp/api37-instrumentation.txt /tmp/api37-phase9-completed-model.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt /tmp/api37-security-probe*.txt /tmp/api37-new-app-* /tmp/api37-pre-probe-launch.txt /tmp/api37-real-clock-* /tmp/install-*.log; do
             if [ -f "$file" ]; then
               cp "$file" api37-evidence/
             fi
