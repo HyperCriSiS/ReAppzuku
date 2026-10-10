@@ -317,7 +317,8 @@ jobs:
           grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-before.txt
           ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-before.txt
           uuid="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_ID=([0-9a-f-]{36})$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
-          created="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_CREATED=(yes|no)$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"          [[ "$uuid" =~ ^[0-9a-f-]{36}$ ]]
+          created="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_CREATED=(yes|no)$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
+          [[ "$uuid" =~ ^[0-9a-f-]{36}$ ]]
           [[ "$created" == yes || "$created" == no ]]
       
           # Kill only the currently running debug app PID under its OWN UID.
