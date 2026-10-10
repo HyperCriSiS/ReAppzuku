@@ -1,6 +1,6 @@
 # Phase 11 — fail-safe Restrictions Scheduler recovery design
 
-Status: pure recovery-transaction foundation in PR #117 (2026-10-10). **Not integrated with the live scheduler; no privileged behavior changed.**
+Status: recovery transaction model (PR #117), failure-result repair (PR #118) and bounded synchronous Android journal (PR #120) are implemented and tested (2026-10-10). **Not wired to live RestrictionsScheduler; no new privileged behavior.**
 
 ## Problem and current boundaries
 
@@ -34,7 +34,7 @@ Retry only eligible failed lift/restore operations. Use capped exponential backo
 
 `SchedulerRecoveryTransaction` provides an immutable, bounded package-scoped record, a typed original-restriction snapshot, tracked schedule owners and explicit `APPLYING` / `RESTORING` phases. Its injected store must acknowledge a fully durable write *before* the corresponding injected operation is invoked. Uncertain outcomes retain the record; conflicting observed state moves to manual review. JUnit fault scenarios simulate a memory-only false commit, failed writes before/after an operation, operator exceptions, overlap and deletion. A retry-delay helper is capped at 30 minutes but **does not schedule retries**.
 
-The new class has **no production call sites**, no Android-backed durable codec or store, no real restriction capture, no recovery alarm and no root/Shizuku execution. These are future units subject to the gates above. No untrusted record deserializer or cross-process concurrency guarantee is asserted at this stage.
+PR #120 adds `SchedulerRecoveryJournalCodec`, `SchedulerRecoveryJournalStore` and the private `SchedulerRecoverySharedPreferencesStore`. The binary journal is canonical, versioned, SHA-256 integrity-checked (not authenticated), limited to 128 entries/32 KiB, refuses corrupt or unsupported data and performs one synchronous preference commit for a full snapshot. JVM failures and a real API37 same-UID SIGKILL/relaunch verify conservative journal continuity. Standard, CodeQL and API24 regression gates passed. **Remaining:** no live scheduler call sites, no original platform-state capture, no actual privileged restoration, no retry scheduling and no real Shizuku/root/OEM or power-loss acceptance. The per-instance poison flag after `commit(false)` does not yet carry across a freshly constructed adapter in the same process; harden that invariant and restrict allowed journal phase/original-tuple revisions before activation. No cross-process concurrency or flash atomicity is claimed.
 
 ## Sequencing
 
