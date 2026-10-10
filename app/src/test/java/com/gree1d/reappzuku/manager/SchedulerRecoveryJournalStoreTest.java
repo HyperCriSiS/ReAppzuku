@@ -79,8 +79,8 @@ public final class SchedulerRecoveryJournalStoreTest {
         assertThrows(IllegalStateException.class, store::snapshot);
         assertFalse(store.commit(prepared("com.example.two")));
         assertEquals(1, backend.writes);
-        backend.restart();
-        assertTrue(new SchedulerRecoveryJournalStore(backend).snapshot().isEmpty());
+        MemoryBackend restarted = backend.freshProcess();
+        assertTrue(new SchedulerRecoveryJournalStore(restarted).snapshot().isEmpty());
     }
 
     @Test public void uncertainFinalCommitRemainsApplyingOnRestart() {
@@ -146,9 +146,9 @@ public final class SchedulerRecoveryJournalStoreTest {
         assertTrue(store.commit(completed));
         assertTrue(store.removeResolved("com.example.one"));
         assertTrue(store.removeResolved("com.example.one"));
-        backend.restart();
+        MemoryBackend restarted = backend.freshProcess();
         Map<String, SchedulerRecoveryTransaction.Record> restored =
-                new SchedulerRecoveryJournalStore(backend).snapshot();
+                new SchedulerRecoveryJournalStore(restarted).snapshot();
         assertFalse(restored.containsKey("com.example.one"));
         assertTrue(restored.containsKey("com.example.two"));
     }
