@@ -68,7 +68,7 @@ public final class SchedulerAppOpsDualScopeDiagnostic {
         return new Result(status, null, null, null);
     }
 
-    private static final class Parsed {
+    static final class Parsed {
         final Layer pkg;
         final Layer uid;
         Parsed(Layer pkg, Layer uid) { this.pkg = pkg; this.uid = uid; }
@@ -83,7 +83,7 @@ public final class SchedulerAppOpsDualScopeDiagnostic {
         return new Layer(Presence.EXPLICIT, mode, null);
     }
 
-    private static Parsed parse(String raw, String operation) {
+    static Parsed parse(String raw, String operation) {
         if (raw == null || raw.length() == 0 || raw.length() > 4096
                 || raw.indexOf('\r') >= 0 || raw.indexOf('\u0000') >= 0) {
             return null;
