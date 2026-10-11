@@ -48,7 +48,9 @@ would destroy that unrelated state. The revised test requires only
 It then attempts package `WAKE_LOCK=allow` against UID
 `WAKE_LOCK=ignore`, observes the actual shell text and tests further UID
 `allow`/`default` transitions. Its EXIT trap invokes **two targeted
-`WAKE_LOCK=default` setters** (one UID-scoped and one package-scoped) and
+`WAKE_LOCK=allow` setters** (one UID-scoped and one package-scoped) because
+this operation's observed platform default is ALLOW, while AppOps
+`MODE_DEFAULT` is a *different explicit mode*. The trap
 compares the complete original package inventory plus both `WAKE_LOCK`
 queries byte-for-byte with the baseline. A failed restoration fails CI.
 No broad `cmd appops reset` or unrelated-op writes are permitted.
