@@ -100,13 +100,11 @@ cleanup() {
   trap - EXIT
   if (( armed )); then
     local restored=1
-    # The PLATFORM default of WAKE_LOCK is ALLOW. AppOps MODE_DEFAULT is
-    # a distinct mode and cannot be substituted for an absent ALLOW value.
-    # Never use package-wide reset: it erases unrelated preexisting UID ops.
+    # WAKE_LOCK has platform default ALLOW. Restoring UID ALLOW removes
+    # the temporary UID entry; PACKAGE MODE IS NEVER CHANGED.
+    # No package-wide reset: it would erase unrelated preexisting UID ops.
     adb shell cmd appops set --user "$user" --uid "$fixture" "$operation" allow \
       >/tmp/reappzuku-appops-target-restore.txt 2>&1 || restored=0
-    adb shell cmd appops set --user "$user" "$fixture" "$operation" allow \
-      >>/tmp/reappzuku-appops-target-restore.txt 2>&1 || restored=0
     if (( restored == 0 )); then
       echo APP_OPS_FIXTURE_TARGETED_RESTORE_FAILED >&2
       cat /tmp/reappzuku-appops-target-restore.txt >&2
@@ -134,16 +132,17 @@ trap cleanup EXIT
 # Arm before attempting the first change, even if the command partially fails.
 armed=1
 
-adb shell cmd appops set --user "$user" "$fixture" "$operation" allow
+# Package WAKE_LOCK remains implicit DEFAULT=ALLOW; change ONLY UID scope.
 adb shell cmd appops set --user "$user" --uid "$fixture" "$operation" ignore
 conflict="$(get_package)"
 echo API37_UID_CONFLICT_RAW_BEGIN
 printf '%s\n' "$conflict"
 echo API37_UID_CONFLICT_RAW_END
-# Require actual separate explicit rows, not a default-mode hint.
+# Require an explicit UID override and only the IMPLICIT package fallback.
 grep -Eq '(^|[[:space:]])Uid mode: WAKE_LOCK: ignore([;[:space:]]|$)' <<< "$conflict"
-grep -Eq '^WAKE_LOCK: allow([;[:space:]]|$)' <<< "$conflict"
-echo API37_UID_IGNORE_OVERRIDES_PACKAGE_ALLOW_OBSERVED
+grep -Fq 'Default mode: allow' <<< "$conflict"
+! grep -Eq '^WAKE_LOCK: ' <<< "$conflict"
+echo API37_UID_IGNORE_OVERRIDES_IMPLICIT_PACKAGE_ALLOW_OBSERVED
 
 # UID ALLOW and AppOps DEFAULT are distinct requested modes.
 adb shell cmd appops set --user "$user" --uid "$fixture" "$operation" allow
