@@ -38,13 +38,13 @@ public final class SchedulerAppOpsDualScopeDiagnosticTest {
         boolean throwOnUid;
 
         @Override public String readPackage(String packageName, String op) {
-            if (++pkgReads == 2 && changedPkg != null) return changedPkg;
+            if (++pkgReads % 2 == 0 && changedPkg != null) return changedPkg;
             return pkg;
         }
         @Override public String readUid(int uidValue, String op) {
             assertEquals(10345, uidValue);
             if (throwOnUid) throw new SecurityException("Shell unavailable");
-            if (++uidReads == 2 && changedUid != null) return changedUid;
+            if (++uidReads % 2 == 0 && changedUid != null) return changedUid;
             return uid;
         }
     }
