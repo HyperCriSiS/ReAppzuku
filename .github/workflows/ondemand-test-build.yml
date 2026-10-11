@@ -29,6 +29,8 @@ jobs:
         run: chmod +x gradlew
       - name: Validate fail-closed, read-only upgrade preflight
         run: bash scripts/tests/test-release-upgrade-preflight.sh
+      - name: Verify read-only AppOps/DeviceIdle shell provenance fixtures
+        run: bash scripts/tests/test-ci-appops-readonly-provenance.sh
       - name: Unit tests
         run: ./gradlew testDebugUnitTest
       - name: Lint
