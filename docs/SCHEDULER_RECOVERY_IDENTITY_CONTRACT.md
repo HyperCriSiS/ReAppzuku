@@ -37,17 +37,23 @@ An opt-in CI shell fixture (`scripts/tests/ci-real-uid-appops-conflict.sh`) oper
 `com.reappzuku.securityprobe` APK on API37, never the product,
 physical hardware or a user's apps. On API24 the already installed
 `com.gree1d.reappzuku.test` is inspected **read-only** and never reset.
-The script checks Android API/user/package identity and a unique fixture UID, inventories both package-
-and numeric-UID AppOps and refuses any nonempty full-package baseline before
-enabling its EXIT trap. On Android 17 it attempts a package `WAKE_LOCK=allow`
-and explicit UID `WAKE_LOCK=ignore` conflict, then observes and records
-the actual shell text; further UID `allow` / `default` transitions are
-diagnostic rather than proof of persistent explicit modes. The EXIT trap
-executes a **package-scoped** reset and requires exact re-observation of
-the initial empty package and operation-specific UID/package inventory.
-A failed restoration fails CI. The instrumentation APK was explicitly rejected in the first diagnostic run because it already had numerous UID-level IGNORE entries; resetting it would have corrupted that test fixture's unrelated state. AOSP's shell documentation and service source
-specify that a UID mode supersedes a package mode and package-scoped reset
-also visits resettable UID modes; vendor implementations can differ.
+The script checks the Android API/user/package identity and a unique fixture
+UID, then inventories and snapshots the **entire** package and numeric-UID
+AppOps output. Android 17 prepopulates many `IGNORE` UID permission modes
+even on minimally declared apps. The first two diagnostics correctly refused
+to mutate either the AndroidTest or securityProbe APK while a broad reset
+would destroy that unrelated state. The revised test requires only
+`WAKE_LOCK` to be absent at both levels, leaving all other modes untouched.
+
+It then attempts package `WAKE_LOCK=allow` against UID
+`WAKE_LOCK=ignore`, observes the actual shell text and tests further UID
+`allow`/`default` transitions. Its EXIT trap invokes **two targeted
+`WAKE_LOCK=default` setters** (one UID-scoped and one package-scoped) and
+compares the complete original package inventory plus both `WAKE_LOCK`
+queries byte-for-byte with the baseline. A failed restoration fails CI.
+No broad `cmd appops reset` or unrelated-op writes are permitted.
+The AOSP source confirms UID precedence, but platform-visible state equality
+is not a flash-power-loss or explicit-absence attestation.
 
 On Android 7/API24 the numeric-UID shell syntax is already known to be
 unsupported by the tested emulator. The fixture performs baseline
