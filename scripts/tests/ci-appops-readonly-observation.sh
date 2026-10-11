@@ -24,12 +24,15 @@ read_user() {
 # observation after data capture detects the identity changes observable here.
 read_uid() {
   local listing dump candidates uid
-  listing="$(adb shell pm list packages -U "$package" 2>/dev/null | tr -d '\r')" || return 1
+  listing="$(adb shell pm list packages -U "$package" 2>/dev/null | tr -d '\r')" || listing=''
   if [[ "$listing" =~ ^package:com\.gree1d\.reappzuku[[:space:]]uid:([0-9]+)$ ]]; then
     uid="${BASH_REMATCH[1]}"
-  elif [[ "$listing" == "package:$package" ]]; then
-    # Old Android can omit -U. The fallback accepts one unique numeric value,
-    # not arbitrary command output or an inferred package name.
+  elif [[ "$listing" == "package:$package" || -z "$listing" ]]; then
+    # API24 can omit -U or emit no UID row. Verify package installation
+    # independently before accepting exactly one numeric dumpsys userId.
+    local package_path
+    package_path="$(adb shell pm path "$package" 2>/dev/null | tr -d '\r')" || return 1
+    [[ "$package_path" =~ ^package:/.*\.apk$ ]] || return 1
     dump="$(adb shell dumpsys package "$package" 2>/dev/null | tr -d '\r')" || return 1
     candidates="$(printf '%s\n' "$dump" |
       sed -nE 's/^[[:space:]]*userId=([0-9]+)[[:space:]]*$/\1/p' | sort -u)"
@@ -46,8 +49,12 @@ read_uid() {
 
 user="$(read_user || true)"
 uid="$(read_uid || true)"
-if [[ "$user" != 0 || ! "$uid" =~ ^[0-9]+$ ]]; then
-  echo READONLY_APPOPS_IDENTITY_OR_USER_UNKNOWN
+if [[ ! "$uid" =~ ^[0-9]+$ ]]; then
+  echo READONLY_APPOPS_IDENTITY_UNKNOWN
+  exit 0
+fi
+if [[ "$user" != 0 ]]; then
+  echo READONLY_APPOPS_USER_UNKNOWN
   exit 0
 fi
 
