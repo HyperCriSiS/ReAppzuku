@@ -39,6 +39,21 @@ public final class SchedulerAppOpsDiagnosticTest {
         assertNull(SchedulerAppOpsDiagnostic.packageOnly("Uid mode: " + OP + ": default", OP));
     }
 
+    @Test public void realAospUidAndPackageRowShapeRemainsLossless() {
+        String raw = "Uid mode: WAKE_LOCK: ignore\nWAKE_LOCK: allow";
+        SchedulerAppOpsDiagnostic.Result result =
+                SchedulerAppOpsDiagnostic.parse(raw, "WAKE_LOCK");
+        assertNotNull(result);
+        assertTrue(result.uidOverridesPackage);
+        assertEquals("ignore", result.explicitUidMode);
+        assertEquals("allow", result.explicitPackageMode);
+        assertEquals("ignore", result.observedEffectiveMode);
+        assertNull(SchedulerAppOpsDiagnostic.packageOnly(raw, "WAKE_LOCK"));
+        // An absent explicitly set value is not the same as explicit DEFAULT.
+        assertNull(SchedulerAppOpsDiagnostic.parse(
+                "No operations.\nDefault mode: allow", "WAKE_LOCK"));
+    }
+
     @Test public void incompleteDuplicateOrHostileOutputNeverProducesAnEffectiveMode() {
         String[] invalid = {
                 "No operations.\nDefault mode: allow",
