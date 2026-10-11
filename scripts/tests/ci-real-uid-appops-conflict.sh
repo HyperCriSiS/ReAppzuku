@@ -20,11 +20,18 @@ user="$(adb shell am get-current-user | tr -d '\r')"
 adb shell pm path "$fixture" | tr -d '\r' | grep -Eq '^package:/.*\.apk$'
 adb shell pm path "$product" | tr -d '\r' | grep -Eq '^package:/.*\.apk$'
 [[ "$fixture" != "$product" ]]
-uid_dump="$(adb shell dumpsys package "$fixture" | tr -d '\r')"
-uids="$(printf '%s\n' "$uid_dump" |
-  sed -nE 's/^[[:space:]]*userId=([0-9]+)[[:space:]]*$/\1/p' | sort -u)"
+uid_line="$(adb shell pm list packages -U "$fixture" 2>/dev/null | tr -d '\r' || true)"
+uids="$(printf '%s\n' "$uid_line" |
+  sed -nE 's/^package:com\.gree1d\.reappzuku\.test uid:([0-9]+)$/\1/p' | sort -u)"
+if [[ ! "$uids" =~ ^[0-9]+$ ]]; then
+  # Some SDK images omit -U, and some dumpsys variants append fields to
+  # their userId line. Require one unambiguous numeric value either way.
+  uid_dump="$(adb shell dumpsys package "$fixture" | tr -d '\r')"
+  uids="$(printf '%s\n' "$uid_dump" |
+    sed -nE 's/^[[:space:]]*userId=([0-9]+)([[:space:]].*)?$/\1/p' | sort -u)"
+fi
 [[ "$uids" =~ ^[0-9]+$ ]] || {
-  echo 'APP_OPS_PROBE_REFUSED_UNVERIFIED_TEST_UID' >&2
+  echo "APP_OPS_PROBE_REFUSED_UNVERIFIED_TEST_UID listing=$uid_line" >&2
   exit 1
 }
 uid="$uids"
