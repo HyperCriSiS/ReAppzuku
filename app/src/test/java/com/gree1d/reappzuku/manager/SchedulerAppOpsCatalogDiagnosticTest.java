@@ -164,7 +164,7 @@ public final class SchedulerAppOpsCatalogDiagnosticTest {
         for (SchedulerInstalledPackageIdentity.Snapshot later
                 : new SchedulerInstalledPackageIdentity.Snapshot[] {
                     identity(10342, OTHER, 1000),
-                    identity(10342, SIGNER, 3000),
+                    identity(10342, SIGNER, 2200),
                     identity(10343, SIGNER, 1000)}) {
             PackageIdentity id = new PackageIdentity();
             id.after = later;
