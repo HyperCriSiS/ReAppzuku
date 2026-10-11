@@ -49,7 +49,10 @@ public final class SchedulerAppOpsDiagnosticTest {
                 "RUN_IN_BACKGROUND: allow\nError: permission denied",
                 "RUN_IN_BACKGROUND: ROOT",
                 "Uid mode: WAKE_LOCK: allow\nRUN_IN_BACKGROUND: default",
-                "RUN_IN_BACKGROUND: allow (running)"
+                "RUN_IN_BACKGROUND: allow (running)",
+                "RUN_IN_BACKGROUND: allow; untrusted=warning",
+                "RUN_IN_BACKGROUND: allow; time=",
+                "RUN_IN_BACKGROUND: allow; Error: permission denied"
         };
         for (String text : invalid) {
             assertNull(text, SchedulerAppOpsDiagnostic.parse(text, OP));

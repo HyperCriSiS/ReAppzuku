@@ -56,11 +56,21 @@ public final class SchedulerAppOpsDiagnostic {
                 if (uidRow) bad = true;
                 continue;
             }
-            String candidate = item.substring(target.length()).trim();
-            int extra = candidate.indexOf(';');
-            if (extra >= 0) candidate = candidate.substring(0, extra).trim();
-            // Reject running/access metadata without a known delimiter.
+            String details = item.substring(target.length()).trim();
+            String[] components = details.split(";", -1);
+            String candidate = components[0].trim();
             if (!MODE.matcher(candidate).matches()) { bad = true; continue; }
+            // Only known Android diagnostic suffixes are accepted. Arbitrary
+            // suffixes must never turn a warning into apparently valid evidence.
+            for (int i = 1; i < components.length; i++) {
+                String detail = components[i].trim();
+                if (!(detail.startsWith("time=")
+                        || detail.startsWith("rejectTime=")
+                        || detail.startsWith("duration="))
+                        || detail.substring(detail.indexOf('=') + 1).trim().isEmpty()) {
+                    bad = true;
+                }
+            }
             if (uidRow) {
                 if (uid != null) bad = true;
                 uid = candidate;
