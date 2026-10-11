@@ -33,9 +33,11 @@ This is a human-readable shell **diagnostic**, not an authoritative API for stab
 ## Controlled AppOps conflict test — disposable emulators only
 
 An opt-in CI shell fixture (`scripts/tests/ci-real-uid-appops-conflict.sh`) operates
-**only** on the separately installed `com.gree1d.reappzuku.test`
-instrumentation APK, never the product, physical hardware or a user's apps.
-The script checks Android API/user/package identity, inventories both package-
+**only** on the separately installed minimal-manifest
+`com.reappzuku.securityprobe` APK on API37, never the product,
+physical hardware or a user's apps. On API24 the already installed
+`com.gree1d.reappzuku.test` is inspected **read-only** and never reset.
+The script checks Android API/user/package identity and a unique fixture UID, inventories both package-
 and numeric-UID AppOps and refuses any nonempty full-package baseline before
 enabling its EXIT trap. On Android 17 it attempts a package `WAKE_LOCK=allow`
 and explicit UID `WAKE_LOCK=ignore` conflict, then observes and records
@@ -43,7 +45,7 @@ the actual shell text; further UID `allow` / `default` transitions are
 diagnostic rather than proof of persistent explicit modes. The EXIT trap
 executes a **package-scoped** reset and requires exact re-observation of
 the initial empty package and operation-specific UID/package inventory.
-A failed restoration fails CI. AOSP's shell documentation and service source
+A failed restoration fails CI. The instrumentation APK was explicitly rejected in the first diagnostic run because it already had numerous UID-level IGNORE entries; resetting it would have corrupted that test fixture's unrelated state. AOSP's shell documentation and service source
 specify that a UID mode supersedes a package mode and package-scoped reset
 also visits resettable UID modes; vendor implementations can differ.
 
