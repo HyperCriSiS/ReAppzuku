@@ -77,4 +77,50 @@ public final class SchedulerAppOpsDiagnosticTest {
         assertNull(SchedulerAppOpsDiagnostic.parse("", OP));
         assertNull(SchedulerAppOpsDiagnostic.parse(null, OP));
     }
+
+    @Test public void commandWarningsAndUnrelatedRowsCannotBeSilentlyDiscarded() {
+        String[] malformed = {
+                "RUN_IN_BACKGROUND: allow\nWarning: operation not supported",
+                "Warning: permission denied\nRUN_IN_BACKGROUND: allow",
+                "RUN_IN_BACKGROUND: allow\nPermission denied",
+                "RUN_IN_BACKGROUND: allow\nWAKE_LOCK: ignore",
+                "RUN_IN_BACKGROUND: allow\nUid mode: WAKE_LOCK: ignore",
+                "RUN_IN_BACKGROUND: allow\nNo operations.",
+                "RUN_IN_BACKGROUND: allow\nDefault mode: allow",
+                "RUN_IN_BACKGROUND: allow\n",
+                "RUN_IN_BACKGROUND: allow\n\nRUN_IN_BACKGROUND: ignore",
+                "Uid mode: RUN_IN_BACKGROUND: ignore\nuid:10088 not installed",
+                "RUN_IN_BACKGROUND: allow\njava.lang.SecurityException: permission denied"
+        };
+        for (String raw : malformed) {
+            // Java's String.split discards trailing blank lines; a lone terminal
+            // newline is harmless output formatting, not a second record.
+            if (raw.equals("RUN_IN_BACKGROUND: allow\n")) {
+                assertNotNull(SchedulerAppOpsDiagnostic.parse(raw, OP));
+                continue;
+            }
+            assertNull(raw, SchedulerAppOpsDiagnostic.parse(raw, OP));
+            assertNull(raw, SchedulerAppOpsDiagnostic.packageOnly(raw, OP));
+        }
+    }
+
+    @Test public void absenceIsNotExplicitAllowOrDefaultAndCannotAuthorizeLegacyMode() {
+        for (String absent : new String[]{
+                "No operations.", "No operations.\nDefault mode: allow",
+                "Default mode: allow", "No operations.\nDefault mode: default"
+        }) {
+            assertNull(SchedulerAppOpsDiagnostic.parse(absent, "WAKE_LOCK"));
+            assertNull(SchedulerAppOpsDiagnostic.packageOnly(absent, "WAKE_LOCK"));
+        }
+        for (String explicit : new String[]{"allow", "default"}) {
+            SchedulerAppOpsDiagnostic.Result result =
+                    SchedulerAppOpsDiagnostic.parse("WAKE_LOCK: " + explicit, "WAKE_LOCK");
+            assertNotNull(result);
+            assertEquals(explicit, result.explicitPackageMode);
+        }
+        assertNull(SchedulerAppOpsDiagnostic.packageOnly(
+                "Uid mode: WAKE_LOCK: ignore\nWAKE_LOCK: allow", "WAKE_LOCK"));
+        assertNull(SchedulerAppOpsDiagnostic.parse(
+                "WAKE_LOCK: allow\nError: No UID for 1000000 in user 0", "WAKE_LOCK"));
+    }
 }
