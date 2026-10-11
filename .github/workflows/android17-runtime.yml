@@ -220,6 +220,20 @@ jobs:
           bash scripts/tests/ci-appops-readonly-observation.sh | tee /tmp/read-only-appops.txt
           grep -Eq 'READONLY_APPOPS_DIAGNOSTIC_COMPLETE|READONLY_APPOPS_(IDENTITY|USER)_UNKNOWN' /tmp/read-only-appops.txt
 
+      - name: Exercise disposable fixture UID AppOps conflict and restore
+        if: ${{ inputs.test_class == 'com.gree1d.reappzuku.manager.SchedulerRestrictionReadOnlyInstrumentationTest' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/tests/ci-real-uid-appops-conflict.sh | tee /tmp/real-uid-appops-conflict.txt
+          if [ "$(adb shell getprop ro.build.version.sdk | tr -d '\r')" = 37 ]; then
+            grep -Fq 'API37_UID_IGNORE_OVERRIDES_PACKAGE_ALLOW_OBSERVED' /tmp/real-uid-appops-conflict.txt
+            grep -Fq 'API37_UID_ALLOW_DEFAULT_TRANSITIONS_OBSERVED' /tmp/real-uid-appops-conflict.txt
+            grep -Fq 'API37_APP_OPS_FIXTURE_ORIGINAL_STATE_RESTORED' /tmp/real-uid-appops-conflict.txt
+          else
+            grep -Fq 'API24_UID_OVERRIDE_PROBE_READ_ONLY_UNSUPPORTED' /tmp/real-uid-appops-conflict.txt
+          fi
+
       - name: Verify PACKAGE_ADDED new-app fallback
         shell: bash
         run: |
