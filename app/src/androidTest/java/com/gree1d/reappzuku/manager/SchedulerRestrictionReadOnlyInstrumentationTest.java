@@ -73,4 +73,46 @@ public final class SchedulerRestrictionReadOnlyInstrumentationTest {
             assertNull(observed.snapshot);
         }
     }
+
+    @Test public void installedSignerIdentityDoesNotUpgradeIncompleteRestrictionEvidence() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        final int installedUid = context.getApplicationInfo().uid;
+
+        // The identity source is the REAL installed PackageManager. The
+        // restriction source is deliberately incomplete: no real shell is
+        // invoked or AppOp/restoration primitive authorized by this test.
+        SchedulerRestrictionObservation.Source incomplete =
+                new SchedulerRestrictionObservation.Source() {
+                    @Override public Integer uid(String packageName) {
+                        return installedUid;
+                    }
+                    @Override public Integer enabledSetting(String packageName) {
+                        return 0;
+                    }
+                    @Override public Boolean suspended(String packageName) {
+                        return null; // intentionally unknown, even on API37
+                    }
+                    @Override public Integer standbyBucket(String packageName) {
+                        return 40;
+                    }
+                    @Override public SchedulerRestrictionObservation.WhitelistKind whitelistKind(
+                            String packageName) {
+                        return SchedulerRestrictionObservation.WhitelistKind.NONE;
+                    }
+                    @Override public String appOpMode(String packageName, String op) {
+                        return null;
+                    }
+                };
+
+        SchedulerRestrictionConsistencyDiagnostic.Result result =
+                SchedulerRestrictionConsistencyDiagnostic.capture(
+                        context.getPackageName(), new String[]{"WAKE_LOCK"},
+                        new SchedulerInstalledPackageAndroidSource(context), incomplete);
+        assertEquals(SchedulerRestrictionConsistencyDiagnostic.Status.RESTRICTIONS_UNKNOWN,
+                result.status);
+        assertFalse(result.consistentDiagnosticOnly());
+        assertNull("A valid real signer cannot rescue a partial restriction tuple",
+                result.identity);
+        assertNull(result.restrictions);
+    }
 }
