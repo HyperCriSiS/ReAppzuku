@@ -89,11 +89,11 @@ cleanup() {
   trap - EXIT
   if (( armed )); then
     local cleanup_ok=1
-    # Restore ONLY the test-owned operation. A broad package reset would
+    # Restore ONLY WAKE_LOCK to its verified platform baseline (allow), NOT\n    # the distinct explicit AppOps MODE_DEFAULT. A broad package reset would
     # erase unrelated system-provisioned UID permission modes.
-    adb shell cmd appops set --user "$user" --uid "$fixture" "$operation" default \
+    adb shell cmd appops set --user "$user" --uid "$fixture" "$operation" allow \
       >/tmp/appops-fixture-reset.log 2>&1 || cleanup_ok=0
-    adb shell cmd appops set --user "$user" "$fixture" "$operation" default \
+    adb shell cmd appops set --user "$user" "$fixture" "$operation" allow \
       >>/tmp/appops-fixture-reset.log 2>&1 || cleanup_ok=0
     if (( cleanup_ok == 0 )); then
       echo 'APP_OPS_FIXTURE_TARGETED_RESTORE_FAILED' >&2
