@@ -29,6 +29,36 @@ This is a human-readable shell **diagnostic**, not an authoritative API for stab
 | AppOps package/UID | Exact shell output may be different or unsupported | Exact shell output may be different or unsupported |
 | Implicit mode | UNKNOWN, not `default` | UNKNOWN, not `default` |
 
+
+## Controlled AppOps conflict test — disposable emulators only
+
+An opt-in CI shell fixture (`scripts/tests/ci-real-uid-appops-conflict.sh`) operates
+**only** on the separately installed `com.gree1d.reappzuku.test`
+instrumentation APK, never the product, physical hardware or a user's apps.
+The script checks Android API/user/package identity, inventories both package-
+and numeric-UID AppOps and refuses any nonempty full-package baseline before
+enabling its EXIT trap. On Android 17 it attempts a package `WAKE_LOCK=allow`
+and explicit UID `WAKE_LOCK=ignore` conflict, then observes and records
+the actual shell text; further UID `allow` / `default` transitions are
+diagnostic rather than proof of persistent explicit modes. The EXIT trap
+executes a **package-scoped** reset and requires exact re-observation of
+the initial empty package and operation-specific UID/package inventory.
+A failed restoration fails CI. AOSP's shell documentation and service source
+specify that a UID mode supersedes a package mode and package-scoped reset
+also visits resettable UID modes; vendor implementations can differ.
+
+On Android 7/API24 the numeric-UID shell syntax is already known to be
+unsupported by the tested emulator. The fixture performs baseline
+inspection only and reports `API24_UID_OVERRIDE_PROBE_READ_ONLY_UNSUPPORTED`.
+Its successful exit is **not** a positive UID test. The script must never
+be run against personal devices, existing configured packages, system
+applications or production installations.
+
+Even a successful API37 fixture proves a bounded **shell-mode precedence
+observation** and restoration for one disposable package, not the behavior
+of a real Root/Shizuku backend in production, complete AppOps provenance,
+power-loss safety or authorization to replay privileges.
+
 ## Remaining gates
 
 Independent current package/user/certificate identity across a real durable capture and restore; UID-level modes and attribution precedence per official platform API; coherent full-state observations before mutation; independent known-correct restoration commands and fault injection on supported API levels; rollback on deletion/overlap; process and power-loss behavior; production Root/Shizuku, physical/OEM, stable signing and upgrade. **Do not wire read-only diagnostics into the live RestrictionsScheduler.**
