@@ -1,67 +1,74 @@
 #!/usr/bin/env bash
-# Read-only, disposable emulator AppOps output inventory. No appops SET/RESET.
+# Disposable-emulator, read-only AppOps and DeviceIdle observations.
+# Stable raw text is diagnostic ONLY: no AppOps set/reset or restore authority.
 set -euo pipefail
+export LC_ALL=C
+source "$(dirname "${BASH_SOURCE[0]}")/lib/ci-readonly-provenance.sh"
+
 package=com.gree1d.reappzuku
-target_user="$(adb shell am get-current-user 2>/dev/null | tr -d '\r' || true)"
-uid_line="$(adb shell pm list packages -U "$package" | tr -d '\r' || true)"
-uid="$(printf '%s\n' "$uid_line" | sed -nE "s/^package:com\\.gree1d\\.reappzuku uid:([0-9]+)$/\\1/p" | head -n 1)"
-if [[ ! "$uid" =~ ^[0-9]+$ ]]; then
-  # Android 7 package-manager shell versions can omit -U/uid output. Use
-  # the installed PackageManager dump, never a fabricated UID from an app name.
-  dump="$(adb shell dumpsys package "$package" 2>/dev/null | tr -d '\r' || true)"
-  candidates="$(printf '%s\n' "$dump" |
-    sed -nE 's/^[[:space:]]*userId=([0-9]+)[[:space:]]*$/\1/p' |
-    sort -u)"
-  if [[ "$candidates" =~ ^[0-9]+$ ]]; then
+sdk="$(adb shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r' || true)"
+qemu="$(adb shell getprop ro.kernel.qemu 2>/dev/null | tr -d '\r' || true)"
+if [[ "$qemu" != 1 || ( "$sdk" != 24 && "$sdk" != 37 ) ]]; then
+  echo READONLY_APPOPS_ENVIRONMENT_UNKNOWN
+  exit 0
+fi
+
+read_user() {
+  local value
+  value="$(adb shell am get-current-user 2>/dev/null | tr -d '\r')" || return 1
+  [[ "$value" =~ ^[0-9]+$ ]] || return 1
+  printf '%s' "$value"
+}
+
+# No first-match UID guess, including on older pm output. A second UID
+# observation after data capture detects the identity changes observable here.
+read_uid() {
+  local listing dump candidates uid
+  listing="$(adb shell pm list packages -U "$package" 2>/dev/null | tr -d '\r')" || return 1
+  if [[ "$listing" =~ ^package:com\.gree1d\.reappzuku[[:space:]]uid:([0-9]+)$ ]]; then
+    uid="${BASH_REMATCH[1]}"
+  elif [[ "$listing" == "package:$package" ]]; then
+    # Old Android can omit -U. The fallback accepts one unique numeric value,
+    # not arbitrary command output or an inferred package name.
+    dump="$(adb shell dumpsys package "$package" 2>/dev/null | tr -d '\r')" || return 1
+    candidates="$(printf '%s\n' "$dump" |
+      sed -nE 's/^[[:space:]]*userId=([0-9]+)[[:space:]]*$/\1/p' | sort -u)"
+    [[ "$candidates" =~ ^[0-9]+$ ]] || return 1
     uid="$candidates"
-    echo READONLY_APPOPS_UID_SOURCE=DUMPSYS_PACKAGE
-  fi
-fi
-if [[ ! "$uid" =~ ^[0-9]+$ ]]; then
-  echo 'READONLY_APPOPS_IDENTITY_UNKNOWN: neither installed package listing nor dumpsys supplied one UID'
-  exit 0
-fi
-if [[ ! "$target_user" =~ ^[0-9]+$ ]]; then
-  echo 'READONLY_APPOPS_USER_UNKNOWN: not asserting current-user match'
-  exit 0
-fi
-echo "READONLY_APPOPS_PACKAGE=$package UID=$uid USER=$target_user"
-for operation in WAKE_LOCK RUN_IN_BACKGROUND; do
-  for target in "$package" "$uid"; do
-    label=PACKAGE
-    [ "$target" = "$uid" ] && label=UID
-    result=''
-    if result="$(adb shell cmd appops get --user "$target_user" "$target" "$operation" 2>&1 | tr -d '\r')"; then
-      if [ "${#result}" -gt 4096 ]; then
-        echo "READONLY_APPOPS_${label}_${operation}=OUTPUT_TOO_LARGE_UNKNOWN"
-      else
-        echo "READONLY_APPOPS_${label}_${operation}_BEGIN"
-        printf '%s\n' "$result"
-        echo "READONLY_APPOPS_${label}_${operation}_END"
-      fi
-    else
-      echo "READONLY_APPOPS_${label}_${operation}=UNAVAILABLE_UNKNOWN"
-    fi
-  done
-done
-# Read only: DeviceIdle full and except-idle entries cannot be conflated.
-# Two independently captured lists are evidence, not restoration authority.
-# Unsupported commands, unstable results, or non-AOSP lines remain UNKNOWN.
-deviceidle_first=''
-deviceidle_second=''
-if deviceidle_first="$(adb shell cmd deviceidle whitelist 2>&1 | tr -d '\r')" \
-    && deviceidle_second="$(adb shell cmd deviceidle whitelist 2>&1 | tr -d '\r')"; then
-  if [ "${#deviceidle_first}" -gt 8192 ] || [ -z "$deviceidle_first" ]; then
-    echo READONLY_DEVICEIDLE_INVENTORY=EMPTY_OR_TOO_LARGE_UNKNOWN
-  elif [ "$deviceidle_first" != "$deviceidle_second" ]; then
-    echo READONLY_DEVICEIDLE_INVENTORY=CHANGED_DURING_READ_UNKNOWN
   else
-    echo READONLY_DEVICEIDLE_INVENTORY_BEGIN
-    printf '%s\n' "$deviceidle_first"
-    echo READONLY_DEVICEIDLE_INVENTORY_END
-    echo READONLY_DEVICEIDLE_INVENTORY=RAW_DOUBLE_READ_MATCH_DIAGNOSTIC_ONLY
+    return 1
   fi
-else
-  echo READONLY_DEVICEIDLE_INVENTORY=UNAVAILABLE_UNKNOWN
+  [[ "$uid" =~ ^[0-9]+$ ]] || return 1
+  ((${#uid}<=10)) || return 1
+  ((10#$uid>0 && 10#$uid<=2147483647)) || return 1
+  printf '%s' "$uid"
+}
+
+user="$(read_user || true)"
+uid="$(read_uid || true)"
+if [[ "$user" != 0 || ! "$uid" =~ ^[0-9]+$ ]]; then
+  echo READONLY_APPOPS_IDENTITY_OR_USER_UNKNOWN
+  exit 0
 fi
+
+# Buffer all observations until the independent postflight UID/user check:
+# a changed identity cannot leak earlier raw records as "stable" evidence.
+observations="$(
+  for operation in WAKE_LOCK RUN_IN_BACKGROUND; do
+    readonly_capture_pair "READONLY_APPOPS_PACKAGE_${operation}" 4096 appops "$operation" \
+      adb shell cmd appops get --user "$user" "$package" "$operation"
+    readonly_capture_pair "READONLY_APPOPS_UID_${operation}" 4096 appops "$operation" \
+      adb shell cmd appops get --user "$user" "$uid" "$operation"
+  done
+  readonly_capture_pair READONLY_DEVICEIDLE_INVENTORY 8192 deviceidle '' \
+    adb shell cmd deviceidle whitelist
+)"
+final_user="$(read_user || true)"
+final_uid="$(read_uid || true)"
+if [[ "$final_user" != "$user" || "$final_uid" != "$uid" ]]; then
+  echo READONLY_APPOPS_IDENTITY_CHANGED_DURING_READ_UNKNOWN
+  exit 0
+fi
+echo "READONLY_APPOPS_PACKAGE=$package UID=$uid USER=$user"
+printf '%s\n' "$observations"
 echo READONLY_APPOPS_DIAGNOSTIC_COMPLETE
