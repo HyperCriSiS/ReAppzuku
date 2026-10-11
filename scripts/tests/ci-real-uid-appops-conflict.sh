@@ -4,6 +4,9 @@
 set -euo pipefail
 
 fixture='com.gree1d.reappzuku.test'
+if [[ "$sdk" == 37 ]]; then
+  fixture='com.reappzuku.securityprobe'
+fi
 product='com.gree1d.reappzuku'
 operation='WAKE_LOCK'
 sdk="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
@@ -22,7 +25,7 @@ adb shell pm path "$product" | tr -d '\r' | grep -Eq '^package:/.*\.apk$'
 [[ "$fixture" != "$product" ]]
 uid_line="$(adb shell pm list packages -U "$fixture" 2>/dev/null | tr -d '\r' || true)"
 uids="$(printf '%s\n' "$uid_line" |
-  sed -nE 's/^package:com\.gree1d\.reappzuku\.test uid:([0-9]+)$/\1/p' | sort -u)"
+  sed -nE 's/^package:[a-zA-Z0-9_.]+ uid:([0-9]+)$/\1/p' | sort -u)"
 if [[ ! "$uids" =~ ^[0-9]+$ ]]; then
   # Some SDK images omit -U, and some dumpsys variants append fields to
   # their userId line. Require one unambiguous numeric value either way.
@@ -35,6 +38,16 @@ fi
   exit 1
 }
 uid="$uids"
+if [[ "$sdk" == 37 ]]; then
+  # The fixture must not share its UID with the product or any other app:
+  # resetting the UID layer must not affect an unrelated package.
+  all_packages="$(adb shell pm list packages -U | tr -d '\r')"
+  same_uid="$(printf '%s\n' "$all_packages" | grep -E " uid:$uid$" || true)"
+  [[ "$same_uid" == "package:$fixture uid:$uid" ]] || {
+    echo "APP_OPS_PROBE_REFUSED_SHARED_OR_UNKNOWN_UID=$uid" >&2
+    exit 1
+  }
+fi
 echo "APP_OPS_FIXTURE=$fixture UID=$uid SDK=$sdk"
 
 get_all() {
