@@ -158,8 +158,8 @@ public final class SchedulerRestrictionObservationTest {
     }
 
     @Test public void deviceIdleExceptIdleIsASeparateUnsupportedTargetScope() {
-        String inventory = "system-excidle,com.android.backup,1000\\n"
-                + "system,com.android.phone,1001\\n"
+        String inventory = "system-excidle,com.android.backup,1000\n"
+                + "system,com.android.phone,1001\n"
                 + "user,com.example.restrictions,10342";
         assertEquals(SchedulerRestrictionObservation.WhitelistKind.USER,
                 SchedulerRestrictionAndroidReader.parseWhitelist(inventory, PKG));
@@ -169,29 +169,29 @@ public final class SchedulerRestrictionObservationTest {
                 SchedulerRestrictionAndroidReader.parseWhitelist(inventory, "com.android.backup"));
         assertNull("Both system and except-idle is not representable either",
                 SchedulerRestrictionAndroidReader.parseWhitelist(
-                        "system,com.android.backup,1000\\n"
+                        "system,com.android.backup,1000\n"
                                 + "system-excidle,com.android.backup,1000", "com.android.backup"));
     }
 
     @Test public void deviceIdleUnknownLinesAndContradictionsFailClosed() {
         String[] invalid = {
-                "system,com.android.phone,1001\\nWarning: incomplete listing",
-                "Permission denied\\nsystem,com.android.phone,1001",
-                "system,com.android.phone,1001\\nunsupported,com.other.app,10342",
-                "system,com.android.phone,1001\\n",
-                "system,com.android.phone,1001\\n\\nuser,com.example.restrictions,10342",
-                "system,com.android.phone,1001\\nsystem,com.android.phone,1001",
-                "system,com.android.phone,1001\\nuser,com.android.phone,1002",
-                "user,com.example.restrictions,10342\\nuser,com.example.restrictions,10343",
+                "system,com.android.phone,1001\nWarning: incomplete listing",
+                "Permission denied\nsystem,com.android.phone,1001",
+                "system,com.android.phone,1001\nunsupported,com.other.app,10342",
+                "system,com.android.phone,1001\n",
+                "system,com.android.phone,1001\n\nuser,com.example.restrictions,10342",
+                "system,com.android.phone,1001\nsystem,com.android.phone,1001",
+                "system,com.android.phone,1001\nuser,com.android.phone,1002",
+                "user,com.example.restrictions,10342\nuser,com.example.restrictions,10343",
                 "system-excidle,com.android.backup,999999999999999999999",
                 "system,com.android.phone,0",
                 "system,com.android.phone,-1",
                 "system,com.android.phone,1001;echo",
                 " system,com.android.phone,1001",
-                "system,com.android.phone,1001\\nNO SUCH COMMAND"
+                "system,com.android.phone,1001\nNO SUCH COMMAND"
         };
         for (String raw : invalid) {
-            if (raw.equals("system,com.android.phone,1001\\n")) {
+            if (raw.equals("system,com.android.phone,1001\n")) {
                 // A single trailing platform newline is valid formatting.
                 assertEquals(SchedulerRestrictionObservation.WhitelistKind.NONE,
                         SchedulerRestrictionAndroidReader.parseWhitelist(raw, PKG));
