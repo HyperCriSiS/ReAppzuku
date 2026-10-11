@@ -124,22 +124,9 @@ public final class SchedulerRestrictionAndroidReader
      * cannot distinguish implicit default from unavailable package/UID data.
      */
     static String parseAppOp(String output, String appOpName) {
-        if (output == null || output.length() > MAX_SHELL_OUTPUT
-                || appOpName == null || !appOpName.matches("[A-Z][A-Z0-9_]{0,63}")) {
-            return null;
-        }
-        String found = null;
-        String prefix = appOpName + ":";
-        for (String line : output.split("\\r?\\n")) {
-            String item = line.trim();
-            if (!item.startsWith(prefix)) continue;
-            String mode = item.substring(prefix.length()).trim();
-            int details = mode.indexOf(';');
-            if (details >= 0) mode = mode.substring(0, details).trim();
-            if (!mode.matches("[a-z]+") || found != null) return null;
-            found = mode;
-        }
-        return found;
+        // The v2 snapshot has no field for UID-level provenance. Do not
+        // silently store a package mode when the UID mode overrides it.
+        return SchedulerAppOpsDiagnostic.packageOnly(output, appOpName);
     }
 
     static SchedulerRestrictionObservation.WhitelistKind parseWhitelist(

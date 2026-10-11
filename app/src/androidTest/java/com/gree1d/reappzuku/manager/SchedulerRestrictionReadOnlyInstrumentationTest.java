@@ -19,6 +19,26 @@ import org.junit.runner.RunWith;
  */
 @RunWith(AndroidJUnit4.class)
 public final class SchedulerRestrictionReadOnlyInstrumentationTest {
+    @Test public void twoPlatformPackageIdentityReadsAreStableOrFailClosed() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        SchedulerInstalledPackageAndroidSource source =
+                new SchedulerInstalledPackageAndroidSource(context);
+        SchedulerInstalledPackageIdentity.Result observation =
+                SchedulerInstalledPackageIdentity.captureStable(context.getPackageName(), source);
+        assertEquals("own installed signed APK identity must be readable",
+                SchedulerInstalledPackageIdentity.Status.MATCHING_READS, observation.status);
+        assertNotNull(observation.snapshot);
+        assertEquals(context.getApplicationInfo().uid, observation.snapshot.uid);
+        assertEquals(context.getPackageName(), observation.snapshot.packageName);
+        assertEquals(64, observation.snapshot.currentSignerSha256.length());
+        assertEquals(SchedulerInstalledPackageIdentity.Status.MATCHING_READS,
+                SchedulerInstalledPackageIdentity.checkAgain(
+                        observation.snapshot, source).status);
+        assertEquals(SchedulerInstalledPackageIdentity.Status.UNREADABLE,
+                SchedulerInstalledPackageIdentity.captureStable(
+                        "com.example.thispackagecannotexist", source).status);
+    }
+
     @Test public void readsInstalledPackageIdentityWithoutPerformingAnyMutation() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         String packageName = context.getPackageName();

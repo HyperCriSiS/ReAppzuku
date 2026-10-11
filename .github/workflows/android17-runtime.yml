@@ -212,6 +212,14 @@ jobs:
             printf 'external probe %s\n' "$probe_uid_line"
           } | tee /tmp/api37-security-probe-uids.txt
 
+      - name: Capture bounded read-only package and UID AppOps output
+        if: ${{ inputs.test_class == 'com.gree1d.reappzuku.manager.SchedulerRestrictionReadOnlyInstrumentationTest' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/tests/ci-appops-readonly-observation.sh | tee /tmp/read-only-appops.txt
+          grep -Eq 'READONLY_APPOPS_DIAGNOSTIC_COMPLETE|READONLY_APPOPS_(IDENTITY|USER)_UNKNOWN' /tmp/read-only-appops.txt
+
       - name: Verify PACKAGE_ADDED new-app fallback
         shell: bash
         run: |
@@ -741,7 +749,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p api37-evidence
-          for file in /tmp/api37-emulator.log /tmp/api37-instrumentation.txt /tmp/api37-phase9-completed-model.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt /tmp/api37-security-probe*.txt /tmp/api37-new-app-* /tmp/api37-pre-probe-launch.txt /tmp/api37-real-clock-* /tmp/install-*.log; do
+          for file in /tmp/api37-emulator.log /tmp/api37-instrumentation.txt /tmp/api37-phase9-completed-model.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt /tmp/api37-security-probe*.txt /tmp/api37-new-app-* /tmp/api37-pre-probe-launch.txt /tmp/api37-real-clock-* /tmp/read-only-appops.txt /tmp/install-*.log; do
             if [ -f "$file" ]; then
               cp "$file" api37-evidence/
             fi
