@@ -23,14 +23,30 @@ read_user() {
 # No first-match UID guess, including on older pm output. A second UID
 # observation after data capture detects the identity changes observable here.
 read_uid() {
-  local listing dump candidates uid
+  local listing row listed_package uid='' hits=0 dump candidates package_path
   listing="$(adb shell pm list packages -U "$package" 2>/dev/null | tr -d '\r')" || listing=''
-  if [[ "$listing" =~ ^package:com\.gree1d\.reappzuku[[:space:]]uid:([0-9]+)$ ]]; then
-    uid="${BASH_REMATCH[1]}"
-  elif [[ "$listing" == "package:$package" || -z "$listing" ]]; then
-    # API24 can omit -U or emit no UID row. Verify package installation
-    # independently before accepting exactly one numeric dumpsys userId.
-    local package_path
+  # pm filtering also returns the instrumentation package. Validate every row,
+  # and require no duplicate/conflicting records for the exact target name.
+  if [[ -n "$listing" ]]; then
+    while IFS= read -r row || [[ -n "$row" ]]; do
+      if [[ "$row" =~ ^package:([A-Za-z0-9_.]+)[[:space:]]uid:([0-9]+)$ ]]; then
+        listed_package="${BASH_REMATCH[1]}"
+        if [[ "$listed_package" == "$package" ]]; then
+          ((hits+=1))
+          uid="${BASH_REMATCH[2]}"
+        fi
+      elif [[ "$row" =~ ^package:([A-Za-z0-9_.]+)$ ]]; then
+        listed_package="${BASH_REMATCH[1]}"
+        if [[ "$listed_package" == "$package" ]]; then ((hits+=1)); fi
+      else
+        return 1
+      fi
+    done <<< "$listing"
+  fi
+  ((hits<=1)) || return 1
+  if [[ -z "$uid" ]]; then
+    # API24 can omit the UID or have no -U output at all. Require independent
+    # installed APK path and one unambiguous numeric dumpsys userId.
     package_path="$(adb shell pm path "$package" 2>/dev/null | tr -d '\r')" || return 1
     [[ "$package_path" =~ ^package:/.*\.apk$ ]] || return 1
     dump="$(adb shell dumpsys package "$package" 2>/dev/null | tr -d '\r')" || return 1
@@ -38,8 +54,6 @@ read_uid() {
       sed -nE 's/^[[:space:]]*userId=([0-9]+)[[:space:]]*$/\1/p' | sort -u)"
     [[ "$candidates" =~ ^[0-9]+$ ]] || return 1
     uid="$candidates"
-  else
-    return 1
   fi
   [[ "$uid" =~ ^[0-9]+$ ]] || return 1
   ((${#uid}<=10)) || return 1
