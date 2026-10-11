@@ -140,7 +140,9 @@ printf '%s\n' "$conflict"
 echo API37_UID_CONFLICT_RAW_END
 # Require an explicit UID override and only the IMPLICIT package fallback.
 grep -Eq '(^|[[:space:]])Uid mode: WAKE_LOCK: ignore([;[:space:]]|$)' <<< "$conflict"
-grep -Fq 'Default mode: allow' <<< "$conflict"
+# With an explicit UID row, Android may omit the implicit fallback hint.
+# The preflight already independently verified package DEFAULT=ALLOW.
+[[ "$conflict" == 'Uid mode: WAKE_LOCK: ignore' ]]
 ! grep -Eq '^WAKE_LOCK: ' <<< "$conflict"
 echo API37_UID_IGNORE_OVERRIDES_IMPLICIT_PACKAGE_ALLOW_OBSERVED
 
