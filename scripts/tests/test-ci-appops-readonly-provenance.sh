@@ -72,13 +72,15 @@ cat > "$tmp/bin/adb" <<'MOCK'
 set -euo pipefail
 case "$*" in
   "shell getprop ro.build.version.sdk")
-    if [[ "${MOCK_SCENARIO:-}" == api24 ]]; then echo 24; else echo 37; fi ;;
+    if [[ "${MOCK_SCENARIO:-}" == api24 || "${MOCK_SCENARIO:-}" == api24blank ]]; then echo 24; else echo 37; fi ;;
   "shell getprop ro.kernel.qemu")
     if [[ "${MOCK_SCENARIO:-}" == physical ]]; then echo 0; else echo 1; fi ;;
   "shell am get-current-user") echo 0 ;;
   "shell pm list packages -U com.gree1d.reappzuku")
     if [[ "${MOCK_SCENARIO:-}" == api24 ]]; then
       echo package:com.gree1d.reappzuku
+    elif [[ "${MOCK_SCENARIO:-}" == api24blank ]]; then
+      :
     else
       n="$(cat "$MOCK_UID_READS")"
       n="${n:-0}"
@@ -89,6 +91,7 @@ case "$*" in
         echo 'package:com.gree1d.reappzuku uid:10342'
       fi
     fi ;;
+  "shell pm path com.gree1d.reappzuku") echo 'package:/data/app/com.gree1d.reappzuku/base.apk' ;;
   "shell dumpsys package com.gree1d.reappzuku") echo 'userId=10342' ;;
   "shell cmd deviceidle whitelist")
     if [[ "${MOCK_SCENARIO:-}" == warning ]]; then
@@ -136,6 +139,9 @@ out="$(run_probe physical)"
 grep -Fqx 'READONLY_APPOPS_ENVIRONMENT_UNKNOWN' <<< "$out"
 ! grep -Fq '_BEGIN' <<< "$out"
 out="$(run_probe api24)"
+grep -Fqx 'READONLY_APPOPS_DIAGNOSTIC_COMPLETE' <<< "$out"
+grep -Fqx 'READONLY_APPOPS_PACKAGE=com.gree1d.reappzuku UID=10342 USER=0' <<< "$out"
+out="$(run_probe api24blank)"
 grep -Fqx 'READONLY_APPOPS_DIAGNOSTIC_COMPLETE' <<< "$out"
 grep -Fqx 'READONLY_APPOPS_PACKAGE=com.gree1d.reappzuku UID=10342 USER=0' <<< "$out"
 echo READONLY_SHELL_PROVENANCE_FIXTURE_PASS
