@@ -42,7 +42,7 @@ get_uid() {
 # Never reset a fixture that has even one unrelated recorded operation.
 baseline_all="$(get_all)"
 baseline_package="$(get_package)"
-baseline_uid="$(get_uid)"
+baseline_uid="$(get_uid || true)"
 echo "APP_OPS_FIXTURE_BASELINE_ALL_BEGIN"
 printf '%s\n' "$baseline_all"
 echo "APP_OPS_FIXTURE_BASELINE_ALL_END"
