@@ -44,4 +44,24 @@ for operation in WAKE_LOCK RUN_IN_BACKGROUND; do
     fi
   done
 done
+# Read only: DeviceIdle full and except-idle entries cannot be conflated.
+# Two independently captured lists are evidence, not restoration authority.
+# Unsupported commands, unstable results, or non-AOSP lines remain UNKNOWN.
+deviceidle_first=''
+deviceidle_second=''
+if deviceidle_first="$(adb shell cmd deviceidle whitelist 2>&1 | tr -d '\r')" \
+    && deviceidle_second="$(adb shell cmd deviceidle whitelist 2>&1 | tr -d '\r')"; then
+  if [ "${#deviceidle_first}" -gt 8192 ] || [ -z "$deviceidle_first" ]; then
+    echo READONLY_DEVICEIDLE_INVENTORY=EMPTY_OR_TOO_LARGE_UNKNOWN
+  elif [ "$deviceidle_first" != "$deviceidle_second" ]; then
+    echo READONLY_DEVICEIDLE_INVENTORY=CHANGED_DURING_READ_UNKNOWN
+  else
+    echo READONLY_DEVICEIDLE_INVENTORY_BEGIN
+    printf '%s\n' "$deviceidle_first"
+    echo READONLY_DEVICEIDLE_INVENTORY_END
+    echo READONLY_DEVICEIDLE_INVENTORY=RAW_DOUBLE_READ_MATCH_DIAGNOSTIC_ONLY
+  fi
+else
+  echo READONLY_DEVICEIDLE_INVENTORY=UNAVAILABLE_UNKNOWN
+fi
 echo READONLY_APPOPS_DIAGNOSTIC_COMPLETE
