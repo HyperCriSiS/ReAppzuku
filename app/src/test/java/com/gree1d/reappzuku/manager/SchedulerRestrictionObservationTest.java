@@ -138,8 +138,13 @@ public final class SchedulerRestrictionObservationTest {
     @Test public void androidAppOpsOutputNeedsExactlyOneExplicitMode() {
         assertEquals("ignore", SchedulerRestrictionAndroidReader.parseAppOp(
                 "RUN_IN_BACKGROUND: ignore; time=+12m", "RUN_IN_BACKGROUND"));
-        assertEquals("allow", SchedulerRestrictionAndroidReader.parseAppOp(
-                "Uid mode: allow\nRUN_IN_BACKGROUND: allow", "RUN_IN_BACKGROUND"));
+        assertNull("Unknown UID-prefixed shell output must not masquerade as a package mode",
+                SchedulerRestrictionAndroidReader.parseAppOp(
+                        "Uid mode: allow\nRUN_IN_BACKGROUND: allow", "RUN_IN_BACKGROUND"));
+        assertNull("A real UID override must block lossy package-only capture",
+                SchedulerRestrictionAndroidReader.parseAppOp(
+                        "Uid mode: RUN_IN_BACKGROUND: ignore\nRUN_IN_BACKGROUND: allow",
+                        "RUN_IN_BACKGROUND"));
         assertNull(SchedulerRestrictionAndroidReader.parseAppOp(
                 "No operations.", "RUN_IN_BACKGROUND"));
         assertNull(SchedulerRestrictionAndroidReader.parseAppOp(
