@@ -32,42 +32,50 @@ This is a human-readable shell **diagnostic**, not an authoritative API for stab
 
 ## Controlled AppOps conflict test — disposable emulators only
 
-An opt-in CI shell fixture (`scripts/tests/ci-real-uid-appops-conflict.sh`) operates
-**only** on the separately installed minimal-manifest
-`com.reappzuku.securityprobe` APK on API37, never the product,
-physical hardware or a user's apps. On API24 the already installed
-`com.gree1d.reappzuku.test` is inspected **read-only** and never reset.
-The script checks the Android API/user/package identity and a unique fixture
-UID, then inventories and snapshots the **entire** package and numeric-UID
-AppOps output. Android 17 prepopulates many `IGNORE` UID permission modes
-even on minimally declared apps. The first two diagnostics correctly refused
-to mutate either the AndroidTest or securityProbe APK while a broad reset
-would destroy that unrelated state. The revised test requires only
-`WAKE_LOCK` to be absent at both levels, leaving all other modes untouched.
+The opt-in CI fixture `scripts/tests/ci-real-uid-appops-conflict.sh` operates
+**only** on the minimal-manifest `com.reappzuku.securityprobe` test APK on
+API37. On API24 it reads the separately installed AndroidTest APK only and
+records numeric UID shell support as UNKNOWN; no mutations are performed.
 
-It then attempts package `WAKE_LOCK=allow` against UID
-`WAKE_LOCK=ignore`, observes the actual shell text and tests further UID
-`allow`/`default` transitions. Its EXIT trap invokes **two targeted
-`WAKE_LOCK=allow` setters** (one UID-scoped and one package-scoped) because
-this operation's observed platform default is ALLOW, while AppOps
-`MODE_DEFAULT` is a *different explicit mode*. The trap
-compares the complete original package inventory plus both `WAKE_LOCK`
-queries byte-for-byte with the baseline. A failed restoration fails CI.
-No broad `cmd appops reset` or unrelated-op writes are permitted.
-The AOSP source confirms UID precedence, but platform-visible state equality
-is not a flash-power-loss or explicit-absence attestation.
+Each test verifies that it is running on an emulator, Android user 0, with
+a distinct fixture package and a single unique UID. Before any change it
+captures the complete existing package/UID AppOps output, including
+system-provisioned unrelated IGNORE records, and confirms `WAKE_LOCK` is
+absent on both scopes and reports platform fallback `Default mode: allow`.
 
-On Android 7/API24 the numeric-UID shell syntax is already known to be
-unsupported by the tested emulator. The fixture performs baseline
-inspection only and reports `API24_UID_OVERRIDE_PROBE_READ_ONLY_UNSUPPORTED`.
-Its successful exit is **not** a positive UID test. The script must never
-be run against personal devices, existing configured packages, system
-applications or production installations.
+**Important empirically observed limitation:** a disposable API37 run
+`38105273705` successfully created a real conflict:
 
-Even a successful API37 fixture proves a bounded **shell-mode precedence
-observation** and restoration for one disposable package, not the behavior
-of a real Root/Shizuku backend in production, complete AppOps provenance,
-power-loss safety or authorization to replay privileges.
+```text
+Uid mode: WAKE_LOCK: ignore
+WAKE_LOCK: allow
+```
+
+But setting both scopes back to ALLOW **did not restore original provenance**:
+the explicit package `WAKE_LOCK: allow` remained even though the initial
+package observation had no operation. CI correctly failed with
+`APP_OPS_FIXTURE_RESTORE_MISMATCH`. Thus an operation-level `set allow`
+cannot be treated as universal inverse of an initially absent package mode.
+A blanket `cmd appops reset` is unsafe here because both AndroidTest and
+minimal securityProbe APKs begin with dozens of unrelated UID IGNORE entries.
+Never infer safe exact rollback from matching effective allow/ignore behavior.
+
+The revised CI probe therefore **never writes package-scoped AppOps**. It
+exercises UID `WAKE_LOCK=ignore` against the unchanged implicit package
+default ALLOW, then UID `allow` and `default`. The EXIT trap restores
+**only UID WAKE_LOCK** to the verified platform default ALLOW, requiring
+byte-for-byte equality with the complete original package inventory and
+separate package/UID WAKE_LOCK queries. No unrelated UID mode or user policy
+may be changed. A mismatch fails CI and is a recorded platform limitation,
+not permission to weaken the original-state check.
+
+The synthetic JVM parser still tests the independent package-allow/UID-ignore
+row form. The new CI test, even if successful, proves a **bounded UID
+precedence and safe targeted UID restoration** on a disposable emulator.
+It does not establish exact package-override rollback, real privileged
+Root/Shizuku restoration, signer lineage, cross-process atomicity, OEM/physical
+compatibility or flash-power-loss durability. Keep v1 and RZJ2 unconnected
+from privileged scheduler mutations.
 
 ## Remaining gates
 
