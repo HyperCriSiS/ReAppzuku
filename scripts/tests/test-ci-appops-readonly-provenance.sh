@@ -85,10 +85,16 @@ case "$*" in
       n="$(cat "$MOCK_UID_READS")"
       n="${n:-0}"
       printf '%s\n' "$((n+1))" >"$MOCK_UID_READS"
+      # pm filter also matches the AndroidTest package. Only the exact
+      # product package row may establish its UID.
+      echo 'package:com.gree1d.reappzuku.test uid:10421'
       if [[ "${MOCK_SCENARIO:-}" == drift && "$n" == 1 ]]; then
         echo 'package:com.gree1d.reappzuku uid:10343'
       else
         echo 'package:com.gree1d.reappzuku uid:10342'
+      fi
+      if [[ "${MOCK_SCENARIO:-}" == duplicate ]]; then
+        echo 'package:com.gree1d.reappzuku uid:10345'
       fi
     fi ;;
   "shell pm path com.gree1d.reappzuku") echo 'package:/data/app/com.gree1d.reappzuku/base.apk' ;;
@@ -144,4 +150,7 @@ grep -Fqx 'READONLY_APPOPS_PACKAGE=com.gree1d.reappzuku UID=10342 USER=0' <<< "$
 out="$(run_probe api24blank)"
 grep -Fqx 'READONLY_APPOPS_DIAGNOSTIC_COMPLETE' <<< "$out"
 grep -Fqx 'READONLY_APPOPS_PACKAGE=com.gree1d.reappzuku UID=10342 USER=0' <<< "$out"
+out="$(run_probe duplicate)"
+grep -Fqx 'READONLY_APPOPS_IDENTITY_UNKNOWN' <<< "$out"
+! grep -Fq '_BEGIN' <<< "$out"
 echo READONLY_SHELL_PROVENANCE_FIXTURE_PASS
