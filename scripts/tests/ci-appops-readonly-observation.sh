@@ -6,7 +6,19 @@ target_user="$(adb shell am get-current-user 2>/dev/null | tr -d '\r' || true)"
 uid_line="$(adb shell pm list packages -U "$package" | tr -d '\r' || true)"
 uid="$(printf '%s\n' "$uid_line" | sed -nE "s/^package:com\\.gree1d\\.reappzuku uid:([0-9]+)$/\\1/p" | head -n 1)"
 if [[ ! "$uid" =~ ^[0-9]+$ ]]; then
-  echo 'READONLY_APPOPS_IDENTITY_UNKNOWN: no unique package UID'
+  # Android 7 package-manager shell versions can omit -U/uid output. Use
+  # the installed PackageManager dump, never a fabricated UID from an app name.
+  dump="$(adb shell dumpsys package "$package" 2>/dev/null | tr -d '\r' || true)"
+  candidates="$(printf '%s\n' "$dump" |
+    sed -nE 's/^[[:space:]]*userId=([0-9]+)[[:space:]]*$/\1/p' |
+    sort -u)"
+  if [[ "$candidates" =~ ^[0-9]+$ ]]; then
+    uid="$candidates"
+    echo READONLY_APPOPS_UID_SOURCE=DUMPSYS_PACKAGE
+  fi
+fi
+if [[ ! "$uid" =~ ^[0-9]+$ ]]; then
+  echo 'READONLY_APPOPS_IDENTITY_UNKNOWN: neither installed package listing nor dumpsys supplied one UID'
   exit 0
 fi
 if [[ ! "$target_user" =~ ^[0-9]+$ ]]; then
