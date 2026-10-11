@@ -90,3 +90,10 @@ The read-only `SchedulerRestrictionAndroidReader.parseWhitelist` now validates t
 
 Disposable CI collects two raw whitelist readings in `ci-appops-readonly-observation.sh` without shell mutation. `READONLY_DEVICEIDLE_INVENTORY=RAW_DOUBLE_READ_MATCH_DIAGNOSTIC_ONLY` is **not** an authorized baseline for restoring user or system whitelist entries. The non-atomic source and any later package-identity change remain blocking concerns in Issue #130; no v1/RZJ2 auto-recovery is enabled.
 
+
+## Paired shell-observation diagnostic and limitations (2026-10-11)
+
+The disposable emulator-only read probe in `scripts/tests/ci-appops-readonly-observation.sh` now bounds and compares two independently invoked `cmd appops get --user ...` reads for each observed package/UID operation (`WAKE_LOCK` and `RUN_IN_BACKGROUND`) and the two whole `cmd deviceidle whitelist` reads. The helper `scripts/tests/lib/ci-readonly-provenance.sh` rejects non-AOSP/warning/duplicate/contradictory output, too-large or empty output, command failures, and mismatching paired reads as UNKNOWN. Raw observations are buffered until installed UID and Android user are rechecked. Test classes exercise mocked API24 fallbacks, AndroidTest package filter matches and duplicate target UID refusal.
+
+`RAW_DOUBLE_READ_MATCH_DIAGNOSTIC_ONLY` means the *bytes observed* matched; it does **not** prove a persisted explicit AppOps entry, operation-local ABSENT restore, full package-list visibility, authenticated signer, system-wide atomic snapshot, stability after the read, or privileges on production devices. API24 may lack numeric UID AppOps shell support. No output from this probe is used by `RestrictionsScheduler`, RZJ2 or v1 to permit privileged mutation; those recovery gates remain blocked in issue #130.
+

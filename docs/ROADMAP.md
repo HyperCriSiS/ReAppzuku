@@ -367,6 +367,8 @@ Scope new product work from a reproducible user problem or documented usability 
 
   - **DeviceIdle except-idle provenance gate (PR #143, 2026-10-11):** merged `29201f0`; exact-head standard `38156699531`, CodeQL `38156798478`, API24 `38156703716`, API37 `38156710932` all SUCCESS. Read-only whitelist parsing now recognizes `system-excidle` as a distinct, unsupported target provenance, rejects malformed/unknown/contradictory inventory rows, and records bounded raw double reads on disposable emulators. No live scheduler recovery or backend mutation; Issue #130 and Phase 11 remain OPEN / PARTIAL.
 
+  - **Read-only shell double-read + UID postflight (PR #145, 2026-10-11):** merged `ed68aaa`, exact-head standard `38169034854`, CodeQL `38168892153`, API24 `38168924837`, API37 `38168929204` all SUCCESS. Mock ADB CI fixtures cover stale/malformed/ambiguous AppOps and DeviceIdle observations; separate package UID/user postflight can invalidate all buffered evidence. Unknown commands/rows remain UNKNOWN; matched raw output is not full original-state provenance, and never authorizes v1/RZJ2 Root/Shizuku restoration. Issue #130 OPEN; Phase 11 PARTIAL.
+
 - [ ] Profile in-memory app-list snapshot generation, repeated app scans and background work with synthetic workloads; optimize only documented regressions and preserve canonical policy ordering.
 - [ ] Extend localized/a11y runtime checks for EN/DE/ES/RU/UK/zh-CN where tool support exists; avoid adding user-visible strings without localization.
 - [ ] Triage outstanding maintainability issues and dependency updates in bounded PRs, preserving security and migration guarantees.
