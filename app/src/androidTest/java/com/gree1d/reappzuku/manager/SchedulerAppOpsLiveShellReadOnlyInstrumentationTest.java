@@ -5,6 +5,7 @@ import static org.junit.Assert.*;
 import android.app.UiAutomation;
 import android.content.Context;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
@@ -99,6 +100,13 @@ public final class SchedulerAppOpsLiveShellReadOnlyInstrumentationTest {
                 + " dualScopeCatalog=" + result.status
                 + " operations=" + result.operations.size()
                 + " restoreAuthorized=" + result.authorizesRestore());
+        Bundle report = new Bundle();
+        report.putString("RZ_LIVE_APPOPS_API37_RESULT", result.status.name());
+        report.putString("RZ_LIVE_APPOPS_API37_PACKAGE_QUERY", "EXIT_ZERO_NONEMPTY");
+        report.putString("RZ_LIVE_APPOPS_API37_SCOPE_COUNT",
+                Integer.toString(result.operations.size()));
+        report.putString("RZ_LIVE_APPOPS_API37_RESTORE_ALLOWED", "false");
+        InstrumentationRegistry.getInstrumentation().sendStatus(2, report);
         assertFalse("A real shell observation cannot authorize rollback",
                 result.authorizesRestore());
         if (result.consistentDiagnosticOnly()) {
@@ -114,6 +122,15 @@ public final class SchedulerAppOpsLiveShellReadOnlyInstrumentationTest {
         assertTrue("Shell observations cannot change installed app identity",
                 SchedulerInstalledPackageIdentity.checkAgain(
                         before.snapshot, identities).matched());
+    }
+
+    @Test public void actualShellExitCodeMustNotBeInferredFromErrorText() {
+        Assume.assumeTrue("API37 emulator lane", Build.VERSION.SDK_INT == 37);
+        UiAutomation automation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        assertEquals("The device must be the disposable API37 emulator", "1",
+                readShell(automation, "getprop ro.kernel.qemu"));
+        assertNull("Nonzero exit must not return apparently successful output",
+                readShell(automation, "false"));
     }
 
     @Test public void invalidShellOperationAndIdentityCannotBeSentToAndroid() {
