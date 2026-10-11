@@ -37,7 +37,14 @@ public final class SchedulerAppOpsLiveShellReadOnlyInstrumentationTest {
     private static String readShell(UiAutomation automation, String cmd) {
         // The cmd is constructed by the pinned-identity adapter from validated
         // literal components, not from arbitrary user input.
-        String wrapped = cmd + " 2>&1; printf '\\n" + EXIT_MARKER + "%s\\n' \"$?\"";
+        // UiAutomationConnection uses Runtime.exec(String), NOT adb's sh -c.
+        // Supply an explicit sh -c script as a SINGLE, whitespace-free argv
+        // token. ${IFS} expands into field separators inside that script.
+        // This is safe only because every command consists of fixed verbs and
+        // identity-validated [A-Za-z0-9_.-] arguments, never user shell text.
+        if (!cmd.matches("[A-Za-z0-9_. -]+")) return null;
+        String wrapped = "sh -c " + cmd.replace(" ", "${IFS}")
+                + "${IFS}2>&1;echo${IFS}" + EXIT_MARKER + "$?";
         ParcelFileDescriptor descriptor = automation.executeShellCommand(wrapped);
         if (descriptor == null) return null;
         try (InputStream in = new ParcelFileDescriptor.AutoCloseInputStream(descriptor);
@@ -62,8 +69,8 @@ public final class SchedulerAppOpsLiveShellReadOnlyInstrumentationTest {
         Assume.assumeTrue("Only a disposable API37 emulator is authorized",
                 Build.VERSION.SDK_INT == 37);
         UiAutomation automation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
-        Assume.assumeTrue("Never execute device shell probes on real hardware",
-                "1".equals(readShell(automation, "getprop ro.kernel.qemu")));
+        assertEquals("The API37 CI emulator must be verified, not silently skipped",
+                "1", readShell(automation, "getprop ro.kernel.qemu"));
 
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         String packageName = context.getPackageName();
