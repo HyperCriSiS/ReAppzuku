@@ -42,3 +42,13 @@ Here **UNSUPPORTED** means no authorized, narrow, source-proven inverse has been
 5. Issue #130 independently gates full live original-state capture, signer/reinstall continuity, durable rollback/fault injection, backend permissions, OEM/physical devices and flash-power-loss behavior.
 
 **Decision:** no AppOps original-ABSENT package restoration is currently authorized. Keep Phase 11 PARTIAL.
+
+## Supported-command source audit — 2026-10-11
+
+- [Current AOSP AppOpsService shell parser](https://android.googlesource.com/platform/frameworks/base/+/master/services/core/java/com/android/server/appop/AppOpsService.java) exposes per-op `set` but a **package-wide** `reset` command only. `reset` directly calls `resetAllModes(userId, packageName)`; no documented `delete` / `remove` or per-op `reset` syntax exists in that shell command switch.
+- [Android 7.1.2-era AOSP AppOpsService](https://android.googlesource.com/platform/frameworks/base/+/android-7.1.2_r36/services/core/java/com/android/server/AppOpsService.java) likewise uses `resetAllModes`; its binder `setMode` requires privileged `UPDATE_APP_OPS_STATS` permission, not an arbitrary third-party call. This is historical source corroboration, **not** a substitute for direct API24 emulator evidence or an assertion that all OEMs match that branch.
+- Modern `setMode` similarly checks the caller through `enforceManageAppOpsModes`; internal service/store helpers are not a publicly supported, permission-free or stable Shizuku/Root deletion API. Root privilege by itself does not document an operation-local rollback contract.
+- [Official AppOps design notes](https://android.googlesource.com/platform/frameworks/base/+/master/core/java/android/app/AppOps.md) distinguish the operation-specific initial mode from `MODE_DEFAULT`, and explicitly caution against setting both UID and package modes for the same operation. Restoring effective `allow` does **not** establish ABSENT provenance.
+
+**Final supported-shell decision:** exact restoration of an originally ABSENT **package-level** AppOps mode is **UNSUPPORTED** under the audited shell contract on API37 and unproven/unsupported under the older inspected interface. It must remain `REVIEW_REQUIRED`, with **no automatic privileged restore**. No new destructive package-only test was undertaken: without a supported narrow inverse, such an experiment risks persistent fixture damage and cannot meet the preflight cleanup invariants. The successful API37 UID-only fixture is an independent, strictly limited exception and must not be promoted to package-level or production support. Issue #130 continues to gate live capture, signer/UID continuity, backend authority, durable rollback and physical/OEM acceptance.
+
