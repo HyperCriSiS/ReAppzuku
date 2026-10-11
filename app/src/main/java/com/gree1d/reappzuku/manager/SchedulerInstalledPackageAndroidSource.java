@@ -59,7 +59,13 @@ public final class SchedulerInstalledPackageAndroidSource
                 hex.append(Character.forDigit(value >>> 4, 16));
                 hex.append(Character.forDigit(value & 15, 16));
             }
-            int userId = UserHandle.getUserHandleForUid(uid).getIdentifier();
+            // Public API exposes the UserHandle, not its numeric identifier.
+            // Only observe packages in this app's actual Android user.
+            if (!UserHandle.getUserHandleForUid(uid).equals(
+                    android.os.Process.myUserHandle())) return null;
+            // AOSP PER_USER_RANGE is 100000. This numeric user ID is derived,
+            // not authoritative proof of a system-wide shared-UID inventory.
+            int userId = uid / 100000;
             long version = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
                     ? info.getLongVersionCode() : info.versionCode;
             return new SchedulerInstalledPackageIdentity.Snapshot(
