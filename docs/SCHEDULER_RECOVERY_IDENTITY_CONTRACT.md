@@ -80,3 +80,13 @@ from privileged scheduler mutations.
 ## Remaining gates
 
 Independent current package/user/certificate identity across a real durable capture and restore; UID-level modes and attribution precedence per official platform API; coherent full-state observations before mutation; independent known-correct restoration commands and fault injection on supported API levels; rollback on deletion/overlap; process and power-loss behavior; production Root/Shizuku, physical/OEM, stable signing and upgrade. **Do not wire read-only diagnostics into the live RestrictionsScheduler.**
+
+
+## DeviceIdle whitelist provenance — source-backed fail-closed rule (2026-10-11)
+
+AOSP's `cmd deviceidle whitelist` listing can contain **three distinct origin tags**: `system-excidle` (system except-idle), `system` (full-idle system allowlist), and `user` (full-idle user allowlist). The first is NOT equivalent to either of the latter. Relevant [AOSP Android 9 shell implementation](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/pie-qpr3-b-release/services/core/java/com/android/server/DeviceIdleController.java) and [modern AOSP DeviceIdleController](https://android.googlesource.com/platform/frameworks/base/+/8d2f697646002e5d9075ae46606da25857deeee6/apex/jobscheduler/service/java/com/android/server/DeviceIdleController.java).
+
+The read-only `SchedulerRestrictionAndroidReader.parseWhitelist` now validates the **entire** bounded output and distinguishes `system-excidle` rows. If the *target* appears in except-idle entries, return UNKNOWN: legacy `WhitelistKind` has no field to preserve this separate provenance, even when regular `system`/`user` membership is also present. Unknown lines, warnings, duplicates, contradicted app IDs, malformed or incomplete rows similarly return UNKNOWN rather than yielding a false NONE classification. This gate is deliberately conservative; unfamiliar OEM output may remain unsupported.
+
+Disposable CI collects two raw whitelist readings in `ci-appops-readonly-observation.sh` without shell mutation. `READONLY_DEVICEIDLE_INVENTORY=RAW_DOUBLE_READ_MATCH_DIAGNOSTIC_ONLY` is **not** an authorized baseline for restoring user or system whitelist entries. The non-atomic source and any later package-identity change remain blocking concerns in Issue #130; no v1/RZJ2 auto-recovery is enabled.
+
