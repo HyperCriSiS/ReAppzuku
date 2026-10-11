@@ -31,7 +31,9 @@ public final class SchedulerAppOpsDiagnostic {
 
     /**
      * No operations / Default mode does not prove an explicitly stored
-     * original mode. Duplicate or unfamiliar target rows are ambiguous.
+     * original mode. Duplicate, unexpected or unfamiliar lines are ambiguous.
+     * A per-operation query must not be treated as successful if it emits
+     * a warning, unrelated op, malformed UID row or unsupported shell text.
      */
     public static Result parse(String output, String operation) {
         if (operation == null || !OP.matcher(operation).matches()
@@ -46,16 +48,14 @@ public final class SchedulerAppOpsDiagnostic {
             String item = line.trim();
             boolean uidRow = item.startsWith("Uid mode:");
             if (uidRow) item = item.substring("Uid mode:".length()).trim();
-            if (item.equals("No operations.") || item.startsWith("Error:")
-                    || item.startsWith("Unknown ") || item.startsWith("Default mode:")) {
-                bad = true;
-            }
+
+            // A targeted query has at most one package and one UID row for
+            // this operation. Do not silently discard any other output:
+            // text from a failed/unsupported command is not usable evidence.
             if (!item.startsWith(target)) {
-                // Unrecognized UID rows must not be accidentally treated as a
-                // harmless absence of a UID override on a targeted query.
-                if (uidRow) bad = true;
-                continue;
+                return null;
             }
+
             String details = item.substring(target.length()).trim();
             String[] components = details.split(";", -1);
             String candidate = components[0].trim();
