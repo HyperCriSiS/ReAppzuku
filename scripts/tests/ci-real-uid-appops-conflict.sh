@@ -4,12 +4,12 @@
 set -euo pipefail
 
 fixture='com.gree1d.reappzuku.test'
-if [[ "$sdk" == 37 ]]; then
-  fixture='com.reappzuku.securityprobe'
-fi
 product='com.gree1d.reappzuku'
 operation='WAKE_LOCK'
 sdk="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
+if [[ "$sdk" == 37 ]]; then
+  fixture='com.reappzuku.securityprobe'
+fi
 user="$(adb shell am get-current-user | tr -d '\r')"
 [[ "$sdk" == 24 || "$sdk" == 37 ]] || {
   echo 'APP_OPS_PROBE_REFUSED_UNEXPECTED_SDK' >&2
