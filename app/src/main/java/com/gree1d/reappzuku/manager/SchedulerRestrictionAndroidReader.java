@@ -9,7 +9,11 @@ import com.gree1d.reappzuku.core.PackageNameValidator;
 import com.gree1d.reappzuku.core.ShellManager;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -23,7 +27,7 @@ public final class SchedulerRestrictionAndroidReader
         implements SchedulerRestrictionObservation.Source {
     private static final int MAX_SHELL_OUTPUT = 8192;
     private static final Pattern WHITELIST_ROW =
-            Pattern.compile("^(system|user),([A-Za-z0-9_.]+),([0-9]+)$");
+            Pattern.compile("^(system|user|system-excidle),([A-Za-z0-9_.]+),([0-9]+)$");
     private final PackageManager packageManager;
     private final ShellManager shell;
 
@@ -129,28 +133,60 @@ public final class SchedulerRestrictionAndroidReader
         return SchedulerAppOpsDiagnostic.packageOnly(output, appOpName);
     }
 
+    /**
+     * Parse the COMPLETE DeviceIdle whitelist listing, never a grep fragment.
+     *
+     * AOSP prints "system-excidle" entries separately from the actual
+     * "system" and "user" full-idle exemptions. They cannot be folded into
+     * WhitelistKind: when the target occurs in except-idle inventory, the
+     * richer original state is unsupported by this legacy diagnostic.
+     *
+     * Unknown lines, contradictory app IDs and duplicate category/package
+     * rows invalidate the WHOLE listing rather than proving target absence.
+     * This is read-only, and never authorizes a restoration command.
+     */
     static SchedulerRestrictionObservation.WhitelistKind parseWhitelist(
             String output, String packageName) {
         if (!PackageNameValidator.isValid(packageName)
-                || output == null || output.length() == 0 || output.length() > MAX_SHELL_OUTPUT) {
+                || output == null || output.isEmpty() || output.length() > MAX_SHELL_OUTPUT) {
             return null;
         }
         boolean user = false;
         boolean system = false;
+        boolean exceptIdle = false;
         boolean sawRow = false;
+        Map<String, Integer> appIds = new HashMap<>();
+        Set<String> categories = new HashSet<>();
+
         for (String line : output.split("\\r?\\n")) {
-            String trimmed = line.trim();
-            if (!trimmed.startsWith("system,") && !trimmed.startsWith("user,")) continue;
-            Matcher match = WHITELIST_ROW.matcher(trimmed);
+            String row = line.trim();
+            // AOSP prints only category/package/app-id records. No unknown
+            // warnings, help text, embedded blank lines or partial output.
+            if (row.isEmpty() || !row.equals(line)) return null;
+            Matcher match = WHITELIST_ROW.matcher(row);
             if (!match.matches()) return null;
+            final String category = match.group(1);
+            final String listedPackage = match.group(2);
+            final int appId;
+            try {
+                appId = Integer.parseInt(match.group(3));
+            } catch (NumberFormatException invalid) {
+                return null;
+            }
+            if (appId <= 0 || !categories.add(category + ":" + listedPackage)) {
+                return null;
+            }
+            Integer previousId = appIds.putIfAbsent(listedPackage, appId);
+            if (previousId != null && previousId != appId) return null;
+
             sawRow = true;
-            if (packageName.equals(match.group(2))) {
-                if (match.group(1).equals("user")) user = true;
+            if (packageName.equals(listedPackage)) {
+                if ("system-excidle".equals(category)) exceptIdle = true;
+                else if ("user".equals(category)) user = true;
                 else system = true;
             }
         }
-        // Empty output, headers, or malformed rows are never proof of absence.
-        if (!sawRow) return null;
+        if (!sawRow || exceptIdle) return null;
         if (user && system) return SchedulerRestrictionObservation.WhitelistKind.BOTH;
         if (user) return SchedulerRestrictionObservation.WhitelistKind.USER;
         if (system) return SchedulerRestrictionObservation.WhitelistKind.SYSTEM;
