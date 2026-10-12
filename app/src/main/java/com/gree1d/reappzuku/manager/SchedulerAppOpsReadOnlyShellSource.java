@@ -2,8 +2,10 @@ package com.gree1d.reappzuku.manager;
 
 import com.gree1d.reappzuku.core.PackageNameValidator;
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.core.ShellBackendState;
 
 import java.util.regex.Pattern;
+import java.util.function.Supplier;
 
 /**
  * Narrow read-only bridge from a pre-existing shell backend to the detached
@@ -27,6 +29,8 @@ public final class SchedulerAppOpsReadOnlyShellSource
     private final int uid;
     private final int userId;
     private final CommandReader reader;
+    private final Supplier<ShellBackendState> currentBackend;
+    private final ShellBackendState pinnedBackend;
 
     public SchedulerAppOpsReadOnlyShellSource(
             SchedulerInstalledPackageIdentity.Snapshot identity,
@@ -40,16 +44,47 @@ public final class SchedulerAppOpsReadOnlyShellSource
         this.uid = identity.uid;
         this.userId = identity.userId;
         this.reader = reader;
+        this.currentBackend = null;
+        this.pinnedBackend = null;
+    }
+
+    /** Internal diagnostic seam for deterministic backend-loss JVM fixtures. */
+    SchedulerAppOpsReadOnlyShellSource(
+            SchedulerInstalledPackageIdentity.Snapshot identity, CommandReader reader,
+            Supplier<ShellBackendState> currentBackend, ShellBackendState pinnedBackend) {
+        if (identity == null || !PackageNameValidator.isValid(identity.packageName)
+                || !identity.validFor(identity.packageName) || reader == null
+                || identity.uid / 100000 != identity.userId
+                || currentBackend == null || !isReadyBackend(pinnedBackend)
+                || currentBackend.get() != pinnedBackend) {
+            throw new IllegalArgumentException("Pinned AppOps backend not ready");
+        }
+        this.packageName = identity.packageName;
+        this.uid = identity.uid;
+        this.userId = identity.userId;
+        this.reader = reader;
+        this.currentBackend = currentBackend;
+        this.pinnedBackend = pinnedBackend;
+    }
+
+    private static boolean isReadyBackend(ShellBackendState backend) {
+        return backend == ShellBackendState.ROOT_READY
+                || backend == ShellBackendState.SHIZUKU_READY;
     }
 
     /** ShellManager remains permission-gated by its existing backend contract. */
     public static SchedulerAppOpsReadOnlyShellSource fromShellManager(
             SchedulerInstalledPackageIdentity.Snapshot identity, ShellManager shell) {
         if (shell == null) throw new IllegalArgumentException("null ShellManager");
+        ShellBackendState pinned = shell.getBackendState();
+        if (!isReadyBackend(pinned)) {
+            throw new IllegalArgumentException("No ready AppOps read-only shell backend");
+        }
         return new SchedulerAppOpsReadOnlyShellSource(identity, command -> {
-            ShellManager.ShellResult result = shell.runShellCommandForResult(command);
+            ShellManager.ShellResult result =
+                    shell.runPinnedReadOnlyAppOpsGet(command, pinned);
             return result != null && result.succeeded() ? result.output() : null;
-        });
+        }, shell::getBackendState, pinned);
     }
 
     @Override public String readPackage(String requestedPackage, String operation) {
@@ -68,7 +103,9 @@ public final class SchedulerAppOpsReadOnlyShellSource
 
     private String safeRead(String command) {
         try {
+            if (currentBackend != null && currentBackend.get() != pinnedBackend) return null;
             String output = reader.readSuccessful(command);
+            if (currentBackend != null && currentBackend.get() != pinnedBackend) return null;
             if (output == null || output.isEmpty() || output.length() > MAX_OUTPUT
                     || output.indexOf('\u0000') >= 0) return null;
             // Preserve content exactly for the strict parser. Do not turn

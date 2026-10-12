@@ -445,6 +445,69 @@ public class ShellManager {
         return new ShellResult(false, -1, "No Root or Shizuku permission available");
     }
 
+
+    /**
+     * Dedicated fail-closed, read-only AppOps probe.
+     *
+     * Unlike runShellCommandForResult(), this path must NEVER fall back from
+     * Root to Shizuku, or the reverse. The caller pins the initially observed
+     * ready backend for its entire multi-read diagnostic. A changed backend,
+     * missing permission, command failure, or unsupported command fails the
+     * observation; it is not a permission request or a recovery operation.
+     */
+    @androidx.annotation.WorkerThread
+    public ShellResult runPinnedReadOnlyAppOpsGet(
+            String command, ShellBackendState pinnedBackend) {
+        if (!isReadOnlyAppOpsCommand(command)
+                || (pinnedBackend != ShellBackendState.ROOT_READY
+                    && pinnedBackend != ShellBackendState.SHIZUKU_READY)
+                || getBackendState() != pinnedBackend) {
+            return new ShellResult(false, -1, "Pinned read-only AppOps backend unavailable");
+        }
+        ShellResult result;
+        if (pinnedBackend == ShellBackendState.ROOT_READY) {
+            if (!hasRootAccess()) {
+                return new ShellResult(false, -1, "Pinned root unavailable");
+            }
+            result = executeRootCommandForResult(command);
+        } else {
+            if (!hasShizukuPermission()) {
+                return new ShellResult(false, -1, "Pinned Shizuku permission unavailable");
+            }
+            result = executeShizukuCommandForResult(command);
+        }
+        if (getBackendState() != pinnedBackend) {
+            return new ShellResult(false, -1, "Pinned read-only AppOps backend changed");
+        }
+        return result;
+    }
+
+    /**
+     * Strictly a single AppOps GET command, with no redirection, shell
+     * expansion, separators, additional flags, or arbitrary shell payload.
+     * This method is deliberately more restrictive than the normal executor.
+     */
+    public static boolean isReadOnlyAppOpsCommand(String command) {
+        if (command == null || command.length() > 340) return false;
+        String[] parts = command.split(" ", -1);
+        if (parts.length != 7
+                || !"cmd".equals(parts[0]) || !"appops".equals(parts[1])
+                || !"get".equals(parts[2]) || !"--user".equals(parts[3])
+                || !parts[4].matches("0|[1-9][0-9]{0,4}")
+                || !parts[6].matches("[A-Z][A-Z0-9_]{0,63}")) {
+            return false;
+        }
+        if (com.gree1d.reappzuku.core.PackageNameValidator.isValid(parts[5])) {
+            return true;
+        }
+        if (!parts[5].matches("[1-9][0-9]{0,9}")) return false;
+        try {
+            return Long.parseLong(parts[5]) <= Integer.MAX_VALUE;
+        } catch (NumberFormatException invalid) {
+            return false;
+        }
+    }
+
     public void runShellCommandWithOutput(String command, Consumer<String> outputProcessor) {
         executor.execute(() -> {
             boolean executed = false;

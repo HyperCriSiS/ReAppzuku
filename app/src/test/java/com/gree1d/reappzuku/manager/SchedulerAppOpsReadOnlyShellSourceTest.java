@@ -5,6 +5,9 @@ import static org.junit.Assert.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+import com.gree1d.reappzuku.core.ShellBackendState;
+import com.gree1d.reappzuku.core.ShellManager;
 import org.junit.Test;
 
 public final class SchedulerAppOpsReadOnlyShellSourceTest {
@@ -111,6 +114,112 @@ public final class SchedulerAppOpsReadOnlyShellSourceTest {
             fail("Missing command reader must be rejected");
         } catch (IllegalArgumentException expected) {
             // No implicit shell fallback.
+        }
+    }
+
+    @Test public void pinnedRootCannotSilentlySwitchToShizukuOrPermissionRequired() {
+        AtomicReference<ShellBackendState> state =
+                new AtomicReference<>(ShellBackendState.ROOT_READY);
+        Reader reader = new Reader();
+        SchedulerAppOpsReadOnlyShellSource source =
+                new SchedulerAppOpsReadOnlyShellSource(identity(), reader,
+                        state::get, ShellBackendState.ROOT_READY);
+        assertNotNull(source.readPackage(PKG, "WAKE_LOCK"));
+        state.set(ShellBackendState.SHIZUKU_READY);
+        assertNull(source.readUid(10342, "WAKE_LOCK"));
+        assertEquals("No command must execute after backend switch", 1, reader.commands.size());
+        state.set(ShellBackendState.SHIZUKU_PERMISSION_REQUIRED);
+        assertNull(source.readPackage(PKG, "WAKE_LOCK"));
+        assertEquals(1, reader.commands.size());
+    }
+
+    @Test public void pinnedShizukuCannotUseRootAsFallback() {
+        AtomicReference<ShellBackendState> state =
+                new AtomicReference<>(ShellBackendState.SHIZUKU_READY);
+        Reader reader = new Reader();
+        SchedulerAppOpsReadOnlyShellSource source =
+                new SchedulerAppOpsReadOnlyShellSource(identity(), reader,
+                        state::get, ShellBackendState.SHIZUKU_READY);
+        assertNotNull(source.readUid(10342, "WAKE_LOCK"));
+        state.set(ShellBackendState.ROOT_READY);
+        assertNull(source.readPackage(PKG, "WAKE_LOCK"));
+        assertEquals(1, reader.commands.size());
+    }
+
+    @Test public void backendChangeDuringSuccessfulCommandDiscardsRawOutput() {
+        AtomicReference<ShellBackendState> state =
+                new AtomicReference<>(ShellBackendState.ROOT_READY);
+        final int[] calls = {0};
+        SchedulerAppOpsReadOnlyShellSource source =
+                new SchedulerAppOpsReadOnlyShellSource(identity(), command -> {
+                    calls[0]++;
+                    state.set(ShellBackendState.SHIZUKU_READY);
+                    return "WAKE_LOCK: allow";
+                }, state::get, ShellBackendState.ROOT_READY);
+        assertNull(source.readPackage(PKG, "WAKE_LOCK"));
+        assertEquals(1, calls[0]);
+        assertNull(source.readUid(10342, "WAKE_LOCK"));
+        assertEquals(1, calls[0]);
+    }
+
+    @Test public void entireCatalogRejectsMidPassBackendLossWithoutPartialEvidence() {
+        AtomicReference<ShellBackendState> state =
+                new AtomicReference<>(ShellBackendState.SHIZUKU_READY);
+        final int[] reads = {0};
+        SchedulerAppOpsReadOnlyShellSource source =
+                new SchedulerAppOpsReadOnlyShellSource(identity(), command -> {
+                    if (++reads[0] == 3) state.set(ShellBackendState.SHIZUKU_LOST);
+                    return "No operations.\nDefault mode: allow";
+                }, state::get, ShellBackendState.SHIZUKU_READY);
+        SchedulerAppOpsCatalogDiagnostic.Result result =
+                SchedulerAppOpsCatalogDiagnostic.capture(PKG,
+                        new String[]{"WAKE_LOCK", "RUN_IN_BACKGROUND"},
+                        name -> identity(), source);
+        assertEquals(SchedulerAppOpsCatalogDiagnostic.Status.QUERY_UNKNOWN, result.status);
+        assertTrue(result.operations.isEmpty());
+        assertNull(result.identity);
+        assertFalse(result.authorizesRestore());
+        assertEquals(3, reads[0]);
+    }
+
+    @Test public void unreadyBackendCannotConstructPinnedSource() {
+        AtomicReference<ShellBackendState> state =
+                new AtomicReference<>(ShellBackendState.SHIZUKU_BINDING);
+        try {
+            new SchedulerAppOpsReadOnlyShellSource(identity(), command -> "No operations.",
+                    state::get, ShellBackendState.SHIZUKU_BINDING);
+            fail("Binding is not a ready backend");
+        } catch (IllegalArgumentException expected) {
+            // No implicit backend initialization or permission request.
+        }
+        try {
+            new SchedulerAppOpsReadOnlyShellSource(identity(), command -> "No operations.",
+                    state::get, ShellBackendState.SHIZUKU_READY);
+            fail("Stale Shizuku READY is not sufficient");
+        } catch (IllegalArgumentException expected) {
+            // No data source from a stale ready marker.
+        }
+    }
+
+    @Test public void onlyFixedReadOnlyAppOpsSyntaxCrossesPrivilegedBoundary() {
+        assertTrue(ShellManager.isReadOnlyAppOpsCommand(
+                "cmd appops get --user 0 com.example.shell WAKE_LOCK"));
+        assertTrue(ShellManager.isReadOnlyAppOpsCommand(
+                "cmd appops get --user 0 10342 RUN_IN_BACKGROUND"));
+        for (String invalid : new String[]{
+                "cmd appops set --user 0 com.example.shell WAKE_LOCK ignore",
+                "cmd appops reset com.example.shell",
+                "cmd appops get --user current com.example.shell WAKE_LOCK",
+                "cmd appops get --user 0 com.example.shell WAKE_LOCK;id",
+                "cmd appops get --user 0 com.example.shell WAKE_LOCK && id",
+                "cmd appops get --user 0 2147483648 WAKE_LOCK",
+                "cmd appops get --user 0 com.example.shell WAKE_LOCK\nid",
+                "cmd appops get --user 0 com.example.shell WAKE_LOCK ",
+                "cmd appops get --user 0 com.example.shell WAKE_LOCK --debug",
+                "cmd appops get --user 0 com.example.shell bad-mode",
+                "cmd appops get --user 0 com.example.shell WAKE_LOCK > /tmp/out"
+        }) {
+            assertFalse(invalid, ShellManager.isReadOnlyAppOpsCommand(invalid));
         }
     }
 }
