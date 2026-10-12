@@ -170,6 +170,1100 @@ jobs:
           bash scripts/tests/ci-appops-readonly-observation.sh | tee /tmp/read-only-appops.txt
           grep -Eq 'READONLY_APPOPS_DIAGNOSTIC_COMPLETE|READONLY_APPOPS_(IDENTITY|USER)_UNKNOWN' /tmp/read-only-appops.txt
 
+      - name: Classify real API 24 package/UID AppOps through Java diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(adb shell pm list instrumentation | tr -d '\r' |
+            sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' | head -n 1)"
+          test -n "$INSTRUMENTATION"
+          CLASS='com.gree1d.reappzuku.manager.SchedulerAppOpsApi24LiveReadOnlyInstrumentationTest'
+          adb shell am instrument -w -r -e class "$CLASS" "$INSTRUMENTATION" |
+            tee /tmp/api24-appops-live-readonly.txt
+          grep -Fq 'OK (2 tests)' /tmp/api24-appops-live-readonly.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api24-appops-live-readonly.txt
+          ! grep -Fq 'INSTRUMENTATION_STATUS_CODE: -4' /tmp/api24-appops-live-readonly.txt
+          grep -Fq 'INSTRUMENTATION_STATUS: RZ_LIVE_APPOPS_API24_PACKAGE_GET=EXIT_ZERO_NONEMPTY' /tmp/api24-appops-live-readonly.txt
+          grep -Eq '^INSTRUMENTATION_STATUS: RZ_LIVE_APPOPS_API24_UID_WAKE=(RECOGNIZED|UNKNOWN)
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/tests/ci-real-uid-appops-conflict.sh | tee /tmp/real-uid-appops-conflict.txt
+          if [ "$(adb shell getprop ro.build.version.sdk | tr -d '\r')" = 37 ]; then
+            grep -Fq 'API37_UID_IGNORE_OVERRIDES_PACKAGE_ALLOW_OBSERVED' /tmp/real-uid-appops-conflict.txt
+            grep -Fq 'API37_UID_ALLOW_DEFAULT_TRANSITIONS_OBSERVED' /tmp/real-uid-appops-conflict.txt
+            grep -Fq 'API37_APP_OPS_FIXTURE_ORIGINAL_STATE_RESTORED' /tmp/real-uid-appops-conflict.txt
+          else
+            grep -Fq 'API24_UID_OVERRIDE_PROBE_READ_ONLY_UNSUPPORTED' /tmp/real-uid-appops-conflict.txt
+          fi
+
+      - name: Run API 24 Room migration and policy-backup instrumentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation \
+              | tr -d '\r' \
+              | sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' \
+              | head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          # Deliberately scope this API-24 lane to local storage/codec and safe new-app queue invariants.
+          # The Shizuku/root/runtime scheduling suite remains in dedicated API-36/37 lanes.
+          TEST_CLASSES='com.gree1d.reappzuku.core.BackupCodecTest,com.gree1d.reappzuku.db.AppDatabaseMigrationTest,com.gree1d.reappzuku.core.Phase9BackupRestoreTest,com.gree1d.reappzuku.core.Api24NewAppQueueInstrumentationTest,com.gree1d.reappzuku.core.Api24Api37NewAppQueueCommitFailureInstrumentationTest,com.gree1d.reappzuku.core.Api24Api37PresetCleanupRecoveryInstrumentationTest,com.gree1d.reappzuku.core.Api24PolicyEditorNavigationInstrumentationTest,com.gree1d.reappzuku.core.Api24PolicyEditorSaveNotificationInstrumentationTest,com.gree1d.reappzuku.core.ExportedComponentManifestInstrumentationTest,com.gree1d.reappzuku.core.NewAppPeriodicRecoveryInstrumentationTest,com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest,com.gree1d.reappzuku.manager.SchedulerRestrictionReadOnlyInstrumentationTest,com.gree1d.reappzuku.manager.SchedulerRecoveryEvidenceV2InstrumentationTest'
+          adb shell am instrument -w -r -e class "$TEST_CLASSES" "$INSTRUMENTATION" \
+            | tee /tmp/reappzuku-api24-instrumentation.txt
+          grep -Eq 'OK \([0-9]+ tests?\)' /tmp/reappzuku-api24-instrumentation.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-api24-instrumentation.txt
+          echo 'API24_LOCAL_PERSISTENCE_PASS'
+
+      - name: Verify v7 backup rejection rollback and denied content URI on API 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e ci_backup_v7_boundary verify \
+            -e class 'com.gree1d.reappzuku.core.Api24Api37BackupV7BoundaryInstrumentationTest' "$INSTRUMENTATION" |
+            tee /tmp/api24-backup-v7-boundary.txt
+          grep -Fq 'OK (4 tests)' /tmp/api24-backup-v7-boundary.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api24-backup-v7-boundary.txt
+          echo 'API24_BACKUP_V7_BOUNDARY_PASS'
+
+      - name: Verify one-shot SAF content URI and ungranted permission boundaries on API 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e ci_saf_uri_boundary verify \
+            -e class 'com.gree1d.reappzuku.core.Api24Api37SafUriBoundaryInstrumentationTest' "$INSTRUMENTATION" |
+            tee /tmp/api24-saf-uri-boundary.txt
+          grep -Fq 'OK (4 tests)' /tmp/api24-saf-uri-boundary.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api24-saf-uri-boundary.txt
+
+      - name: Verify partial content URI failure and v7 rollback safety on API 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e ci_backup_v7_stream verify \
+            -e class 'com.gree1d.reappzuku.core.Api24Api37BackupV7StreamingFaultInstrumentationTest' "$INSTRUMENTATION" |
+            tee /tmp/api24-backup-v7-stream.txt
+          grep -Fq 'OK (3 tests)' /tmp/api24-backup-v7-stream.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api24-backup-v7-stream.txt
+          echo 'API24_BACKUP_V7_STREAM_ABORT_PASS'
+
+      - name: Prove RZJ2 durability across real app PID death
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG='com.gree1d.reappzuku'
+          CLASS='com.gree1d.reappzuku.manager.SchedulerRecoveryEvidenceV2InstrumentationTest'
+          INSTRUMENTATION="$(adb shell pm list instrumentation | tr -d '\r' |
+            sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' | head -n 1)"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e class "$CLASS#seedForRealProcessDeath" -e ci_recovery_v2_phase seed "$INSTRUMENTATION" | tee /tmp/rzj2-seed.txt
+          grep -Fq 'OK (1 test)' /tmp/rzj2-seed.txt
+          grep -Fq 'RECOVERY_V2_STATUS=SEEDED' /tmp/rzj2-seed.txt
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" >/tmp/rzj2-launch-before.txt 2>&1
+          old=''
+          for attempt in $(seq 1 15); do
+            old="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$old" =~ ^[0-9]+$ ]]; then break; fi
+            sleep 1
+          done
+          [[ "$old" =~ ^[0-9]+$ ]]
+          adb shell "run-as $PKG /system/bin/kill -9 $old"
+          for attempt in $(seq 1 20); do
+            current="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [ "$current" != "$old" ]; then break; fi
+            sleep 1
+          done
+          test "$current" != "$old"
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" >/tmp/rzj2-launch-after.txt 2>&1
+          new=''
+          for attempt in $(seq 1 20); do
+            new="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$new" =~ ^[0-9]+$ ]] && [ "$new" != "$old" ]; then break; fi
+            sleep 1
+          done
+          [[ "$new" =~ ^[0-9]+$ ]]
+          test "$new" != "$old"
+          echo "RZJ2_PID_CHANGED=$old->$new"
+          adb shell am instrument -w -r -e class "$CLASS#verifyAfterRealProcessDeath" -e ci_recovery_v2_phase verify "$INSTRUMENTATION" | tee /tmp/rzj2-verify.txt
+          grep -Fq 'OK (1 test)' /tmp/rzj2-verify.txt
+          grep -Fq 'RECOVERY_V2_STATUS=VERIFIED' /tmp/rzj2-verify.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/rzj2-verify.txt
+          echo 'RZJ2_REAL_PROCESS_DEATH_PASS'
+
+      - name: Prove persisted WorkManager identity across actual app process death
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG='com.gree1d.reappzuku'
+          CLASS='com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest'
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e class "$CLASS#snapshotPersistedPeriodicWorkBeforeProcessDeath" "$INSTRUMENTATION" |
+            tee /tmp/reappzuku-process-restart-before.txt
+          grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-before.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-before.txt
+          uuid="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_ID=([0-9a-f-]{36})$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
+          created="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_CREATED=(yes|no)$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
+          [[ "$uuid" =~ ^[0-9a-f-]{36}$ ]]
+          [[ "$created" == yes || "$created" == no ]]
+      
+          # Kill only the currently running debug app PID under its OWN UID.
+          # This models abrupt process loss without root, force-stop or data clearing.
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" > /tmp/reappzuku-recovery-launch-before.txt 2>&1
+          old_pid=''
+          for attempt in $(seq 1 15); do
+            old_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$old_pid" =~ ^[0-9]+$ ]]; then break; fi
+            sleep 1
+          done
+          [[ "$old_pid" =~ ^[0-9]+$ ]]
+          echo "REAPPZUKU_PRE_KILL_PID=$old_pid"
+          # ADB's argument serialization strips nested sh -c quoting. Invoke kill directly.
+          adb shell "run-as $PKG /system/bin/kill -9 $old_pid"
+          replaced=0
+          for attempt in $(seq 1 20); do
+            remaining="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [ "$remaining" != "$old_pid" ]; then replaced=1; break; fi
+            sleep 1
+          done
+          test "$replaced" -eq 1
+          echo 'REAPPZUKU_ORIGINAL_PID_TERMINATED'
+
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" > /tmp/reappzuku-recovery-launch-after.txt 2>&1
+          new_pid=''
+          for attempt in $(seq 1 20); do
+            new_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$new_pid" =~ ^[0-9]+$ ]] && [ "$new_pid" != "$old_pid" ]; then break; fi
+            sleep 1
+          done
+          [[ "$new_pid" =~ ^[0-9]+$ ]]
+          test "$new_pid" != "$old_pid"
+          echo "REAPPZUKU_NEW_PROCESS_PID=$new_pid"
+          echo 'REAPPZUKU_NEW_PROCESS_STARTED'
+      
+          adb shell am instrument -w -r -e class "$CLASS#verifySamePersistedWorkAfterActualProcessRestart" \
+            -e expected_uuid "$uuid" -e created_by_test "$created" "$INSTRUMENTATION" |
+            tee /tmp/reappzuku-process-restart-after.txt
+          grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-after.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-after.txt
+          echo 'REAPPZUKU_PROCESS_RESTART_WORK_UUID_PRESERVED'
+      - name: Prove debug Worker executes retry after real process restart
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG='com.gree1d.reappzuku'
+          CLASS='com.gree1d.reappzuku.core.Api24Api37RetryWorkerInstrumentationTest'
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e ci_worker_retry_mode verify -e class "$CLASS#startWorkerAndObserveActualFirstRetryBeforeProcessDeath" "$INSTRUMENTATION" |
+            tee /tmp/reappzuku-process-restart-before.txt
+          grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-before.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-before.txt
+          uuid="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_ID=([0-9a-f-]{36})$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
+          created="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_CREATED=(yes|no)$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
+          [[ "$uuid" =~ ^[0-9a-f-]{36}$ ]]
+          [[ "$created" == yes || "$created" == no ]]
+      
+          # Kill only the currently running debug app PID under its OWN UID.
+          # This models abrupt process loss without root, force-stop or data clearing.
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" > /tmp/reappzuku-recovery-launch-before.txt 2>&1
+          old_pid=''
+          for attempt in $(seq 1 15); do
+            old_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$old_pid" =~ ^[0-9]+$ ]]; then break; fi
+            sleep 1
+          done
+          [[ "$old_pid" =~ ^[0-9]+$ ]]
+          echo "REAPPZUKU_PRE_KILL_PID=$old_pid"
+          # ADB's argument serialization strips nested sh -c quoting. Invoke kill directly.
+          adb shell "run-as $PKG /system/bin/kill -9 $old_pid"
+          replaced=0
+          for attempt in $(seq 1 20); do
+            remaining="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [ "$remaining" != "$old_pid" ]; then replaced=1; break; fi
+            sleep 1
+          done
+          test "$replaced" -eq 1
+          echo 'REAPPZUKU_ORIGINAL_PID_TERMINATED'
+
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" > /tmp/reappzuku-recovery-launch-after.txt 2>&1
+          new_pid=''
+          for attempt in $(seq 1 20); do
+            new_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$new_pid" =~ ^[0-9]+$ ]] && [ "$new_pid" != "$old_pid" ]; then break; fi
+            sleep 1
+          done
+          [[ "$new_pid" =~ ^[0-9]+$ ]]
+          test "$new_pid" != "$old_pid"
+          echo "REAPPZUKU_NEW_PROCESS_PID=$new_pid"
+          echo 'REAPPZUKU_NEW_PROCESS_STARTED'
+      
+          adb shell am instrument -w -r -e ci_worker_retry_mode verify -e class "$CLASS#verifyWorkerReallyRetriedAndSucceededAfterRestart" \
+            -e expected_uuid "$uuid" -e created_by_test "$created" "$INSTRUMENTATION" |
+            tee /tmp/reappzuku-process-restart-after.txt
+          grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-after.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-after.txt
+          grep -Fq 'INSTRUMENTATION_STATUS: REAPPZUKU_RETRY_SUCCESS=yes' /tmp/reappzuku-process-restart-after.txt
+          echo 'REAPPZUKU_RETRY_WORKER_EXECUTED_AFTER_RESTART'
+      - name: Prove real new-app Reconcile Worker retry after app SIGKILL on API 24
+        shell: bash
+        run: bash scripts/tests/ci-real-reconcile-worker-retry.sh
+
+      - name: Verify failed package handler triggers actual WorkManager retry on API 24
+        shell: bash
+        run: bash scripts/tests/ci-package-handler-retry.sh
+
+      - name: Seed canonical policy and preferences before an in-place update
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          cp "$apk" /tmp/reappzuku-upgrade-base.apk
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          AAPT="$(find "$SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$AAPT"
+          test -x "$APKSIGNER"
+          base_badging="$("$AAPT" dump badging /tmp/reappzuku-upgrade-base.apk | sed -n '1p')"
+          base_code="$(sed -nE "s/.*versionCode='([0-9]+)'.*/\1/p" <<< "$base_badging")"
+          [[ "$base_code" =~ ^[0-9]+$ ]]
+          echo "UPGRADE_BASE_CODE=$base_code" >> "$GITHUB_ENV"
+          echo "UPGRADE_NEXT_CODE=$((base_code + 1))" >> "$GITHUB_ENV"
+          runner="$(adb shell pm list instrumentation | tr -d '\r' |
+            sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' | sed -n '1p')"
+          test -n "$runner"
+          adb shell am instrument -w -r -e class \
+            com.gree1d.reappzuku.core.EmulatorUpgradePersistenceTest#seedBeforeUpgrade \
+            -e upgrade_smoke_stage seed "$runner" | tee /tmp/upgrade-seed.txt
+          grep -Fq 'OK (1 test)' /tmp/upgrade-seed.txt
+          echo 'API24_UPGRADE_SEEDED'
+
+      - name: Build and install higher-version APK under same ephemeral debug signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :app:assembleDebug \
+            "-PreappzukuUpgradeSmokeVersionCode=$UPGRADE_NEXT_CODE" \
+            --rerun-tasks --no-daemon
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          AAPT="$(find "$SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          candidate_badging="$("$AAPT" dump badging "$apk" | sed -n '1p')"
+          printf 'Base versionCode=%s, expected upgrade=%s\n' "$UPGRADE_BASE_CODE" "$UPGRADE_NEXT_CODE"
+          printf 'Candidate badging: %s\n' "$candidate_badging"
+          grep -Fq "name='com.gree1d.reappzuku'" <<< "$candidate_badging" || {
+            echo 'UPGRADE_DIAGNOSTIC: Wrong candidate package.' >&2; exit 1;
+          }
+          grep -Fq "versionCode='$UPGRADE_NEXT_CODE'" <<< "$candidate_badging" || {
+            echo 'UPGRADE_DIAGNOSTIC: Debug variant versionCode override was not applied.' >&2; exit 1;
+          }
+          signer() {
+            local output digests cleaned
+            output="$("$APKSIGNER" verify --verbose --print-certs "$1")" || return 1
+            # Android build-tools can indent or prefix signer certificate lines.
+            digests="$(printf '%s\n' "$output" |
+              sed -nE 's/^.*certificate SHA-256 digest:[[:space:]]*([[:xdigit:]:[:space:]]+)$/\1/p')"
+            [ "$(printf '%s\n' "$digests" | grep -c .)" -eq 1 ] || {
+              printf 'Unrecognized or ambiguous apksigner certificate output:\n%s\n' "$output" >&2
+              return 1
+            }
+            cleaned="$(printf '%s' "$digests" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+            [[ "$cleaned" =~ ^[0-9a-f]{64}$ ]] || return 1
+            printf '%s\n' "$cleaned"
+          }
+          base_signer="$(signer /tmp/reappzuku-upgrade-base.apk)"
+          next_signer="$(signer "$apk")"
+          printf 'Base signing certificate SHA-256: %s\n' "$base_signer"
+          printf 'New signing certificate SHA-256: %s\n' "$next_signer"
+          [[ "$base_signer" =~ ^[[:xdigit:]]{64}$ ]] || {
+            echo 'UPGRADE_DIAGNOSTIC: Could not parse signer digest.' >&2; exit 1;
+          }
+          test "$base_signer" = "$next_signer" || {
+            echo 'UPGRADE_DIAGNOSTIC: Signing certificate changed.' >&2; exit 1;
+          }
+          test "$(sha256sum /tmp/reappzuku-upgrade-base.apk | cut -d ' ' -f 1)" != \
+               "$(sha256sum "$apk" | cut -d ' ' -f 1)" || {
+            echo 'UPGRADE_DIAGNOSTIC: Two APK artifacts are byte-identical.' >&2; exit 1;
+          }
+          echo 'Upgrade identity checks passed; invoking adb install -r'
+          adb install -r -t "$apk"
+          adb shell dumpsys package com.gree1d.reappzuku > /tmp/api24-upgrade-installed.txt
+          grep -Fq "versionCode=$UPGRADE_NEXT_CODE" /tmp/api24-upgrade-installed.txt
+          echo 'API24_SAME_SIGNER_UPGRADE_INSTALLED'
+
+      - name: Verify in-place upgrade retained Room policy and preferences
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner="$(adb shell pm list instrumentation | tr -d '\r' |
+            sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' | sed -n '1p')"
+          test -n "$runner"
+          adb shell am instrument -w -r -e class \
+            com.gree1d.reappzuku.core.EmulatorUpgradePersistenceTest#verifyAfterUpgrade \
+            -e upgrade_smoke_stage verify "$runner" | tee /tmp/upgrade-verify.txt
+          grep -Fq 'OK (1 test)' /tmp/upgrade-verify.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/upgrade-verify.txt
+          echo 'API24_SAME_KEY_UPDATE_DATA_PASS'
+
+      - name: Reject mismatched signer and downgrade without losing saved policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/tests/api24-rejected-upgrade-guards.sh \
+            /tmp/reappzuku-upgrade-base.apk \
+            app/build/outputs/apk/debug/app-debug.apk \
+            "$UPGRADE_NEXT_CODE" /tmp/api24-appops-live-readonly.txt
+          grep -Eq '^INSTRUMENTATION_STATUS: RZ_LIVE_APPOPS_API24_UID_BACKGROUND=(RECOGNIZED|UNKNOWN)
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/tests/ci-real-uid-appops-conflict.sh | tee /tmp/real-uid-appops-conflict.txt
+          if [ "$(adb shell getprop ro.build.version.sdk | tr -d '\r')" = 37 ]; then
+            grep -Fq 'API37_UID_IGNORE_OVERRIDES_PACKAGE_ALLOW_OBSERVED' /tmp/real-uid-appops-conflict.txt
+            grep -Fq 'API37_UID_ALLOW_DEFAULT_TRANSITIONS_OBSERVED' /tmp/real-uid-appops-conflict.txt
+            grep -Fq 'API37_APP_OPS_FIXTURE_ORIGINAL_STATE_RESTORED' /tmp/real-uid-appops-conflict.txt
+          else
+            grep -Fq 'API24_UID_OVERRIDE_PROBE_READ_ONLY_UNSUPPORTED' /tmp/real-uid-appops-conflict.txt
+          fi
+
+      - name: Run API 24 Room migration and policy-backup instrumentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation \
+              | tr -d '\r' \
+              | sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' \
+              | head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          # Deliberately scope this API-24 lane to local storage/codec and safe new-app queue invariants.
+          # The Shizuku/root/runtime scheduling suite remains in dedicated API-36/37 lanes.
+          TEST_CLASSES='com.gree1d.reappzuku.core.BackupCodecTest,com.gree1d.reappzuku.db.AppDatabaseMigrationTest,com.gree1d.reappzuku.core.Phase9BackupRestoreTest,com.gree1d.reappzuku.core.Api24NewAppQueueInstrumentationTest,com.gree1d.reappzuku.core.Api24Api37NewAppQueueCommitFailureInstrumentationTest,com.gree1d.reappzuku.core.Api24Api37PresetCleanupRecoveryInstrumentationTest,com.gree1d.reappzuku.core.Api24PolicyEditorNavigationInstrumentationTest,com.gree1d.reappzuku.core.Api24PolicyEditorSaveNotificationInstrumentationTest,com.gree1d.reappzuku.core.ExportedComponentManifestInstrumentationTest,com.gree1d.reappzuku.core.NewAppPeriodicRecoveryInstrumentationTest,com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest,com.gree1d.reappzuku.manager.SchedulerRestrictionReadOnlyInstrumentationTest,com.gree1d.reappzuku.manager.SchedulerRecoveryEvidenceV2InstrumentationTest'
+          adb shell am instrument -w -r -e class "$TEST_CLASSES" "$INSTRUMENTATION" \
+            | tee /tmp/reappzuku-api24-instrumentation.txt
+          grep -Eq 'OK \([0-9]+ tests?\)' /tmp/reappzuku-api24-instrumentation.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-api24-instrumentation.txt
+          echo 'API24_LOCAL_PERSISTENCE_PASS'
+
+      - name: Verify v7 backup rejection rollback and denied content URI on API 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e ci_backup_v7_boundary verify \
+            -e class 'com.gree1d.reappzuku.core.Api24Api37BackupV7BoundaryInstrumentationTest' "$INSTRUMENTATION" |
+            tee /tmp/api24-backup-v7-boundary.txt
+          grep -Fq 'OK (4 tests)' /tmp/api24-backup-v7-boundary.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api24-backup-v7-boundary.txt
+          echo 'API24_BACKUP_V7_BOUNDARY_PASS'
+
+      - name: Verify one-shot SAF content URI and ungranted permission boundaries on API 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e ci_saf_uri_boundary verify \
+            -e class 'com.gree1d.reappzuku.core.Api24Api37SafUriBoundaryInstrumentationTest' "$INSTRUMENTATION" |
+            tee /tmp/api24-saf-uri-boundary.txt
+          grep -Fq 'OK (4 tests)' /tmp/api24-saf-uri-boundary.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api24-saf-uri-boundary.txt
+
+      - name: Verify partial content URI failure and v7 rollback safety on API 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e ci_backup_v7_stream verify \
+            -e class 'com.gree1d.reappzuku.core.Api24Api37BackupV7StreamingFaultInstrumentationTest' "$INSTRUMENTATION" |
+            tee /tmp/api24-backup-v7-stream.txt
+          grep -Fq 'OK (3 tests)' /tmp/api24-backup-v7-stream.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api24-backup-v7-stream.txt
+          echo 'API24_BACKUP_V7_STREAM_ABORT_PASS'
+
+      - name: Prove RZJ2 durability across real app PID death
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG='com.gree1d.reappzuku'
+          CLASS='com.gree1d.reappzuku.manager.SchedulerRecoveryEvidenceV2InstrumentationTest'
+          INSTRUMENTATION="$(adb shell pm list instrumentation | tr -d '\r' |
+            sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' | head -n 1)"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e class "$CLASS#seedForRealProcessDeath" -e ci_recovery_v2_phase seed "$INSTRUMENTATION" | tee /tmp/rzj2-seed.txt
+          grep -Fq 'OK (1 test)' /tmp/rzj2-seed.txt
+          grep -Fq 'RECOVERY_V2_STATUS=SEEDED' /tmp/rzj2-seed.txt
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" >/tmp/rzj2-launch-before.txt 2>&1
+          old=''
+          for attempt in $(seq 1 15); do
+            old="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$old" =~ ^[0-9]+$ ]]; then break; fi
+            sleep 1
+          done
+          [[ "$old" =~ ^[0-9]+$ ]]
+          adb shell "run-as $PKG /system/bin/kill -9 $old"
+          for attempt in $(seq 1 20); do
+            current="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [ "$current" != "$old" ]; then break; fi
+            sleep 1
+          done
+          test "$current" != "$old"
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" >/tmp/rzj2-launch-after.txt 2>&1
+          new=''
+          for attempt in $(seq 1 20); do
+            new="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$new" =~ ^[0-9]+$ ]] && [ "$new" != "$old" ]; then break; fi
+            sleep 1
+          done
+          [[ "$new" =~ ^[0-9]+$ ]]
+          test "$new" != "$old"
+          echo "RZJ2_PID_CHANGED=$old->$new"
+          adb shell am instrument -w -r -e class "$CLASS#verifyAfterRealProcessDeath" -e ci_recovery_v2_phase verify "$INSTRUMENTATION" | tee /tmp/rzj2-verify.txt
+          grep -Fq 'OK (1 test)' /tmp/rzj2-verify.txt
+          grep -Fq 'RECOVERY_V2_STATUS=VERIFIED' /tmp/rzj2-verify.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/rzj2-verify.txt
+          echo 'RZJ2_REAL_PROCESS_DEATH_PASS'
+
+      - name: Prove persisted WorkManager identity across actual app process death
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG='com.gree1d.reappzuku'
+          CLASS='com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest'
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e class "$CLASS#snapshotPersistedPeriodicWorkBeforeProcessDeath" "$INSTRUMENTATION" |
+            tee /tmp/reappzuku-process-restart-before.txt
+          grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-before.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-before.txt
+          uuid="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_ID=([0-9a-f-]{36})$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
+          created="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_CREATED=(yes|no)$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
+          [[ "$uuid" =~ ^[0-9a-f-]{36}$ ]]
+          [[ "$created" == yes || "$created" == no ]]
+      
+          # Kill only the currently running debug app PID under its OWN UID.
+          # This models abrupt process loss without root, force-stop or data clearing.
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" > /tmp/reappzuku-recovery-launch-before.txt 2>&1
+          old_pid=''
+          for attempt in $(seq 1 15); do
+            old_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$old_pid" =~ ^[0-9]+$ ]]; then break; fi
+            sleep 1
+          done
+          [[ "$old_pid" =~ ^[0-9]+$ ]]
+          echo "REAPPZUKU_PRE_KILL_PID=$old_pid"
+          # ADB's argument serialization strips nested sh -c quoting. Invoke kill directly.
+          adb shell "run-as $PKG /system/bin/kill -9 $old_pid"
+          replaced=0
+          for attempt in $(seq 1 20); do
+            remaining="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [ "$remaining" != "$old_pid" ]; then replaced=1; break; fi
+            sleep 1
+          done
+          test "$replaced" -eq 1
+          echo 'REAPPZUKU_ORIGINAL_PID_TERMINATED'
+
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" > /tmp/reappzuku-recovery-launch-after.txt 2>&1
+          new_pid=''
+          for attempt in $(seq 1 20); do
+            new_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$new_pid" =~ ^[0-9]+$ ]] && [ "$new_pid" != "$old_pid" ]; then break; fi
+            sleep 1
+          done
+          [[ "$new_pid" =~ ^[0-9]+$ ]]
+          test "$new_pid" != "$old_pid"
+          echo "REAPPZUKU_NEW_PROCESS_PID=$new_pid"
+          echo 'REAPPZUKU_NEW_PROCESS_STARTED'
+      
+          adb shell am instrument -w -r -e class "$CLASS#verifySamePersistedWorkAfterActualProcessRestart" \
+            -e expected_uuid "$uuid" -e created_by_test "$created" "$INSTRUMENTATION" |
+            tee /tmp/reappzuku-process-restart-after.txt
+          grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-after.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-after.txt
+          echo 'REAPPZUKU_PROCESS_RESTART_WORK_UUID_PRESERVED'
+      - name: Prove debug Worker executes retry after real process restart
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG='com.gree1d.reappzuku'
+          CLASS='com.gree1d.reappzuku.core.Api24Api37RetryWorkerInstrumentationTest'
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e ci_worker_retry_mode verify -e class "$CLASS#startWorkerAndObserveActualFirstRetryBeforeProcessDeath" "$INSTRUMENTATION" |
+            tee /tmp/reappzuku-process-restart-before.txt
+          grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-before.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-before.txt
+          uuid="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_ID=([0-9a-f-]{36})$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
+          created="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_CREATED=(yes|no)$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
+          [[ "$uuid" =~ ^[0-9a-f-]{36}$ ]]
+          [[ "$created" == yes || "$created" == no ]]
+      
+          # Kill only the currently running debug app PID under its OWN UID.
+          # This models abrupt process loss without root, force-stop or data clearing.
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" > /tmp/reappzuku-recovery-launch-before.txt 2>&1
+          old_pid=''
+          for attempt in $(seq 1 15); do
+            old_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$old_pid" =~ ^[0-9]+$ ]]; then break; fi
+            sleep 1
+          done
+          [[ "$old_pid" =~ ^[0-9]+$ ]]
+          echo "REAPPZUKU_PRE_KILL_PID=$old_pid"
+          # ADB's argument serialization strips nested sh -c quoting. Invoke kill directly.
+          adb shell "run-as $PKG /system/bin/kill -9 $old_pid"
+          replaced=0
+          for attempt in $(seq 1 20); do
+            remaining="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [ "$remaining" != "$old_pid" ]; then replaced=1; break; fi
+            sleep 1
+          done
+          test "$replaced" -eq 1
+          echo 'REAPPZUKU_ORIGINAL_PID_TERMINATED'
+
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" > /tmp/reappzuku-recovery-launch-after.txt 2>&1
+          new_pid=''
+          for attempt in $(seq 1 20); do
+            new_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$new_pid" =~ ^[0-9]+$ ]] && [ "$new_pid" != "$old_pid" ]; then break; fi
+            sleep 1
+          done
+          [[ "$new_pid" =~ ^[0-9]+$ ]]
+          test "$new_pid" != "$old_pid"
+          echo "REAPPZUKU_NEW_PROCESS_PID=$new_pid"
+          echo 'REAPPZUKU_NEW_PROCESS_STARTED'
+      
+          adb shell am instrument -w -r -e ci_worker_retry_mode verify -e class "$CLASS#verifyWorkerReallyRetriedAndSucceededAfterRestart" \
+            -e expected_uuid "$uuid" -e created_by_test "$created" "$INSTRUMENTATION" |
+            tee /tmp/reappzuku-process-restart-after.txt
+          grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-after.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-after.txt
+          grep -Fq 'INSTRUMENTATION_STATUS: REAPPZUKU_RETRY_SUCCESS=yes' /tmp/reappzuku-process-restart-after.txt
+          echo 'REAPPZUKU_RETRY_WORKER_EXECUTED_AFTER_RESTART'
+      - name: Prove real new-app Reconcile Worker retry after app SIGKILL on API 24
+        shell: bash
+        run: bash scripts/tests/ci-real-reconcile-worker-retry.sh
+
+      - name: Verify failed package handler triggers actual WorkManager retry on API 24
+        shell: bash
+        run: bash scripts/tests/ci-package-handler-retry.sh
+
+      - name: Seed canonical policy and preferences before an in-place update
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          cp "$apk" /tmp/reappzuku-upgrade-base.apk
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          AAPT="$(find "$SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$AAPT"
+          test -x "$APKSIGNER"
+          base_badging="$("$AAPT" dump badging /tmp/reappzuku-upgrade-base.apk | sed -n '1p')"
+          base_code="$(sed -nE "s/.*versionCode='([0-9]+)'.*/\1/p" <<< "$base_badging")"
+          [[ "$base_code" =~ ^[0-9]+$ ]]
+          echo "UPGRADE_BASE_CODE=$base_code" >> "$GITHUB_ENV"
+          echo "UPGRADE_NEXT_CODE=$((base_code + 1))" >> "$GITHUB_ENV"
+          runner="$(adb shell pm list instrumentation | tr -d '\r' |
+            sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' | sed -n '1p')"
+          test -n "$runner"
+          adb shell am instrument -w -r -e class \
+            com.gree1d.reappzuku.core.EmulatorUpgradePersistenceTest#seedBeforeUpgrade \
+            -e upgrade_smoke_stage seed "$runner" | tee /tmp/upgrade-seed.txt
+          grep -Fq 'OK (1 test)' /tmp/upgrade-seed.txt
+          echo 'API24_UPGRADE_SEEDED'
+
+      - name: Build and install higher-version APK under same ephemeral debug signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :app:assembleDebug \
+            "-PreappzukuUpgradeSmokeVersionCode=$UPGRADE_NEXT_CODE" \
+            --rerun-tasks --no-daemon
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          AAPT="$(find "$SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          candidate_badging="$("$AAPT" dump badging "$apk" | sed -n '1p')"
+          printf 'Base versionCode=%s, expected upgrade=%s\n' "$UPGRADE_BASE_CODE" "$UPGRADE_NEXT_CODE"
+          printf 'Candidate badging: %s\n' "$candidate_badging"
+          grep -Fq "name='com.gree1d.reappzuku'" <<< "$candidate_badging" || {
+            echo 'UPGRADE_DIAGNOSTIC: Wrong candidate package.' >&2; exit 1;
+          }
+          grep -Fq "versionCode='$UPGRADE_NEXT_CODE'" <<< "$candidate_badging" || {
+            echo 'UPGRADE_DIAGNOSTIC: Debug variant versionCode override was not applied.' >&2; exit 1;
+          }
+          signer() {
+            local output digests cleaned
+            output="$("$APKSIGNER" verify --verbose --print-certs "$1")" || return 1
+            # Android build-tools can indent or prefix signer certificate lines.
+            digests="$(printf '%s\n' "$output" |
+              sed -nE 's/^.*certificate SHA-256 digest:[[:space:]]*([[:xdigit:]:[:space:]]+)$/\1/p')"
+            [ "$(printf '%s\n' "$digests" | grep -c .)" -eq 1 ] || {
+              printf 'Unrecognized or ambiguous apksigner certificate output:\n%s\n' "$output" >&2
+              return 1
+            }
+            cleaned="$(printf '%s' "$digests" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+            [[ "$cleaned" =~ ^[0-9a-f]{64}$ ]] || return 1
+            printf '%s\n' "$cleaned"
+          }
+          base_signer="$(signer /tmp/reappzuku-upgrade-base.apk)"
+          next_signer="$(signer "$apk")"
+          printf 'Base signing certificate SHA-256: %s\n' "$base_signer"
+          printf 'New signing certificate SHA-256: %s\n' "$next_signer"
+          [[ "$base_signer" =~ ^[[:xdigit:]]{64}$ ]] || {
+            echo 'UPGRADE_DIAGNOSTIC: Could not parse signer digest.' >&2; exit 1;
+          }
+          test "$base_signer" = "$next_signer" || {
+            echo 'UPGRADE_DIAGNOSTIC: Signing certificate changed.' >&2; exit 1;
+          }
+          test "$(sha256sum /tmp/reappzuku-upgrade-base.apk | cut -d ' ' -f 1)" != \
+               "$(sha256sum "$apk" | cut -d ' ' -f 1)" || {
+            echo 'UPGRADE_DIAGNOSTIC: Two APK artifacts are byte-identical.' >&2; exit 1;
+          }
+          echo 'Upgrade identity checks passed; invoking adb install -r'
+          adb install -r -t "$apk"
+          adb shell dumpsys package com.gree1d.reappzuku > /tmp/api24-upgrade-installed.txt
+          grep -Fq "versionCode=$UPGRADE_NEXT_CODE" /tmp/api24-upgrade-installed.txt
+          echo 'API24_SAME_SIGNER_UPGRADE_INSTALLED'
+
+      - name: Verify in-place upgrade retained Room policy and preferences
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner="$(adb shell pm list instrumentation | tr -d '\r' |
+            sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' | sed -n '1p')"
+          test -n "$runner"
+          adb shell am instrument -w -r -e class \
+            com.gree1d.reappzuku.core.EmulatorUpgradePersistenceTest#verifyAfterUpgrade \
+            -e upgrade_smoke_stage verify "$runner" | tee /tmp/upgrade-verify.txt
+          grep -Fq 'OK (1 test)' /tmp/upgrade-verify.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/upgrade-verify.txt
+          echo 'API24_SAME_KEY_UPDATE_DATA_PASS'
+
+      - name: Reject mismatched signer and downgrade without losing saved policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/tests/api24-rejected-upgrade-guards.sh \
+            /tmp/reappzuku-upgrade-base.apk \
+            app/build/outputs/apk/debug/app-debug.apk \
+            "$UPGRADE_NEXT_CODE" /tmp/api24-appops-live-readonly.txt
+          grep -Eq '^INSTRUMENTATION_STATUS: RZ_LIVE_APPOPS_API24_CATALOG_RESULT=(CONSISTENT_DIAGNOSTIC_ONLY|QUERY_UNKNOWN|QUERY_CHANGED|IDENTITY_UNKNOWN|IDENTITY_CHANGED|CONTRADICTORY_SCOPES)
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/tests/ci-real-uid-appops-conflict.sh | tee /tmp/real-uid-appops-conflict.txt
+          if [ "$(adb shell getprop ro.build.version.sdk | tr -d '\r')" = 37 ]; then
+            grep -Fq 'API37_UID_IGNORE_OVERRIDES_PACKAGE_ALLOW_OBSERVED' /tmp/real-uid-appops-conflict.txt
+            grep -Fq 'API37_UID_ALLOW_DEFAULT_TRANSITIONS_OBSERVED' /tmp/real-uid-appops-conflict.txt
+            grep -Fq 'API37_APP_OPS_FIXTURE_ORIGINAL_STATE_RESTORED' /tmp/real-uid-appops-conflict.txt
+          else
+            grep -Fq 'API24_UID_OVERRIDE_PROBE_READ_ONLY_UNSUPPORTED' /tmp/real-uid-appops-conflict.txt
+          fi
+
+      - name: Run API 24 Room migration and policy-backup instrumentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation \
+              | tr -d '\r' \
+              | sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' \
+              | head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          # Deliberately scope this API-24 lane to local storage/codec and safe new-app queue invariants.
+          # The Shizuku/root/runtime scheduling suite remains in dedicated API-36/37 lanes.
+          TEST_CLASSES='com.gree1d.reappzuku.core.BackupCodecTest,com.gree1d.reappzuku.db.AppDatabaseMigrationTest,com.gree1d.reappzuku.core.Phase9BackupRestoreTest,com.gree1d.reappzuku.core.Api24NewAppQueueInstrumentationTest,com.gree1d.reappzuku.core.Api24Api37NewAppQueueCommitFailureInstrumentationTest,com.gree1d.reappzuku.core.Api24Api37PresetCleanupRecoveryInstrumentationTest,com.gree1d.reappzuku.core.Api24PolicyEditorNavigationInstrumentationTest,com.gree1d.reappzuku.core.Api24PolicyEditorSaveNotificationInstrumentationTest,com.gree1d.reappzuku.core.ExportedComponentManifestInstrumentationTest,com.gree1d.reappzuku.core.NewAppPeriodicRecoveryInstrumentationTest,com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest,com.gree1d.reappzuku.manager.SchedulerRestrictionReadOnlyInstrumentationTest,com.gree1d.reappzuku.manager.SchedulerRecoveryEvidenceV2InstrumentationTest'
+          adb shell am instrument -w -r -e class "$TEST_CLASSES" "$INSTRUMENTATION" \
+            | tee /tmp/reappzuku-api24-instrumentation.txt
+          grep -Eq 'OK \([0-9]+ tests?\)' /tmp/reappzuku-api24-instrumentation.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-api24-instrumentation.txt
+          echo 'API24_LOCAL_PERSISTENCE_PASS'
+
+      - name: Verify v7 backup rejection rollback and denied content URI on API 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e ci_backup_v7_boundary verify \
+            -e class 'com.gree1d.reappzuku.core.Api24Api37BackupV7BoundaryInstrumentationTest' "$INSTRUMENTATION" |
+            tee /tmp/api24-backup-v7-boundary.txt
+          grep -Fq 'OK (4 tests)' /tmp/api24-backup-v7-boundary.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api24-backup-v7-boundary.txt
+          echo 'API24_BACKUP_V7_BOUNDARY_PASS'
+
+      - name: Verify one-shot SAF content URI and ungranted permission boundaries on API 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e ci_saf_uri_boundary verify \
+            -e class 'com.gree1d.reappzuku.core.Api24Api37SafUriBoundaryInstrumentationTest' "$INSTRUMENTATION" |
+            tee /tmp/api24-saf-uri-boundary.txt
+          grep -Fq 'OK (4 tests)' /tmp/api24-saf-uri-boundary.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api24-saf-uri-boundary.txt
+
+      - name: Verify partial content URI failure and v7 rollback safety on API 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e ci_backup_v7_stream verify \
+            -e class 'com.gree1d.reappzuku.core.Api24Api37BackupV7StreamingFaultInstrumentationTest' "$INSTRUMENTATION" |
+            tee /tmp/api24-backup-v7-stream.txt
+          grep -Fq 'OK (3 tests)' /tmp/api24-backup-v7-stream.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api24-backup-v7-stream.txt
+          echo 'API24_BACKUP_V7_STREAM_ABORT_PASS'
+
+      - name: Prove RZJ2 durability across real app PID death
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG='com.gree1d.reappzuku'
+          CLASS='com.gree1d.reappzuku.manager.SchedulerRecoveryEvidenceV2InstrumentationTest'
+          INSTRUMENTATION="$(adb shell pm list instrumentation | tr -d '\r' |
+            sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' | head -n 1)"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e class "$CLASS#seedForRealProcessDeath" -e ci_recovery_v2_phase seed "$INSTRUMENTATION" | tee /tmp/rzj2-seed.txt
+          grep -Fq 'OK (1 test)' /tmp/rzj2-seed.txt
+          grep -Fq 'RECOVERY_V2_STATUS=SEEDED' /tmp/rzj2-seed.txt
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" >/tmp/rzj2-launch-before.txt 2>&1
+          old=''
+          for attempt in $(seq 1 15); do
+            old="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$old" =~ ^[0-9]+$ ]]; then break; fi
+            sleep 1
+          done
+          [[ "$old" =~ ^[0-9]+$ ]]
+          adb shell "run-as $PKG /system/bin/kill -9 $old"
+          for attempt in $(seq 1 20); do
+            current="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [ "$current" != "$old" ]; then break; fi
+            sleep 1
+          done
+          test "$current" != "$old"
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" >/tmp/rzj2-launch-after.txt 2>&1
+          new=''
+          for attempt in $(seq 1 20); do
+            new="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$new" =~ ^[0-9]+$ ]] && [ "$new" != "$old" ]; then break; fi
+            sleep 1
+          done
+          [[ "$new" =~ ^[0-9]+$ ]]
+          test "$new" != "$old"
+          echo "RZJ2_PID_CHANGED=$old->$new"
+          adb shell am instrument -w -r -e class "$CLASS#verifyAfterRealProcessDeath" -e ci_recovery_v2_phase verify "$INSTRUMENTATION" | tee /tmp/rzj2-verify.txt
+          grep -Fq 'OK (1 test)' /tmp/rzj2-verify.txt
+          grep -Fq 'RECOVERY_V2_STATUS=VERIFIED' /tmp/rzj2-verify.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/rzj2-verify.txt
+          echo 'RZJ2_REAL_PROCESS_DEATH_PASS'
+
+      - name: Prove persisted WorkManager identity across actual app process death
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG='com.gree1d.reappzuku'
+          CLASS='com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest'
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e class "$CLASS#snapshotPersistedPeriodicWorkBeforeProcessDeath" "$INSTRUMENTATION" |
+            tee /tmp/reappzuku-process-restart-before.txt
+          grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-before.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-before.txt
+          uuid="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_ID=([0-9a-f-]{36})$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
+          created="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_CREATED=(yes|no)$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
+          [[ "$uuid" =~ ^[0-9a-f-]{36}$ ]]
+          [[ "$created" == yes || "$created" == no ]]
+      
+          # Kill only the currently running debug app PID under its OWN UID.
+          # This models abrupt process loss without root, force-stop or data clearing.
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" > /tmp/reappzuku-recovery-launch-before.txt 2>&1
+          old_pid=''
+          for attempt in $(seq 1 15); do
+            old_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$old_pid" =~ ^[0-9]+$ ]]; then break; fi
+            sleep 1
+          done
+          [[ "$old_pid" =~ ^[0-9]+$ ]]
+          echo "REAPPZUKU_PRE_KILL_PID=$old_pid"
+          # ADB's argument serialization strips nested sh -c quoting. Invoke kill directly.
+          adb shell "run-as $PKG /system/bin/kill -9 $old_pid"
+          replaced=0
+          for attempt in $(seq 1 20); do
+            remaining="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [ "$remaining" != "$old_pid" ]; then replaced=1; break; fi
+            sleep 1
+          done
+          test "$replaced" -eq 1
+          echo 'REAPPZUKU_ORIGINAL_PID_TERMINATED'
+
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" > /tmp/reappzuku-recovery-launch-after.txt 2>&1
+          new_pid=''
+          for attempt in $(seq 1 20); do
+            new_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$new_pid" =~ ^[0-9]+$ ]] && [ "$new_pid" != "$old_pid" ]; then break; fi
+            sleep 1
+          done
+          [[ "$new_pid" =~ ^[0-9]+$ ]]
+          test "$new_pid" != "$old_pid"
+          echo "REAPPZUKU_NEW_PROCESS_PID=$new_pid"
+          echo 'REAPPZUKU_NEW_PROCESS_STARTED'
+      
+          adb shell am instrument -w -r -e class "$CLASS#verifySamePersistedWorkAfterActualProcessRestart" \
+            -e expected_uuid "$uuid" -e created_by_test "$created" "$INSTRUMENTATION" |
+            tee /tmp/reappzuku-process-restart-after.txt
+          grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-after.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-after.txt
+          echo 'REAPPZUKU_PROCESS_RESTART_WORK_UUID_PRESERVED'
+      - name: Prove debug Worker executes retry after real process restart
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG='com.gree1d.reappzuku'
+          CLASS='com.gree1d.reappzuku.core.Api24Api37RetryWorkerInstrumentationTest'
+          INSTRUMENTATION="$(
+            adb shell pm list instrumentation | tr -d '\r' |
+              sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' |
+              head -n 1
+          )"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w -r -e ci_worker_retry_mode verify -e class "$CLASS#startWorkerAndObserveActualFirstRetryBeforeProcessDeath" "$INSTRUMENTATION" |
+            tee /tmp/reappzuku-process-restart-before.txt
+          grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-before.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-before.txt
+          uuid="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_ID=([0-9a-f-]{36})$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
+          created="$(sed -nE 's/^INSTRUMENTATION_STATUS: REAPPZUKU_RECOVERY_CREATED=(yes|no)$/\1/p' /tmp/reappzuku-process-restart-before.txt | tail -n 1)"
+          [[ "$uuid" =~ ^[0-9a-f-]{36}$ ]]
+          [[ "$created" == yes || "$created" == no ]]
+      
+          # Kill only the currently running debug app PID under its OWN UID.
+          # This models abrupt process loss without root, force-stop or data clearing.
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" > /tmp/reappzuku-recovery-launch-before.txt 2>&1
+          old_pid=''
+          for attempt in $(seq 1 15); do
+            old_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$old_pid" =~ ^[0-9]+$ ]]; then break; fi
+            sleep 1
+          done
+          [[ "$old_pid" =~ ^[0-9]+$ ]]
+          echo "REAPPZUKU_PRE_KILL_PID=$old_pid"
+          # ADB's argument serialization strips nested sh -c quoting. Invoke kill directly.
+          adb shell "run-as $PKG /system/bin/kill -9 $old_pid"
+          replaced=0
+          for attempt in $(seq 1 20); do
+            remaining="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [ "$remaining" != "$old_pid" ]; then replaced=1; break; fi
+            sleep 1
+          done
+          test "$replaced" -eq 1
+          echo 'REAPPZUKU_ORIGINAL_PID_TERMINATED'
+
+          adb shell am start -W -n "$PKG/com.gree1d.reappzuku.ui.MainActivity" > /tmp/reappzuku-recovery-launch-after.txt 2>&1
+          new_pid=''
+          for attempt in $(seq 1 20); do
+            new_pid="$(adb shell pidof -s "$PKG" | tr -d '\r' || true)"
+            if [[ "$new_pid" =~ ^[0-9]+$ ]] && [ "$new_pid" != "$old_pid" ]; then break; fi
+            sleep 1
+          done
+          [[ "$new_pid" =~ ^[0-9]+$ ]]
+          test "$new_pid" != "$old_pid"
+          echo "REAPPZUKU_NEW_PROCESS_PID=$new_pid"
+          echo 'REAPPZUKU_NEW_PROCESS_STARTED'
+      
+          adb shell am instrument -w -r -e ci_worker_retry_mode verify -e class "$CLASS#verifyWorkerReallyRetriedAndSucceededAfterRestart" \
+            -e expected_uuid "$uuid" -e created_by_test "$created" "$INSTRUMENTATION" |
+            tee /tmp/reappzuku-process-restart-after.txt
+          grep -Fq 'OK (1 test)' /tmp/reappzuku-process-restart-after.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/reappzuku-process-restart-after.txt
+          grep -Fq 'INSTRUMENTATION_STATUS: REAPPZUKU_RETRY_SUCCESS=yes' /tmp/reappzuku-process-restart-after.txt
+          echo 'REAPPZUKU_RETRY_WORKER_EXECUTED_AFTER_RESTART'
+      - name: Prove real new-app Reconcile Worker retry after app SIGKILL on API 24
+        shell: bash
+        run: bash scripts/tests/ci-real-reconcile-worker-retry.sh
+
+      - name: Verify failed package handler triggers actual WorkManager retry on API 24
+        shell: bash
+        run: bash scripts/tests/ci-package-handler-retry.sh
+
+      - name: Seed canonical policy and preferences before an in-place update
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          cp "$apk" /tmp/reappzuku-upgrade-base.apk
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          AAPT="$(find "$SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$AAPT"
+          test -x "$APKSIGNER"
+          base_badging="$("$AAPT" dump badging /tmp/reappzuku-upgrade-base.apk | sed -n '1p')"
+          base_code="$(sed -nE "s/.*versionCode='([0-9]+)'.*/\1/p" <<< "$base_badging")"
+          [[ "$base_code" =~ ^[0-9]+$ ]]
+          echo "UPGRADE_BASE_CODE=$base_code" >> "$GITHUB_ENV"
+          echo "UPGRADE_NEXT_CODE=$((base_code + 1))" >> "$GITHUB_ENV"
+          runner="$(adb shell pm list instrumentation | tr -d '\r' |
+            sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' | sed -n '1p')"
+          test -n "$runner"
+          adb shell am instrument -w -r -e class \
+            com.gree1d.reappzuku.core.EmulatorUpgradePersistenceTest#seedBeforeUpgrade \
+            -e upgrade_smoke_stage seed "$runner" | tee /tmp/upgrade-seed.txt
+          grep -Fq 'OK (1 test)' /tmp/upgrade-seed.txt
+          echo 'API24_UPGRADE_SEEDED'
+
+      - name: Build and install higher-version APK under same ephemeral debug signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :app:assembleDebug \
+            "-PreappzukuUpgradeSmokeVersionCode=$UPGRADE_NEXT_CODE" \
+            --rerun-tasks --no-daemon
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          AAPT="$(find "$SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          candidate_badging="$("$AAPT" dump badging "$apk" | sed -n '1p')"
+          printf 'Base versionCode=%s, expected upgrade=%s\n' "$UPGRADE_BASE_CODE" "$UPGRADE_NEXT_CODE"
+          printf 'Candidate badging: %s\n' "$candidate_badging"
+          grep -Fq "name='com.gree1d.reappzuku'" <<< "$candidate_badging" || {
+            echo 'UPGRADE_DIAGNOSTIC: Wrong candidate package.' >&2; exit 1;
+          }
+          grep -Fq "versionCode='$UPGRADE_NEXT_CODE'" <<< "$candidate_badging" || {
+            echo 'UPGRADE_DIAGNOSTIC: Debug variant versionCode override was not applied.' >&2; exit 1;
+          }
+          signer() {
+            local output digests cleaned
+            output="$("$APKSIGNER" verify --verbose --print-certs "$1")" || return 1
+            # Android build-tools can indent or prefix signer certificate lines.
+            digests="$(printf '%s\n' "$output" |
+              sed -nE 's/^.*certificate SHA-256 digest:[[:space:]]*([[:xdigit:]:[:space:]]+)$/\1/p')"
+            [ "$(printf '%s\n' "$digests" | grep -c .)" -eq 1 ] || {
+              printf 'Unrecognized or ambiguous apksigner certificate output:\n%s\n' "$output" >&2
+              return 1
+            }
+            cleaned="$(printf '%s' "$digests" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+            [[ "$cleaned" =~ ^[0-9a-f]{64}$ ]] || return 1
+            printf '%s\n' "$cleaned"
+          }
+          base_signer="$(signer /tmp/reappzuku-upgrade-base.apk)"
+          next_signer="$(signer "$apk")"
+          printf 'Base signing certificate SHA-256: %s\n' "$base_signer"
+          printf 'New signing certificate SHA-256: %s\n' "$next_signer"
+          [[ "$base_signer" =~ ^[[:xdigit:]]{64}$ ]] || {
+            echo 'UPGRADE_DIAGNOSTIC: Could not parse signer digest.' >&2; exit 1;
+          }
+          test "$base_signer" = "$next_signer" || {
+            echo 'UPGRADE_DIAGNOSTIC: Signing certificate changed.' >&2; exit 1;
+          }
+          test "$(sha256sum /tmp/reappzuku-upgrade-base.apk | cut -d ' ' -f 1)" != \
+               "$(sha256sum "$apk" | cut -d ' ' -f 1)" || {
+            echo 'UPGRADE_DIAGNOSTIC: Two APK artifacts are byte-identical.' >&2; exit 1;
+          }
+          echo 'Upgrade identity checks passed; invoking adb install -r'
+          adb install -r -t "$apk"
+          adb shell dumpsys package com.gree1d.reappzuku > /tmp/api24-upgrade-installed.txt
+          grep -Fq "versionCode=$UPGRADE_NEXT_CODE" /tmp/api24-upgrade-installed.txt
+          echo 'API24_SAME_SIGNER_UPGRADE_INSTALLED'
+
+      - name: Verify in-place upgrade retained Room policy and preferences
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner="$(adb shell pm list instrumentation | tr -d '\r' |
+            sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' | sed -n '1p')"
+          test -n "$runner"
+          adb shell am instrument -w -r -e class \
+            com.gree1d.reappzuku.core.EmulatorUpgradePersistenceTest#verifyAfterUpgrade \
+            -e upgrade_smoke_stage verify "$runner" | tee /tmp/upgrade-verify.txt
+          grep -Fq 'OK (1 test)' /tmp/upgrade-verify.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/upgrade-verify.txt
+          echo 'API24_SAME_KEY_UPDATE_DATA_PASS'
+
+      - name: Reject mismatched signer and downgrade without losing saved policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/tests/api24-rejected-upgrade-guards.sh \
+            /tmp/reappzuku-upgrade-base.apk \
+            app/build/outputs/apk/debug/app-debug.apk \
+            "$UPGRADE_NEXT_CODE" /tmp/api24-appops-live-readonly.txt
+          grep -Fq 'INSTRUMENTATION_STATUS: RZ_LIVE_APPOPS_API24_RESTORE_ALLOWED=false' /tmp/api24-appops-live-readonly.txt
+          echo 'API24_REAL_APPOPS_READONLY_DIAGNOSTIC_PASS'
+
       - name: Exercise disposable fixture UID AppOps conflict and restore
         shell: bash
         run: |
