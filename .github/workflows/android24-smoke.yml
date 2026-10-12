@@ -170,6 +170,26 @@ jobs:
           bash scripts/tests/ci-appops-readonly-observation.sh | tee /tmp/read-only-appops.txt
           grep -Eq 'READONLY_APPOPS_DIAGNOSTIC_COMPLETE|READONLY_APPOPS_(IDENTITY|USER)_UNKNOWN' /tmp/read-only-appops.txt
 
+      - name: Classify real API 24 package/UID AppOps through Java diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(adb shell pm list instrumentation | tr -d '\r' |
+            sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' | head -n 1)"
+          test -n "$INSTRUMENTATION"
+          CLASS='com.gree1d.reappzuku.manager.SchedulerAppOpsApi24LiveReadOnlyInstrumentationTest'
+          adb shell am instrument -w -r -e class "$CLASS" "$INSTRUMENTATION" |
+            tee /tmp/api24-appops-live-readonly.txt
+          grep -Fq 'OK (2 tests)' /tmp/api24-appops-live-readonly.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api24-appops-live-readonly.txt
+          ! grep -Fq 'INSTRUMENTATION_STATUS_CODE: -4' /tmp/api24-appops-live-readonly.txt
+          grep -Fq 'INSTRUMENTATION_STATUS: RZ_LIVE_APPOPS_API24_PACKAGE_GET=EXIT_ZERO_NONEMPTY' /tmp/api24-appops-live-readonly.txt
+          grep -Eq '^INSTRUMENTATION_STATUS: RZ_LIVE_APPOPS_API24_UID_WAKE=(RECOGNIZED|UNKNOWN)$' /tmp/api24-appops-live-readonly.txt
+          grep -Eq '^INSTRUMENTATION_STATUS: RZ_LIVE_APPOPS_API24_UID_BACKGROUND=(RECOGNIZED|UNKNOWN)$' /tmp/api24-appops-live-readonly.txt
+          grep -Eq '^INSTRUMENTATION_STATUS: RZ_LIVE_APPOPS_API24_CATALOG_RESULT=(CONSISTENT_DIAGNOSTIC_ONLY|QUERY_UNKNOWN|QUERY_CHANGED|IDENTITY_UNKNOWN|IDENTITY_CHANGED|CONTRADICTORY_SCOPES)$' /tmp/api24-appops-live-readonly.txt
+          grep -Fq 'INSTRUMENTATION_STATUS: RZ_LIVE_APPOPS_API24_RESTORE_ALLOWED=false' /tmp/api24-appops-live-readonly.txt
+          echo 'API24_REAL_APPOPS_READONLY_DIAGNOSTIC_PASS'
+
       - name: Exercise disposable fixture UID AppOps conflict and restore
         shell: bash
         run: |
