@@ -525,7 +525,12 @@ public class ShellManager {
         }
         ShellResult result;
         if (pin.backend == ShellBackendState.ROOT_READY) {
-            result = executeRootCommandForResult(command);
+            // Do not use the general unbounded stdout-then-stderr executor:
+            // Root AppOps evidence has an independent deadline and two
+            // concurrent bounded pipe drains, without Shizuku fallback.
+            RootAppOpsReadOnlyExecutor.Outcome read =
+                    RootAppOpsReadOnlyExecutor.execute(this::startRootShell, command);
+            result = new ShellResult(read.succeeded, read.exitCode, read.output);
         } else {
             try {
                 ShellExecResult execution = pin.shizukuService.execute(command);
