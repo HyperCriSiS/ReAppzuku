@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -43,6 +44,9 @@ public class ShellManager {
     private static final int SHIZUKU_PERMISSION_REQUEST_CODE = 0;
 
     private volatile IShellService userService;
+    // Monotonic invalidation of read-only AppOps observations across
+    // Shizuku binder / UserService reconnections, even READY -> READY.
+    private final AtomicLong appOpsShizukuEpoch = new AtomicLong();
     private volatile boolean userServiceBinding = false;
     private volatile boolean shizukuPermissionRequestPending = false;
     private volatile boolean shizukuBinderEverSeen = false;
@@ -71,6 +75,7 @@ public class ShellManager {
             };
 
     private final Shizuku.OnBinderReceivedListener internalBinderReceivedListener = () -> {
+        appOpsShizukuEpoch.incrementAndGet();
         shizukuBinderEverSeen = true;
         shizukuBinderLost = false;
 
@@ -82,6 +87,7 @@ public class ShellManager {
     };
 
     private final Shizuku.OnBinderDeadListener internalBinderDeadListener = () -> {
+        appOpsShizukuEpoch.incrementAndGet();
         shizukuBinderEverSeen = true;
         shizukuBinderLost = true;
         shizukuPermissionRequestPending = false;
@@ -95,7 +101,7 @@ public class ShellManager {
     private final ServiceConnection userServiceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder binder) {
-
+            appOpsShizukuEpoch.incrementAndGet();
             userService = IShellService.Stub.asInterface(binder);
             shizukuBinderEverSeen = true;
             shizukuBinderLost = false;
@@ -105,7 +111,7 @@ public class ShellManager {
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
-
+            appOpsShizukuEpoch.incrementAndGet();
             userService = null;
             userServiceBinding = false;
             userServiceReadyLatch.countDown();
@@ -202,6 +208,7 @@ public class ShellManager {
     }
 
     public void unbindUserService() {
+        appOpsShizukuEpoch.incrementAndGet();
         IShellService service = userService;
         if (service != null) {
             try {
@@ -447,37 +454,90 @@ public class ShellManager {
 
 
     /**
-     * Dedicated fail-closed, read-only AppOps probe.
+     * An unforgeable per-ShellManager read-only AppOps session pin.
      *
-     * Unlike runShellCommandForResult(), this path must NEVER fall back from
-     * Root to Shizuku, or the reverse. The caller pins the initially observed
-     * ready backend for its entire multi-read diagnostic. A changed backend,
-     * missing permission, command failure, or unsupported command fails the
-     * observation; it is not a permission request or a recovery operation.
+     * Root mode is one ready-backend choice, NOT a persistent su session;
+     * every Root command still needs a successful checked exit. Shizuku pins
+     * the exact already-bound UserService AND a monotonic lifecycle epoch.
+     */
+    public static final class AppOpsReadOnlySession {
+        private final ShellBackendState backend;
+        private final IShellService shizukuService;
+        private final long shizukuEpoch;
+
+        private AppOpsReadOnlySession(ShellBackendState backend,
+                IShellService shizukuService, long shizukuEpoch) {
+            this.backend = backend;
+            this.shizukuService = shizukuService;
+            this.shizukuEpoch = shizukuEpoch;
+        }
+
+        public ShellBackendState backend() { return backend; }
+    }
+
+    /** Captures an existing ready connection only; NEVER binds or requests permission. */
+    @androidx.annotation.WorkerThread
+    public AppOpsReadOnlySession captureReadOnlyAppOpsSession() {
+        ShellBackendState backend = getBackendState();
+        if (backend == ShellBackendState.ROOT_READY) {
+            return getBackendState() == backend
+                    ? new AppOpsReadOnlySession(backend, null, -1L) : null;
+        }
+        if (backend != ShellBackendState.SHIZUKU_READY) return null;
+        long epoch = appOpsShizukuEpoch.get();
+        IShellService service = userService;
+        if (service == null || service.asBinder() == null
+                || !service.asBinder().isBinderAlive()
+                || getBackendState() != backend
+                || appOpsShizukuEpoch.get() != epoch || userService != service) {
+            return null;
+        }
+        return new AppOpsReadOnlySession(backend, service, epoch);
+    }
+
+    /**
+     * READY alone is insufficient: a fast disconnect/reconnect may return the
+     * same enum while the Shizuku execution authority has been replaced.
+     */
+    public boolean isReadOnlyAppOpsSessionCurrent(AppOpsReadOnlySession pin) {
+        if (pin == null || getBackendState() != pin.backend) return false;
+        if (pin.backend == ShellBackendState.ROOT_READY) return hasRootAccess();
+        if (pin.backend != ShellBackendState.SHIZUKU_READY) return false;
+        IShellService current = userService;
+        return current != null && current == pin.shizukuService
+                && appOpsShizukuEpoch.get() == pin.shizukuEpoch
+                && current.asBinder() != null && current.asBinder().isBinderAlive()
+                && hasShizukuPermission();
+    }
+
+    /**
+     * Fail-closed read-only executor, NEVER using the generic Root -> Shizuku
+     * fallback. Execute against the exact pre-pinned UserService; do not call
+     * awaitUserService() because it can bind a replacement under the same READY
+     * state. Every result is rejected if the session is no longer current.
      */
     @androidx.annotation.WorkerThread
     public ShellResult runPinnedReadOnlyAppOpsGet(
-            String command, ShellBackendState pinnedBackend) {
+            String command, AppOpsReadOnlySession pin) {
         if (!isReadOnlyAppOpsCommand(command)
-                || (pinnedBackend != ShellBackendState.ROOT_READY
-                    && pinnedBackend != ShellBackendState.SHIZUKU_READY)
-                || getBackendState() != pinnedBackend) {
-            return new ShellResult(false, -1, "Pinned read-only AppOps backend unavailable");
+                || !isReadOnlyAppOpsSessionCurrent(pin)) {
+            return new ShellResult(false, -1, "Pinned read-only AppOps session unavailable");
         }
         ShellResult result;
-        if (pinnedBackend == ShellBackendState.ROOT_READY) {
-            if (!hasRootAccess()) {
-                return new ShellResult(false, -1, "Pinned root unavailable");
-            }
+        if (pin.backend == ShellBackendState.ROOT_READY) {
             result = executeRootCommandForResult(command);
         } else {
-            if (!hasShizukuPermission()) {
-                return new ShellResult(false, -1, "Pinned Shizuku permission unavailable");
+            try {
+                ShellExecResult execution = pin.shizukuService.execute(command);
+                result = execution == null
+                        ? new ShellResult(false, -1, "Pinned Shizuku result unavailable")
+                        : new ShellResult(execution.succeeded, execution.exitCode, execution.output);
+            } catch (Exception error) {
+                result = new ShellResult(false, -1, "Pinned Shizuku read failed");
             }
-            result = executeShizukuCommandForResult(command);
         }
-        if (getBackendState() != pinnedBackend) {
-            return new ShellResult(false, -1, "Pinned read-only AppOps backend changed");
+        if (!isReadOnlyAppOpsSessionCurrent(pin)) {
+            return new ShellResult(false, -1, "Pinned read-only AppOps session changed");
         }
         return result;
     }
