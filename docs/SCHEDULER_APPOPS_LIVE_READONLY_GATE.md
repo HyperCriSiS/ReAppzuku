@@ -45,3 +45,22 @@ The ordinary `ShellManager.runShellCommandForResult()` can intentionally retry a
 **Exact final-head evidence:** standard [38198814652](https://github.com/HyperCriSiS/ReAppzuku/actions/runs/38198814652), CodeQL [38198807225](https://github.com/HyperCriSiS/ReAppzuku/actions/runs/38198807225), API37 [38198824472](https://github.com/HyperCriSiS/ReAppzuku/actions/runs/38198824472), full API24 retry [38199353396](https://github.com/HyperCriSiS/ReAppzuku/actions/runs/38199353396): PASS. First API24 `38198819845` stalled in unchanged upgrade step and was cancelled. API37 live UiAutomation logging again showed `CONSISTENT_DIAGNOSTIC_ONLY`, two operations, `RESTORE_ALLOWED=false` and `OK (3 tests)`.
 
 **Evidence boundary:** Root/Shizuku loss and switching are synthetic **JVM injected state** tests. Neither backend has yet been independently tested under real revocation/service death on a physical/production device. API37 instrumentation uses `UiAutomation`, not production Root/Shizuku. Non-atomic reads, unseen shared UID data and absent package-op inverse remain blockers. Do not connect this to `RestrictionsScheduler`, v1 or RZJ2 recovery; #130 remains OPEN.
+
+
+## Actual API24 Java catalog probe (PR #155, 2026-10-12)
+
+The former API24 matrix established host-shell raw observations but had **not** run the Java catalog with real API24 shell responses. The nonmutating `SchedulerAppOpsApi24LiveReadOnlyInstrumentationTest` now runs on a verified disposable Android 7/API24 emulator. It uses real `UiAutomation` shell output and two independent package/UID target operations; it never changes any AppOp or app policy. The CI gate requires `OK (2 tests)`, rejects `INSTRUMENTATION_STATUS_CODE: -4` **within this targeted step**, and checks typed markers. The remaining broad API24 test suite can contain unrelated intentionally ignored version-gated tests.
+
+| Actual API24 instrumented signal | Observation |
+| --- | --- |
+| Package-targeted AppOps GET | `EXIT_ZERO_NONEMPTY` |
+| Numeric-UID `WAKE_LOCK` | `UNKNOWN` |
+| Numeric-UID `RUN_IN_BACKGROUND` | `UNKNOWN` |
+| Complete two-operation catalog | `QUERY_UNKNOWN` |
+| Partial catalog records | **0** |
+| Privileged restore permitted | `false` |
+| Targeted tests | `OK (2 tests)`, no targeted JUnit skip |
+
+**Exact tested implementation head:** `4568021f582112216d5d39a5022be21254a15049`. PR #155 squash `24cc0ac42a95421ac7e5d6fb49eba1c44e9a1672`. Passed runs: [standard 38200901024](https://github.com/HyperCriSiS/ReAppzuku/actions/runs/38200901024), [CodeQL 38200886337](https://github.com/HyperCriSiS/ReAppzuku/actions/runs/38200886337), [full API24 38200905055](https://github.com/HyperCriSiS/ReAppzuku/actions/runs/38200905055), [real targeted API37 38200909331](https://github.com/HyperCriSiS/ReAppzuku/actions/runs/38200909331). API37 still reported `CONSISTENT_DIAGNOSTIC_ONLY` / scope count 2 / `RESTORE_ALLOWED=false` and `OK (3 tests)`.
+
+**Interpretation:** The API24 Android platform's numeric UID AppOps CLI response cannot be trusted as complete original-state provenance in this lane. `UNKNOWN` is **not** an original absent UID override; no layer is promoted to explicit mode, no partial record is stored and no fallback rollback is permitted. This does not certify API24 production Root/Shizuku semantics or physical-device/OEM AppOps implementations. Original ABSENT package-level per-op inverse remains **UNSUPPORTED**, and issue #130 remains OPEN.
