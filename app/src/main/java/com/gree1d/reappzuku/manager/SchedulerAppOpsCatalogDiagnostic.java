@@ -96,6 +96,8 @@ public final class SchedulerAppOpsCatalogDiagnostic {
             SchedulerInstalledPackageIdentity.Result initial =
                     SchedulerInstalledPackageIdentity.captureStable(packageName, identitySource);
             if (!initial.matched()) return fail(identityStatus(initial.status));
+            if (!SchedulerAppOpsDualScopeDiagnostic.matchesSourceIdentity(
+                    shellSource, initial.snapshot)) return fail(Status.IDENTITY_CHANGED);
 
             String[][] packageRows = new String[2][catalog.length];
             String[][] uidRows = new String[2][catalog.length];
@@ -138,6 +140,8 @@ public final class SchedulerAppOpsCatalogDiagnostic {
             SchedulerInstalledPackageIdentity.Result last =
                     SchedulerInstalledPackageIdentity.checkAgain(initial.snapshot, identitySource);
             if (!last.matched()) return fail(identityStatus(last.status));
+            if (!SchedulerAppOpsDualScopeDiagnostic.matchesSourceIdentity(
+                    shellSource, last.snapshot)) return fail(Status.IDENTITY_CHANGED);
 
             return new Result(Status.CONSISTENT_DIAGNOSTIC_ONLY, last.snapshot,
                     Collections.unmodifiableMap(complete));

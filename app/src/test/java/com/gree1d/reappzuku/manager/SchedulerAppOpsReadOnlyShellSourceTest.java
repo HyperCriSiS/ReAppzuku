@@ -222,4 +222,98 @@ public final class SchedulerAppOpsReadOnlyShellSourceTest {
             assertFalse(invalid, ShellManager.isReadOnlyAppOpsCommand(invalid));
         }
     }
+
+    /**
+     * A UID can be reused or retained across reinstall; package-name + UID
+     * alone are not sufficient to bind two independent diagnostic sources.
+     */
+    @Test public void staleShellIdentityRejectsCatalogBeforeAnyCommand() {
+        SchedulerInstalledPackageIdentity.Snapshot pinned = identity();
+        for (SchedulerInstalledPackageIdentity.Snapshot changed
+                : new SchedulerInstalledPackageIdentity.Snapshot[]{
+                    new SchedulerInstalledPackageIdentity.Snapshot(
+                            PKG, 10342, 0,
+                            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                            8, 1000, 2000, true),
+                    new SchedulerInstalledPackageIdentity.Snapshot(
+                            PKG, 10342, 0, SIGNER, 9, 1000, 2000, true),
+                    new SchedulerInstalledPackageIdentity.Snapshot(
+                            PKG, 10342, 0, SIGNER, 8, 1500, 2000, true),
+                    new SchedulerInstalledPackageIdentity.Snapshot(
+                            PKG, 10342, 0, SIGNER, 8, 1000, 2400, true),
+                    new SchedulerInstalledPackageIdentity.Snapshot(
+                            PKG, 10343, 0, SIGNER, 8, 1000, 2000, true)
+                }) {
+            Reader reader = new Reader();
+            SchedulerAppOpsReadOnlyShellSource source =
+                    new SchedulerAppOpsReadOnlyShellSource(pinned, reader);
+            SchedulerInstalledPackageIdentity.Source updated = name -> changed;
+            SchedulerAppOpsCatalogDiagnostic.Result catalog =
+                    SchedulerAppOpsCatalogDiagnostic.capture(
+                            PKG, new String[]{"WAKE_LOCK", "RUN_IN_BACKGROUND"},
+                            updated, source);
+            assertEquals(SchedulerAppOpsCatalogDiagnostic.Status.IDENTITY_CHANGED,
+                    catalog.status);
+            assertNull(catalog.identity);
+            assertTrue(catalog.operations.isEmpty());
+            assertFalse(catalog.authorizesRestore());
+
+            SchedulerAppOpsDualScopeDiagnostic.Result single =
+                    SchedulerAppOpsDualScopeDiagnostic.capture(
+                            PKG, "WAKE_LOCK", updated, source);
+            assertEquals(SchedulerAppOpsDualScopeDiagnostic.Status.IDENTITY_CHANGED,
+                    single.status);
+            assertNull(single.identity);
+            assertNull(single.packageLayer);
+            assertNull(single.uidLayer);
+            assertFalse(single.authorizesRestore());
+            assertTrue("Stale capture must not execute any privileged command",
+                    reader.commands.isEmpty());
+        }
+    }
+
+    @Test public void equivalentSeparatelyReadSnapshotStillAllowsReadOnlyDiagnostic() {
+        Reader reader = new Reader();
+        SchedulerAppOpsReadOnlyShellSource source =
+                new SchedulerAppOpsReadOnlyShellSource(identity(), reader);
+        // Equality must be value-based, never reference identity.
+        SchedulerInstalledPackageIdentity.Source separate =
+                name -> new SchedulerInstalledPackageIdentity.Snapshot(
+                        PKG, 10342, 0, SIGNER, 8, 1000, 2000, true);
+        SchedulerAppOpsCatalogDiagnostic.Result result =
+                SchedulerAppOpsCatalogDiagnostic.capture(
+                        PKG, new String[]{"WAKE_LOCK"}, separate, source);
+        assertTrue(result.consistentDiagnosticOnly());
+        assertEquals(4, reader.commands.size());
+        assertFalse(result.authorizesRestore());
+    }
+
+    @Test public void boundSourceWithdrawalAtPostflightRemovesEntireCatalog() {
+        SchedulerInstalledPackageIdentity.Snapshot original = identity();
+        Reader reader = new Reader();
+        final int[] boundChecks = {0};
+        SchedulerAppOpsDualScopeDiagnostic.IdentityBoundSource shell =
+                new SchedulerAppOpsDualScopeDiagnostic.IdentityBoundSource() {
+                    @Override public boolean matchesBoundIdentity(
+                            SchedulerInstalledPackageIdentity.Snapshot candidate) {
+                        assertTrue(original.sameAs(candidate));
+                        return ++boundChecks[0] == 1;
+                    }
+                    @Override public String readPackage(String pkg, String op) {
+                        return reader.readSuccessful("P:" + op);
+                    }
+                    @Override public String readUid(int uid, String op) {
+                        return reader.readSuccessful("U:" + op);
+                    }
+                };
+        SchedulerAppOpsCatalogDiagnostic.Result result =
+                SchedulerAppOpsCatalogDiagnostic.capture(
+                        PKG, new String[]{"WAKE_LOCK"}, name -> identity(), shell);
+        assertEquals(SchedulerAppOpsCatalogDiagnostic.Status.IDENTITY_CHANGED, result.status);
+        assertNull(result.identity);
+        assertTrue(result.operations.isEmpty());
+        assertFalse(result.authorizesRestore());
+        assertEquals(2, boundChecks[0]);
+        assertEquals(4, reader.commands.size());
+    }
 }

@@ -25,6 +25,17 @@ public final class SchedulerAppOpsDualScopeDiagnostic {
         String readUid(int uid, String operation);
     }
 
+    /** Pre-bound shell adapters must be checked against installed identity. */
+    public interface IdentityBoundSource extends Source {
+        boolean matchesBoundIdentity(SchedulerInstalledPackageIdentity.Snapshot identity);
+    }
+
+    static boolean matchesSourceIdentity(
+            Source source, SchedulerInstalledPackageIdentity.Snapshot identity) {
+        return !(source instanceof IdentityBoundSource)
+                || ((IdentityBoundSource) source).matchesBoundIdentity(identity);
+    }
+
     public static final class Layer {
         public final Presence presence;
         /** Only populated for an explicitly reported record. */
@@ -132,6 +143,10 @@ public final class SchedulerAppOpsDualScopeDiagnostic {
                         ? Status.IDENTITY_CHANGED : Status.IDENTITY_UNKNOWN);
             }
 
+            // Same numeric UID after reinstall is not the same installed identity.
+            if (!matchesSourceIdentity(source, original.snapshot)) {
+                return fail(Status.IDENTITY_CHANGED);
+            }
             String pkg1 = source.readPackage(packageName, operation);
             String pkg2 = source.readPackage(packageName, operation);
             String uid1 = source.readUid(original.snapshot.uid, operation);
@@ -169,6 +184,9 @@ public final class SchedulerAppOpsDualScopeDiagnostic {
                         ? Status.IDENTITY_CHANGED : Status.IDENTITY_UNKNOWN);
             }
 
+            if (!matchesSourceIdentity(source, checked.snapshot)) {
+                return fail(Status.IDENTITY_CHANGED);
+            }
             return new Result(Status.CONSISTENT_DIAGNOSTIC_ONLY,
                     checked.snapshot, packageQuery.pkg, uidQuery.uid);
         } catch (RuntimeException failure) {
