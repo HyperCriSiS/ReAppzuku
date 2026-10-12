@@ -36,3 +36,12 @@ The first live test had a misleading **green** API37 job: a JUnit `AssumptionVio
 - `NOT_REPORTED` means not reported by that command, **not** proven original `ABSENT`. A `Default mode:` hint is not an explicit stored `MODE_DEFAULT`.
 - Supported shell APIs provide no proven narrow inverse for originally absent package operations; **UNSUPPORTED → REVIEW_REQUIRED** remains binding. Do not use broad `appops reset` or substitute `set allow`/ `set default`.
 - Full authenticated recovery (signer/reinstall continuity, OEM physical devices, production Shizuku/root, reboot/flash-power-loss, rollback/fault injection and v1/RZJ2 format segregation) is **not** released by this test. Phase 11 remains PARTIAL and #130 stays OPEN.
+
+
+## Single-backend provenance for read-only AppOps (PR #153, 2026-10-12)
+
+The ordinary `ShellManager.runShellCommandForResult()` can intentionally retry a failed Root command using Shizuku. This is inappropriate for a supposedly coherent single-source AppOps snapshot. The new `ShellManager.runPinnedReadOnlyAppOpsGet()` restricts arguments to one AppOps GET (no setters, resets, shell operators or extra flags), pins the chosen Root or Shizuku executor, and rejects a lost/changed backend before or after the command. The detached `SchedulerAppOpsReadOnlyShellSource.fromShellManager()` captures the initially ready backend and rechecks it around each query. A backend change, missing permission or failed command yields UNKNOWN/no partial catalog.
+
+**Exact final-head evidence:** standard [38198814652](https://github.com/HyperCriSiS/ReAppzuku/actions/runs/38198814652), CodeQL [38198807225](https://github.com/HyperCriSiS/ReAppzuku/actions/runs/38198807225), API37 [38198824472](https://github.com/HyperCriSiS/ReAppzuku/actions/runs/38198824472), full API24 retry [38199353396](https://github.com/HyperCriSiS/ReAppzuku/actions/runs/38199353396): PASS. First API24 `38198819845` stalled in unchanged upgrade step and was cancelled. API37 live UiAutomation logging again showed `CONSISTENT_DIAGNOSTIC_ONLY`, two operations, `RESTORE_ALLOWED=false` and `OK (3 tests)`.
+
+**Evidence boundary:** Root/Shizuku loss and switching are synthetic **JVM injected state** tests. Neither backend has yet been independently tested under real revocation/service death on a physical/production device. API37 instrumentation uses `UiAutomation`, not production Root/Shizuku. Non-atomic reads, unseen shared UID data and absent package-op inverse remain blockers. Do not connect this to `RestrictionsScheduler`, v1 or RZJ2 recovery; #130 remains OPEN.
