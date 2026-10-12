@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 import com.gree1d.reappzuku.core.ShellBackendState;
 import com.gree1d.reappzuku.core.ShellManager;
 import org.junit.Test;
@@ -316,4 +317,78 @@ public final class SchedulerAppOpsReadOnlyShellSourceTest {
         assertEquals(2, boundChecks[0]);
         assertEquals(4, reader.commands.size());
     }
+
+    @Test public void reconnectWithSameReadyEnumNeverReusesOldSession() {
+        AtomicReference<ShellBackendState> backend =
+                new AtomicReference<>(ShellBackendState.SHIZUKU_READY);
+        AtomicBoolean originalSession = new AtomicBoolean(true);
+        Reader reader = new Reader();
+        SchedulerAppOpsReadOnlyShellSource source =
+                new SchedulerAppOpsReadOnlyShellSource(identity(), reader,
+                        backend::get, ShellBackendState.SHIZUKU_READY,
+                        originalSession::get);
+        assertNotNull(source.readPackage(PKG, "WAKE_LOCK"));
+        // A new UserService can also be READY, so the state enum never
+        // transitions from the observer's perspective.
+        originalSession.set(false);
+        assertEquals(ShellBackendState.SHIZUKU_READY, backend.get());
+        assertNull(source.readUid(10342, "WAKE_LOCK"));
+        assertEquals("No shell command on the new binder with an old session pin",
+                1, reader.commands.size());
+    }
+
+    @Test public void reconnectDuringSuccessfulReadDiscardsEntireCatalog() {
+        AtomicReference<ShellBackendState> backend =
+                new AtomicReference<>(ShellBackendState.SHIZUKU_READY);
+        AtomicBoolean originalSession = new AtomicBoolean(true);
+        final int[] executed = {0};
+        SchedulerAppOpsReadOnlyShellSource source =
+                new SchedulerAppOpsReadOnlyShellSource(identity(), command -> {
+                    if (++executed[0] == 3) originalSession.set(false);
+                    return "No operations.\nDefault mode: allow";
+                }, backend::get, ShellBackendState.SHIZUKU_READY,
+                        originalSession::get);
+        SchedulerAppOpsCatalogDiagnostic.Result result =
+                SchedulerAppOpsCatalogDiagnostic.capture(PKG,
+                        new String[]{"WAKE_LOCK", "RUN_IN_BACKGROUND"},
+                        name -> identity(), source);
+        assertEquals(SchedulerAppOpsCatalogDiagnostic.Status.QUERY_UNKNOWN, result.status);
+        assertNull(result.identity);
+        assertTrue(result.operations.isEmpty());
+        assertFalse(result.authorizesRestore());
+        assertEquals(3, executed[0]);
+        assertEquals("Session replacement need not change readiness enum",
+                ShellBackendState.SHIZUKU_READY, backend.get());
+    }
+
+    @Test public void preexistingSameReadyReplacementCannotCreatePinnedSource() {
+        AtomicReference<ShellBackendState> backend =
+                new AtomicReference<>(ShellBackendState.SHIZUKU_READY);
+        try {
+            new SchedulerAppOpsReadOnlyShellSource(identity(),
+                    command -> "No operations.", backend::get,
+                    ShellBackendState.SHIZUKU_READY, () -> false);
+            fail("Revoked session must be rejected even while enum is READY");
+        } catch (IllegalArgumentException expected) {
+            // No Shizuku permission request or UserService bind may occur.
+        }
+    }
+
+    @Test public void survivingPinnedSessionRemainsDiagnosticOnly() {
+        AtomicReference<ShellBackendState> backend =
+                new AtomicReference<>(ShellBackendState.SHIZUKU_READY);
+        Reader reader = new Reader();
+        SchedulerAppOpsReadOnlyShellSource source =
+                new SchedulerAppOpsReadOnlyShellSource(identity(), reader,
+                        backend::get, ShellBackendState.SHIZUKU_READY,
+                        () -> true);
+        SchedulerAppOpsCatalogDiagnostic.Result result =
+                SchedulerAppOpsCatalogDiagnostic.capture(PKG,
+                        new String[]{"WAKE_LOCK", "RUN_IN_BACKGROUND"},
+                        name -> identity(), source);
+        assertTrue(result.consistentDiagnosticOnly());
+        assertEquals(8, reader.commands.size());
+        assertFalse(result.authorizesRestore());
+    }
+
 }

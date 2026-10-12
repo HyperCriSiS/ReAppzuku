@@ -32,6 +32,7 @@ public final class SchedulerAppOpsReadOnlyShellSource
     private final CommandReader reader;
     private final Supplier<ShellBackendState> currentBackend;
     private final ShellBackendState pinnedBackend;
+    private final Supplier<Boolean> currentSession;
 
     public SchedulerAppOpsReadOnlyShellSource(
             SchedulerInstalledPackageIdentity.Snapshot identity,
@@ -48,17 +49,27 @@ public final class SchedulerAppOpsReadOnlyShellSource
         this.reader = reader;
         this.currentBackend = null;
         this.pinnedBackend = null;
+        this.currentSession = null;
     }
 
     /** Internal diagnostic seam for deterministic backend-loss JVM fixtures. */
     SchedulerAppOpsReadOnlyShellSource(
             SchedulerInstalledPackageIdentity.Snapshot identity, CommandReader reader,
             Supplier<ShellBackendState> currentBackend, ShellBackendState pinnedBackend) {
+        this(identity, reader, currentBackend, pinnedBackend, null);
+    }
+
+    /** Extra seam for a READY -> READY session replacement or revoked session. */
+    SchedulerAppOpsReadOnlyShellSource(
+            SchedulerInstalledPackageIdentity.Snapshot identity, CommandReader reader,
+            Supplier<ShellBackendState> currentBackend, ShellBackendState pinnedBackend,
+            Supplier<Boolean> currentSession) {
         if (identity == null || !PackageNameValidator.isValid(identity.packageName)
                 || !identity.validFor(identity.packageName) || reader == null
                 || identity.uid / 100000 != identity.userId
                 || currentBackend == null || !isReadyBackend(pinnedBackend)
-                || currentBackend.get() != pinnedBackend) {
+                || currentBackend.get() != pinnedBackend
+                || (currentSession != null && !currentSession.get())) {
             throw new IllegalArgumentException("Pinned AppOps backend not ready");
         }
         this.boundIdentity = identity;
@@ -68,6 +79,7 @@ public final class SchedulerAppOpsReadOnlyShellSource
         this.reader = reader;
         this.currentBackend = currentBackend;
         this.pinnedBackend = pinnedBackend;
+        this.currentSession = currentSession;
     }
 
     private static boolean isReadyBackend(ShellBackendState backend) {
@@ -79,15 +91,17 @@ public final class SchedulerAppOpsReadOnlyShellSource
     public static SchedulerAppOpsReadOnlyShellSource fromShellManager(
             SchedulerInstalledPackageIdentity.Snapshot identity, ShellManager shell) {
         if (shell == null) throw new IllegalArgumentException("null ShellManager");
-        ShellBackendState pinned = shell.getBackendState();
-        if (!isReadyBackend(pinned)) {
-            throw new IllegalArgumentException("No ready AppOps read-only shell backend");
+        ShellManager.AppOpsReadOnlySession session =
+                shell.captureReadOnlyAppOpsSession();
+        if (session == null) {
+            throw new IllegalArgumentException("No stable ready AppOps read-only session");
         }
         return new SchedulerAppOpsReadOnlyShellSource(identity, command -> {
             ShellManager.ShellResult result =
-                    shell.runPinnedReadOnlyAppOpsGet(command, pinned);
+                    shell.runPinnedReadOnlyAppOpsGet(command, session);
             return result != null && result.succeeded() ? result.output() : null;
-        }, shell::getBackendState, pinned);
+        }, shell::getBackendState, session.backend(),
+                () -> shell.isReadOnlyAppOpsSessionCurrent(session));
     }
 
     @Override public boolean matchesBoundIdentity(
@@ -112,8 +126,10 @@ public final class SchedulerAppOpsReadOnlyShellSource
     private String safeRead(String command) {
         try {
             if (currentBackend != null && currentBackend.get() != pinnedBackend) return null;
+            if (currentSession != null && !currentSession.get()) return null;
             String output = reader.readSuccessful(command);
             if (currentBackend != null && currentBackend.get() != pinnedBackend) return null;
+            if (currentSession != null && !currentSession.get()) return null;
             if (output == null || output.isEmpty() || output.length() > MAX_OUTPUT
                     || output.indexOf('\u0000') >= 0) return null;
             // Preserve content exactly for the strict parser. Do not turn
