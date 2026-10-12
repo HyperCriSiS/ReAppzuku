@@ -15,7 +15,7 @@ import java.util.function.Supplier;
  * authorize restoration. Shell output has no guaranteed cross-query atomicity.
  */
 public final class SchedulerAppOpsReadOnlyShellSource
-        implements SchedulerAppOpsDualScopeDiagnostic.Source {
+        implements SchedulerAppOpsDualScopeDiagnostic.IdentityBoundSource {
 
     /** A command must yield stdout ONLY on confirmed successful exit. */
     public interface CommandReader {
@@ -25,6 +25,7 @@ public final class SchedulerAppOpsReadOnlyShellSource
     private static final Pattern OP = Pattern.compile("[A-Z][A-Z0-9_]{0,63}");
     private static final int MAX_OUTPUT = 4096;
 
+    private final SchedulerInstalledPackageIdentity.Snapshot boundIdentity;
     private final String packageName;
     private final int uid;
     private final int userId;
@@ -40,6 +41,7 @@ public final class SchedulerAppOpsReadOnlyShellSource
                 || identity.uid / 100000 != identity.userId) {
             throw new IllegalArgumentException("invalid installed identity or command reader");
         }
+        this.boundIdentity = identity;
         this.packageName = identity.packageName;
         this.uid = identity.uid;
         this.userId = identity.userId;
@@ -59,6 +61,7 @@ public final class SchedulerAppOpsReadOnlyShellSource
                 || currentBackend.get() != pinnedBackend) {
             throw new IllegalArgumentException("Pinned AppOps backend not ready");
         }
+        this.boundIdentity = identity;
         this.packageName = identity.packageName;
         this.uid = identity.uid;
         this.userId = identity.userId;
@@ -85,6 +88,11 @@ public final class SchedulerAppOpsReadOnlyShellSource
                     shell.runPinnedReadOnlyAppOpsGet(command, pinned);
             return result != null && result.succeeded() ? result.output() : null;
         }, shell::getBackendState, pinned);
+    }
+
+    @Override public boolean matchesBoundIdentity(
+            SchedulerInstalledPackageIdentity.Snapshot identity) {
+        return boundIdentity.sameAs(identity);
     }
 
     @Override public String readPackage(String requestedPackage, String operation) {
