@@ -35,7 +35,7 @@ public final class SchedulerAppOpsLiveShellReadOnlyInstrumentationTest {
     private static final int MAX_BYTES = 8192;
 
     /** Shell exit status and stderr are represented by an explicit sentinel. */
-    private static String readShell(UiAutomation automation, String cmd) {
+    static String readShell(UiAutomation automation, String cmd) {
         // The cmd is constructed by the pinned-identity adapter from validated
         // literal components, not from arbitrary user input.
         // UiAutomationConnection uses Runtime.exec(String), NOT adb's sh -c.
