@@ -16,6 +16,8 @@ import org.junit.runner.RunWith;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.IOException;
+import java.io.FilterInputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -62,6 +64,41 @@ public final class RootAppOpsReadOnlyPlatformProcessInstrumentationTest {
         return () -> new ProcessBuilder("/system/bin/sh", "-c", script).start();
     }
 
+    /**
+     * Counts bytes actually drained by the executor from a real Android child.
+     * An invalid/unsupported shell fixture cannot silently satisfy the gate.
+     */
+    private static RootAppOpsReadOnlyExecutor.Starter measuredShell(
+            String script, AtomicInteger drainedStderrBytes) {
+        return () -> {
+            final Process child =
+                    new ProcessBuilder("/system/bin/sh", "-c", script).start();
+            return new Process() {
+                @Override public OutputStream getOutputStream() {
+                    return child.getOutputStream();
+                }
+                @Override public InputStream getInputStream() {
+                    return child.getInputStream();
+                }
+                @Override public InputStream getErrorStream() {
+                    return new FilterInputStream(child.getErrorStream()) {
+                        @Override public int read(byte[] buffer, int offset, int length)
+                                throws IOException {
+                            int n = super.read(buffer, offset, length);
+                            if (n > 0) drainedStderrBytes.addAndGet(n);
+                            return n;
+                        }
+                    };
+                }
+                @Override public int waitFor() throws InterruptedException {
+                    return child.waitFor();
+                }
+                @Override public int exitValue() { return child.exitValue(); }
+                @Override public void destroy() { child.destroy(); }
+            };
+        };
+    }
+
     private static void report(String key, String value) {
         Bundle status = new Bundle();
         status.putString(key, value);
@@ -89,17 +126,22 @@ public final class RootAppOpsReadOnlyPlatformProcessInstrumentationTest {
         // More than a pipe buffer of stderr, written BEFORE any stdout.
         // Sequential stdout-then-stderr reads can stall here. The actual
         // executor must drain both concurrently and reject ALL stderr.
-        String line =
-                "012345678901234567890123456789012345678901234567890123456789";
-        String script = "cat >/dev/null; i=0; while [ \"$i\" -lt 1600 ]; do "
-                + "printf '%s\\n' '" + line + "' >&2; "
+        // 96 x 1024 bytes ensures >64 KiB real stderr backpressure while
+        // avoiding 1,600 separate printf-loop iterations on slower emulators.
+        // The POSIX printf width is intentionally fixed and source-owned.
+        String script = "cat >/dev/null; i=0; while [ \"$i\" -lt 96 ]; do "
+                + "printf '%1024s' x >&2; "
                 + "i=$((i+1)); done; printf 'No operations.\\n'";
+        AtomicInteger drainedStderrBytes = new AtomicInteger();
         long start = System.nanoTime();
         RootAppOpsReadOnlyExecutor.Outcome result = RootAppOpsReadOnlyExecutor.execute(
-                testShell(script), FIXTURE_GET, 7_000L);
+                measuredShell(script, drainedStderrBytes), FIXTURE_GET, 7_000L);
         long elapsedMs = (System.nanoTime() - start) / 1_000_000L;
         assertFalse("Large stderr cannot be trusted as AppOps success", result.succeeded);
         assertEquals("", result.output);
+        assertTrue("The real stderr reader must consume >64 KiB, not just fail "
+                        + "on an unsupported fixture: " + drainedStderrBytes.get(),
+                drainedStderrBytes.get() > 65_536);
         // A pre-deadline exit proves the real OS pipes did not deadlock.
         assertTrue("Real OS pipes must drain rather than await the deadline: "
                         + elapsedMs + "ms", elapsedMs < 6_500L);
