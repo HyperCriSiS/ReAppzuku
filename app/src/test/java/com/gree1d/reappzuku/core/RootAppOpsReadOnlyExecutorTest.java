@@ -66,9 +66,21 @@ public final class RootAppOpsReadOnlyExecutorTest {
         assertTrue(result.succeeded);
         assertEquals(0, result.exitCode);
         assertEquals("No operations.\nDefault mode: allow\n", result.output);
-        assertEquals(GET + "\nexit\n",
+        assertEquals(RootAppOpsReadOnlyExecutor.REQUIRE_ROOT_EUID + GET + "\nexit\n",
                 new String(p.stdin.toByteArray(), StandardCharsets.US_ASCII));
         assertTrue("Completed process should be released", p.destroyed);
+    }
+
+    @Test public void revokedSuExit125NeverBecomesDiagnosticEvidence() {
+        FakeProcess p = new FakeProcess(new byte[0], new byte[0], 125, false);
+        RootAppOpsReadOnlyExecutor.Outcome result = read(p);
+        assertFalse("A failed effective-UID preflight must not become evidence",
+                result.succeeded);
+        assertEquals(-1, result.exitCode);
+        assertEquals("", result.output);
+        assertEquals(RootAppOpsReadOnlyExecutor.REQUIRE_ROOT_EUID + GET + "\nexit\n",
+                new String(p.stdin.toByteArray(), StandardCharsets.US_ASCII));
+        assertTrue(p.destroyed);
     }
 
     @Test public void failingExitCannotBecomeSuccessfulEvidence() {

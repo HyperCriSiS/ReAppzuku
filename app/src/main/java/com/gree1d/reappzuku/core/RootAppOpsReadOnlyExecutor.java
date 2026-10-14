@@ -46,7 +46,7 @@ final class RootAppOpsReadOnlyExecutor {
      * system id command also fails closed; no Shizuku fallback is permitted.
      */
     static final String REQUIRE_ROOT_EUID =
-            "test \"$(/system/bin/id -u)\" = 0 || exit 125\\n";
+            "test \"$(/system/bin/id -u)\" = 0 || exit 125\n";
 
     static final class Outcome {
         final boolean succeeded;
