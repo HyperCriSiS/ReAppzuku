@@ -190,6 +190,26 @@ jobs:
           grep -Fq 'INSTRUMENTATION_STATUS: RZ_LIVE_APPOPS_API24_RESTORE_ALLOWED=false' /tmp/api24-appops-live-readonly.txt
           echo 'API24_REAL_APPOPS_READONLY_DIAGNOSTIC_PASS'
 
+      - name: Probe bounded real app-UID OS subprocess AppOps GET, pipes and timeout
+        shell: bash
+        run: |
+          set -euo pipefail
+          INSTRUMENTATION="$(adb shell pm list instrumentation | tr -d '\r' |
+            sed -n 's/^instrumentation:\([^ ]*\) (target=com.gree1d.reappzuku)$/\1/p' | head -n 1)"
+          test -n "$INSTRUMENTATION"
+          CLASS='com.gree1d.reappzuku.core.RootAppOpsReadOnlyPlatformProcessInstrumentationTest'
+          adb shell am instrument -w -r -e class "$CLASS" "$INSTRUMENTATION" |
+            tee /tmp/api24-appuid-process-appops.txt
+          grep -Fq 'OK (4 tests)' /tmp/api24-appuid-process-appops.txt
+          ! grep -Fq 'FAILURES!!!' /tmp/api24-appuid-process-appops.txt
+          ! grep -Fq 'INSTRUMENTATION_STATUS_CODE: -4' /tmp/api24-appuid-process-appops.txt
+          grep -Fq 'INSTRUMENTATION_STATUS: RZ_APP_UID_PROCESS_PIPE_CONTROL=EXIT_ZERO_SYNTHETIC' /tmp/api24-appuid-process-appops.txt
+          grep -Fq 'INSTRUMENTATION_STATUS: RZ_APP_UID_PROCESS_STDERR_FLOOD=REJECTED_WITHOUT_DEADLOCK' /tmp/api24-appuid-process-appops.txt
+          grep -Fq 'INSTRUMENTATION_STATUS: RZ_APP_UID_PROCESS_TIMEOUT_AND_MUTATION=REJECTED' /tmp/api24-appuid-process-appops.txt
+          grep -Eq '^INSTRUMENTATION_STATUS: RZ_APP_UID_APPOPS_GET_TRANSPORT=(EXIT_ZERO_NONEMPTY_UNPARSED|UNKNOWN_OR_DENIED)$' /tmp/api24-appuid-process-appops.txt
+          grep -Fq 'INSTRUMENTATION_STATUS: RZ_APP_UID_APPOPS_RESTORE_ALLOWED=false' /tmp/api24-appuid-process-appops.txt
+          echo 'API24_APP_UID_REAL_PROCESS_READONLY_GATE_PASS'
+
       - name: Exercise disposable fixture UID AppOps conflict and restore
         shell: bash
         run: |
