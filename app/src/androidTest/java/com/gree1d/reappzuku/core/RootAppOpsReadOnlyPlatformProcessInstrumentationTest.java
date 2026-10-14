@@ -15,6 +15,7 @@ import org.junit.runner.RunWith;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.IOException;
 import java.io.FilterInputStream;
 import java.io.OutputStream;
@@ -26,9 +27,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * application UID. The shell scripts are fixed TEST FIXTURES and never mutate
  * an AppOp. These tests are NOT Root (su), Magisk, KernelSU or Shizuku evidence.
  *
- * The final test attempts one actual read-only AppOps GET as the APP UID. Its
- * output is strictly transport evidence, not a typed or restore-authorizing
- * AppOps snapshot. A denied/unsupported query is an acceptable observation.
+ * The final test proves that an actual APP-UID shell exits 125 during the
+ * effective-UID-zero preflight, before even attempting an AppOps GET. No typed
+ * AppOps snapshot or restore authorization can result.
  */
 @RunWith(AndroidJUnit4.class)
 public final class RootAppOpsReadOnlyPlatformProcessInstrumentationTest {
@@ -173,34 +174,53 @@ public final class RootAppOpsReadOnlyPlatformProcessInstrumentationTest {
         report("RZ_APP_UID_PROCESS_TIMEOUT_AND_MUTATION", "REJECTED");
     }
 
-    @Test public void actualAppUidAppOpsGetCannotAuthorizeOriginalModeRecovery()
+    @Test public void actualNonRootAppUidShellExitsBeforeReadOnlyAppOpsGet()
             throws Exception {
         requireDisposableEmulator();
+        int appUid = android.os.Process.myUid();
+        assertTrue("This test must be unprivileged", appUid > 0);
         String packageName =
                 InstrumentationRegistry.getInstrumentation().getTargetContext()
                         .getPackageName();
         assertTrue(PackageNameValidator.isValid(packageName));
-        int userId = android.os.Process.myUid() / 100000;
+        int userId = appUid / 100000;
         String command = "cmd appops get --user " + userId + " "
                 + packageName + " WAKE_LOCK";
         assertTrue(ShellManager.isReadOnlyAppOpsCommand(command));
 
-        // This shell runs as the normal target app UID, NOT as adb shell,
-        // instrumentation UiAutomation, Shizuku, or su. Android may reject its
-        // AppOps query. We do NOT convert returned text into original modes.
+        // Ordinary app-UID /system/bin/sh (not su or UiAutomation). Observe
+        // the real process exit code via a transparent Process wrapper because
+        // failed RootAppOpsReadOnlyExecutor outcomes intentionally hide it.
+        AtomicInteger actualExit = new AtomicInteger(Integer.MIN_VALUE);
         RootAppOpsReadOnlyExecutor.Outcome result = RootAppOpsReadOnlyExecutor.execute(
-                () -> new ProcessBuilder("/system/bin/sh").start(),
-                command, 6_000L);
-        assertEquals(result.succeeded ? 0 : -1, result.exitCode);
-        if (result.succeeded) {
-            assertFalse(result.output.isEmpty());
-            assertTrue(result.output.getBytes(StandardCharsets.UTF_8).length
-                    <= RootAppOpsReadOnlyExecutor.MAX_STDOUT_BYTES);
-        } else {
-            assertEquals("", result.output);
-        }
-        report("RZ_APP_UID_APPOPS_GET_TRANSPORT",
-                result.succeeded ? "EXIT_ZERO_NONEMPTY_UNPARSED" : "UNKNOWN_OR_DENIED");
+                () -> {
+                    final Process child = new ProcessBuilder("/system/bin/sh").start();
+                    return new Process() {
+                        @Override public OutputStream getOutputStream() {
+                            return child.getOutputStream();
+                        }
+                        @Override public InputStream getInputStream() {
+                            return child.getInputStream();
+                        }
+                        @Override public InputStream getErrorStream() {
+                            return child.getErrorStream();
+                        }
+                        @Override public int waitFor() throws InterruptedException {
+                            int code = child.waitFor();
+                            actualExit.set(code);
+                            return code;
+                        }
+                        @Override public int exitValue() { return child.exitValue(); }
+                        @Override public void destroy() { child.destroy(); }
+                    };
+                }, command, 6_000L);
+        assertFalse("App-UID process must not pass Root EUID preflight",
+                result.succeeded);
+        assertEquals(-1, result.exitCode);
+        assertEquals("", result.output);
+        assertEquals("The real shell must fail at the UID-0 preflight, "
+                + "not after attempting AppOps GET", 125, actualExit.get());
+        report("RZ_APP_UID_ROOT_GUARD", "EXIT_125_BEFORE_GET");
         report("RZ_APP_UID_APPOPS_RESTORE_ALLOWED", "false");
     }
 }

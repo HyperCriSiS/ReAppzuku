@@ -206,7 +206,7 @@ jobs:
           grep -Fq 'INSTRUMENTATION_STATUS: RZ_APP_UID_PROCESS_PIPE_CONTROL=EXIT_ZERO_SYNTHETIC' /tmp/api24-appuid-process-appops.txt
           grep -Fq 'INSTRUMENTATION_STATUS: RZ_APP_UID_PROCESS_STDERR_FLOOD=REJECTED_WITHOUT_DEADLOCK' /tmp/api24-appuid-process-appops.txt
           grep -Fq 'INSTRUMENTATION_STATUS: RZ_APP_UID_PROCESS_TIMEOUT_AND_MUTATION=REJECTED' /tmp/api24-appuid-process-appops.txt
-          grep -Eq '^INSTRUMENTATION_STATUS: RZ_APP_UID_APPOPS_GET_TRANSPORT=(EXIT_ZERO_NONEMPTY_UNPARSED|UNKNOWN_OR_DENIED)$' /tmp/api24-appuid-process-appops.txt
+          grep -Fq 'INSTRUMENTATION_STATUS: RZ_APP_UID_ROOT_GUARD=EXIT_125_BEFORE_GET' /tmp/api24-appuid-process-appops.txt
           grep -Fq 'INSTRUMENTATION_STATUS: RZ_APP_UID_APPOPS_RESTORE_ALLOWED=false' /tmp/api24-appuid-process-appops.txt
           echo 'API24_APP_UID_REAL_PROCESS_READONLY_GATE_PASS'
 

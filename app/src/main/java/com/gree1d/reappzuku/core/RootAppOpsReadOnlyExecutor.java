@@ -38,6 +38,16 @@ final class RootAppOpsReadOnlyExecutor {
     static final int MAX_STDOUT_BYTES = 4096;
     static final long DEFAULT_TIMEOUT_MS = 8_000L;
 
+    /**
+     * Root readiness is a cached backend observation, NOT proof that a newly
+     * launched su process retained euid 0. Verify the effective UID in the
+     * exact same shell before the read-only AppOps command. An unprivileged
+     * or revoked su exits 125 without executing the GET. A missing or broken
+     * system id command also fails closed; no Shizuku fallback is permitted.
+     */
+    static final String REQUIRE_ROOT_EUID =
+            "test \"$(/system/bin/id -u)\" = 0 || exit 125\n";
+
     static final class Outcome {
         final boolean succeeded;
         final int exitCode;
@@ -107,7 +117,8 @@ final class RootAppOpsReadOnlyExecutor {
 
             // stdin writes also run inside the deadline-bound worker.
             try (OutputStream stdin = process.getOutputStream()) {
-                stdin.write((command + "\nexit\n").getBytes(StandardCharsets.US_ASCII));
+                stdin.write((REQUIRE_ROOT_EUID + command + "\nexit\n")
+                        .getBytes(StandardCharsets.US_ASCII));
                 stdin.flush();
             }
 
