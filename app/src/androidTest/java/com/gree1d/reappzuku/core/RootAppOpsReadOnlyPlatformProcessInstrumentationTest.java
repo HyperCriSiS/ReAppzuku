@@ -222,4 +222,5 @@ public final class RootAppOpsReadOnlyPlatformProcessInstrumentationTest {
                 + "not after attempting AppOps GET", 125, actualExit.get());
         report("RZ_APP_UID_ROOT_GUARD", "EXIT_125_BEFORE_GET");
         report("RZ_APP_UID_APPOPS_RESTORE_ALLOWED", "false");
-    }}
+    }
+}
