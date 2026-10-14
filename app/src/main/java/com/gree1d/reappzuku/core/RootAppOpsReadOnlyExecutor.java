@@ -41,9 +41,11 @@ final class RootAppOpsReadOnlyExecutor {
     /**
      * Root readiness is a cached backend observation, NOT proof that a newly
      * launched su process retained euid 0. Verify the effective UID in the
-     * exact same shell before the read-only AppOps command. An unprivileged
-     * or revoked su exits 125 without executing the GET. A missing or broken
-     * system id command also fails closed; no Shizuku fallback is permitted.
+     * exact same shell before AND after the read-only AppOps command. A
+     * failure of either UID check returns exit 125; a failed GET returns 126
+     * without allowing the postflight test to mask its nonzero exit status.
+     * These are bounded observations, not proof of atomic privilege continuity.
+     * A missing or broken system id also fails closed; no Shizuku fallback.
      */
     static final String REQUIRE_ROOT_EUID =
             "test \"$(/system/bin/id -u)\" = 0 || exit 125\n";
@@ -117,7 +119,8 @@ final class RootAppOpsReadOnlyExecutor {
 
             // stdin writes also run inside the deadline-bound worker.
             try (OutputStream stdin = process.getOutputStream()) {
-                stdin.write((REQUIRE_ROOT_EUID + command + "\nexit\n")
+                stdin.write((REQUIRE_ROOT_EUID + command + " || exit 126\n"
+                        + REQUIRE_ROOT_EUID + "exit\n")
                         .getBytes(StandardCharsets.US_ASCII));
                 stdin.flush();
             }
