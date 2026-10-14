@@ -697,7 +697,11 @@ jobs:
             grep -Fq 'INSTRUMENTATION_STATUS: RZ_APP_UID_PROCESS_PIPE_CONTROL=EXIT_ZERO_SYNTHETIC' /tmp/api37-instrumentation.txt
             grep -Fq 'INSTRUMENTATION_STATUS: RZ_APP_UID_PROCESS_STDERR_FLOOD=REJECTED_WITHOUT_DEADLOCK' /tmp/api37-instrumentation.txt
             grep -Fq 'INSTRUMENTATION_STATUS: RZ_APP_UID_PROCESS_TIMEOUT_AND_MUTATION=REJECTED' /tmp/api37-instrumentation.txt
-            grep -Eq '^INSTRUMENTATION_STATUS: RZ_APP_UID_APPOPS_GET_TRANSPORT=(EXIT_ZERO_NONEMPTY_UNPARSED|UNKNOWN_OR_DENIED)
+            grep -Eq 'INSTRUMENTATION_STATUS: RZ_APP_UID_APPOPS_GET_TRANSPORT=(EXIT_ZERO_NONEMPTY_UNPARSED|UNKNOWN_OR_DENIED)' /tmp/api37-instrumentation.txt
+            grep -Fq 'INSTRUMENTATION_STATUS: RZ_APP_UID_APPOPS_RESTORE_ALLOWED=false' /tmp/api37-instrumentation.txt
+            echo 'API37_APP_UID_REAL_PROCESS_READONLY_GATE_PASS'
+          fi
+      - name: Run completed Phase 9 model validation
         if: ${{ inputs.test_class == '' }}
         shell: bash
         run: |
