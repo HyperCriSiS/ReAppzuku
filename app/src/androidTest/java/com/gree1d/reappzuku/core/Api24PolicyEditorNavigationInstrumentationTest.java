@@ -25,6 +25,7 @@ import org.junit.Test;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Android 7 policy-editor navigation checks. The editor cancel test uses a
@@ -110,14 +111,19 @@ public class Api24PolicyEditorNavigationInstrumentationTest {
             // Preset loading and queue replay are asynchronous. The installed
             // fixture stays valid even if stale entries get pruned.
             waitUntilEnabled(instrumentation, reviewNext);
-            List<String> pending = NewAppSetupStore.getPending(context);
-            assertTrue(pending.contains(installedFixture));
-            String expectedFirst = pending.get(0);
-
-            instrumentation.runOnMainSync(reviewNext::performClick);
+            AtomicReference<String> firstAtClick = new AtomicReference<>();
+            instrumentation.runOnMainSync(() -> {
+                // The UI callback reads the current queue, not a snapshot taken
+                // on the test thread before its main-thread dispatch. Startup
+                // replay may prune or add packages during that dispatch window.
+                List<String> pending = NewAppSetupStore.getPending(context);
+                assertTrue(pending.contains(installedFixture));
+                firstAtClick.set(pending.get(0));
+                reviewNext.performClick();
+            });
             editor = instrumentation.waitForMonitorWithTimeout(monitor, 5000L);
             assertNotNull("Review next must open the policy editor", editor);
-            assertEquals(expectedFirst, editor.getIntent().getStringExtra(
+            assertEquals(firstAtClick.get(), editor.getIntent().getStringExtra(
                     AppPolicyEditorActivity.EXTRA_PACKAGE_NAME));
             assertTrue(NewAppSetupStore.isPending(context, installedFixture));
         } finally {
