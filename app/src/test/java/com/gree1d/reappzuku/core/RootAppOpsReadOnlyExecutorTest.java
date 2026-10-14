@@ -55,6 +55,12 @@ public final class RootAppOpsReadOnlyExecutorTest {
         }
     }
 
+    private static String expectedScript() {
+        return RootAppOpsReadOnlyExecutor.REQUIRE_ROOT_EUID + GET
+                + " || exit 126\n" + RootAppOpsReadOnlyExecutor.REQUIRE_ROOT_EUID
+                + "exit\n";
+    }
+
     private static RootAppOpsReadOnlyExecutor.Outcome read(FakeProcess process) {
         return RootAppOpsReadOnlyExecutor.execute(() -> process, GET, 2_000L);
     }
@@ -66,7 +72,7 @@ public final class RootAppOpsReadOnlyExecutorTest {
         assertTrue(result.succeeded);
         assertEquals(0, result.exitCode);
         assertEquals("No operations.\nDefault mode: allow\n", result.output);
-        assertEquals(RootAppOpsReadOnlyExecutor.REQUIRE_ROOT_EUID + GET + "\nexit\n",
+        assertEquals(expectedScript(),
                 new String(p.stdin.toByteArray(), StandardCharsets.US_ASCII));
         assertTrue("Completed process should be released", p.destroyed);
     }
@@ -78,9 +84,38 @@ public final class RootAppOpsReadOnlyExecutorTest {
                 result.succeeded);
         assertEquals(-1, result.exitCode);
         assertEquals("", result.output);
-        assertEquals(RootAppOpsReadOnlyExecutor.REQUIRE_ROOT_EUID + GET + "\nexit\n",
+        assertEquals(expectedScript(),
                 new String(p.stdin.toByteArray(), StandardCharsets.US_ASCII));
         assertTrue(p.destroyed);
+    }
+
+    @Test public void revokedRootAfterGetNeverPromotesBufferedStdout() {
+        // Fake Process models a nonzero postflight euid check AFTER a GET
+        // produced plausible stdout. It does not simulate live su.
+        FakeProcess p = new FakeProcess(data("WAKE_LOCK: allow\n"), new byte[0],
+                125, false);
+        RootAppOpsReadOnlyExecutor.Outcome result = read(p);
+        assertFalse(result.succeeded);
+        assertEquals(-1, result.exitCode);
+        assertEquals("", result.output);
+        assertEquals(expectedScript(),
+                new String(p.stdin.toByteArray(), StandardCharsets.US_ASCII));
+    }
+
+    @Test public void failedGetMustNotBeMaskedBySuccessfulRootPostflight() {
+        FakeProcess p = new FakeProcess(data("WAKE_LOCK: allow\n"), new byte[0],
+                126, false);
+        RootAppOpsReadOnlyExecutor.Outcome result = read(p);
+        assertFalse(result.succeeded);
+        assertEquals(-1, result.exitCode);
+        assertEquals("", result.output);
+        assertEquals(expectedScript(),
+                new String(p.stdin.toByteArray(), StandardCharsets.US_ASCII));
+        assertTrue(expectedScript().contains(GET + " || exit 126\n"));
+        assertTrue(expectedScript().startsWith(
+                RootAppOpsReadOnlyExecutor.REQUIRE_ROOT_EUID + GET));
+        assertTrue(expectedScript().endsWith(
+                RootAppOpsReadOnlyExecutor.REQUIRE_ROOT_EUID + "exit\n"));
     }
 
     @Test public void failingExitCannotBecomeSuccessfulEvidence() {
