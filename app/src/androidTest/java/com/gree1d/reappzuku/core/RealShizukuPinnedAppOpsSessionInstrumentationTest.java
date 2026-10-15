@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import rikka.shizuku.Shizuku;
+import rikka.shizuku.ShizukuProvider;
 
 /**
  * Opt-in, REAL official-Shizuku binder/UserService-loss probe on a disposable API 37 emulator.
@@ -103,8 +104,19 @@ public final class RealShizukuPinnedAppOpsSessionInstrumentationTest {
 
             // The host starts a different official Shizuku daemon and resumes its
             // manager UI only after INVALIDATED. The daemon PID is verified by CI.
-            // Binder re-delivery on API37 is NOT presumed: two real runs showed
-            // the server returning without the running client receiving a Binder.
+            // The original main process requested its Binder from the separate
+            // :shizuku provider only during App.onCreate. After an actual daemon
+            // restart, explicitly re-ask that SAME internal provider via the
+            // official multi-process API. Never invent a Binder/permission here;
+            // the provider must already possess a living server-supplied Binder.
+            // Give the host a bounded window to launch its replacement daemon.
+            Thread.sleep(3_500L);
+            if (!Shizuku.pingBinder()) {
+                ShizukuProvider.requestBinderForNonProviderProcess(app);
+                Log.i(TAG, "RZ_SHIZUKU_APPOPS_PROVIDER_REREQUEST");
+            }
+            // A new provider query can still return null: that is a valid
+            // negative, NOT evidence of successful reconnect or restored rights.
             if (!waitForBinder(20_000L)) {
                 assertFalse("missing replacement Binder must never resurrect old authority",
                         manager.isReadOnlyAppOpsSessionCurrent(original));
