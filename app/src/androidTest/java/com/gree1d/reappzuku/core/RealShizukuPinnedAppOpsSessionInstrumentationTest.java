@@ -9,6 +9,8 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.Bundle;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Process;
@@ -24,6 +26,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import rikka.shizuku.Shizuku;
+import rikka.shizuku.ShizukuProvider;
 
 /**
  * Opt-in, REAL official-Shizuku binder/UserService-loss probe on a disposable API 37 emulator.
@@ -103,8 +106,42 @@ public final class RealShizukuPinnedAppOpsSessionInstrumentationTest {
 
             // The host starts a different official Shizuku daemon and resumes its
             // manager UI only after INVALIDATED. The daemon PID is verified by CI.
-            // Binder re-delivery on API37 is NOT presumed: two real runs showed
-            // the server returning without the running client receiving a Binder.
+            // The original main process requested its Binder from the separate
+            // :shizuku provider only during App.onCreate. After an actual daemon
+            // restart, explicitly re-ask that SAME internal provider via the
+            // official multi-process API. Never invent a Binder/permission here;
+            // the provider must already possess a living server-supplied Binder.
+            // Give the host a bounded window to launch its replacement daemon.
+            Thread.sleep(3_500L);
+            Log.i(TAG, "RZ_SHIZUKU_APPOPS_PROVIDER_LIVE_BEFORE="
+                    + providerHasLiveBinder(app));
+            if (!Shizuku.pingBinder()) {
+                ShizukuProvider.requestBinderForNonProviderProcess(app);
+                Log.i(TAG, "RZ_SHIZUKU_APPOPS_PROVIDER_REREQUEST");
+                Log.i(TAG, "RZ_SHIZUKU_APPOPS_PROVIDER_LIVE_AFTER="
+                        + providerHasLiveBinder(app));
+            }
+            // If the isolated provider itself still has no live Binder, a
+            // second, strictly test-owned experiment restarts that PROCESS only.
+            // The host observes this marker and uses run-as at our own UID to
+            // terminate the disposable :shizuku process, never the main process.
+            // Repeated read-only provider calls let Android restart the provider.
+            // Only Shizuku's official server can then deliver a fresh Binder.
+            if (!Shizuku.pingBinder()) {
+                Log.i(TAG, "RZ_SHIZUKU_APPOPS_PROVIDER_RECYCLE_WINDOW_START");
+                long providerDeadline = System.currentTimeMillis() + 14_000L;
+                while (System.currentTimeMillis() < providerDeadline
+                        && !Shizuku.pingBinder()) {
+                    if (providerHasLiveBinder(app)) {
+                        Log.i(TAG, "RZ_SHIZUKU_APPOPS_PROVIDER_LIVE_AFTER_RECYCLE");
+                        ShizukuProvider.requestBinderForNonProviderProcess(app);
+                        break;
+                    }
+                    Thread.sleep(250L);
+                }
+            }
+            // A new provider query can still return null: that is a valid
+            // negative, NOT evidence of successful reconnect or restored rights.
             if (!waitForBinder(20_000L)) {
                 assertFalse("missing replacement Binder must never resurrect old authority",
                         manager.isReadOnlyAppOpsSessionCurrent(original));
@@ -136,6 +173,22 @@ public final class RealShizukuPinnedAppOpsSessionInstrumentationTest {
             Log.i(TAG, "RZ_SHIZUKU_APPOPS_NEW_PIN_READONLY_ONLY");
         } finally {
             manager.unbindUserService();
+        }
+    }
+
+    /**
+     * Read-only observation through the official same-app provider bridge.
+     * A null response means no currently live Binder was supplied; do not
+     * extract, forge, log, or mutate the actual privileged Binder.
+     */
+    private static boolean providerHasLiveBinder(Context app) {
+        try {
+            Bundle response = app.getContentResolver().call(
+                    Uri.parse("content://" + app.getPackageName() + ".shizuku"),
+                    ShizukuProvider.METHOD_GET_BINDER, null, new Bundle());
+            return response != null;
+        } catch (RuntimeException exception) {
+            return false;
         }
     }
 
