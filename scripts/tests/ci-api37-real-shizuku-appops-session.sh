@@ -112,6 +112,8 @@ wait_marker() {
   done
   cat /tmp/rz-shizuku-appops-instrumentation.txt || true
   echo "Missing mandatory real Shizuku marker: $marker" >&2
+  adb shell pidof shizuku_server || true
+  adb logcat -d -t 200 | grep -Ei 'Shizuku|RZShizukuAppOps|UserService' | tail -55 || true
   return 1
 }
 wait_marker RZ_SHIZUKU_APPOPS_PIN_READY 150
@@ -133,6 +135,12 @@ test "${replacement#* }" = "$replacement"
 test "$replacement" != "$initial"
 echo 'RZ_SHIZUKU_ACTUAL_SERVER_PID_CHANGED'
 
+# Android 17 may retain a running replacement shell daemon without delivering
+# the manager-mediated Binder to an already-running target process. Resume the
+# *official manager UI* so it can propagate the replacement Binder; never inject
+# a Binder or bypass production UserService authorization.
+adb shell am start -W -n "$SHIZUKU_PKG/moe.shizuku.manager.MainActivity" \
+  > /tmp/rz-shizuku-manager-restart.txt
 wait_marker RZ_SHIZUKU_APPOPS_NEW_PIN_READONLY_ONLY 150
 wait "$probe_pid"
 trap - EXIT
