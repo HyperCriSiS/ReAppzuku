@@ -117,6 +117,9 @@ wait_marker() {
   return 1
 }
 wait_marker RZ_SHIZUKU_APPOPS_PIN_READY 150
+client_pid_before="$(adb shell pidof "$PRODUCT" | tr -d '\r')"
+test -n "$client_pid_before"
+test "${client_pid_before#* }" = "$client_pid_before"
 
 initial="$(adb shell pidof shizuku_server | tr -d '\r')"
 test -n "$initial"
@@ -165,7 +168,11 @@ cat /tmp/rz-shizuku-appops-instrumentation.txt
 grep -Fq 'OK (1 test)' /tmp/rz-shizuku-appops-instrumentation.txt
 ! grep -Fq 'INSTRUMENTATION_STATUS_CODE: -4' /tmp/rz-shizuku-appops-instrumentation.txt
 ! grep -Fq 'FAILURES!!!' /tmp/rz-shizuku-appops-instrumentation.txt
+client_pid_after="$(adb shell pidof "$PRODUCT" | tr -d '\r')"
+test "$client_pid_before" = "$client_pid_after"
+echo 'RZ_SHIZUKU_APPOPS_MAIN_PID_PRESERVED'
 adb logcat -d -s RZShizukuAppOps:I '*:S' > /tmp/rz-shizuku-appops-markers.txt
+grep -E 'RZ_SHIZUKU_APPOPS_PROVIDER_(LIVE_BEFORE|LIVE_AFTER|REREQUEST)' /tmp/rz-shizuku-appops-markers.txt || true
 for marker in PIN_READY PIN_INVALIDATED; do
   grep -Fq "RZ_SHIZUKU_APPOPS_$marker" /tmp/rz-shizuku-appops-markers.txt
 done

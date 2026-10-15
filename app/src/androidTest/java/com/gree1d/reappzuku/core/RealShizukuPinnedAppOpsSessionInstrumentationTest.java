@@ -9,6 +9,8 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.Bundle;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Process;
@@ -111,9 +113,13 @@ public final class RealShizukuPinnedAppOpsSessionInstrumentationTest {
             // the provider must already possess a living server-supplied Binder.
             // Give the host a bounded window to launch its replacement daemon.
             Thread.sleep(3_500L);
+            Log.i(TAG, "RZ_SHIZUKU_APPOPS_PROVIDER_LIVE_BEFORE="
+                    + providerHasLiveBinder(app));
             if (!Shizuku.pingBinder()) {
                 ShizukuProvider.requestBinderForNonProviderProcess(app);
                 Log.i(TAG, "RZ_SHIZUKU_APPOPS_PROVIDER_REREQUEST");
+                Log.i(TAG, "RZ_SHIZUKU_APPOPS_PROVIDER_LIVE_AFTER="
+                        + providerHasLiveBinder(app));
             }
             // A new provider query can still return null: that is a valid
             // negative, NOT evidence of successful reconnect or restored rights.
@@ -148,6 +154,22 @@ public final class RealShizukuPinnedAppOpsSessionInstrumentationTest {
             Log.i(TAG, "RZ_SHIZUKU_APPOPS_NEW_PIN_READONLY_ONLY");
         } finally {
             manager.unbindUserService();
+        }
+    }
+
+    /**
+     * Read-only observation through the official same-app provider bridge.
+     * A null response means no currently live Binder was supplied; do not
+     * extract, forge, log, or mutate the actual privileged Binder.
+     */
+    private static boolean providerHasLiveBinder(Context app) {
+        try {
+            Bundle response = app.getContentResolver().call(
+                    Uri.parse("content://" + app.getPackageName() + ".shizuku"),
+                    ShizukuProvider.METHOD_GET_BINDER, null, new Bundle());
+            return response != null;
+        } catch (RuntimeException exception) {
+            return false;
         }
     }
 
