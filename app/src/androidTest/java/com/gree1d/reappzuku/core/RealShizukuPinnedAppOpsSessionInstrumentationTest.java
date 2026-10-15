@@ -121,6 +121,25 @@ public final class RealShizukuPinnedAppOpsSessionInstrumentationTest {
                 Log.i(TAG, "RZ_SHIZUKU_APPOPS_PROVIDER_LIVE_AFTER="
                         + providerHasLiveBinder(app));
             }
+            // If the isolated provider itself still has no live Binder, a
+            // second, strictly test-owned experiment restarts that PROCESS only.
+            // The host observes this marker and uses run-as at our own UID to
+            // terminate the disposable :shizuku process, never the main process.
+            // Repeated read-only provider calls let Android restart the provider.
+            // Only Shizuku's official server can then deliver a fresh Binder.
+            if (!Shizuku.pingBinder()) {
+                Log.i(TAG, "RZ_SHIZUKU_APPOPS_PROVIDER_RECYCLE_WINDOW_START");
+                long providerDeadline = System.currentTimeMillis() + 14_000L;
+                while (System.currentTimeMillis() < providerDeadline
+                        && !Shizuku.pingBinder()) {
+                    if (providerHasLiveBinder(app)) {
+                        Log.i(TAG, "RZ_SHIZUKU_APPOPS_PROVIDER_LIVE_AFTER_RECYCLE");
+                        ShizukuProvider.requestBinderForNonProviderProcess(app);
+                        break;
+                    }
+                    Thread.sleep(250L);
+                }
+            }
             // A new provider query can still return null: that is a valid
             // negative, NOT evidence of successful reconnect or restored rights.
             if (!waitForBinder(20_000L)) {

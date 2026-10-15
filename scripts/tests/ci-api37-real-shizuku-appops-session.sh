@@ -150,6 +150,26 @@ echo 'RZ_SHIZUKU_APPOPS_MAIN_PID_PRESERVED_DURING_RESTART'
 # a Binder or bypass production UserService authorization.
 adb shell am start -W -n "$SHIZUKU_PKG/moe.shizuku.manager.MainActivity" \
   > /tmp/rz-shizuku-manager-restart.txt
+# If the normal app cannot yet reacquire an official Binder, restart ONLY the
+# isolated disposable app-owned Shizuku provider. Never kill the main app, spoof
+# a Binder, or modify Shizuku grant state.
+if wait_marker RZ_SHIZUKU_APPOPS_PROVIDER_RECYCLE_WINDOW_START 65; then
+  provider_pid_before="$(adb shell pidof "$PRODUCT:shizuku" | tr -d '\r')"
+  test -n "$provider_pid_before"
+  test "${provider_pid_before#* }" = "$provider_pid_before"
+  adb shell run-as "$PRODUCT" /system/bin/kill -9 "$provider_pid_before"
+  provider_pid_after=''
+  for attempt in $(seq 1 60); do
+    provider_pid_after="$(adb shell pidof "$PRODUCT:shizuku" 2>/dev/null | tr -d '\r' || true)"
+    if [ -n "$provider_pid_after" ] && [ "$provider_pid_after" != "$provider_pid_before" ]; then break; fi
+    sleep 0.25
+  done
+  test -n "$provider_pid_after"
+  test "$provider_pid_before" != "$provider_pid_after"
+  test "${provider_pid_after#* }" = "$provider_pid_after"
+  test "$client_pid_before" = "$(adb shell pidof "$PRODUCT" | tr -d '\r')"
+  echo 'RZ_SHIZUKU_APPOPS_PROVIDER_PID_CHANGED_MAIN_PRESERVED'
+fi
 # A replacement server PID does not guarantee that Android 17 has delivered
 # its Binder to the existing client. Both outcomes must be explicit in the
 # instrumented test: fresh read-only pin OR still-unavailable/fail-closed.
