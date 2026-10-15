@@ -57,9 +57,12 @@ public final class RealShizukuPinnedAppOpsSessionInstrumentationTest {
         Context app = InstrumentationRegistry.getInstrumentation().getTargetContext();
         ShellManager manager = new ShellManager(
                 app, new Handler(Looper.getMainLooper()), executor);
-        String get = "cmd appops get --user "
-                + Process.myUserHandle().getIdentifier()
-                + " " + app.getPackageName() + " WAKE_LOCK";
+        // This CI lane boots only disposable Android user 0; do not rely on
+        // non-SDK UserHandle#getIdentifier(), which is absent from public stubs.
+        // An unexpected secondary-user UID must fail rather than query user 0.
+        assertTrue("unexpected non-user-0 process UID", Process.myUid() >= 10_000
+                && Process.myUid() < 100_000);
+        String get = "cmd appops get --user 0 " + app.getPackageName() + " WAKE_LOCK";
         assertTrue(ShellManager.isReadOnlyAppOpsCommand(get));
         try {
             assertTrue("official Shizuku Binder never arrived", waitForBinder(25_000L));
