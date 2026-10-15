@@ -77,9 +77,6 @@ public final class RealShizukuPinnedAppOpsSessionInstrumentationTest {
             assertTrue("official Shizuku could not read its own app's AppOps",
                     initial.succeeded());
             assertFalse("real GET must provide observable output", initial.output().trim().isEmpty());
-            assertFalse("even a successful GET never authorizes restoration",
-                    SchedulerAppOpsReadOnlyShellSource.fromShellManager(manager) == null
-                            && initial.output().isEmpty());
             Log.i(TAG, "RZ_SHIZUKU_APPOPS_PIN_READY");
 
             // The host now terminates the REAL external Shizuku daemon; the test
