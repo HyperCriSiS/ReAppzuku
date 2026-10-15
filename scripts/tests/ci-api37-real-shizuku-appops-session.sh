@@ -141,7 +141,24 @@ echo 'RZ_SHIZUKU_ACTUAL_SERVER_PID_CHANGED'
 # a Binder or bypass production UserService authorization.
 adb shell am start -W -n "$SHIZUKU_PKG/moe.shizuku.manager.MainActivity" \
   > /tmp/rz-shizuku-manager-restart.txt
-wait_marker RZ_SHIZUKU_APPOPS_NEW_PIN_READONLY_ONLY 150
+# A replacement server PID does not guarantee that Android 17 has delivered
+# its Binder to the existing client. Both outcomes must be explicit in the
+# instrumented test: fresh read-only pin OR still-unavailable/fail-closed.
+completion=''
+for attempt in $(seq 1 150); do
+  markers="$(adb logcat -d -s RZShizukuAppOps:I '*:S')"
+  if grep -Fq 'RZ_SHIZUKU_APPOPS_NEW_PIN_READONLY_ONLY' <<<"$markers"; then
+    completion=NEW_PIN_READONLY_ONLY
+    break
+  fi
+  if grep -Fq 'RZ_SHIZUKU_APPOPS_RECONNECT_UNAVAILABLE_FAIL_CLOSED' <<<"$markers"; then
+    completion=RECONNECT_UNAVAILABLE_FAIL_CLOSED
+    break
+  fi
+  sleep 0.5
+done
+test -n "$completion"
+echo "RZ_SHIZUKU_APPOPS_RECONNECT_RESULT=$completion"
 wait "$probe_pid"
 trap - EXIT
 cat /tmp/rz-shizuku-appops-instrumentation.txt
@@ -149,7 +166,8 @@ grep -Fq 'OK (1 test)' /tmp/rz-shizuku-appops-instrumentation.txt
 ! grep -Fq 'INSTRUMENTATION_STATUS_CODE: -4' /tmp/rz-shizuku-appops-instrumentation.txt
 ! grep -Fq 'FAILURES!!!' /tmp/rz-shizuku-appops-instrumentation.txt
 adb logcat -d -s RZShizukuAppOps:I '*:S' > /tmp/rz-shizuku-appops-markers.txt
-for marker in PIN_READY PIN_INVALIDATED NEW_PIN_READONLY_ONLY; do
+for marker in PIN_READY PIN_INVALIDATED; do
   grep -Fq "RZ_SHIZUKU_APPOPS_$marker" /tmp/rz-shizuku-appops-markers.txt
 done
-echo 'API37_REAL_SHIZUKU_PINNED_READONLY_APPOPS_LOSS_REBIND_PASS'
+grep -Fq "RZ_SHIZUKU_APPOPS_$completion" /tmp/rz-shizuku-appops-markers.txt
+echo "API37_REAL_SHIZUKU_PIN_INVALIDATION_PASS ($completion)"
