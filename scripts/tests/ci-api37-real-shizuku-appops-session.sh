@@ -137,6 +137,12 @@ test -n "$replacement"
 test "${replacement#* }" = "$replacement"
 test "$replacement" != "$initial"
 echo 'RZ_SHIZUKU_ACTUAL_SERVER_PID_CHANGED'
+# Verify the original target test process is still alive while this test is
+# exercising reconnect. After instrumentation exits Android may normally
+# destroy that process, so a post-test PID assertion would be a false failure.
+client_pid_during="$(adb shell pidof "$PRODUCT" | tr -d '\r')"
+test "$client_pid_before" = "$client_pid_during"
+echo 'RZ_SHIZUKU_APPOPS_MAIN_PID_PRESERVED_DURING_RESTART'
 
 # Android 17 may retain a running replacement shell daemon without delivering
 # the manager-mediated Binder to an already-running target process. Resume the
@@ -168,9 +174,6 @@ cat /tmp/rz-shizuku-appops-instrumentation.txt
 grep -Fq 'OK (1 test)' /tmp/rz-shizuku-appops-instrumentation.txt
 ! grep -Fq 'INSTRUMENTATION_STATUS_CODE: -4' /tmp/rz-shizuku-appops-instrumentation.txt
 ! grep -Fq 'FAILURES!!!' /tmp/rz-shizuku-appops-instrumentation.txt
-client_pid_after="$(adb shell pidof "$PRODUCT" | tr -d '\r')"
-test "$client_pid_before" = "$client_pid_after"
-echo 'RZ_SHIZUKU_APPOPS_MAIN_PID_PRESERVED'
 adb logcat -d -s RZShizukuAppOps:I '*:S' > /tmp/rz-shizuku-appops-markers.txt
 grep -E 'RZ_SHIZUKU_APPOPS_PROVIDER_(LIVE_BEFORE|LIVE_AFTER|REREQUEST)' /tmp/rz-shizuku-appops-markers.txt || true
 for marker in PIN_READY PIN_INVALIDATED; do
