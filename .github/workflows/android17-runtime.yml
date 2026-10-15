@@ -635,13 +635,13 @@ jobs:
         shell: bash
         run: bash scripts/tests/ci-api37-manifest-clock-rearm.sh
 
-      - name: Prove real Shizuku pinned AppOps session death and new UserService binding
+      - name: Prove real Shizuku AppOps session loss and classify Binder rebinding
         if: ${{ inputs.test_class == 'com.gree1d.reappzuku.core.RealShizukuPinnedAppOpsSessionInstrumentationTest' }}
         shell: bash
         run: |
           set -euo pipefail
           bash scripts/tests/ci-api37-real-shizuku-appops-session.sh | tee /tmp/api37-real-shizuku-appops-gate.txt
-          grep -Fq 'API37_REAL_SHIZUKU_PINNED_READONLY_APPOPS_LOSS_REBIND_PASS' /tmp/api37-real-shizuku-appops-gate.txt
+          grep -Fq 'API37_REAL_SHIZUKU_PIN_INVALIDATION_PASS' /tmp/api37-real-shizuku-appops-gate.txt
 
       - name: Run Android instrumentation on API 37
         if: ${{ inputs.test_class != 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RetryWorkerInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RealReconcileWorkerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37PackageHandlerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api37RealClockBroadcastDeliveryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api37ManifestClockRearmInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.RealShizukuPinnedAppOpsSessionInstrumentationTest' }}
