@@ -635,8 +635,16 @@ jobs:
         shell: bash
         run: bash scripts/tests/ci-api37-manifest-clock-rearm.sh
 
+      - name: Prove real Shizuku AppOps session loss and classify Binder rebinding
+        if: ${{ inputs.test_class == 'com.gree1d.reappzuku.core.RealShizukuPinnedAppOpsSessionInstrumentationTest' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/tests/ci-api37-real-shizuku-appops-session.sh | tee /tmp/api37-real-shizuku-appops-gate.txt
+          grep -Fq 'API37_REAL_SHIZUKU_PIN_INVALIDATION_PASS' /tmp/api37-real-shizuku-appops-gate.txt
+
       - name: Run Android instrumentation on API 37
-        if: ${{ inputs.test_class != 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RetryWorkerInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RealReconcileWorkerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37PackageHandlerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api37RealClockBroadcastDeliveryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api37ManifestClockRearmInstrumentationTest' }}
+        if: ${{ inputs.test_class != 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RetryWorkerInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RealReconcileWorkerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37PackageHandlerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api37RealClockBroadcastDeliveryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api37ManifestClockRearmInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.RealShizukuPinnedAppOpsSessionInstrumentationTest' }}
         shell: bash
         env:
           TEST_CLASS: ${{ inputs.test_class }}
@@ -773,7 +781,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p api37-evidence
-          for file in /tmp/api37-emulator.log /tmp/api37-instrumentation.txt /tmp/api37-phase9-completed-model.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt /tmp/api37-security-probe*.txt /tmp/api37-new-app-* /tmp/api37-pre-probe-launch.txt /tmp/api37-real-clock-* /tmp/read-only-appops.txt /tmp/install-*.log; do
+          for file in /tmp/api37-emulator.log /tmp/api37-instrumentation.txt /tmp/api37-phase9-completed-model.txt /tmp/api37-monkey.txt /tmp/api37-crash.txt /tmp/api37-security-probe*.txt /tmp/api37-new-app-* /tmp/api37-pre-probe-launch.txt /tmp/api37-real-clock-* /tmp/read-only-appops.txt /tmp/api37-real-shizuku-appops-gate.txt /tmp/rz-shizuku-appops-*.txt /tmp/rz-shizuku-start.txt /tmp/rz-shizuku-restart.txt /tmp/install-*.log; do
             if [ -f "$file" ]; then
               cp "$file" api37-evidence/
             fi
