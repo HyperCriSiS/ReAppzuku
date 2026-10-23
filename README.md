@@ -1,5 +1,7 @@
 # ReAppzuku
 
+# EXPERIMENTAL - Much will be changed
+
 Project documentation and localized introductions are maintained under [`docs/`](docs/).
 
 - [English README](docs/README.md)
