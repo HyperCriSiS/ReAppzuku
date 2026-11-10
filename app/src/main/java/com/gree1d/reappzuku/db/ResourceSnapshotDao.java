@@ -29,6 +29,13 @@ public interface ResourceSnapshotDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insertAll(List<ResourceSnapshot> snapshots);
 
+    /**
+     * The row written last, whatever its timestamp says. After the clock was
+     * set back the newest timestamp is not the latest batch.
+     */
+    @Query("SELECT * FROM resource_snapshots ORDER BY id DESC LIMIT 1")
+    ResourceSnapshot getLastInsertedSnapshot();
+
     /** Returns the single most recent snapshot row (any package). */
     @Query("SELECT * FROM resource_snapshots ORDER BY timestamp DESC LIMIT 1")
     ResourceSnapshot getLatestSnapshot();

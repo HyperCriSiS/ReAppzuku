@@ -40,11 +40,13 @@ public interface DailyUsageDao {
         addToDeviceRow(day, drainPct);
     }
 
-    @Query("SELECT * FROM daily_app_usage WHERE day >= :fromDay ORDER BY day, packageName")
-    List<DailyAppUsage> getAppUsageSince(int fromDay);
+    /** Both bounds are inclusive. The upper bound keeps out rows written under a wrong future date. */
+    @Query("SELECT * FROM daily_app_usage WHERE day >= :fromDay AND day <= :toDay "
+            + "ORDER BY day, packageName")
+    List<DailyAppUsage> getAppUsageBetween(int fromDay, int toDay);
 
-    @Query("SELECT * FROM daily_device_usage WHERE day >= :fromDay ORDER BY day")
-    List<DailyDeviceUsage> getDeviceUsageSince(int fromDay);
+    @Query("SELECT * FROM daily_device_usage WHERE day >= :fromDay AND day <= :toDay ORDER BY day")
+    List<DailyDeviceUsage> getDeviceUsageBetween(int fromDay, int toDay);
 
     @Query("DELETE FROM daily_app_usage WHERE day < :cutoffDay")
     void deleteAppUsageBefore(int cutoffDay);

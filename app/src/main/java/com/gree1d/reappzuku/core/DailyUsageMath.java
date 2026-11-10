@@ -29,16 +29,39 @@ public final class DailyUsageMath {
     }
 
     /**
-     * The increase of a cumulative counter between two snapshots. A lower
-     * current value means the counter was reset in between; what it counted
-     * since the reset is then all that is known.
+     * What one app added to a cumulative counter between two snapshot batches.
+     *
+     * @param previous the app's value in the previous batch, or null if it had no row there
+     * @param reset    the counters of the whole batch started over in between,
+     *                 so the current value is what was counted since
+     * @param cap      the most the app can have added in that time; anything
+     *                 above it is an artifact and must not be booked
      */
-    public static double counterDelta(double previous, double current) {
-        return current >= previous ? current - previous : current;
+    public static double usageDelta(Double previous, double current, boolean reset, double cap) {
+        double delta;
+        if (reset || previous == null) {
+            delta = current;
+        } else {
+            // A single app's value going down without a batch reset is a
+            // re-attribution, for example between apps of one shared UID.
+            delta = Math.max(0, current - previous);
+        }
+        return Math.max(0, Math.min(delta, cap));
     }
 
-    public static long counterDelta(long previous, long current) {
-        return current >= previous ? current - previous : current;
+    /** The batch counters only ever grow, so a lower total means they were reset. */
+    public static boolean wasReset(double previousTotal, double currentTotal) {
+        return currentTotal < previousTotal;
+    }
+
+    /**
+     * Whether the time between two batches can be booked at all. A previous
+     * batch from the future (clock set back) or more than a day old is only
+     * good as the next baseline.
+     */
+    public static boolean isBookableGap(long previousMs, long nowMs) {
+        long gap = nowMs - previousMs;
+        return gap > 0 && gap <= 24L * 60 * 60 * 1000;
     }
 
     /** Battery percent points lost between two snapshots; charging and unknown levels count as none. */

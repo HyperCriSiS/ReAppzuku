@@ -1,6 +1,7 @@
 package com.gree1d.reappzuku.core;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -46,14 +47,42 @@ public class DailyUsageMathTest {
     }
 
     @Test
-    public void counterDeltaSurvivesAReset() {
-        assertEquals(5.0, DailyUsageMath.counterDelta(10.0, 15.0), 0.0);
-        assertEquals(0.0, DailyUsageMath.counterDelta(10.0, 10.0), 0.0);
-        // After a reset only what was counted since then is known.
-        assertEquals(3.0, DailyUsageMath.counterDelta(10.0, 3.0), 0.0);
-        assertEquals(7.0, DailyUsageMath.counterDelta(0.0, 7.0), 0.0);
-        assertEquals(500L, DailyUsageMath.counterDelta(1_000L, 1_500L));
-        assertEquals(200L, DailyUsageMath.counterDelta(1_000L, 200L));
+    public void normalIntervalBooksTheIncrease() {
+        assertEquals(5.0, DailyUsageMath.usageDelta(10.0, 15.0, false, 100.0), 0.0);
+        assertEquals(0.0, DailyUsageMath.usageDelta(10.0, 10.0, false, 100.0), 0.0);
+    }
+
+    @Test
+    public void singleAppDecreaseWithoutBatchResetBooksNothing() {
+        // Shared UID shares shift when a sibling app appears; that is not usage.
+        assertEquals(0.0, DailyUsageMath.usageDelta(10.0, 9.5, false, 100.0), 0.0);
+    }
+
+    @Test
+    public void afterABatchResetTheCurrentValueIsWhatWasUsedSince() {
+        assertTrue(DailyUsageMath.wasReset(500.0, 20.0));
+        assertFalse(DailyUsageMath.wasReset(500.0, 500.0));
+        assertEquals(3.0, DailyUsageMath.usageDelta(10.0, 3.0, true, 20.0), 0.0);
+        assertEquals(3.0, DailyUsageMath.usageDelta(null, 3.0, true, 20.0), 0.0);
+    }
+
+    @Test
+    public void appWithoutPreviousRowIsBookedUpToWhatTheDeviceUsed() {
+        assertEquals(4.0, DailyUsageMath.usageDelta(null, 4.0, false, 6.0), 0.0);
+        // A whole since-charge value cannot have been used in one interval.
+        assertEquals(6.0, DailyUsageMath.usageDelta(null, 900.0, false, 6.0), 0.0);
+        assertEquals(0.0, DailyUsageMath.usageDelta(null, 900.0, false, -1.0), 0.0);
+    }
+
+    @Test
+    public void onlyAForwardGapOfAtMostADayIsBooked() {
+        long now = at(2026, 11, 10, 12, 0);
+        assertTrue(DailyUsageMath.isBookableGap(now - 15 * 60_000L, now));
+        assertTrue(DailyUsageMath.isBookableGap(now - 24L * 60 * 60_000L, now));
+        assertFalse(DailyUsageMath.isBookableGap(now - 25L * 60 * 60_000L, now));
+        // The clock was set back: the previous batch lies in the future.
+        assertFalse(DailyUsageMath.isBookableGap(now + 60_000L, now));
+        assertFalse(DailyUsageMath.isBookableGap(now, now));
     }
 
     @Test
@@ -76,25 +105,28 @@ public class DailyUsageMathTest {
         int start = source.indexOf("MIGRATION_13_14 = new Migration(13, 14)");
         String body = source.substring(start, source.indexOf("\n    };", start));
 
-        List<String> statements = new ArrayList<>();
+        java.util.Set<String> statements = new java.util.HashSet<>();
         for (String call : body.split("db\\.execSQL\\(")) {
             StringBuilder sql = new StringBuilder();
             Matcher literal = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"").matcher(call);
             while (literal.find()) sql.append(literal.group(1));
             if (sql.length() > 0) statements.add(sql.toString());
         }
-        assertEquals(3, statements.size());
 
-        for (String table : new String[] {"daily_app_usage", "daily_device_usage"}) {
-            int entity = schema.indexOf("\"tableName\": \"" + table + "\"");
-            assertTrue(table, entity >= 0);
+        // Every table and index that version 14 has and version 13 lacks,
+        // exactly as Room creates them on a fresh install.
+        String previousSchema = read("app/schemas/com.gree1d.reappzuku.db.AppDatabase/13.json");
+        java.util.Set<String> expected = new java.util.HashSet<>();
+        String[] entities = schema.split("\"tableName\": \"");
+        for (int i = 1; i < entities.length; i++) {
+            String table = entities[i].substring(0, entities[i].indexOf('"'));
+            if (previousSchema.contains("\"tableName\": \"" + table + "\"")) continue;
             Matcher create = Pattern.compile("\"createSql\": \"((?:[^\"\\\\]|\\\\.)*)\"")
-                    .matcher(schema);
-            assertTrue(create.find(entity));
-            assertTrue(table, statements.contains(create.group(1).replace("${TABLE_NAME}", table)));
+                    .matcher(entities[i]);
+            while (create.find()) expected.add(create.group(1).replace("${TABLE_NAME}", table));
         }
-        assertTrue(statements.contains(
-                "CREATE INDEX IF NOT EXISTS `index_daily_app_usage_day` ON `daily_app_usage` (`day`)"));
+        assertEquals(3, expected.size());
+        assertEquals(expected, statements);
         assertTrue(schema.contains("\"version\": 14"));
         assertTrue(source.contains("MIGRATION_12_13,\n                        MIGRATION_13_14"));
         assertTrue(source.contains("version = 14,"));
@@ -109,7 +141,16 @@ public class DailyUsageMathTest {
         int prune = source.indexOf("getDao().deleteOlderThan(now - 24 * 3600_000L);");
         assertTrue(insert >= 0 && insert < history && history < guard && guard < prune);
         // The previous batch is read before the new one is written.
-        assertTrue(source.indexOf("ResourceSnapshot previousBatch = getDao().getLatestSnapshot();") < insert);
+        assertTrue(source.indexOf(
+                "ResourceSnapshot previousBatch = getDao().getLastInsertedSnapshot();") < insert);
+        // Batches from different parsers are never compared.
+        assertTrue(source.contains(
+                "if (previousBatch.totalRawPwiBatch <= 0 || currentRawTotal <= 0) return;"));
+        String killer = read("app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java");
+        // A delayed relaunch check must not crash when the service is already gone.
+        assertTrue(killer.contains("catch (java.util.concurrent.RejectedExecutionException e)"));
+        assertEquals(-1, killer.indexOf("postDelayed(() -> executor.execute("));
+        assertTrue(killer.contains(".lastOpenedByPackage(context, System.currentTimeMillis());"));
     }
 
     private static String read(String relative) throws Exception {

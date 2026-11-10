@@ -8,7 +8,7 @@ Merged to `main`: kill preference defaults (#179), battery diet (#180), `Capabil
 
 Removed in the follow-up cleanup: the Phase 11 scheduler evidence code (`manager/Scheduler*` except `SchedulerRestrictionOutcomePolicy`, `RootAppOpsReadOnlyExecutor`, the pinned read-only AppOps session) with its JVM tests, instrumentation tests and CI steps. The Phase 11 entries further down describe that code as it existed; none of it remains in the tree.
 
-Also merged: removal of the scheduler evidence code (#185) and the strategy choice in the app option sheets (#186). Room schema 14 adds a 90 day usage history per app and day, filled at every statistics snapshot and at every kill and relaunch.
+Also merged: removal of the scheduler evidence code (#185) and the strategy choice in the app option sheets (#186). The daily usage history change raises the Room schema to 14: it adds a 90 day usage history per app and day, filled at every statistics snapshot and at every kill and relaunch.
 
 None of these changes has been validated on a physical device. Local evidence is `./gradlew testDebugUnitTest lintDebug assembleDebug`.
 

@@ -387,16 +387,16 @@ public class AutoKillManager {
 
         List<String> snapshot = new ArrayList<>(new HashSet<>(recentlyKilled));
         long killedAt = System.currentTimeMillis();
-        relaunchHandler.postDelayed(() -> executor.execute(() -> {
+        relaunchHandler.postDelayed(() -> executeIfAlive(() -> {
             com.gree1d.reappzuku.db.AppDatabase db =
                     com.gree1d.reappzuku.db.AppDatabase.getInstance(context);
             List<String> stillStopped = new ArrayList<>(snapshot);
             stillStopped.removeAll(checkRelaunches(snapshot, db));
             if (stillStopped.isEmpty()) return;
             // Many apps come back through a job or an alarm later than a few seconds.
-            relaunchHandler.postDelayed(() -> executor.execute(() -> {
+            relaunchHandler.postDelayed(() -> executeIfAlive(() -> {
                 Map<String, Long> lastUsed = com.gree1d.reappzuku.core.UsageAccess
-                        .lastUsedByPackage(context, System.currentTimeMillis());
+                        .lastOpenedByPackage(context, System.currentTimeMillis());
                 // Without usage data an app the user opened in the meantime
                 // cannot be told from one that restarted itself.
                 if (lastUsed == null) return;
@@ -404,6 +404,15 @@ public class AutoKillManager {
                 checkRelaunches(stillStopped, db);
             }), RELAUNCH_LATE_CHECK_DELAY_MS - RELAUNCH_CHECK_DELAY_MS);
         }), RELAUNCH_CHECK_DELAY_MS);
+    }
+
+    /** The service shuts its executor down on destroy; a check that is still pending then is dropped. */
+    private void executeIfAlive(Runnable task) {
+        try {
+            executor.execute(task);
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            // Nothing left to record the result for.
+        }
     }
 
     private Set<String> checkRelaunches(List<String> recentlyKilled,
