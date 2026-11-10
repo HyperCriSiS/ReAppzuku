@@ -25,6 +25,10 @@ public interface ResourceSnapshotDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insert(ResourceSnapshot snapshot);
 
+    /** Room wraps a list insert in a single transaction. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void insertAll(List<ResourceSnapshot> snapshots);
+
     /** Returns the single most recent snapshot row (any package). */
     @Query("SELECT * FROM resource_snapshots ORDER BY timestamp DESC LIMIT 1")
     ResourceSnapshot getLatestSnapshot();

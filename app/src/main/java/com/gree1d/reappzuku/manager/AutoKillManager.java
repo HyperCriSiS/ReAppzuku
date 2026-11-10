@@ -134,7 +134,6 @@ public class AutoKillManager {
 
             Set<String> runningPackages = new HashSet<>();
             Map<String, Long> psRssMap = new HashMap<>();
-            Map<Integer, String> pidToPackage = new HashMap<>();
             PackageManager pm = context.getPackageManager();
 
             Map<String, List<Integer>> pidsByPackage = new HashMap<>();
@@ -165,53 +164,19 @@ public class AutoKillManager {
                 }
             }
 
-            if (!pidsByPackage.isEmpty()) {
-                int[] allPids = pidsByPackage.values().stream()
-                        .flatMap(List::stream)
-                        .mapToInt(Integer::intValue)
-                        .toArray();
-
-                List<com.gree1d.reappzuku.core.shell.ProcessMemoryInfo> memInfos =
-                        shellManager.getProcessMemoryInfo(allPids);
-
-
-
-                if (!memInfos.isEmpty()) {
-                    Map<Integer, Long> pssByPid = new HashMap<>();
-                    for (com.gree1d.reappzuku.core.shell.ProcessMemoryInfo info : memInfos) {
-                        pssByPid.put(info.pid, info.totalPssKb);
-                    }
-                    for (Map.Entry<String, List<Integer>> entry : pidsByPackage.entrySet()) {
-                        String packageName = entry.getKey();
-                        try {
-                            pm.getApplicationInfo(packageName, 0);
-                        } catch (PackageManager.NameNotFoundException ignored) {
-                            continue;
-                        }
-                        long total = 0;
-                        boolean anyResolved = false;
-                        for (int pid : entry.getValue()) {
-                            Long pss = pssByPid.get(pid);
-                            if (pss != null) {
-                                total += pss;
-                                anyResolved = true;
-                                pidToPackage.put(pid, packageName);
-                            } else {
-                                Long rss = psRssByPid.get(pid);
-                                if (rss != null) {
-                                    total += rss;
-                                    anyResolved = true;
-                                    pidToPackage.put(pid, packageName);
-
-                                }
-                            }
-                        }
-                        if (anyResolved) {
-                            runningPackages.add(packageName);
-                            psRssMap.put(packageName, total);
-                        }
-                    }
+            for (Map.Entry<String, List<Integer>> entry : pidsByPackage.entrySet()) {
+                String packageName = entry.getKey();
+                try {
+                    pm.getApplicationInfo(packageName, 0);
+                } catch (PackageManager.NameNotFoundException ignored) {
+                    continue;
                 }
+                long total = 0;
+                for (int pid : entry.getValue()) {
+                    total += psRssByPid.getOrDefault(pid, 0L);
+                }
+                runningPackages.add(packageName);
+                psRssMap.put(packageName, total);
             }
 
             if (runningPackages.isEmpty()) {
@@ -251,8 +216,6 @@ public class AutoKillManager {
             }
 
 
-
-            killOrphanShellProcesses(null);
 
             String currentKeyboard = ProtectedApps.getCurrentKeyboardPackage(context);
             String currentLauncher = ProtectedApps.getCurrentLauncherPackage(context);
@@ -326,6 +289,27 @@ public class AutoKillManager {
             if (!toKill.isEmpty()) {
                 recordSuccessfulKills(toKill, null, source);
 
+                // PSS costs one privileged query per process, so it is fetched only
+                // for the kill candidates. RSS from ps covers everything else.
+                Map<Integer, Long> pssByPid = new HashMap<>();
+                int[] killPids = toKill.stream()
+                        .flatMap(pkg -> pidsByPackage.getOrDefault(pkg, Collections.emptyList()).stream())
+                        .mapToInt(Integer::intValue)
+                        .toArray();
+                for (com.gree1d.reappzuku.core.shell.ProcessMemoryInfo info
+                        : shellManager.getProcessMemoryInfo(killPids)) {
+                    pssByPid.put(info.pid, info.totalPssKb);
+                }
+                if (!pssByPid.isEmpty()) {
+                    for (String pkg : toKill) {
+                        long total = 0;
+                        for (int pid : pidsByPackage.getOrDefault(pkg, Collections.emptyList())) {
+                            total += pssByPid.getOrDefault(pid, psRssByPid.getOrDefault(pid, 0L));
+                        }
+                        psRssMap.put(pkg, total);
+                    }
+                }
+
                 Map<String, Long> newPendingRss = new HashMap<>();
                 for (String pkg : toKill) {
                     long rssKb = psRssMap.getOrDefault(pkg, 0L);
@@ -357,6 +341,7 @@ public class AutoKillManager {
                     privilegedShell.killPackagesAndGetFullOutput(
                             amKillPackages, PrivilegedShell.KillMode.KILL);
                 }
+                killOrphanShellProcesses(new HashSet<>(toKill));
 
                 sendKillNotification(toKill.size());
 

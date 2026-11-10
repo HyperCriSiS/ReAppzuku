@@ -83,6 +83,41 @@ public class ShappkyService extends Service {
     private boolean managersInitialized = false;
     private boolean shizukuLostNotificationShown = false;
     private Runnable ramNotificationRunnable;
+    // The display loops below only refresh what the user can see, so they stop
+    // while the screen is off and resume on SCREEN_ON.
+    private boolean screenOff;
+    private final Runnable widgetRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!isRunning || screenOff) return;
+            AppzukuWidget.updateAllWidgetsFromJava(ShappkyService.this);
+            ramKillShortcutManager.updateShortcut();
+            handler.postDelayed(this, WIDGET_UPDATE_INTERVAL_MS);
+        }
+    };
+    private final Runnable rootCheckRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!isRunning || screenOff) return;
+
+            if (shellManager.hasRootAccess()) {
+                if (shizukuLostNotificationShown) {
+                    shizukuLostNotificationShown = false;
+                    cancelShizukuLostNotification();
+                }
+            }
+
+            handler.postDelayed(this, SHIZUKU_POLL_INTERVAL_MS);
+        }
+    };
+    private final Runnable periodicKillRunnable = this::runPeriodicKill;
+    private final SharedPreferences.OnSharedPreferenceChangeListener killPrefsListener = (prefs, key) -> {
+        if (KEY_AUTO_KILL_ENABLED.equals(key)
+                || KEY_PERIODIC_KILL_ENABLED.equals(key)
+                || KEY_KILL_INTERVAL.equals(key)) {
+            scheduleNextKill();
+        }
+    };
 
     public static boolean isRunning() {
         return isRunning;
@@ -106,7 +141,7 @@ public class ShappkyService extends Service {
         ramNotificationRunnable = new Runnable() {
             @Override
             public void run() {
-                if (ramNotificationRunnable != this) {
+                if (ramNotificationRunnable != this || screenOff) {
                     return;
                 }
                 executor.execute(() -> {
@@ -114,6 +149,8 @@ public class ShappkyService extends Service {
                     if (ram != null) {
                         updateRamMonitorNotification(ram[0], ram[1]);
                     }
+                    // A resume can post this runnable while a refresh is in flight.
+                    handler.removeCallbacks(this);
                     handler.postDelayed(this, RAM_NOTIFICATION_UPDATE_INTERVAL_MS);
                 });
             }
@@ -304,6 +341,9 @@ public class ShappkyService extends Service {
         additionalScenariosManager.updateHardwareReceiverState();
         ramKillShortcutManager = new RamKillShortcutManager(this, shellManager);
 
+        screenOff = !isScreenInteractive();
+        getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+                .registerOnSharedPreferenceChangeListener(killPrefsListener);
         scheduleNextKill();
         scheduler.scheduleNext();
 
@@ -409,6 +449,7 @@ public class ShappkyService extends Service {
                 break;
 
             case "SCREEN_OFF": {
+                syncDisplayLoopsWithScreen();
                 boolean enabled = sleepModeManager.isSleepModeEnabled();
                 boolean interactive = isScreenInteractive();
                 if (SleepModeLifecyclePolicy.shouldExecuteIdleFreeze(enabled, interactive)) {
@@ -423,6 +464,7 @@ public class ShappkyService extends Service {
             }
 
             case "SCREEN_ON":
+                syncDisplayLoopsWithScreen();
                 handler.postDelayed(() -> {
                     if (!managersInitialized || sleepModeManager == null) return;
                     if (!isScreenInteractive()) {
@@ -514,7 +556,11 @@ public class ShappkyService extends Service {
                 break;
 
             case "TAKE_SNAPSHOT":
-
+                if (!BackgroundWorkPolicy.shouldCollectSnapshot(isScreenInteractive(), isCharging())) {
+                    releaseSnapshotWakeLock();
+                    scheduleSnapshotAlarm();
+                    break;
+                }
                 collectStatsManager.takeSnapshotAsync(() -> {
                     releaseSnapshotWakeLock();
                     scheduleSnapshotAlarm();
@@ -530,6 +576,24 @@ public class ShappkyService extends Service {
     private boolean isScreenInteractive() {
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
         return pm != null && pm.isInteractive();
+    }
+
+    private boolean isCharging() {
+        android.os.BatteryManager bm =
+                (android.os.BatteryManager) getSystemService(Context.BATTERY_SERVICE);
+        return bm != null && bm.isCharging();
+    }
+
+    private void syncDisplayLoopsWithScreen() {
+        boolean wasOff = screenOff;
+        screenOff = !isScreenInteractive();
+        if (!wasOff || screenOff) return;
+        for (Runnable loop : new Runnable[] {ramNotificationRunnable, widgetRunnable, rootCheckRunnable}) {
+            if (loop != null) {
+                handler.removeCallbacks(loop);
+                handler.post(loop);
+            }
+        }
     }
 
     private void reconcileSleepModeLifecycle(String reason, boolean stopWhenNotRequiredAfterThaw) {
@@ -625,22 +689,7 @@ public class ShappkyService extends Service {
     }
 
     private void scheduleRootOnlyCheck() {
-
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if (!isRunning) return;
-
-                if (shellManager.hasRootAccess()) {
-                    if (shizukuLostNotificationShown) {
-                        shizukuLostNotificationShown = false;
-                        cancelShizukuLostNotification();
-                    }
-                }
-
-                handler.postDelayed(this, SHIZUKU_POLL_INTERVAL_MS);
-            }
-        }, SHIZUKU_POLL_INTERVAL_MS);
+        handler.postDelayed(rootCheckRunnable, SHIZUKU_POLL_INTERVAL_MS);
     }
 
     private void sendShizukuLostNotification() {
@@ -722,10 +771,11 @@ public class ShappkyService extends Service {
         }
         PendingIntent pendingIntent = getHeartbeatAlarmIntent();
         long triggerAt = System.currentTimeMillis() + HEARTBEAT_INTERVAL_MS;
+        // Non-wakeup: a due alarm is delivered the next time the device is awake.
         if (canScheduleExactAlarms()) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC, triggerAt, pendingIntent);
         } else {
-            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC, triggerAt, pendingIntent);
 
         }
 
@@ -823,10 +873,11 @@ public class ShappkyService extends Service {
         long now = System.currentTimeMillis();
         long triggerAt = now + SNAPSHOT_INTERVAL_MS;
         PendingIntent pi = getSnapshotAlarmIntent();
+        // Non-wakeup: a due alarm is delivered the next time the device is awake.
         if (canScheduleExactAlarms()) {
-            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
+            am.setExactAndAllowWhileIdle(AlarmManager.RTC, triggerAt, pi);
         } else {
-            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
+            am.setAndAllowWhileIdle(AlarmManager.RTC, triggerAt, pi);
 
         }
 
@@ -855,63 +906,61 @@ public class ShappkyService extends Service {
     }
 
     private void scheduleWidgetUpdate() {
-        Runnable widgetRunnable = new Runnable() {
-            @Override
-            public void run() {
-                if (!isRunning) return;
-                AppzukuWidget.updateAllWidgetsFromJava(ShappkyService.this);
-                ramKillShortcutManager.updateShortcut();
-                handler.postDelayed(this, WIDGET_UPDATE_INTERVAL_MS);
-            }
-        };
         handler.post(widgetRunnable);
     }
 
     private void scheduleNextKill() {
+        handler.removeCallbacks(periodicKillRunnable);
+        if (!isRunning)
+            return;
+
+        // No timer runs while periodic kill is off; killPrefsListener restarts it.
+        SharedPreferences prefs = getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
+        if (!prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false)
+                || !prefs.getBoolean(KEY_PERIODIC_KILL_ENABLED, false)) {
+            return;
+        }
+        handler.postDelayed(periodicKillRunnable, KillIntervalPolicy.clampServiceIntervalMs(
+                prefs.getInt(KEY_KILL_INTERVAL, DEFAULT_KILL_INTERVAL_MS)));
+    }
+
+    private void runPeriodicKill() {
         if (!isRunning)
             return;
 
         SharedPreferences prefs = getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
-        int killInterval = KillIntervalPolicy.clampServiceIntervalMs(
-                prefs.getInt(KEY_KILL_INTERVAL, DEFAULT_KILL_INTERVAL_MS));
+        executor.execute(() -> {
+            boolean autoKillEnabled = prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false);
+            boolean periodicKillEnabled = prefs.getBoolean(KEY_PERIODIC_KILL_ENABLED, false);
+            boolean ramThresholdEnabled = prefs.getBoolean(KEY_RAM_THRESHOLD_ENABLED, false);
 
-        handler.postDelayed(() -> {
-            if (!isRunning)
-                return;
+            if (autoKillEnabled && periodicKillEnabled) {
+                if (ramThresholdEnabled) {
+                    int threshold = prefs.getInt(KEY_RAM_THRESHOLD, DEFAULT_RAM_THRESHOLD_PERCENT);
+                    int ramPercent = getCurrentRamUsagePercent();
 
-            executor.execute(() -> {
-                boolean autoKillEnabled = prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false);
-                boolean periodicKillEnabled = prefs.getBoolean(KEY_PERIODIC_KILL_ENABLED, false);
-                boolean ramThresholdEnabled = prefs.getBoolean(KEY_RAM_THRESHOLD_ENABLED, false);
-
-                if (autoKillEnabled && periodicKillEnabled) {
-                    if (ramThresholdEnabled) {
-                        int threshold = prefs.getInt(KEY_RAM_THRESHOLD, DEFAULT_RAM_THRESHOLD_PERCENT);
-                        int ramPercent = getCurrentRamUsagePercent();
-
-                        if (ramPercent >= threshold) {
-
-                            autoKillManager.performAutoKill(
-                                    () -> handler.post(this::scheduleNextKill),
-                                    resolveKillSource("Service Periodic Kill"),
-                                    AppPolicy.TRIGGER_RAM_THRESHOLD);
-                        } else {
-
-                            handler.post(this::scheduleNextKill);
-                        }
-                    } else {
+                    if (ramPercent >= threshold) {
 
                         autoKillManager.performAutoKill(
                                 () -> handler.post(this::scheduleNextKill),
                                 resolveKillSource("Service Periodic Kill"),
-                                AppPolicy.TRIGGER_PERIODIC);
+                                AppPolicy.TRIGGER_RAM_THRESHOLD);
+                    } else {
+
+                        handler.post(this::scheduleNextKill);
                     }
                 } else {
 
-                    handler.post(this::scheduleNextKill);
+                    autoKillManager.performAutoKill(
+                            () -> handler.post(this::scheduleNextKill),
+                            resolveKillSource("Service Periodic Kill"),
+                            AppPolicy.TRIGGER_PERIODIC);
                 }
-            });
-        }, killInterval);
+            } else {
+
+                handler.post(this::scheduleNextKill);
+            }
+        });
     }
 
     private int getCurrentRamUsagePercent() {
@@ -962,6 +1011,8 @@ public class ShappkyService extends Service {
         cancelShizukuLostNotification();
 
         unregisterShizukuBinderListeners();
+        getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+                .unregisterOnSharedPreferenceChangeListener(killPrefsListener);
 
         stopRamMonitorNotification();
         if (screenOffReceiver != null) {

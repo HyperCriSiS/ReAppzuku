@@ -274,6 +274,7 @@ public class CollectStatsManager {
             double totalRawPwiBatch = 0;
             for (double v : batteryMahByPkg.values()) totalRawPwiBatch += v;
 
+            List<ResourceSnapshot> snapshots = new ArrayList<>(allPkgs.size());
             for (String pkg : allPkgs) {
                 ResourceSnapshot snap  = new ResourceSnapshot();
                 snap.timestamp         = now;
@@ -285,8 +286,9 @@ public class CollectStatsManager {
                 snap.activeCpuJiffies  = jiffies[1];
                 snap.batteryLevelPct   = batteryLevel;
                 snap.totalRawPwiBatch  = totalRawPwiBatch;
-                getDao().insert(snap);
+                snapshots.add(snap);
             }
+            getDao().insertAll(snapshots);
 
             saveLastSnapshotMs(now);
 
