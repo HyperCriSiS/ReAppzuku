@@ -102,5 +102,6 @@ public final class PreferenceKeys {
     public static final String KEY_SMART_LAST_FOREGROUND_PREFIX = "smart_last_foreground_";
     public static final String KEY_SMART_BACKGROUND_SINCE_PREFIX = "smart_background_since_";
     public static final String KEY_SMART_STANDBY_APPLIED_PREFIX = "smart_standby_applied_";
+    public static final String KEY_SMART_USAGE_CLOCK = "smart_usage_clock";
 
 }
