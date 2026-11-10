@@ -22,10 +22,18 @@ public final class AppPolicyQuickChoice {
     public static void apply(Context context, String packageName, int strategy) {
         AppDatabase database = AppDatabase.getInstance(context);
         PolicyPresetSeeder.seedBuiltIns(database);
+        AppPolicy existing = database.appPolicyDao().getByPackage(packageName);
         AppPolicy policy = AppPolicyEditorModel.withStrategy(
-                database.appPolicyDao().getByPackage(packageName), packageName, strategy,
+                existing, packageName, strategy,
                 database.policyPresetDao().getById(PolicyPresetSeeder.PRESET_BALANCED),
                 System.currentTimeMillis());
+        if (policy != existing) {
+            // A new policy stops apps the way the global setting does.
+            policy.killMethod = context.getSharedPreferences(
+                    PreferenceKeys.PREFERENCES_NAME, Context.MODE_PRIVATE)
+                    .getInt(PreferenceKeys.KEY_AUTO_KILL_TYPE, 0) == 1
+                    ? AppPolicy.KILL_METHOD_AM_KILL : AppPolicy.KILL_METHOD_FORCE_STOP;
+        }
         // The restriction screens own this level; the choice must not change it.
         policy.backgroundRestriction =
                 BackgroundAppManager.storedRestrictionLevel(context, packageName);

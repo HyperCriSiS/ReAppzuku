@@ -82,4 +82,12 @@ public final class AppPolicyListState {
         if ((mask & FILTER_PROTECTED) != 0 && safeStatus == STATUS_PROTECTED) return true;
         return (mask & FILTER_NEEDS_SETUP) != 0 && safeStatus == STATUS_NEEDS_SETUP;
     }
+
+    /**
+     * A protected policy locks its row in the app list: no kill button and no
+     * selection. Fail-safe packages are locked by their own flag.
+     */
+    public static boolean locksRow(int status, boolean failSafeProtected) {
+        return !failSafeProtected && status == STATUS_PROTECTED;
+    }
 }

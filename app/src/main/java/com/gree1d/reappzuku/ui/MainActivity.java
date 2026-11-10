@@ -103,6 +103,7 @@ public class MainActivity extends BaseActivity {
     private int currentPolicyFilterMask = AppPolicyListState.FILTER_NONE;
     private MenuItem selectAllMenuItem;
     private volatile boolean loadInFlight = false;
+    private volatile boolean reloadRequested = false;
     private volatile boolean shellPreparationInFlight = false;
     private Snackbar shellAccessSnackbar;
 
@@ -406,7 +407,8 @@ public class MainActivity extends BaseActivity {
 
             AppOptionsBottomSheet sheet = AppOptionsBottomSheet.newInstance(
                     app,
-                    app.getPolicyListStatus(),
+                    // A persistent app stays protected whatever its policy says.
+                    app.isPersistentApp() ? -1 : app.getPolicyListStatus(),
                     appManager.getHiddenApps().contains(packageName),
                     appManager.supportsBackgroundRestriction(),
                     getBackgroundRestrictionMenuTitle(app),
@@ -942,7 +944,8 @@ public class MainActivity extends BaseActivity {
         }
 
         if (loadInFlight) {
-
+            // The running load may have read older data; run once more when it ends.
+            reloadRequested = true;
             return;
         }
         loadInFlight = true;
@@ -968,6 +971,10 @@ public class MainActivity extends BaseActivity {
                         applyPolicyListState(fullResult, policySnapshot);
                         applyLoadedAppsList(fullResult, selectedPackages, /* finished= */ true);
                         loadInFlight = false;
+                        if (reloadRequested) {
+                            reloadRequested = false;
+                            loadBackgroundApps();
+                        }
                     });
         });
     }
@@ -979,10 +986,8 @@ public class MainActivity extends BaseActivity {
             boolean failSafe = app.isProtected() || app.isPersistentApp();
             app.setPolicyListStatus(policySnapshot.resolveStatus(
                     app.getPackageName(), failSafe));
-            // A protected policy locks the row the way the legacy whitelist did.
-            if (!failSafe && app.getPolicyListStatus() == AppPolicyListState.STATUS_PROTECTED) {
-                app.setWhitelisted(true);
-            }
+            // The lock follows the effective policy, not the legacy whitelist entry.
+            app.setWhitelisted(AppPolicyListState.locksRow(app.getPolicyListStatus(), failSafe));
         }
     }
 

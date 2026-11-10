@@ -969,23 +969,12 @@ public class SettingsActivity extends SettingsActivityDialogs
     protected void applyAutomationStateFromPreferences() {
         boolean automationEnabled = sharedPreferences.getBoolean(KEY_AUTO_KILL_ENABLED, false);
         if (automationEnabled) {
-            int killMode = sharedPreferences.getInt(KEY_KILL_MODE, DEFAULT_KILL_MODE);
-            Set<String> whitelistedApps = sharedPreferences.getStringSet(KEY_WHITELISTED_APPS, new HashSet<>());
-            if (killMode == 0 && whitelistedApps.isEmpty()) {
-                sharedPreferences.edit()
-                        .putBoolean(KEY_AUTO_KILL_ENABLED, false)
-                        .putBoolean(AutomationScheduleManager.LEGACY_BACKUP_PREFIX + KEY_AUTO_KILL_ENABLED, false)
-                        .apply();
-                if (binding.switchAutoKill != null) binding.switchAutoKill.setChecked(false);
-                resetDialogButtonColors(new MaterialAlertDialogBuilder(this)
-                        .setTitle(R.string.dialog_unsafe_whitelist_title)
-                        .setMessage(R.string.dialog_unsafe_whitelist_message)
-                        .setPositiveButton(R.string.dialog_unsafe_whitelist_ok, (dialog, which) -> dialog.dismiss())
-                        .setCancelable(false)
-                        .show());
-                stopService(new Intent(this, ShappkyService.class));
-                AutoKillWorker.cancel(this);
-                return;
+            // Whitelist mode with an empty whitelist targets every app, and no screen
+            // edits that list any more. Leave the mode instead of blocking automation:
+            // per-app policies decide what is protected.
+            if (sharedPreferences.getInt(KEY_KILL_MODE, DEFAULT_KILL_MODE) == 0
+                    && sharedPreferences.getStringSet(KEY_WHITELISTED_APPS, new HashSet<>()).isEmpty()) {
+                sharedPreferences.edit().putInt(KEY_KILL_MODE, DEFAULT_KILL_MODE).apply();
             }
             startAutomationService();
             AutoKillWorker.schedule(this, "Periodic Kill");

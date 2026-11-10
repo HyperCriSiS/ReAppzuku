@@ -146,9 +146,6 @@
     <string name="app_ram_label">RAM: %1$s</string>
 
     <!-- Unsafe whitelist dialog -->
-    <string name="dialog_unsafe_whitelist_title">Unsafe Configuration</string>
-    <string name="dialog_unsafe_whitelist_message">Whitelist mode is selected, but whitelist is empty. In Root mode this will kill all system processes, causing a reboot (Kernel/System panic). Add essential apps to whitelist first.</string>
-    <string name="dialog_unsafe_whitelist_ok">Got it</string>
 
     <!-- Bottom Navigation -->
     <string name="nav_main">Main</string>

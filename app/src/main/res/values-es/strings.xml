@@ -133,9 +133,6 @@
     <string name="app_ram_label">RAM: %1$s</string>
 
     <!-- Unsafe whitelist dialog -->
-    <string name="dialog_unsafe_whitelist_title">Configuración insegura</string>
-    <string name="dialog_unsafe_whitelist_message">El modo de lista blanca está seleccionado, pero la lista está vacía. En modo Root, esto cerrará todos los procesos del sistema, provocando un reinicio (pánico del Kernel/Sistema). Añade primero las apps esenciales a la lista blanca.</string>
-    <string name="dialog_unsafe_whitelist_ok">Entendido</string>
 
     <!-- Bottom Navigation -->
     <string name="nav_main">Principal</string>

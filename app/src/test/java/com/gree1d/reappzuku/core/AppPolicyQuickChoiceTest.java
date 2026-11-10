@@ -44,7 +44,7 @@ public class AppPolicyQuickChoiceTest {
         AppPolicy policy = AppPolicyEditorModel.withStrategy(
                 null, PKG, AppPolicy.STRATEGY_IMMEDIATE, balanced(), 100L);
         assertEquals(AppPolicy.STRATEGY_IMMEDIATE, policy.strategy);
-        assertEquals(AppPolicyEditorModel.ALL_TRIGGER_BITS, policy.triggerMask);
+        assertEquals(AppPolicyEditorModel.IMMEDIATE_TRIGGER_BITS, policy.triggerMask);
         assertTrue(AppPolicyResolver.shouldExecuteImmediate(policy, null, AppPolicy.TRIGGER_PERIODIC));
     }
 
@@ -89,7 +89,70 @@ public class AppPolicyQuickChoiceTest {
         existing.strategy = AppPolicy.STRATEGY_PROTECTED;
         AppPolicy policy = AppPolicyEditorModel.withStrategy(
                 existing, PKG, AppPolicy.STRATEGY_IMMEDIATE, null, 100L);
-        assertEquals(AppPolicyEditorModel.ALL_TRIGGER_BITS, policy.triggerMask);
+        assertEquals(AppPolicyEditorModel.IMMEDIATE_TRIGGER_BITS, policy.triggerMask);
+    }
+
+    @Test
+    public void bootOnlyTriggersDoNotCountForImmediate() {
+        AppPolicy existing = new AppPolicy(PKG);
+        existing.strategy = AppPolicy.STRATEGY_SMART;
+        existing.presetId = PolicyPresetSeeder.PRESET_BALANCED;
+        existing.triggerMask = AppPolicy.TRIGGER_BOOT_CLEANUP;
+        AppPolicy policy = AppPolicyEditorModel.withStrategy(
+                existing, PKG, AppPolicy.STRATEGY_IMMEDIATE, balanced(), 100L);
+        for (long trigger : new long[] {AppPolicy.TRIGGER_PERIODIC, AppPolicy.TRIGGER_SCREEN_OFF,
+                AppPolicy.TRIGGER_RAM_THRESHOLD, AppPolicy.TRIGGER_HARDWARE_EVENT,
+                AppPolicy.TRIGGER_APP_LAUNCH}) {
+            assertTrue(AppPolicyResolver.shouldExecuteImmediate(policy, null, trigger));
+        }
+        assertTrue((policy.triggerMask & AppPolicy.TRIGGER_BOOT_CLEANUP) != 0L);
+    }
+
+    @Test
+    public void newAppPlaceholderIsTreatedLikeNoPolicy() {
+        AppPolicy placeholder = AppPolicyEditorModel.defaultPolicy(PKG, 5L);
+        placeholder.customized = true;
+        AppPolicy policy = AppPolicyEditorModel.withStrategy(
+                placeholder, PKG, AppPolicy.STRATEGY_SMART, balanced(), 100L);
+        assertEquals(Long.valueOf(PolicyPresetSeeder.PRESET_BALANCED), policy.presetId);
+        assertTrue(AppPolicyResolver.shouldExecuteSmart(policy, null, true));
+        assertEquals(5L, policy.createdAt);
+    }
+
+    @Test
+    public void policyWithoutPresetCountsAsCustomized() {
+        assertTrue(AppPolicyEditorModel.withStrategy(
+                null, PKG, AppPolicy.STRATEGY_PROTECTED, balanced(), 100L).customized);
+    }
+
+    @Test
+    public void lockFollowsTheEffectivePolicyNotTheLegacyWhitelist() throws Exception {
+        assertTrue(AppPolicyListState.locksRow(AppPolicyListState.STATUS_PROTECTED, false));
+        assertFalse(AppPolicyListState.locksRow(AppPolicyListState.STATUS_PROTECTED, true));
+        assertFalse(AppPolicyListState.locksRow(AppPolicyListState.STATUS_IMMEDIATE, false));
+        assertFalse(AppPolicyListState.locksRow(AppPolicyListState.STATUS_UNMANAGED, false));
+        String main = read("app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java");
+        assertTrue(main.contains(
+                "app.setWhitelisted(AppPolicyListState.locksRow(app.getPolicyListStatus(), failSafe));"));
+        // A reload requested during a running load is not dropped.
+        assertTrue(main.contains("reloadRequested = true;"));
+    }
+
+    @Test
+    public void strategyRowHandlesStatusesWithoutAStrategy() throws Exception {
+        String row = read("app/src/main/java/com/gree1d/reappzuku/ui/PolicyStrategyRow.java");
+        assertTrue(row.contains("int[] current = {status < names.length ? status : -1};"));
+        assertTrue(row.contains("row.setVisibility(View.GONE);"));
+        String detail = read("app/src/main/java/com/gree1d/reappzuku/ui/AppResourceDetailActivity.java");
+        assertTrue(detail.contains("getSupportFragmentManager().isStateSaved()"));
+        assertTrue(detail.contains("if (sheetLoading) return;"));
+    }
+
+    @Test
+    public void emptyWhitelistModeNoLongerBlocksAutomation() throws Exception {
+        String settings = read("app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivity.java");
+        assertFalse(settings.contains("dialog_unsafe_whitelist"));
+        assertTrue(settings.contains("putInt(KEY_KILL_MODE, DEFAULT_KILL_MODE)"));
     }
 
     @Test

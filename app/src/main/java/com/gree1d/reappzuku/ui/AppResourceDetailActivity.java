@@ -199,15 +199,22 @@ public class AppResourceDetailActivity extends BaseActivity {
         final int sheetAccent = accentColor;
 
         // The current strategy comes from the database, so the sheet opens after that read.
+        if (sheetLoading) return;
+        sheetLoading = true;
         executor.execute(() -> {
-            int status = AppPolicyListSnapshot.capture(getApplicationContext())
-                    .resolveStatus(pkg, false);
+            int status = app.isPersistentApp() ? -1
+                    : AppPolicyListSnapshot.capture(getApplicationContext()).resolveStatus(pkg, false);
             handler.post(() -> {
-                if (isFinishing() || isDestroyed()) return;
+                sheetLoading = false;
+                // Showing a fragment after the state was saved throws.
+                if (isFinishing() || isDestroyed()
+                        || getSupportFragmentManager().isStateSaved()) return;
                 showStatsAppOptionsSheet(app, pkg, status, sheetAccent);
             });
         });
     }
+
+    private boolean sheetLoading;
 
     private void showStatsAppOptionsSheet(AppModel app, String pkg, int strategy, int accentColor) {
         StatsAppOptionsBottomSheet sheet = StatsAppOptionsBottomSheet.newInstance(

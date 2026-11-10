@@ -127,9 +127,6 @@
     <string name="app_ram_label">ОЗП: %1$s</string>
 
     <!-- Діалог небезпечної конфігурації whitelist -->
-    <string name="dialog_unsafe_whitelist_title">Небезпечна конфігурація</string>
-    <string name="dialog_unsafe_whitelist_message">Ви обрали режим Білий список, але ваш список порожній. У режимі Root це призведе до спроби завершення всіх системних процесів, що викличе перезавантаження пристрою (Kernel/System panic). Спочатку додайте важливі застосунки до білого списку.</string>
-    <string name="dialog_unsafe_whitelist_ok">Зрозуміло</string>
 
     <!-- Нижня навігація -->
     <string name="nav_main">Головна</string>

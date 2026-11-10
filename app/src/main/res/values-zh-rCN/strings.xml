@@ -132,9 +132,6 @@
     <string name="app_ram_label">RAM：%1$s</string>
 
     <!-- Unsafe whitelist dialog -->
-    <string name="dialog_unsafe_whitelist_title">不安全的配置</string>
-    <string name="dialog_unsafe_whitelist_message">已选择白名单模式，但白名单为空。在 Root 模式下，这将终止所有系统进程，导致重启（内核/系统崩溃）。请先将必要应用添加到白名单。</string>
-    <string name="dialog_unsafe_whitelist_ok">知道了</string>
 
     <!-- Bottom Navigation -->
     <string name="nav_main">主页</string>

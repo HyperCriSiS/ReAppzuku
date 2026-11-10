@@ -15,13 +15,20 @@ final class PolicyStrategyRow {
     }
 
     /**
-     * @param status a strategy, or a list status without a strategy of its
-     *               own (needs setup), which is shown as unmanaged
+     * @param status a strategy; a list status without a strategy of its own
+     *               (needs setup), for which every choice is a change; or a
+     *               negative value when the app cannot be managed, which
+     *               hides the row
      */
     static void bind(View row, TextView value, int status, IntConsumer onChosen) {
+        if (status < 0) {
+            row.setVisibility(View.GONE);
+            return;
+        }
         String[] names = row.getResources().getStringArray(R.array.policy_editor_strategies);
-        int[] current = {status >= 0 && status < names.length ? status : 0};
-        value.setText(names[current[0]]);
+        int[] current = {status < names.length ? status : -1};
+        value.setText(current[0] >= 0 ? names[current[0]]
+                : row.getResources().getString(R.string.policy_badge_needs_setup));
         row.setOnClickListener(v -> new MaterialAlertDialogBuilder(row.getContext())
                 .setTitle(R.string.policy_editor_strategy)
                 .setSingleChoiceItems(names, current[0], (dialog, which) -> {
