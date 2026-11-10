@@ -59,6 +59,7 @@ import java.util.Locale;
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 
+import com.gree1d.reappzuku.core.FirstRunPolicy;
 import com.gree1d.reappzuku.core.SuggestionLoader;
 import com.gree1d.reappzuku.core.AppPolicyQuickChoice;
 import com.gree1d.reappzuku.core.ShellManager;
@@ -980,6 +981,25 @@ public class MainActivity extends BaseActivity {
         });
     }
 
+    /**
+     * Setup is offered as a line above the list on a fresh install. It is not
+     * opened on its own: the app is usable without it.
+     */
+    private void updateFirstRunCard() {
+        boolean offer = false;
+        try {
+            android.content.pm.PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
+            offer = FirstRunPolicy.shouldOffer(
+                    sharedPreferences.getBoolean(KEY_FIRST_RUN_DONE, false),
+                    info.firstInstallTime, info.lastUpdateTime);
+        } catch (PackageManager.NameNotFoundException e) {
+            // Cannot happen for the own package; without the times nothing is offered.
+        }
+        binding.firstRunCard.setVisibility(offer ? View.VISIBLE : View.GONE);
+        binding.firstRunCard.setOnClickListener(v ->
+                startActivity(new Intent(this, FirstRunActivity.class)));
+    }
+
     /** One line above the list while there is something to recommend; it opens the full screen. */
     private void updateRecommendationsCard() {
         executor.execute(() -> {
@@ -1143,6 +1163,7 @@ public class MainActivity extends BaseActivity {
         loadBackgroundApps();
         // Queued behind the list load, which shares the executor.
         updateRecommendationsCard();
+        updateFirstRunCard();
         cpuMonitor.startMonitoring();
     }
 

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="first_run_title">Setup</string>
+    <string name="first_run_subtitle">Access mode and how new apps are handled</string>
+    <string name="first_run_card">Get started: check access and choose how new apps are handled</string>
+    <string name="first_run_new_apps_title">Newly installed apps</string>
+    <string name="first_run_new_apps_intro">What should happen when you install an app? You can change this at any time.</string>
+    <string name="first_run_choice_ask">Ask me\nYou get a notification after each install and decide for that app.</string>
+    <string name="first_run_choice_gentle">Gentle\nStandby after 4 hours without use. Never stopped, so alarms and messages keep working.</string>
+    <string name="first_run_choice_balanced">Balanced\nStandby after 1 hour without use, stopped after 6 hours. Saves more, but a stopped app cannot notify you until you open it.</string>
+    <string name="first_run_existing_apps_note">Apps that are already installed are not changed here. Recommendations for them appear after a few days of statistics.</string>
+    <string name="first_run_done">Done</string>
+    <string name="first_run_later">Not now</string>
+</resources>

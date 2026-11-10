@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="first_run_title">初始设置</string>
+    <string name="first_run_subtitle">访问模式以及新应用的处理方式</string>
+    <string name="first_run_card">开始使用：检查访问权限并选择新应用的处理方式</string>
+    <string name="first_run_new_apps_title">新安装的应用</string>
+    <string name="first_run_new_apps_intro">安装应用后应如何处理？您可以随时更改。</string>
+    <string name="first_run_choice_ask">询问我\n每次安装后您会收到通知，并为该应用做出决定。</string>
+    <string name="first_run_choice_gentle">温和\n4 小时未使用后进入待机。不会被停止，因此闹钟和消息照常工作。</string>
+    <string name="first_run_choice_balanced">均衡\n1 小时未使用后进入待机，6 小时后停止。更省电，但被停止的应用在您打开之前无法通知您。</string>
+    <string name="first_run_existing_apps_note">此处不会更改已安装的应用。积累几天的统计数据后会出现针对它们的建议。</string>
+    <string name="first_run_done">完成</string>
+    <string name="first_run_later">暂不</string>
+</resources>

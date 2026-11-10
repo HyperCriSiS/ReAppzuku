@@ -895,44 +895,12 @@ public class SettingsActivity extends SettingsActivityDialogs
         Toast.makeText(this, getString(R.string.settings_requires_service_enabled), Toast.LENGTH_SHORT).show();
     }
 
-    private String describeLimits(CapabilityMatrix matrix) {
-        StringBuilder limits = new StringBuilder();
-        for (CapabilityMatrix.Feature feature : new CapabilityMatrix.Feature[] {
-                CapabilityMatrix.Feature.KILL_APPS,
-                CapabilityMatrix.Feature.BACKGROUND_RESTRICTION,
-                CapabilityMatrix.Feature.MEMORY_PSS,
-                CapabilityMatrix.Feature.EXACT_ALARMS}) {
-            int reason;
-            switch (matrix.of(feature)) {
-                case UNAVAILABLE_NEEDS_PRIVILEGE:
-                    // Every intervention shares this reason; say it once.
-                    if (feature != CapabilityMatrix.Feature.KILL_APPS) continue;
-                    reason = R.string.capability_needs_privilege;
-                    break;
-                case UNAVAILABLE_NEEDS_ANDROID_11: reason = R.string.capability_needs_android_11; break;
-                case DEGRADED_RSS_ONLY: reason = R.string.capability_rss_only; break;
-                case DEGRADED_INEXACT_ALARMS: reason = R.string.capability_inexact_alarms; break;
-                default: continue;
-            }
-            if (limits.length() > 0) limits.append('\n');
-            limits.append(getString(reason));
-        }
-        return limits.length() > 0 ? limits.toString() : getString(R.string.capability_all_available);
-    }
-
     private void updateShellModeText() {
         executor.execute(() -> {
             final CapabilityMatrix matrix = CapabilityMatrix.current(this, shellManager);
             final boolean privileged = matrix.mode() != CapabilityMatrix.Mode.NONE;
-            final String text;
-            if (matrix.mode() == CapabilityMatrix.Mode.ROOT) {
-                text = getString(R.string.settings_shell_root_ok);
-            } else if (privileged) {
-                text = getString(R.string.settings_shell_shizuku_ok);
-            } else {
-                text = getString(R.string.settings_shell_no_access);
-            }
-            final String limits = describeLimits(matrix);
+            final String text = CapabilityText.mode(this, matrix);
+            final String limits = CapabilityText.limits(this, matrix);
             handler.post(() -> {
                 if (binding == null) return;
                 binding.textShellMode.setText(text);
@@ -1007,6 +975,8 @@ public class SettingsActivity extends SettingsActivityDialogs
                 startActivity(new Intent(this, NewAppSetupSettingsActivity.class)));
         binding.layoutRecommendations.setOnClickListener(v ->
                 startActivity(new Intent(this, RecommendationsActivity.class)));
+        binding.layoutFirstRun.setOnClickListener(v ->
+                startActivity(new Intent(this, FirstRunActivity.class)));
         binding.layoutAddShortcut.setOnClickListener(v -> ramKillShortcutManager.requestPinShortcut());
     }
 }

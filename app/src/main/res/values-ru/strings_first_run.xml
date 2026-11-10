@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="first_run_title">Настройка</string>
+    <string name="first_run_subtitle">Режим доступа и обработка новых приложений</string>
+    <string name="first_run_card">Начало работы: проверьте доступ и выберите, как обрабатывать новые приложения</string>
+    <string name="first_run_new_apps_title">Недавно установленные приложения</string>
+    <string name="first_run_new_apps_intro">Что должно происходить при установке приложения? Это можно изменить в любой момент.</string>
+    <string name="first_run_choice_ask">Спрашивать\nПосле каждой установки вы получаете уведомление и решаете для этого приложения.</string>
+    <string name="first_run_choice_gentle">Мягко\nРежим ожидания после 4 часов без использования. Никогда не останавливается, поэтому будильники и сообщения продолжают работать.</string>
+    <string name="first_run_choice_balanced">Сбалансированно\nРежим ожидания после 1 часа без использования, остановка через 6 часов. Экономит больше, но остановленное приложение не сможет уведомлять вас, пока вы его не откроете.</string>
+    <string name="first_run_existing_apps_note">Уже установленные приложения здесь не изменяются. Рекомендации для них появятся через несколько дней сбора статистики.</string>
+    <string name="first_run_done">Готово</string>
+    <string name="first_run_later">Не сейчас</string>
+</resources>

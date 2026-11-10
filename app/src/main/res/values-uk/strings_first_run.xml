@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="first_run_title">Налаштування</string>
+    <string name="first_run_subtitle">Режим доступу та обробка нових застосунків</string>
+    <string name="first_run_card">Початок роботи: перевірте доступ і виберіть, як обробляти нові застосунки</string>
+    <string name="first_run_new_apps_title">Щойно встановлені застосунки</string>
+    <string name="first_run_new_apps_intro">Що має відбуватися, коли ви встановлюєте застосунок? Це можна змінити будь-коли.</string>
+    <string name="first_run_choice_ask">Запитувати\nПісля кожного встановлення ви отримуєте сповіщення і вирішуєте для цього застосунку.</string>
+    <string name="first_run_choice_gentle">М\'яко\nРежим очікування після 4 годин без використання. Ніколи не зупиняється, тому будильники та повідомлення працюють далі.</string>
+    <string name="first_run_choice_balanced">Збалансовано\nРежим очікування після 1 години без використання, зупинка через 6 годин. Заощаджує більше, але зупинений застосунок не зможе сповіщати вас, доки ви його не відкриєте.</string>
+    <string name="first_run_existing_apps_note">Уже встановлені застосунки тут не змінюються. Рекомендації для них з\'являться за кілька днів збирання статистики.</string>
+    <string name="first_run_done">Готово</string>
+    <string name="first_run_later">Не зараз</string>
+</resources>
