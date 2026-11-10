@@ -81,7 +81,7 @@ public class ShappkyBackgroundKillTile extends TileService {
 
                 handler.post(() -> {
                     shellManager.checkShellPermissions();
-                    Toast.makeText(this, "Shizuku or Root permission required", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(com.gree1d.reappzuku.R.string.settings_requires_privilege), Toast.LENGTH_SHORT).show();
                     updateTileState();
                 });
                 return;
