@@ -487,15 +487,14 @@ public class SettingsActivity extends SettingsActivityDialogs
         binding.layoutHiddenApps.setOnClickListener(v -> showHiddenAppsDialog());
 
 
-        binding.layoutBackgroundRestriction.setVisibility(
-                appManager.supportsBackgroundRestriction() ? View.VISIBLE : View.GONE);
+        // Unsupported rows stay visible and explain themselves instead of vanishing.
         binding.layoutBackgroundRestriction.setOnClickListener(v -> {
+            if (!appManager.supportsBackgroundRestriction()) { showRequiresAndroid11Toast(); return; }
             if (!isServiceEnabled()) { showServiceRequiredToast(); return; }
             showBackgroundRestrictionDialog();
         });
-        binding.layoutReapplyRestrictions.setVisibility(
-                appManager.supportsBackgroundRestriction() ? View.VISIBLE : View.GONE);
         binding.layoutReapplyRestrictions.setOnClickListener(v -> {
+            if (!appManager.supportsBackgroundRestriction()) { showRequiresAndroid11Toast(); return; }
             if (!isServiceEnabled()) { showServiceRequiredToast(); return; }
             Set<String> savedRestrictions = appManager.getBackgroundRestrictedApps();
             if (savedRestrictions.isEmpty()) {
@@ -801,9 +800,10 @@ public class SettingsActivity extends SettingsActivityDialogs
 
         binding.layoutAutoKillType.setAlpha(alpha);
 
+        float restrictionAlpha = appManager.supportsBackgroundRestriction() ? alpha : 0.5f;
+        binding.layoutBackgroundRestriction.setAlpha(restrictionAlpha);
+        binding.layoutReapplyRestrictions.setAlpha(restrictionAlpha);
         if (appManager.supportsBackgroundRestriction()) {
-            binding.layoutBackgroundRestriction.setAlpha(alpha);
-            binding.layoutReapplyRestrictions.setAlpha(alpha);
             binding.layoutRestrictionsScheduler.setAlpha(alpha);
         }
 
@@ -885,6 +885,10 @@ public class SettingsActivity extends SettingsActivityDialogs
         editor.putInt(key, value);
         if (isAutomationScheduleActive()) editor.putInt(AutomationScheduleManager.LEGACY_BACKUP_PREFIX + key, value);
         editor.apply();
+    }
+
+    private void showRequiresAndroid11Toast() {
+        Toast.makeText(this, getString(R.string.toast_bg_restriction_requires_android11), Toast.LENGTH_SHORT).show();
     }
 
     private void showServiceRequiredToast() {

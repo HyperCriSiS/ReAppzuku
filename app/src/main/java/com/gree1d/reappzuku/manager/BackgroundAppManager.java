@@ -1,5 +1,6 @@
 package com.gree1d.reappzuku.manager;
 
+import com.gree1d.reappzuku.core.CapabilityMatrix;
 import com.gree1d.reappzuku.core.PackageNameValidator;
 import com.gree1d.reappzuku.core.PackageStateSource;
 import com.gree1d.reappzuku.core.PrivilegedShell;
@@ -227,7 +228,7 @@ public class BackgroundAppManager {
     }
 
     public boolean supportsBackgroundRestriction() {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.R;
+        return CapabilityMatrix.hasAndroid11Commands(Build.VERSION.SDK_INT);
     }
 
     public boolean canApplyBackgroundRestrictionNow() {

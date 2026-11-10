@@ -46,6 +46,12 @@ public class CapabilityMatrixTest {
     }
 
     @Test
+    public void android11BoundaryIsSharedByEveryGate() {
+        assertFalse(CapabilityMatrix.hasAndroid11Commands(API_29));
+        assertTrue(CapabilityMatrix.hasAndroid11Commands(API_30));
+    }
+
+    @Test
     public void pssNeedsTheShizukuServiceEvenWhenRootIsActive() {
         assertEquals(Availability.AVAILABLE,
                 new CapabilityMatrix(Mode.SHIZUKU, true, API_30, true).of(Feature.MEMORY_PSS));

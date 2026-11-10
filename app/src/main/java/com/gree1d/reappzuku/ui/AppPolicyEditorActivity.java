@@ -21,6 +21,7 @@ import androidx.appcompat.app.AlertDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import com.gree1d.reappzuku.R;
+import com.gree1d.reappzuku.core.CapabilityMatrix;
 import com.gree1d.reappzuku.core.AppPolicyEditorModel;
 import com.gree1d.reappzuku.core.BaseActivity;
 import com.gree1d.reappzuku.core.NewAppSetupNotifier;
@@ -446,7 +447,8 @@ public class AppPolicyEditorActivity extends BaseActivity {
         standbyMinutes.setEnabled(enabled);
         forceStopMinutes.setEnabled(enabled);
         killMethodSpinner.setEnabled(enabled);
-        restrictionSpinner.setEnabled(enabled);
+        restrictionSpinner.setEnabled(enabled
+                && CapabilityMatrix.hasAndroid11Commands(android.os.Build.VERSION.SDK_INT));
         for (CheckBox box : allChecks()) box.setEnabled(enabled);
         saveButton.setEnabled(enabled);
         savePresetButton.setEnabled(enabled);

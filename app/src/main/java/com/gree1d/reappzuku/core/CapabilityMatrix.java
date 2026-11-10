@@ -63,6 +63,11 @@ public final class CapabilityMatrix {
                 ExactAlarmCapability.canScheduleExact(context));
     }
 
+    /** Background restriction and cache clearing use shell commands added in Android 11. */
+    public static boolean hasAndroid11Commands(int sdkInt) {
+        return sdkInt >= Build.VERSION_CODES.R;
+    }
+
     public Mode mode() {
         return mode;
     }
@@ -75,7 +80,7 @@ public final class CapabilityMatrix {
         switch (feature) {
             case BACKGROUND_RESTRICTION:
             case CLEAR_CACHE:
-                return sdkInt >= Build.VERSION_CODES.R
+                return hasAndroid11Commands(sdkInt)
                         ? Availability.AVAILABLE
                         : Availability.UNAVAILABLE_NEEDS_ANDROID_11;
             case MEMORY_PSS:
