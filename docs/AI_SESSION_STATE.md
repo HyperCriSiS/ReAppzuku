@@ -10,6 +10,20 @@ Removed in the follow-up cleanup: the Phase 11 scheduler evidence code (`manager
 
 Also merged: removal of the scheduler evidence code (#185) and the strategy choice in the app option sheets (#186). The daily usage history change raises the Room schema to 14: it adds a 90 day usage history per app and day, filled at every statistics snapshot and at every kill and relaunch.
 
+Also merged: the daily usage history (#187) and recommendations from it (#188). The last step adds a setup screen for the access mode and the handling of newly installed apps, and updates `docs/HELP.md`. The translated help files carry a notice that they describe the earlier state.
+
+Not done from the original plan: automation schedules still write the legacy whitelist, blacklist and kill mode when they activate; Settings is not split into levels; the statistics screens have no multi-day trend view; recommendations have no before and after effect display and no targeted restriction rules; the Smart worker still ticks every 15 minutes (most ticks end after one usage query).
+
+Open device checks, none of which has been run:
+
+- Room migration 13 to 14 on an upgraded install (`AppDatabaseMigrationTest` on an emulator, then a real upgrade).
+- The usage access self-grant: that the GET_USAGE_STATS AppOp alone lets `queryAndAggregateUsageStats` return data on API 24 to 37.
+- The formats of `dumpsys appwidget`, `connectivity`, `device_policy`, `media_session` and `dumpsys package` that the protection checks and the permanent freeze repair parse.
+- Delta restriction apply: toggle one app and confirm that other restricted apps are not force-stopped; Resume in the out-of-sync dialog.
+- Non-wakeup snapshot and heartbeat alarms, and the display loops resuming after screen on.
+- Visual check of the new screens (recommendations, setup, strategy dialog) with long translations, a custom accent and D-pad focus.
+- The API 24 and API 37 emulator workflows after their steps for the removed evidence code were deleted.
+
 None of these changes has been validated on a physical device. Local evidence is `./gradlew testDebugUnitTest lintDebug assembleDebug`.
 
 ## Last completed work blocks
