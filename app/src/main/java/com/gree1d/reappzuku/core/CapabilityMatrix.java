@@ -1,6 +1,9 @@
 package com.gree1d.reappzuku.core;
 
+import android.content.Context;
 import android.os.Build;
+
+import androidx.annotation.WorkerThread;
 
 /**
  * Single answer to "does this feature work in the current operating mode?".
@@ -51,10 +54,13 @@ public final class CapabilityMatrix {
         this.exactAlarmsAllowed = exactAlarmsAllowed;
     }
 
-    public static Mode modeOf(ShellBackendState state) {
-        if (state == ShellBackendState.ROOT_READY) return Mode.ROOT;
-        if (state == ShellBackendState.SHIZUKU_READY) return Mode.SHIZUKU;
-        return Mode.NONE;
+    /** Root wins when both are present, matching the command dispatch order. */
+    @WorkerThread
+    public static CapabilityMatrix current(Context context, ShellManager shell) {
+        boolean shizuku = shell.hasShizukuPermission();
+        Mode mode = shell.hasRootAccess() ? Mode.ROOT : shizuku ? Mode.SHIZUKU : Mode.NONE;
+        return new CapabilityMatrix(mode, shizuku, Build.VERSION.SDK_INT,
+                ExactAlarmCapability.canScheduleExact(context));
     }
 
     public Mode mode() {

@@ -190,6 +190,11 @@
     <!-- Shell / access mode status -->
     <string name="settings_shell_no_access">Sin acceso ❌</string>
     <string name="settings_shell_mode_title">Modo de acceso</string>
+    <string name="capability_all_available">Todas las funciones están disponibles.</string>
+    <string name="capability_needs_privilege">Sin Root o Shizuku la app puede analizar, pero no puede detener ni restringir apps.</string>
+    <string name="capability_needs_android_11">Las restricciones en segundo plano y el borrado de caché requieren Android 11 o posterior.</string>
+    <string name="capability_rss_only">Las cifras de memoria usan RSS, que sobrestima la memoria compartida. Shizuku ofrece valores exactos.</string>
+    <string name="capability_inexact_alarms">Las alarmas exactas no están permitidas, por lo que las programaciones pueden retrasarse.</string>
     <string name="settings_requires_privilege">Requiere Root o Shizuku</string>
     <string name="settings_requires_service_enabled">Activa primero el servicio de segundo plano</string>
 

@@ -16,16 +16,6 @@ public class CapabilityMatrixTest {
     private static final int API_29 = 29;
 
     @Test
-    public void onlyReadyBackendsCountAsAnOperatingMode() {
-        for (ShellBackendState state : ShellBackendState.values()) {
-            Mode expected = state == ShellBackendState.ROOT_READY ? Mode.ROOT
-                    : state == ShellBackendState.SHIZUKU_READY ? Mode.SHIZUKU
-                    : Mode.NONE;
-            assertEquals(state.name(), expected, CapabilityMatrix.modeOf(state));
-        }
-    }
-
-    @Test
     public void withoutPrivilegeEveryInterventionIsUnavailable() {
         CapabilityMatrix matrix = new CapabilityMatrix(Mode.NONE, false, API_30, true);
         for (Feature feature : Feature.values()) {
