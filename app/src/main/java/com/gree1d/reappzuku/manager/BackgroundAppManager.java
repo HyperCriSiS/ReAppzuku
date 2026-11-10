@@ -148,7 +148,6 @@ public class BackgroundAppManager {
     private boolean showPersistentApps = false;
     private SharedPreferences sharedpreferences;
     private RestrictionsScheduler scheduler;
-    private AutoKillManager autoKillManager;
 
     private final ExecutorService shellExecutor;
     private boolean background;
@@ -224,10 +223,6 @@ public class BackgroundAppManager {
         this.scheduler = scheduler;
     }
 
-    public void setAutoKillManager(AutoKillManager autoKillManager) {
-        this.autoKillManager = autoKillManager;
-    }
-
     private String runPs(String psCommand) {
         return shellManager.runShellCommandAndGetFullOutput(psCommand);
     }
@@ -240,59 +235,6 @@ public class BackgroundAppManager {
         return supportsBackgroundRestriction() && shellManager.isAnyShellReady();
     }
 
-
-    private static final Pattern PSS_PROCESS_LINE =
-            Pattern.compile("^\\s*([\\d,]+)K:\\s*(\\S+)\\s*\\(pid\\s+(\\d+)");
-    private static final Pattern SECTION_HEADER_LINE =
-            Pattern.compile("^[A-Za-z].*:\\s*$");
-
-
-    private void parseTotalPssByProcess(String meminfoOutput, PackageManager pm,
-            Map<String, long[]> psAggregated) {
-        try (BufferedReader reader = new BufferedReader(new StringReader(meminfoOutput))) {
-            String line;
-            boolean inSection = false;
-            while ((line = reader.readLine()) != null) {
-                String trimmed = line.trim();
-                if (!inSection) {
-                    if (trimmed.equalsIgnoreCase("Total PSS by process:")) {
-                        inSection = true;
-                    }
-                    continue;
-                }
-                Matcher procMatch = PSS_PROCESS_LINE.matcher(line);
-                if (!procMatch.find()) {
-                    if (trimmed.isEmpty() || SECTION_HEADER_LINE.matcher(trimmed).matches()) {
-                        break;
-                    }
-                    continue;
-                }
-                String pssStr = procMatch.group(1).replace(",", "");
-                String rawName = procMatch.group(2);
-                String pidStr = procMatch.group(3);
-                String packageName = rawName.contains(":")
-                        ? rawName.substring(0, rawName.indexOf(":"))
-                        : rawName;
-                if (packageName.isEmpty() || !packageName.contains(".")) continue;
-                try {
-                    long pssKb = Long.parseLong(pssStr);
-                    int pid = Integer.parseInt(pidStr);
-                    pm.getApplicationInfo(packageName, 0);
-                    long[] existing = psAggregated.get(packageName);
-                    if (existing == null) {
-                        psAggregated.put(packageName, new long[]{pssKb, pid});
-                    } else {
-                        existing[0] += pssKb;
-                        if (pid < existing[1]) {
-                            existing[1] = pid;
-                        }
-                    }
-                } catch (NumberFormatException | PackageManager.NameNotFoundException ignored) {
-                }
-            }
-        } catch (IOException ignored) {
-        }
-    }
 
     public void loadBackgroundApps(Consumer<List<AppModel>> callback) {
         executor.execute(() -> {
@@ -880,11 +822,7 @@ public class BackgroundAppManager {
 
     private void stopAfterRestriction(String packageName) {
         if (background) return;
-        if (autoKillManager != null) {
-            autoKillManager.killPackageSync(packageName);
-        } else {
-            privilegedShell.forceStopPackage(packageName);
-        }
+        privilegedShell.forceStopPackage(packageName);
     }
 
     public void applyBackgroundRestriction(Set<String> targetPackages, Runnable onComplete) {
@@ -1317,12 +1255,6 @@ public class BackgroundAppManager {
     }
 
 
-    @Deprecated
-    void applyHardExtraOps(String packageName, String mode) {
-        applyAllHardOps(packageName, mode);
-    }
-
-
     public String liftRestrictionsForScheduler(String packageName) {
         if (!getBackgroundRestrictedApps().contains(packageName)) return "skipped";
         RestrictionType type = getRestrictionType(packageName);
@@ -1555,11 +1487,6 @@ public class BackgroundAppManager {
                 }
 
 
-                if (autoKillManager != null
-                        && (hardSet.contains(pkg) || manualSet.contains(pkg) || getMediumRestrictedApps().contains(pkg))) {
-
-                    autoKillManager.killPackageSync(pkg, "WatchDog Kill");
-                }
                 int ok = 0, fail = 0;
                 List<String> failedOps = new ArrayList<>();
                 List<String> repairedOps = new ArrayList<>();
