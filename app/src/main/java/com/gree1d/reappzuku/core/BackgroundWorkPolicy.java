@@ -34,6 +34,14 @@ public final class BackgroundWorkPolicy {
         return AutomationDesiredState.shouldRunForegroundService(autoKillEnabled);
     }
 
+    /**
+     * Statistics snapshots run privileged dumps. With the screen off and no
+     * charger they would only burn battery to measure battery.
+     */
+    public static boolean shouldCollectSnapshot(boolean screenInteractive, boolean charging) {
+        return screenInteractive || charging;
+    }
+
     public static boolean shouldRunForegroundService(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         return shouldRunForegroundService(prefs.getBoolean(KEY_AUTO_KILL_ENABLED, false));

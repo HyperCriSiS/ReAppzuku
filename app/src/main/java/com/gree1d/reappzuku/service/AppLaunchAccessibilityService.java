@@ -39,6 +39,9 @@ public class AppLaunchAccessibilityService extends AccessibilityService {
     private String lastTriggeredPackage = null;
     private long lastTriggerTime = 0;
     private static final long MIN_TRIGGER_INTERVAL_MS = 5_000L;
+    private String lastForegroundPackage = null;
+    private long lastForegroundRecordedAt = 0;
+    private static final long MIN_FOREGROUND_RECORD_INTERVAL_MS = 60_000L;
 
     @Override
     public void onCreate() {
@@ -82,7 +85,15 @@ public class AppLaunchAccessibilityService extends AccessibilityService {
 
         // Optional precision boost for Smart Lifecycle. It does not require the
         // accessibility service, but uses these events when the service is active.
-        SmartLifecycleManager.recordForeground(getApplicationContext(), packageName);
+        // One app emits many window events; a repeat within the interval carries no
+        // new information and would only rewrite the preferences file.
+        long uptime = android.os.SystemClock.elapsedRealtime();
+        if (!AppLaunchTriggerPolicy.isDuplicateWithinInterval(packageName, lastForegroundPackage,
+                lastForegroundRecordedAt, uptime, MIN_FOREGROUND_RECORD_INTERVAL_MS)) {
+            lastForegroundPackage = packageName;
+            lastForegroundRecordedAt = uptime;
+            SmartLifecycleManager.recordForeground(getApplicationContext(), packageName);
+        }
 
         SharedPreferences prefs = getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
 
