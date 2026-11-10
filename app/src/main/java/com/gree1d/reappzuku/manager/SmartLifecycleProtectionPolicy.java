@@ -21,16 +21,34 @@ final class SmartLifecycleProtectionPolicy {
             String wallpaperDump,
             String devicePolicyDump,
             String connectivityDump) {
-        if (PackageTextMatcher.containsExactPackage(widgetDump, packageName)) {
+        return getDumpProtectionReason(packageName, mediaDump, widgetDump, servicesDump,
+                wallpaperDump, devicePolicyDump, connectivityDump, true, true, true);
+    }
+
+    /** The three flags are the per-app switches from the policy editor. */
+    static String getDumpProtectionReason(
+            String packageName,
+            String mediaDump,
+            String widgetDump,
+            String servicesDump,
+            String wallpaperDump,
+            String devicePolicyDump,
+            String connectivityDump,
+            boolean protectMedia,
+            boolean protectForegroundServices,
+            boolean protectWidgets) {
+        if (protectWidgets
+                && PackageTextMatcher.containsExactPackage(placedWidgets(widgetDump), packageName)) {
             return "active widget";
         }
-        if (PackageTextMatcher.containsExactPackage(mediaDump, packageName)) {
+        if (protectMedia && PackageTextMatcher.containsExactPackage(mediaDump, packageName)) {
             return "media session";
         }
-        if (PackageTextMatcher.containsMarkerNearPackage(
-                servicesDump, packageName, "isForeground=true", ASSOCIATION_RADIUS)
+        if (protectForegroundServices
+                && (PackageTextMatcher.containsMarkerNearPackage(
+                        servicesDump, packageName, "isForeground=true", ASSOCIATION_RADIUS)
                 || PackageTextMatcher.containsMarkerNearPackage(
-                        servicesDump, packageName, "foregroundId=", ASSOCIATION_RADIUS)) {
+                        servicesDump, packageName, "foregroundId=", ASSOCIATION_RADIUS))) {
             return "foreground service";
         }
         if (PackageTextMatcher.containsExactPackage(wallpaperDump, packageName)) {
@@ -44,5 +62,18 @@ final class SmartLifecycleProtectionPolicy {
             return "VPN/network service";
         }
         return null;
+    }
+
+    /**
+     * The appwidget dump also lists every installed provider. Only the
+     * "Widgets:" section names widgets that are placed on a host. A dump
+     * without that section is used whole.
+     */
+    private static String placedWidgets(String widgetDump) {
+        if (widgetDump == null) return null;
+        int start = widgetDump.indexOf("\nWidgets:");
+        if (start < 0) return widgetDump;
+        int end = widgetDump.indexOf("\nHosts:", start);
+        return end < 0 ? widgetDump.substring(start) : widgetDump.substring(start, end);
     }
 }

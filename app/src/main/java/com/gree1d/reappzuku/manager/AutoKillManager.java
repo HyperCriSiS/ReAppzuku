@@ -53,6 +53,11 @@ public class AutoKillManager {
     private final SharedPreferences sharedpreferences;
     private final List<AppModel> currentAppsList;
     private RestrictionsScheduler scheduler;
+    // Six dumps per pass would cost more than the kills save when the interval
+    // is short, so one collection serves the passes of the next half minute.
+    private static final long PROTECTION_DUMPS_TTL_MS = 30_000L;
+    private ProtectionDumps protectionDumps;
+    private long protectionDumpsAt;
 
     public AutoKillManager(Context context, Handler handler, ExecutorService executor,
             ShellManager shellManager, List<AppModel> currentAppsList) {
@@ -267,7 +272,13 @@ public class AutoKillManager {
                             return false;
                         }
                     })
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toCollection(ArrayList::new));
+
+            if (!toKill.isEmpty()) {
+                ProtectionDumps dumps = protectionDumps();
+                toKill.removeIf(pkg ->
+                        dumps.reasonFor(context, pkg, explicitPolicies.get(pkg)) != null);
+            }
 
 
 
@@ -366,6 +377,15 @@ public class AutoKillManager {
             if (onComplete != null)
                 handler.post(onComplete);
         });
+    }
+
+    private synchronized ProtectionDumps protectionDumps() {
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (protectionDumps == null || now - protectionDumpsAt >= PROTECTION_DUMPS_TTL_MS) {
+            protectionDumps = ProtectionDumps.collect(shellManager);
+            protectionDumpsAt = now;
+        }
+        return protectionDumps;
     }
 
     private void scheduleRelaunchCheck(List<String> recentlyKilled) {

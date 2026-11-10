@@ -49,6 +49,36 @@ public class SmartLifecycleProtectionPolicyTest {
     }
 
     @Test
+    public void eachPolicySwitchDisablesOnlyItsOwnProtection() {
+        String media = "session package=" + PKG;
+        String widget = "provider=" + PKG + "/.Widget";
+        String services = "ServiceRecord{" + PKG + "/.Sync}\n isForeground=true";
+
+        assertEquals("media session", SmartLifecycleProtectionPolicy.getDumpProtectionReason(
+                PKG, media, widget, services, "", "", "", true, true, false));
+        assertEquals("foreground service", SmartLifecycleProtectionPolicy.getDumpProtectionReason(
+                PKG, media, widget, services, "", "", "", false, true, false));
+        assertNull(SmartLifecycleProtectionPolicy.getDumpProtectionReason(
+                PKG, media, widget, services, "", "", "", false, false, false));
+        assertEquals("wallpaper", SmartLifecycleProtectionPolicy.getDumpProtectionReason(
+                PKG, "", "", "", "wallpaperComponent=" + PKG + "/.Live", "", "",
+                false, false, false));
+    }
+
+    @Test
+    public void installedButUnplacedWidgetProviderDoesNotProtect() {
+        String provider = "ProviderId{user:0, app:10123, cmp:ComponentInfo{" + PKG + "/.Widget}}";
+        String installedOnly = "Providers:\n  [0] provider " + provider
+                + "\n\nWidgets:\n\nHosts:\n  [0] hostId=HostId{user:0, pkg:com.launcher}\n";
+        assertNull(reason("", installedOnly, "", "", "", ""));
+
+        String placed = "Providers:\n  [0] provider " + provider
+                + "\n\nWidgets:\n  [0] id=7\n    provider=" + provider
+                + "\n\nHosts:\n  [0] hostId=HostId{user:0, pkg:com.launcher}\n";
+        assertEquals("active widget", reason("", placed, "", "", "", ""));
+    }
+
+    @Test
     public void noProtectionSignalReturnsNull() {
         assertNull(reason("", "", "", "", "", ""));
     }
