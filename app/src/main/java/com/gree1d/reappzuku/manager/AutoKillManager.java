@@ -781,38 +781,12 @@ public class AutoKillManager {
         return new HashSet<>(sharedpreferences.getStringSet(KEY_WHITELISTED_APPS, new HashSet<>()));
     }
 
-    public void saveWhitelistedApps(Set<String> whitelistedApps) {
-        sharedpreferences.edit().putStringSet(KEY_WHITELISTED_APPS, new HashSet<>(whitelistedApps)).apply();
-    }
-
-    public boolean toggleWhitelist(String packageName) {
-        Set<String> whitelisted = getWhitelistedApps();
-        boolean isNowWhitelisted;
-        if (whitelisted.contains(packageName)) {
-            whitelisted.remove(packageName);
-            isNowWhitelisted = false;
-        } else {
-            whitelisted.add(packageName);
-            isNowWhitelisted = true;
-        }
-        saveWhitelistedApps(whitelisted);
-        return isNowWhitelisted;
-    }
-
     public Set<String> getBlacklistedApps() {
         return new HashSet<>(sharedpreferences.getStringSet(KEY_BLACKLISTED_APPS, new HashSet<>()));
     }
 
-    public void saveBlacklistedApps(Set<String> apps) {
-        sharedpreferences.edit().putStringSet(KEY_BLACKLISTED_APPS, new HashSet<>(apps)).apply();
-    }
-
     public int getKillMode() {
         return sharedpreferences.getInt(KEY_KILL_MODE, DEFAULT_KILL_MODE);
-    }
-
-    public void setKillMode(int mode) {
-        sharedpreferences.edit().putInt(KEY_KILL_MODE, mode).apply();
     }
 
     public int getAutoKillType() {

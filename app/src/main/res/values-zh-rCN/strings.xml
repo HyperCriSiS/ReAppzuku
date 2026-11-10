@@ -65,10 +65,6 @@
          ══════════════════════════════════════════════ -->
     <string name="main_search_hint">搜索应用…</string>
     <string name="main_active_apps_count">运行中的应用：%1$d</string>
-    <string name="main_added_to_whitelist">已添加到白名单</string>
-    <string name="main_removed_from_whitelist">已从白名单移除</string>
-    <string name="main_added_to_blacklist">已添加到黑名单</string>
-    <string name="main_removed_from_blacklist">已从黑名单移除</string>
     <string name="main_app_hidden">应用已隐藏</string>
     <string name="main_app_visible">应用已重新显示</string>
     <string name="main_open_app_info_error">无法打开应用信息</string>

@@ -66,10 +66,6 @@
          ══════════════════════════════════════════════ -->
     <string name="main_search_hint">Search apps…</string>
     <string name="main_active_apps_count">Running apps: %1$d</string>
-    <string name="main_added_to_whitelist">Added to whitelist</string>
-    <string name="main_removed_from_whitelist">Removed from whitelist</string>
-    <string name="main_added_to_blacklist">Added to blacklist</string>
-    <string name="main_removed_from_blacklist">Removed from blacklist</string>
     <string name="main_app_hidden">App hidden</string>
     <string name="main_app_visible">App visible again</string>
     <string name="main_open_app_info_error">Can\'t open app info</string>

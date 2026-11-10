@@ -65,10 +65,6 @@
          ══════════════════════════════════════════════ -->
     <string name="main_search_hint">Пошук застосунків…</string>
     <string name="main_active_apps_count">Активних застосунків: %1$d</string>
-    <string name="main_added_to_whitelist">Додано до білого списку</string>
-    <string name="main_removed_from_whitelist">Видалено з білого списку</string>
-    <string name="main_added_to_blacklist">Додано до чорного списку</string>
-    <string name="main_removed_from_blacklist">Видалено з чорного списку</string>
     <string name="main_app_hidden">Застосунок приховано</string>
     <string name="main_app_visible">Застосунок знову видимий</string>
     <string name="main_open_app_info_error">Не вдалося відкрити інформацію про застосунок</string>

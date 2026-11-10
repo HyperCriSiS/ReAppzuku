@@ -1,6 +1,7 @@
 package com.gree1d.reappzuku.core;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.gree1d.reappzuku.db.AppPolicy;
 import com.gree1d.reappzuku.db.PolicyPreset;
@@ -37,6 +38,32 @@ public final class AppPolicyEditorModel {
         copyPresetValues(preset, policy);
         policy.presetId = preset.id;
         policy.customized = false;
+        return normalize(policy);
+    }
+
+    /**
+     * The policy for a package after the user picked a strategy directly. An
+     * existing row keeps every other value. A new row gets working defaults:
+     * the given preset for SMART, every trigger for IMMEDIATE.
+     */
+    @NonNull
+    public static AppPolicy withStrategy(@Nullable AppPolicy existing, @NonNull String packageName,
+            int strategy, @Nullable PolicyPreset smartDefaults, long now) {
+        AppPolicy policy;
+        if (existing != null) {
+            policy = existing;
+            if (policy.strategy != strategy) policy.customized = true;
+        } else if (strategy == AppPolicy.STRATEGY_SMART && smartDefaults != null) {
+            policy = fromPreset(packageName, smartDefaults, now);
+        } else {
+            policy = defaultPolicy(packageName, now);
+        }
+        policy.strategy = strategy;
+        // An IMMEDIATE policy without any trigger would never run.
+        if (strategy == AppPolicy.STRATEGY_IMMEDIATE && (policy.triggerMask & ALL_TRIGGER_BITS) == 0L) {
+            policy.triggerMask = ALL_TRIGGER_BITS;
+        }
+        policy.updatedAt = now;
         return normalize(policy);
     }
 
