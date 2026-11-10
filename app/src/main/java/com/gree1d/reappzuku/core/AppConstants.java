@@ -31,6 +31,7 @@ public final class AppConstants {
 
         // Delays
         public static final int RELAUNCH_CHECK_DELAY_MS = 8000;
+        public static final int RELAUNCH_LATE_CHECK_DELAY_MS = 60_000;
         public static final int ROOT_CHECK_TIMEOUT_MS = 1000;
 
         // RAM Monitor

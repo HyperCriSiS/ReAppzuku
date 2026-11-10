@@ -9,7 +9,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 
+import com.gree1d.reappzuku.core.DailyUsageMath;
 import com.gree1d.reappzuku.db.AppDatabase;
+import com.gree1d.reappzuku.db.DailyUsageDao;
 import com.gree1d.reappzuku.db.ResourceSnapshot;
 import com.gree1d.reappzuku.db.ResourceSnapshotDao;
 
@@ -228,6 +230,56 @@ public class CollectStatsManager {
         }
     }
 
+    /**
+     * Adds what happened between the previous snapshot batch and this one to
+     * today's long-term rows. The first batch ever only sets the baseline.
+     * Snapshots pause while the screen is off, so the usage of such a pause
+     * is booked to the day of the first snapshot after it.
+     */
+    @WorkerThread
+    private void accumulateDailyUsage(@Nullable ResourceSnapshot previousBatch,
+            List<ResourceSnapshot> current, double currentRawTotal, int batteryLevel, long now) {
+        if (previousBatch == null || current.isEmpty()) return;
+        if (!DailyUsageMath.isBookableGap(previousBatch.timestamp, now)) return;
+        // The two parsers see different sets of apps. A batch without battery
+        // data comes from the fallback parser and is no baseline for the other.
+        if (previousBatch.totalRawPwiBatch <= 0 || currentRawTotal <= 0) return;
+
+        Map<String, ResourceSnapshot> previous = new HashMap<>();
+        for (ResourceSnapshot row : getDao().getSnapshotsBetween(
+                previousBatch.timestamp, previousBatch.timestamp)) {
+            previous.put(row.packageName, row);
+        }
+        boolean reset = DailyUsageMath.wasReset(previousBatch.totalRawPwiBatch, currentRawTotal);
+        // No app can have used more than the whole device did, nor more CPU
+        // time than all cores offer in the time between the batches.
+        double batteryCap = reset ? currentRawTotal
+                : currentRawTotal - previousBatch.totalRawPwiBatch;
+        double cpuCap = (double) (now - previousBatch.timestamp)
+                * Runtime.getRuntime().availableProcessors();
+        java.util.TimeZone zone = java.util.TimeZone.getDefault();
+        int day = DailyUsageMath.dayKey(now, zone);
+        AppDatabase database = AppDatabase.getInstance(context);
+        DailyUsageDao usage = database.dailyUsageDao();
+        database.runInTransaction(() -> {
+            for (ResourceSnapshot row : current) {
+                ResourceSnapshot before = previous.get(row.packageName);
+                double battery = DailyUsageMath.usageDelta(
+                        before == null ? null : before.batteryMah, row.batteryMah, reset, batteryCap);
+                long cpu = (long) DailyUsageMath.usageDelta(
+                        before == null ? null : (double) before.cpuTimeMs, row.cpuTimeMs, reset, cpuCap);
+                if (battery > 0 || cpu > 0) {
+                    usage.accumulate(row.packageName, day, battery, cpu, 0, 0);
+                }
+            }
+            double drop = DailyUsageMath.levelDrop(previousBatch.batteryLevelPct, batteryLevel);
+            if (drop > 0) usage.accumulateDrain(day, drop);
+            int cutoff = DailyUsageMath.dayKey(now, zone, DailyUsageMath.RETENTION_DAYS);
+            usage.deleteAppUsageBefore(cutoff);
+            usage.deleteDeviceUsageBefore(cutoff);
+        });
+    }
+
     @WorkerThread
     private void takeSnapshotBlocking() {
         long now = System.currentTimeMillis();
@@ -272,7 +324,13 @@ public class CollectStatsManager {
                 snap.totalRawPwiBatch  = totalRawPwiBatch;
                 snapshots.add(snap);
             }
+            ResourceSnapshot previousBatch = getDao().getLastInsertedSnapshot();
             getDao().insertAll(snapshots);
+            try {
+                accumulateDailyUsage(previousBatch, snapshots, totalRawPwiBatch, batteryLevel, now);
+            } catch (RuntimeException e) {
+                // The history is an extra; a failure here must not stop snapshots or pruning.
+            }
 
             saveLastSnapshotMs(now);
 

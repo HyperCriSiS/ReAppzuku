@@ -26,7 +26,7 @@ public class AppDatabaseMigrationTest {
             InstrumentationRegistry.getInstrumentation(), AppDatabase.class);
 
     @Test
-    public void migrate2To13_preservesExistingStatsAndAddsPolicySchema() throws IOException {
+    public void migrate2To14_preservesExistingStatsAndAddsPolicySchema() throws IOException {
         SupportSQLiteDatabase db = helper.createDatabase(TEST_DB, 2);
         db.execSQL("INSERT INTO app_stats " +
                 "(packageName, appName, killCount, relaunchCount, totalRecoveredKb, lastKillTime, lastRelaunchTime) " +
@@ -35,7 +35,7 @@ public class AppDatabaseMigrationTest {
 
         db = helper.runMigrationsAndValidate(
                 TEST_DB,
-                13,
+                14,
                 true,
                 AppDatabase.MIGRATION_2_3,
                 AppDatabase.MIGRATION_3_4,
@@ -47,7 +47,8 @@ public class AppDatabaseMigrationTest {
                 AppDatabase.MIGRATION_9_10,
                 AppDatabase.MIGRATION_10_11,
                 AppDatabase.MIGRATION_11_12,
-                AppDatabase.MIGRATION_12_13);
+                AppDatabase.MIGRATION_12_13,
+                AppDatabase.MIGRATION_13_14);
 
         try (Cursor cursor = db.query(
                 "SELECT packageName, appName, relaunchCount, totalRecoveredKb, lastKillTime, lastRelaunchTime, lastKillSource " +
@@ -90,6 +91,36 @@ public class AppDatabaseMigrationTest {
                 "SELECT source FROM app_policy WHERE packageName='com.example.explicit'")) {
             assertTrue(cursor.moveToFirst());
             assertEquals(AppPolicy.SOURCE_EXPLICIT, cursor.getInt(0));
+        }
+        db.close();
+    }
+
+    @Test
+    public void migrate13To14_addsEmptyDailyUsageTablesAndKeepsPolicies() throws IOException {
+        SupportSQLiteDatabase db = helper.createDatabase("reappzuku-migration-13-test", 13);
+        db.execSQL("INSERT INTO app_policy "
+                + "(packageName, strategy, presetId, customized, standbyDelayMs, forceStopDelayMs, "
+                + "killMethod, bootCleanup, backgroundRestriction, protectMedia, "
+                + "protectForegroundServices, protectWidgets, triggerMask, createdAt, updatedAt, source) "
+                + "VALUES ('com.example.kept', 2, NULL, 1, 3600000, 21600000, "
+                + "0, 1, 0, 1, 1, 1, 0, 100, 100, 0)");
+        db.close();
+
+        db = helper.runMigrationsAndValidate(
+                "reappzuku-migration-13-test", 14, true, AppDatabase.MIGRATION_13_14);
+
+        try (Cursor cursor = db.query(
+                "SELECT strategy FROM app_policy WHERE packageName='com.example.kept'")) {
+            assertTrue(cursor.moveToFirst());
+            assertEquals(AppPolicy.STRATEGY_SMART, cursor.getInt(0));
+        }
+        try (Cursor cursor = db.query("SELECT COUNT(*) FROM daily_app_usage")) {
+            assertTrue(cursor.moveToFirst());
+            assertEquals(0, cursor.getInt(0));
+        }
+        try (Cursor cursor = db.query("SELECT COUNT(*) FROM daily_device_usage")) {
+            assertTrue(cursor.moveToFirst());
+            assertEquals(0, cursor.getInt(0));
         }
         db.close();
     }

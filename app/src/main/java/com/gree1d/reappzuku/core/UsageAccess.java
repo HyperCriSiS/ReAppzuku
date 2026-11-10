@@ -39,9 +39,22 @@ public final class UsageAccess {
      * @return the last time each package was used, visible or running a
      *         foreground service, or null when usage data is not available
      */
+    public static Map<String, Long> lastUsedByPackage(Context context, long now) {
+        return lastUse(context, now, true);
+    }
+
+    /**
+     * Like {@link #lastUsedByPackage} but without foreground service time: the
+     * last time the user had the app on screen. An app that restarted itself
+     * into a foreground service has not been opened.
+     */
+    public static Map<String, Long> lastOpenedByPackage(Context context, long now) {
+        return lastUse(context, now, false);
+    }
+
     // The call is only made after isGranted() confirmed the AppOp, which is what the system checks.
     @android.annotation.SuppressLint("MissingPermission")
-    public static Map<String, Long> lastUsedByPackage(Context context, long now) {
+    private static Map<String, Long> lastUse(Context context, long now, boolean withBackgroundWork) {
         try {
             if (!isGranted(context)) return null;
             UsageStatsManager manager =
@@ -54,8 +67,10 @@ public final class UsageAccess {
                 long used = stats.getLastTimeUsed();
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     // Background playback and similar work is use, although no activity resumes.
-                    used = Math.max(used, Math.max(
-                            stats.getLastTimeForegroundServiceUsed(), stats.getLastTimeVisible()));
+                    used = Math.max(used, stats.getLastTimeVisible());
+                    if (withBackgroundWork) {
+                        used = Math.max(used, stats.getLastTimeForegroundServiceUsed());
+                    }
                 }
                 lastUsed.put(entry.getKey(), used);
             }
