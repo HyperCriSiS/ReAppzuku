@@ -130,4 +130,49 @@ public class SuggestionEngineTest {
         assertEquals(6, usage.kills("a"));
         assertTrue(usage.packages().contains("a"));
     }
+
+    @Test
+    public void screenIsPrivateAndReachableFromSettingsAndTheMainList() throws Exception {
+        String manifest = read("app/src/main/AndroidManifest.xml");
+        int entry = manifest.indexOf("com.gree1d.reappzuku.ui.RecommendationsActivity\"");
+        assertTrue(entry >= 0);
+        assertTrue(manifest.substring(entry, manifest.indexOf("/>", entry))
+                .contains("android:exported=\"false\""));
+        assertTrue(read("app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivity.java")
+                .contains("startActivity(new Intent(this, RecommendationsActivity.class))"));
+        String main = read("app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java");
+        assertTrue(main.contains("binding.recommendationsCard.setVisibility(count > 0 ? View.VISIBLE : View.GONE);"));
+        // Applying goes through the same path as every other strategy change.
+        assertTrue(read("app/src/main/java/com/gree1d/reappzuku/ui/RecommendationsActivity.java")
+                .contains("AppPolicyQuickChoice.apply("));
+    }
+
+    @Test
+    public void everyLocaleHasTheSameRecommendationStrings() throws Exception {
+        java.util.Set<String> expected = names(read(
+                "app/src/main/res/values/strings_recommendations.xml"));
+        assertEquals(10, expected.size());
+        for (String locale : new String[] {"es", "ru", "uk", "zh-rCN"}) {
+            assertEquals(locale, expected, names(read(
+                    "app/src/main/res/values-" + locale + "/strings_recommendations.xml")));
+        }
+    }
+
+    private static java.util.Set<String> names(String xml) {
+        java.util.Set<String> names = new java.util.TreeSet<>();
+        java.util.regex.Matcher matcher =
+                java.util.regex.Pattern.compile("<string name=\"([^\"]+)\"").matcher(xml);
+        while (matcher.find()) names.add(matcher.group(1));
+        return names;
+    }
+
+    private static String read(String relative) throws Exception {
+        for (java.nio.file.Path candidate : Arrays.asList(java.nio.file.Paths.get(""),
+                java.nio.file.Paths.get(".."), java.nio.file.Paths.get("..", ".."))) {
+            if (java.nio.file.Files.isDirectory(candidate.resolve("app/src/main/java"))) {
+                return java.nio.file.Files.readString(candidate.resolve(relative));
+            }
+        }
+        throw new java.io.IOException("Could not locate repository root");
+    }
 }

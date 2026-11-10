@@ -1005,6 +1005,8 @@ public class SettingsActivity extends SettingsActivityDialogs
         binding.layoutPresets.setOnClickListener(v -> showAutomationSchedulePickerDialog());
         binding.layoutNewAppSetup.setOnClickListener(v ->
                 startActivity(new Intent(this, NewAppSetupSettingsActivity.class)));
+        binding.layoutRecommendations.setOnClickListener(v ->
+                startActivity(new Intent(this, RecommendationsActivity.class)));
         binding.layoutAddShortcut.setOnClickListener(v -> ramKillShortcutManager.requestPinShortcut());
     }
 }

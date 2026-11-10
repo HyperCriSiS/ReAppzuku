@@ -59,6 +59,7 @@ import java.util.Locale;
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 
+import com.gree1d.reappzuku.core.SuggestionLoader;
 import com.gree1d.reappzuku.core.AppPolicyQuickChoice;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.core.ShellBackendState;
@@ -979,6 +980,20 @@ public class MainActivity extends BaseActivity {
         });
     }
 
+    /** One line above the list while there is something to recommend; it opens the full screen. */
+    private void updateRecommendationsCard() {
+        executor.execute(() -> {
+            int count = SuggestionLoader.load(getApplicationContext()).size();
+            handler.post(() -> {
+                if (binding == null || isFinishing() || isDestroyed()) return;
+                binding.recommendationsCard.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
+                binding.recommendationsCard.setText(getString(R.string.recommendations_card, count));
+                binding.recommendationsCard.setOnClickListener(v ->
+                        startActivity(new Intent(this, RecommendationsActivity.class)));
+            });
+        });
+    }
+
     private void applyPolicyListState(
             List<AppModel> apps, AppPolicyListSnapshot policySnapshot) {
         if (apps == null || policySnapshot == null) return;
@@ -1111,6 +1126,7 @@ public class MainActivity extends BaseActivity {
         super.onResume();
 
         setupBottomNavigation();
+        updateRecommendationsCard();
 
         int newAccent = sharedPreferences.getInt(KEY_ACCENT, ACCENT_SYSTEM);
         boolean newIsAmoled = sharedPreferences.getBoolean(KEY_AMOLED, false);

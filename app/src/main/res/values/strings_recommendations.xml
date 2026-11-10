@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recommendations_title">Recommendations</string>
+    <string name="recommendations_subtitle">Suggestions from this device\'s own measurements</string>
+    <string name="recommendations_card">Recommendations: %1$d</string>
+    <string name="recommendations_intro">Based on what this device measured in the last 7 days. Nothing changes until you apply a recommendation.</string>
+    <string name="recommendations_empty">No recommendations right now. They appear once a few days of statistics exist.</string>
+    <string name="recommendations_dismiss">Dismiss</string>
+    <string name="recommendations_apply_smart">Set to Smart</string>
+    <string name="recommendations_reason_restarts">Stops in 7 days: %1$d. Restarts afterwards: %2$d. Stopping it over and over costs more than letting it idle.</string>
+    <string name="recommendations_reason_unused">Days since it was last opened: %1$d. Share of the measured battery: %2$d%%.</string>
+    <string name="recommendations_reason_heavy">Used %1$d%% of the measured battery in the last 7 days and nothing manages it.</string>
+</resources>
