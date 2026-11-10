@@ -1,6 +1,14 @@
 # AI Session State
 
-Updated: 2026-10-15
+Updated: 2026-11-10
+
+## Process manager rework (2026-11-10)
+
+Merged to `main`: kill preference defaults (#179), battery diet (#180), `CapabilityMatrix` and mode-dependent UI limits (#181), shared protection checks for auto-kill (#182), delta restriction apply with executed policy levels and watchdog repair (#183), usage-driven Smart Lifecycle due check (#184).
+
+Removed in the follow-up cleanup: the Phase 11 scheduler evidence code (`manager/Scheduler*` except `SchedulerRestrictionOutcomePolicy`, `RootAppOpsReadOnlyExecutor`, the pinned read-only AppOps session) with its JVM tests, instrumentation tests and CI steps. The Phase 11 entries further down describe that code as it existed; none of it remains in the tree.
+
+None of these changes has been validated on a physical device. Local evidence is `./gradlew testDebugUnitTest lintDebug assembleDebug`.
 
 ## Last completed work blocks
 

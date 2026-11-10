@@ -1,5 +1,7 @@
 # Phase 11 — Installed package identity and AppOps observation contract
 
+> **Removed 2026-11-10.** The code this document describes (the `manager/Scheduler*` evidence classes, `RootAppOpsReadOnlyExecutor`, the pinned read-only AppOps session in `ShellManager`, and their tests and CI steps) was never wired into the app and has been deleted. The text below is kept as a design record; the code is in the git history before that date.
+
 Status: **diagnostic / read-only / not authorized for recovery** (2026-10-11). Issue #130.
 
 ## Version boundaries

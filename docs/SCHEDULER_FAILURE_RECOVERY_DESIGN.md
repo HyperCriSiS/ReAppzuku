@@ -1,5 +1,7 @@
 # Phase 11 — fail-safe Restrictions Scheduler recovery design
 
+> **Removed 2026-11-10.** The code this document describes (the `manager/Scheduler*` evidence classes, `RootAppOpsReadOnlyExecutor`, the pinned read-only AppOps session in `ShellManager`, and their tests and CI steps) was never wired into the app and has been deleted. The text below is kept as a design record; the code is in the git history before that date.
+
 Status: recovery transaction model (PR #117), failure-result repair (PR #118) and bounded synchronous Android journal (PR #120) are implemented and tested (2026-10-10). **Not wired to live RestrictionsScheduler; no new privileged behavior.**
 
 ## Problem and current boundaries

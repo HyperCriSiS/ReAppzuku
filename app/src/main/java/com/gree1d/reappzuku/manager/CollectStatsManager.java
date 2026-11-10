@@ -228,22 +228,6 @@ public class CollectStatsManager {
         }
     }
 
-    @Deprecated
-    public static class HourlyPoint {
-        public final String hourLabel;
-        public final double batteryMah;
-        public final double cpuPercent;
-        public final double ramMb;
-
-        HourlyPoint(String hourLabel, double batteryMah,
-                    double cpuPercent, double ramMb) {
-            this.hourLabel  = hourLabel;
-            this.batteryMah = batteryMah;
-            this.cpuPercent = cpuPercent;
-            this.ramMb      = ramMb;
-        }
-    }
-
     @WorkerThread
     private void takeSnapshotBlocking() {
         long now = System.currentTimeMillis();
