@@ -65,10 +65,6 @@
          ══════════════════════════════════════════════ -->
     <string name="main_search_hint">Поиск приложений…</string>
     <string name="main_active_apps_count">Активных приложений: %1$d</string>
-    <string name="main_added_to_whitelist">Добавлено в белый список</string>
-    <string name="main_removed_from_whitelist">Удалено из белого списка</string>
-    <string name="main_added_to_blacklist">Добавлено в черный список</string>
-    <string name="main_removed_from_blacklist">Удалено из черного списка</string>
     <string name="main_app_hidden">Приложение скрыто</string>
     <string name="main_app_visible">Приложение снова видимо</string>
     <string name="main_open_app_info_error">Не получилось открыть информацию о приложении</string>
@@ -131,9 +127,6 @@
     <string name="app_ram_label">ОЗУ: %1$s</string>
 
     <!-- Диалог опасной конфигурации whitelist -->
-    <string name="dialog_unsafe_whitelist_title">Опасная конфигурация</string>
-    <string name="dialog_unsafe_whitelist_message">Вы выбрали режим Белый список, но ваш список пуст. В режиме Root это приведет к попытке завершения всех системных процессов, что вызовет перезагрузку устройства (Kernel/System panic). Сначала добавьте важные приложения в белый список.</string>
-    <string name="dialog_unsafe_whitelist_ok">Понятно</string>
 
     <!-- Нижняя навигация -->
     <string name="nav_main">Главная</string>

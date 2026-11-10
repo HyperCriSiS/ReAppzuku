@@ -194,7 +194,7 @@
                 android:visibility="gone">
 
                 <LinearLayout
-                    android:id="@+id/sheet_item_whitelist"
+                    android:id="@+id/sheet_item_strategy"
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
                     android:orientation="horizontal"
@@ -209,45 +209,16 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="@string/settings_mode_whitelist"
+                        android:text="@string/policy_editor_strategy"
                         android:textSize="15sp"
                         android:textColor="?android:attr/textColorPrimary" />
-
-                    <CheckBox
-                        android:id="@+id/sheet_check_whitelist"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:clickable="false"
-                        android:focusable="false" />
-
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/sheet_item_blacklist"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true">
 
                     <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/settings_mode_blacklist"
-                        android:textSize="15sp"
-                        android:textColor="?android:attr/textColorPrimary" />
-
-                    <CheckBox
-                        android:id="@+id/sheet_check_blacklist"
+                        android:id="@+id/sheet_strategy_value"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:clickable="false"
-                        android:focusable="false" />
+                        android:textSize="14sp"
+                        android:textColor="?android:attr/textColorSecondary" />
 
                 </LinearLayout>
 

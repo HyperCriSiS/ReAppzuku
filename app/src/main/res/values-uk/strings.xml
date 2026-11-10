@@ -65,10 +65,6 @@
          ══════════════════════════════════════════════ -->
     <string name="main_search_hint">Пошук застосунків…</string>
     <string name="main_active_apps_count">Активних застосунків: %1$d</string>
-    <string name="main_added_to_whitelist">Додано до білого списку</string>
-    <string name="main_removed_from_whitelist">Видалено з білого списку</string>
-    <string name="main_added_to_blacklist">Додано до чорного списку</string>
-    <string name="main_removed_from_blacklist">Видалено з чорного списку</string>
     <string name="main_app_hidden">Застосунок приховано</string>
     <string name="main_app_visible">Застосунок знову видимий</string>
     <string name="main_open_app_info_error">Не вдалося відкрити інформацію про застосунок</string>
@@ -131,9 +127,6 @@
     <string name="app_ram_label">ОЗП: %1$s</string>
 
     <!-- Діалог небезпечної конфігурації whitelist -->
-    <string name="dialog_unsafe_whitelist_title">Небезпечна конфігурація</string>
-    <string name="dialog_unsafe_whitelist_message">Ви обрали режим Білий список, але ваш список порожній. У режимі Root це призведе до спроби завершення всіх системних процесів, що викличе перезавантаження пристрою (Kernel/System panic). Спочатку додайте важливі застосунки до білого списку.</string>
-    <string name="dialog_unsafe_whitelist_ok">Зрозуміло</string>
 
     <!-- Нижня навігація -->
     <string name="nav_main">Головна</string>

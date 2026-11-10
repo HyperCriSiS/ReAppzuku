@@ -66,10 +66,6 @@
          ══════════════════════════════════════════════ -->
     <string name="main_search_hint">Search apps…</string>
     <string name="main_active_apps_count">Running apps: %1$d</string>
-    <string name="main_added_to_whitelist">Added to whitelist</string>
-    <string name="main_removed_from_whitelist">Removed from whitelist</string>
-    <string name="main_added_to_blacklist">Added to blacklist</string>
-    <string name="main_removed_from_blacklist">Removed from blacklist</string>
     <string name="main_app_hidden">App hidden</string>
     <string name="main_app_visible">App visible again</string>
     <string name="main_open_app_info_error">Can\'t open app info</string>
@@ -150,9 +146,6 @@
     <string name="app_ram_label">RAM: %1$s</string>
 
     <!-- Unsafe whitelist dialog -->
-    <string name="dialog_unsafe_whitelist_title">Unsafe Configuration</string>
-    <string name="dialog_unsafe_whitelist_message">Whitelist mode is selected, but whitelist is empty. In Root mode this will kill all system processes, causing a reboot (Kernel/System panic). Add essential apps to whitelist first.</string>
-    <string name="dialog_unsafe_whitelist_ok">Got it</string>
 
     <!-- Bottom Navigation -->
     <string name="nav_main">Main</string>

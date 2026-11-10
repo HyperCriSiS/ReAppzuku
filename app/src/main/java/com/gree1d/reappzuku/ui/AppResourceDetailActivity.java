@@ -11,6 +11,8 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.gree1d.reappzuku.core.AppPolicyListSnapshot;
+import com.gree1d.reappzuku.core.AppPolicyQuickChoice;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.BaseActivity;
@@ -194,89 +196,61 @@ public class AppResourceDetailActivity extends BaseActivity {
             getTheme().resolveAttribute(androidx.appcompat.R.attr.colorPrimary, typedValue, true);
             accentColor = typedValue.data;
         }
+        final int sheetAccent = accentColor;
 
+        // The current strategy comes from the database, so the sheet opens after that read.
+        if (sheetLoading) return;
+        sheetLoading = true;
+        executor.execute(() -> {
+            int status = app.isPersistentApp() ? -1
+                    : AppPolicyListSnapshot.capture(getApplicationContext()).resolveStatus(pkg, false);
+            handler.post(() -> {
+                sheetLoading = false;
+                // Showing a fragment after the state was saved throws.
+                if (isFinishing() || isDestroyed()
+                        || getSupportFragmentManager().isStateSaved()) return;
+                showStatsAppOptionsSheet(app, pkg, status, sheetAccent);
+            });
+        });
+    }
+
+    private boolean sheetLoading;
+
+    private void showStatsAppOptionsSheet(AppModel app, String pkg, int strategy, int accentColor) {
         StatsAppOptionsBottomSheet sheet = StatsAppOptionsBottomSheet.newInstance(
-                app, 
-                appManager.getWhitelistedApps().contains(pkg), 
-                autoKillManager.getBlacklistedApps().contains(pkg), 
-                appManager.supportsBackgroundRestriction(), 
-                getBackgroundRestrictionMenuTitle(app), 
-                accentColor 
+                app,
+                strategy,
+                appManager.supportsBackgroundRestriction(),
+                getBackgroundRestrictionMenuTitle(app),
+                accentColor
         );
 
-        try { 
-            android.graphics.drawable.Drawable icon = getPackageManager().getApplicationIcon(pkg); 
-            sheet.setAppIcon(icon); 
-        } catch (PackageManager.NameNotFoundException e) { 
-
+        try {
+            sheet.setAppIcon(getPackageManager().getApplicationIcon(pkg));
+        } catch (PackageManager.NameNotFoundException e) {
+            // The sheet shows its placeholder icon.
         }
 
-        sheet.setListener(new StatsAppOptionsBottomSheet.Listener() { 
-            @Override 
-            public void onToggleWhitelist(boolean nowChecked) {
-                toggleListMembership(app, "whitelist"); 
-            }
-
-            @Override 
-            public void onToggleBlacklist(boolean nowChecked) { 
-                toggleListMembership(app, "blacklist"); 
+        sheet.setListener(new StatsAppOptionsBottomSheet.Listener() {
+            @Override
+            public void onStrategyChosen(int chosen) {
+                executor.execute(() -> {
+                    AppPolicyQuickChoice.apply(getApplicationContext(), pkg, chosen);
+                    handler.post(() -> {
+                        if (isFinishing() || isDestroyed()) return;
+                        Toast.makeText(AppResourceDetailActivity.this,
+                                R.string.policy_editor_saved, Toast.LENGTH_SHORT).show();
+                    });
+                });
             }
 
             @Override
-            public void onToggleBackgroundRestriction(boolean nowChecked) { 
+            public void onToggleBackgroundRestriction(boolean nowChecked) {
                 toggleBackgroundRestriction(app);
             }
         });
 
-        sheet.show(getSupportFragmentManager(), "stats_app_options"); 
-    }
-
-
-    private void toggleListMembership(AppModel app, String listType) {
-        if (app.isProtected()) {
-
-            return;
-        }
-
-        String pkg = app.getPackageName();
-        java.util.Set<String> currentSet;
-        String addedMsg, removedMsg;
-
-        switch (listType) {
-            case "whitelist":
-                currentSet = appManager.getWhitelistedApps();
-                addedMsg = getString(R.string.main_added_to_whitelist);
-                removedMsg = getString(R.string.main_removed_from_whitelist);
-                break;
-            case "blacklist":
-                currentSet = autoKillManager.getBlacklistedApps();
-                addedMsg = getString(R.string.main_added_to_blacklist);
-                removedMsg = getString(R.string.main_removed_from_blacklist);
-                break;
-            default:
-
-                return;
-        }
-
-        boolean wasInList = currentSet.contains(pkg);
-        if (wasInList) {
-            currentSet.remove(pkg);
-        } else {
-            currentSet.add(pkg);
-        }
-
-
-        switch (listType) {
-            case "whitelist":
-                appManager.saveWhitelistedApps(currentSet);
-                app.setWhitelisted(!wasInList);
-                break;
-            case "blacklist":
-                autoKillManager.saveBlacklistedApps(currentSet);
-                break;
-        }
-
-        Toast.makeText(this, wasInList ? removedMsg : addedMsg, Toast.LENGTH_SHORT).show();
+        sheet.show(getSupportFragmentManager(), "stats_app_options");
     }
 
     private void toggleBackgroundRestriction(AppModel app) {

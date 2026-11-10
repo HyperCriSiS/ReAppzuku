@@ -30,8 +30,7 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
         void onAppTriggers();
         void onUninstall();
         void onToggleHiddenSingle();
-        void onToggleWhitelist(boolean nowChecked);
-        void onToggleBlacklist(boolean nowChecked);
+        void onStrategyChosen(int strategy);
         void onToggleHidden(boolean nowChecked);
         void onToggleBackgroundRestriction(boolean nowChecked);
     }
@@ -40,8 +39,7 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
     private static final String ARG_PACKAGE              = "package";
     private static final String ARG_IS_PROTECTED         = "is_protected";
     private static final String ARG_IS_SYSTEM            = "is_system";
-    private static final String ARG_IN_WHITELIST         = "in_whitelist";
-    private static final String ARG_IN_BLACKLIST         = "in_blacklist";
+    private static final String ARG_STRATEGY             = "strategy";
     private static final String ARG_IN_HIDDEN            = "in_hidden";
     private static final String ARG_BG_RESTRICTION       = "bg_restriction";
     private static final String ARG_BG_RESTRICT_SUPPORTED = "bg_restrict_supported";
@@ -53,8 +51,7 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
 
     public static AppOptionsBottomSheet newInstance(
             AppModel app,
-            boolean inWhitelist,
-            boolean inBlacklist,
+            int strategy,
             boolean inHidden,
             boolean supportsBackgroundRestriction,
             String backgroundRestrictionLabel,
@@ -66,8 +63,7 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
         args.putString(ARG_PACKAGE, app.getPackageName());
         args.putBoolean(ARG_IS_PROTECTED, app.isProtected());
         args.putBoolean(ARG_IS_SYSTEM, app.isSystemApp());
-        args.putBoolean(ARG_IN_WHITELIST, inWhitelist);
-        args.putBoolean(ARG_IN_BLACKLIST, inBlacklist);
+        args.putInt(ARG_STRATEGY, strategy);
         args.putBoolean(ARG_IN_HIDDEN, inHidden);
         args.putBoolean(ARG_BG_RESTRICTION, app.isBackgroundRestrictionDesired());
         args.putBoolean(ARG_BG_RESTRICT_SUPPORTED, supportsBackgroundRestriction);
@@ -137,8 +133,7 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
         String pkg           = args.getString(ARG_PACKAGE, "");
         boolean isProtected  = args.getBoolean(ARG_IS_PROTECTED, false);
         boolean isSystem     = args.getBoolean(ARG_IS_SYSTEM, false);
-        boolean inWhitelist  = args.getBoolean(ARG_IN_WHITELIST, false);
-        boolean inBlacklist  = args.getBoolean(ARG_IN_BLACKLIST, false);
+        int strategy         = args.getInt(ARG_STRATEGY, 0);
         boolean inHidden     = args.getBoolean(ARG_IN_HIDDEN, false);
         boolean bgRestriction = args.getBoolean(ARG_BG_RESTRICTION, false);
         boolean bgSupported  = args.getBoolean(ARG_BG_RESTRICT_SUPPORTED, false);
@@ -169,25 +164,20 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
         ImageView addToArrow        = view.findViewById(R.id.sheet_add_to_arrow);
         TextView addToTitle         = view.findViewById(R.id.sheet_add_to_title);
 
-        LinearLayout itemWhitelist  = view.findViewById(R.id.sheet_item_whitelist);
-        LinearLayout itemBlacklist  = view.findViewById(R.id.sheet_item_blacklist);
+        LinearLayout itemStrategy   = view.findViewById(R.id.sheet_item_strategy);
         LinearLayout itemHidden     = view.findViewById(R.id.sheet_item_hidden);
         LinearLayout itemBgRestrict = view.findViewById(R.id.sheet_item_bg_restriction);
         TextView bgRestrictLabel    = view.findViewById(R.id.sheet_bg_restriction_label);
 
-        CheckBox checkWhitelist  = view.findViewById(R.id.sheet_check_whitelist);
-        CheckBox checkBlacklist  = view.findViewById(R.id.sheet_check_blacklist);
         CheckBox checkHidden     = view.findViewById(R.id.sheet_check_hidden);
         CheckBox checkBgRestrict = view.findViewById(R.id.sheet_check_bg_restriction);
 
-        checkWhitelist.setButtonTintList(accentTint);
-        checkBlacklist.setButtonTintList(accentTint);
         checkHidden.setButtonTintList(accentTint);
         checkBgRestrict.setButtonTintList(accentTint);
 
         for (View row : new View[] {
                 btnInfo, btnTriggers, btnPolicy, btnUninstall, btnHiddenSingle,
-                addToHeader, itemWhitelist, itemBlacklist, itemHidden, itemBgRestrict }) {
+                addToHeader, itemStrategy, itemHidden, itemBgRestrict }) {
             FocusHighlightUtil.apply(row);
         }
 
@@ -235,12 +225,13 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
                 });
             }
 
-            checkWhitelist.setChecked(inWhitelist);
-            checkBlacklist.setChecked(inBlacklist);
             checkHidden.setChecked(inHidden);
             checkBgRestrict.setChecked(bgRestriction);
 
-            updateMutualExclusion(checkWhitelist, itemWhitelist, checkBlacklist, itemBlacklist);
+            PolicyStrategyRow.bind(itemStrategy, view.findViewById(R.id.sheet_strategy_value),
+                    strategy, chosen -> {
+                        if (listener != null) listener.onStrategyChosen(chosen);
+                    });
 
             if (bgSupported) {
                 itemBgRestrict.setVisibility(View.VISIBLE);
@@ -251,26 +242,6 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
                 boolean expanded = addToContainer.getVisibility() == View.VISIBLE;
                 addToContainer.setVisibility(expanded ? View.GONE : View.VISIBLE);
                 addToArrow.setRotation(expanded ? 0f : 180f);
-            });
-
-            itemWhitelist.setOnClickListener(v -> {
-                boolean next = !checkWhitelist.isChecked();
-                checkWhitelist.setChecked(next);
-
-
-                updateMutualExclusion(checkWhitelist, itemWhitelist, checkBlacklist, itemBlacklist);
-
-                if (listener != null) listener.onToggleWhitelist(next);
-            });
-
-            itemBlacklist.setOnClickListener(v -> {
-                boolean next = !checkBlacklist.isChecked();
-                checkBlacklist.setChecked(next);
-
-
-                updateMutualExclusion(checkWhitelist, itemWhitelist, checkBlacklist, itemBlacklist);
-
-                if (listener != null) listener.onToggleBlacklist(next);
             });
 
             itemHidden.setOnClickListener(v -> {
@@ -287,20 +258,6 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
                 if (listener != null) listener.onToggleBackgroundRestriction(next);
             });
         }
-    }
-
-    private void updateMutualExclusion(CheckBox checkWhitelist, LinearLayout itemWhitelist, 
-                                       CheckBox checkBlacklist, LinearLayout itemBlacklist) {
-        boolean isWhitelistChecked = checkWhitelist.isChecked();
-        boolean isBlacklistChecked = checkBlacklist.isChecked();
-
-        itemBlacklist.setEnabled(!isWhitelistChecked);
-        checkBlacklist.setEnabled(!isWhitelistChecked);
-        itemBlacklist.setAlpha(isWhitelistChecked ? 0.4f : 1.0f);
-
-        itemWhitelist.setEnabled(!isBlacklistChecked);
-        checkWhitelist.setEnabled(!isBlacklistChecked);
-        itemWhitelist.setAlpha(isBlacklistChecked ? 0.4f : 1.0f);
     }
 
     private ColorStateList buildCheckboxTint(int color) {

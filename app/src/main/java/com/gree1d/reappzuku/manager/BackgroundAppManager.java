@@ -1721,10 +1721,6 @@ public class BackgroundAppManager {
         return new HashSet<>(sharedpreferences.getStringSet(KEY_WHITELISTED_APPS, new HashSet<>()));
     }
 
-    public void saveWhitelistedApps(Set<String> whitelistedApps) {
-        sharedpreferences.edit().putStringSet(KEY_WHITELISTED_APPS, new HashSet<>(whitelistedApps)).apply();
-    }
-
     public Set<String> getBackgroundRestrictedApps() {
         return new HashSet<>(sharedpreferences.getStringSet(KEY_AUTOSTART_DISABLED_APPS, new HashSet<>()));
     }

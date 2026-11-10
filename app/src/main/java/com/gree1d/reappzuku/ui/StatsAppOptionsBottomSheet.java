@@ -26,15 +26,13 @@ public class StatsAppOptionsBottomSheet extends BottomSheetDialogFragment {
 
 
     public interface Listener {
-        void onToggleWhitelist(boolean nowChecked);
-        void onToggleBlacklist(boolean nowChecked);
+        void onStrategyChosen(int strategy);
         void onToggleBackgroundRestriction(boolean nowChecked);
     }
 
     private static final String ARG_APP_NAME               = "app_name";
     private static final String ARG_PACKAGE                = "package";
-    private static final String ARG_IN_WHITELIST           = "in_whitelist";
-    private static final String ARG_IN_BLACKLIST           = "in_blacklist";
+    private static final String ARG_STRATEGY               = "strategy";
     private static final String ARG_BG_RESTRICTION         = "bg_restriction";
     private static final String ARG_BG_RESTRICT_SUPPORTED  = "bg_restrict_supported";
     private static final String ARG_BG_RESTRICT_LABEL      = "bg_restrict_label";
@@ -45,8 +43,7 @@ public class StatsAppOptionsBottomSheet extends BottomSheetDialogFragment {
 
     public static StatsAppOptionsBottomSheet newInstance(
             AppModel app,
-            boolean inWhitelist,
-            boolean inBlacklist,
+            int strategy,
             boolean supportsBackgroundRestriction,
             String backgroundRestrictionLabel,
             int accentColor) {
@@ -60,8 +57,7 @@ public class StatsAppOptionsBottomSheet extends BottomSheetDialogFragment {
         Bundle args = new Bundle();
         args.putString(ARG_APP_NAME, app.getAppName());
         args.putString(ARG_PACKAGE, app.getPackageName());
-        args.putBoolean(ARG_IN_WHITELIST, inWhitelist);
-        args.putBoolean(ARG_IN_BLACKLIST, inBlacklist);
+        args.putInt(ARG_STRATEGY, strategy);
         args.putBoolean(ARG_BG_RESTRICTION, app.isBackgroundRestrictionDesired());
         args.putBoolean(ARG_BG_RESTRICT_SUPPORTED, supportsBackgroundRestriction);
         args.putString(ARG_BG_RESTRICT_LABEL, backgroundRestrictionLabel);
@@ -127,8 +123,7 @@ public class StatsAppOptionsBottomSheet extends BottomSheetDialogFragment {
         Bundle args = requireArguments();
         String appName        = args.getString(ARG_APP_NAME, "");
         String pkg             = args.getString(ARG_PACKAGE, "");
-        boolean inWhitelist     = args.getBoolean(ARG_IN_WHITELIST, false);
-        boolean inBlacklist     = args.getBoolean(ARG_IN_BLACKLIST, false);
+        int strategy            = args.getInt(ARG_STRATEGY, 0);
         boolean bgRestriction  = args.getBoolean(ARG_BG_RESTRICTION, false);
         boolean bgSupported    = args.getBoolean(ARG_BG_RESTRICT_SUPPORTED, false);
         String bgLabel          = args.getString(ARG_BG_RESTRICT_LABEL, "");
@@ -146,53 +141,29 @@ public class StatsAppOptionsBottomSheet extends BottomSheetDialogFragment {
         nameView.setText(appName);
         pkgView.setText(pkg);
 
-        LinearLayout itemWhitelist  = view.findViewById(R.id.sheet_item_whitelist);
-        LinearLayout itemBlacklist  = view.findViewById(R.id.sheet_item_blacklist);
+        LinearLayout itemStrategy   = view.findViewById(R.id.sheet_item_strategy);
         LinearLayout itemBgRestrict = view.findViewById(R.id.sheet_item_bg_restriction);
         TextView bgRestrictLabel    = view.findViewById(R.id.sheet_bg_restriction_label);
 
-        CheckBox checkWhitelist  = view.findViewById(R.id.sheet_check_whitelist);
-        CheckBox checkBlacklist  = view.findViewById(R.id.sheet_check_blacklist);
         CheckBox checkBgRestrict = view.findViewById(R.id.sheet_check_bg_restriction);
 
-        checkWhitelist.setButtonTintList(accentTint);
-        checkBlacklist.setButtonTintList(accentTint);
         checkBgRestrict.setButtonTintList(accentTint);
 
-        for (View row : new View[] { itemWhitelist, itemBlacklist, itemBgRestrict }) {
+        for (View row : new View[] { itemStrategy, itemBgRestrict }) {
             FocusHighlightUtil.apply(row);
         }
 
-        checkWhitelist.setChecked(inWhitelist);
-        checkBlacklist.setChecked(inBlacklist);
         checkBgRestrict.setChecked(bgRestriction);
 
-        updateMutualExclusion(checkWhitelist, itemWhitelist, checkBlacklist, itemBlacklist);
+        PolicyStrategyRow.bind(itemStrategy, view.findViewById(R.id.sheet_strategy_value),
+                strategy, chosen -> {
+                    if (listener != null) listener.onStrategyChosen(chosen);
+                });
 
         if (bgSupported) {
             itemBgRestrict.setVisibility(View.VISIBLE);
             bgRestrictLabel.setText(bgLabel);
         }
-
-        itemWhitelist.setOnClickListener(v -> {
-            boolean next = !checkWhitelist.isChecked();
-            checkWhitelist.setChecked(next);
-
-
-            updateMutualExclusion(checkWhitelist, itemWhitelist, checkBlacklist, itemBlacklist);
-
-            if (listener != null) listener.onToggleWhitelist(next);
-        });
-
-        itemBlacklist.setOnClickListener(v -> {
-            boolean next = !checkBlacklist.isChecked();
-            checkBlacklist.setChecked(next);
-
-
-            updateMutualExclusion(checkWhitelist, itemWhitelist, checkBlacklist, itemBlacklist);
-
-            if (listener != null) listener.onToggleBlacklist(next);
-        });
 
         itemBgRestrict.setOnClickListener(v -> {
             boolean next = !checkBgRestrict.isChecked();
@@ -200,20 +171,6 @@ public class StatsAppOptionsBottomSheet extends BottomSheetDialogFragment {
 
             if (listener != null) listener.onToggleBackgroundRestriction(next);
         });
-    }
-
-    private void updateMutualExclusion(CheckBox checkWhitelist, LinearLayout itemWhitelist,
-                                       CheckBox checkBlacklist, LinearLayout itemBlacklist) {
-        boolean isWhitelistChecked = checkWhitelist.isChecked();
-        boolean isBlacklistChecked = checkBlacklist.isChecked();
-
-        itemBlacklist.setEnabled(!isWhitelistChecked);
-        checkBlacklist.setEnabled(!isWhitelistChecked);
-        itemBlacklist.setAlpha(isWhitelistChecked ? 0.4f : 1.0f);
-
-        itemWhitelist.setEnabled(!isBlacklistChecked);
-        checkWhitelist.setEnabled(!isBlacklistChecked);
-        itemWhitelist.setAlpha(isBlacklistChecked ? 0.4f : 1.0f);
     }
 
     private ColorStateList buildCheckboxTint(int color) {

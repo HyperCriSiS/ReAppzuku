@@ -29,7 +29,6 @@ public class BackgroundAppsRecyclerViewAdapter extends RecyclerView.Adapter<Back
 
     public interface OnAppActionListener {
         void onKillApp(AppModel app, int position);
-        void onToggleWhitelist(AppModel app, int position);
         void onAppClick(AppModel app, int position);
         void onOverflowClick(AppModel app, View anchor);
     }

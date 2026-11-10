@@ -66,10 +66,6 @@
          ══════════════════════════════════════════════ -->
     <string name="main_search_hint">Buscar apps…</string>
     <string name="main_active_apps_count">Apps en ejecución: %1$d</string>
-    <string name="main_added_to_whitelist">Añadida a la lista blanca</string>
-    <string name="main_removed_from_whitelist">Eliminada de la lista blanca</string>
-    <string name="main_added_to_blacklist">Añadida a la lista negra</string>
-    <string name="main_removed_from_blacklist">Eliminada de la lista negra</string>
     <string name="main_app_hidden">App oculta</string>
     <string name="main_app_visible">App visible de nuevo</string>
     <string name="main_open_app_info_error">No se puede abrir la información de la app</string>
@@ -137,9 +133,6 @@
     <string name="app_ram_label">RAM: %1$s</string>
 
     <!-- Unsafe whitelist dialog -->
-    <string name="dialog_unsafe_whitelist_title">Configuración insegura</string>
-    <string name="dialog_unsafe_whitelist_message">El modo de lista blanca está seleccionado, pero la lista está vacía. En modo Root, esto cerrará todos los procesos del sistema, provocando un reinicio (pánico del Kernel/Sistema). Añade primero las apps esenciales a la lista blanca.</string>
-    <string name="dialog_unsafe_whitelist_ok">Entendido</string>
 
     <!-- Bottom Navigation -->
     <string name="nav_main">Principal</string>

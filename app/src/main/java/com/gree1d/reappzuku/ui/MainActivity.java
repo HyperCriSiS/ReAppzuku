@@ -59,6 +59,7 @@ import java.util.Locale;
 import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 
+import com.gree1d.reappzuku.core.AppPolicyQuickChoice;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.core.ShellBackendState;
 import com.gree1d.reappzuku.core.BackgroundWorkPolicy;
@@ -102,6 +103,7 @@ public class MainActivity extends BaseActivity {
     private int currentPolicyFilterMask = AppPolicyListState.FILTER_NONE;
     private MenuItem selectAllMenuItem;
     private volatile boolean loadInFlight = false;
+    private volatile boolean reloadRequested = false;
     private volatile boolean shellPreparationInFlight = false;
     private Snackbar shellAccessSnackbar;
 
@@ -376,18 +378,6 @@ public class MainActivity extends BaseActivity {
             }
 
             @Override
-            public void onToggleWhitelist(AppModel app, int position) {
-                boolean isNowWhitelisted = autoKillManager.toggleWhitelist(app.getPackageName());
-                app.setWhitelisted(isNowWhitelisted);
-                listAdapter.notifyItemChanged(position);
-
-                String message = isNowWhitelisted
-                        ? getString(R.string.main_added_to_whitelist)
-                        : getString(R.string.main_removed_from_whitelist);
-                Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
-            }
-
-            @Override
             public void onAppClick(AppModel app, int position) {
                 if (app.isProtected() || app.isWhitelisted()) {
                     return;
@@ -417,8 +407,8 @@ public class MainActivity extends BaseActivity {
 
             AppOptionsBottomSheet sheet = AppOptionsBottomSheet.newInstance(
                     app,
-                    appManager.getWhitelistedApps().contains(packageName),
-                    autoKillManager.getBlacklistedApps().contains(packageName),
+                    // A persistent app stays protected whatever its policy says.
+                    app.isPersistentApp() ? -1 : app.getPolicyListStatus(),
                     appManager.getHiddenApps().contains(packageName),
                     appManager.supportsBackgroundRestriction(),
                     getBackgroundRestrictionMenuTitle(app),
@@ -455,13 +445,16 @@ public class MainActivity extends BaseActivity {
                 }
 
                 @Override
-                public void onToggleWhitelist(boolean nowChecked) {
-                    toggleListMembership(app, "whitelist");
-                }
-
-                @Override
-                public void onToggleBlacklist(boolean nowChecked) {
-                    toggleListMembership(app, "blacklist");
+                public void onStrategyChosen(int strategy) {
+                    executor.execute(() -> {
+                        AppPolicyQuickChoice.apply(getApplicationContext(), packageName, strategy);
+                        handler.post(() -> {
+                            if (isFinishing() || isDestroyed()) return;
+                            Toast.makeText(MainActivity.this,
+                                    R.string.policy_editor_saved, Toast.LENGTH_SHORT).show();
+                            loadBackgroundApps();
+                        });
+                    });
                 }
 
                 @Override
@@ -779,16 +772,6 @@ public class MainActivity extends BaseActivity {
         String addedMsg, removedMsg;
 
         switch (listType) {
-            case "whitelist":
-                currentSet = appManager.getWhitelistedApps();
-                addedMsg = getString(R.string.main_added_to_whitelist);
-                removedMsg = getString(R.string.main_removed_from_whitelist);
-                break;
-            case "blacklist":
-                currentSet = autoKillManager.getBlacklistedApps();
-                addedMsg = getString(R.string.main_added_to_blacklist);
-                removedMsg = getString(R.string.main_removed_from_blacklist);
-                break;
             case "hidden":
                 currentSet = appManager.getHiddenApps();
                 addedMsg = getString(R.string.main_app_hidden);
@@ -808,13 +791,6 @@ public class MainActivity extends BaseActivity {
 
 
         switch (listType) {
-            case "whitelist":
-                appManager.saveWhitelistedApps(currentSet);
-                app.setWhitelisted(!wasInList);
-                break;
-            case "blacklist":
-                autoKillManager.saveBlacklistedApps(currentSet);
-                break;
             case "hidden":
                 appManager.saveHiddenApps(currentSet);
                 break;
@@ -968,7 +944,8 @@ public class MainActivity extends BaseActivity {
         }
 
         if (loadInFlight) {
-
+            // The running load may have read older data; run once more when it ends.
+            reloadRequested = true;
             return;
         }
         loadInFlight = true;
@@ -994,6 +971,10 @@ public class MainActivity extends BaseActivity {
                         applyPolicyListState(fullResult, policySnapshot);
                         applyLoadedAppsList(fullResult, selectedPackages, /* finished= */ true);
                         loadInFlight = false;
+                        if (reloadRequested) {
+                            reloadRequested = false;
+                            loadBackgroundApps();
+                        }
                     });
         });
     }
@@ -1005,6 +986,8 @@ public class MainActivity extends BaseActivity {
             boolean failSafe = app.isProtected() || app.isPersistentApp();
             app.setPolicyListStatus(policySnapshot.resolveStatus(
                     app.getPackageName(), failSafe));
+            // The lock follows the effective policy, not the legacy whitelist entry.
+            app.setWhitelisted(AppPolicyListState.locksRow(app.getPolicyListStatus(), failSafe));
         }
     }
 
