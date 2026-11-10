@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recommendations_title">Рекомендации</string>
+    <string name="recommendations_subtitle">Советы на основе измерений этого устройства</string>
+    <string name="recommendations_card">Рекомендации: %1$d</string>
+    <string name="recommendations_intro">На основе того, что это устройство измерило за последние 7 дней. Применение рекомендации переводит приложение в режим ожидания после 4 часов без использования. Приложение никогда не останавливается, поэтому будильники и сообщения продолжают работать. Ничего не меняется, пока вы не примените рекомендацию.</string>
+    <string name="recommendations_empty">Сейчас рекомендаций нет.</string>
+    <string name="recommendations_dismiss">Скрыть</string>
+    <string name="recommendations_apply">Ограничить в простое</string>
+    <string name="recommendations_reason_restarts">Остановок за 7 дней: %1$d. Повторных запусков после них: %2$d. Постоянные остановки обходятся дороже, чем простой.</string>
+    <string name="recommendations_reason_unused">Дней с последнего открытия: %1$d. Доля во всём измеренном энергопотреблении приложений: %2$d%%.</string>
+    <string name="recommendations_reason_heavy">Не открывалось несколько дней, но его доля во всём измеренном энергопотреблении приложений составляет %1$d%%.</string>
+</resources>

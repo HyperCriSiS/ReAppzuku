@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recommendations_title">Recomendaciones</string>
+    <string name="recommendations_subtitle">Sugerencias a partir de las mediciones de este dispositivo</string>
+    <string name="recommendations_card">Recomendaciones: %1$d</string>
+    <string name="recommendations_intro">Basado en lo que este dispositivo midió en los últimos 7 días. Aplicar una recomendación pone la app en espera tras 4 horas sin uso. La app nunca se detiene, así que las alarmas y los mensajes siguen funcionando. Nada cambia hasta que la apliques.</string>
+    <string name="recommendations_empty">No hay recomendaciones por ahora.</string>
+    <string name="recommendations_dismiss">Descartar</string>
+    <string name="recommendations_apply">Limitar en reposo</string>
+    <string name="recommendations_reason_restarts">Detenciones en 7 días: %1$d. Reinicios posteriores: %2$d. Detenerla una y otra vez cuesta más que dejarla inactiva.</string>
+    <string name="recommendations_reason_unused">Días desde la última apertura: %1$d. Su parte de todo el consumo medido de las apps: %2$d%%.</string>
+    <string name="recommendations_reason_heavy">No se abre desde hace días y aun así su parte de todo el consumo medido de las apps es del %1$d%%.</string>
+</resources>

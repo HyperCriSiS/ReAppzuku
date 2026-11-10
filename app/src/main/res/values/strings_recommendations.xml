@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recommendations_title">Recommendations</string>
+    <string name="recommendations_subtitle">Suggestions from this device\'s own measurements</string>
+    <string name="recommendations_card">Recommendations: %1$d</string>
+    <string name="recommendations_intro">Based on what this device measured in the last 7 days. Applying a recommendation puts the app on standby after 4 hours without use. The app is never stopped, so alarms and messages keep working. Nothing changes until you apply.</string>
+    <string name="recommendations_empty">No recommendations right now.</string>
+    <string name="recommendations_dismiss">Dismiss</string>
+    <string name="recommendations_apply">Limit when idle</string>
+    <string name="recommendations_reason_restarts">Stops in 7 days: %1$d. Restarts afterwards: %2$d. Stopping it over and over costs more than letting it idle.</string>
+    <string name="recommendations_reason_unused">Days since it was last opened: %1$d. Its part of all measured app power use: %2$d%%.</string>
+    <string name="recommendations_reason_heavy">Not opened for days, yet its part of all measured app power use is %1$d%%.</string>
+</resources>

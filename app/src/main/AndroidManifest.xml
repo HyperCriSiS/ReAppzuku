@@ -97,6 +97,10 @@
             android:name="com.gree1d.reappzuku.ui.NewAppSetupSettingsActivity"
             android:exported="false"
             android:parentActivityName="com.gree1d.reappzuku.ui.SettingsActivity" />
+        <activity
+            android:name="com.gree1d.reappzuku.ui.RecommendationsActivity"
+            android:exported="false"
+            android:parentActivityName="com.gree1d.reappzuku.ui.MainActivity" />
 
         <service
             android:name="com.gree1d.reappzuku.service.ShappkyService"
