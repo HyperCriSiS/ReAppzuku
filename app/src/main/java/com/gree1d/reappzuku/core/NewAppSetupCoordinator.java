@@ -7,6 +7,7 @@ import android.content.pm.PackageManager;
 import com.gree1d.reappzuku.db.AppDatabase;
 import com.gree1d.reappzuku.db.AppPolicy;
 import com.gree1d.reappzuku.db.PolicyPreset;
+import com.gree1d.reappzuku.manager.BackgroundAppManager;
 import com.gree1d.reappzuku.service.SmartLifecycleWorker;
 
 import java.util.List;
@@ -63,8 +64,11 @@ public final class NewAppSetupCoordinator {
         switch (action) {
             case NewAppSetupPolicy.ACTION_APPLY_PRESET:
                 if (preset != null) {
-                    db.appPolicyDao().upsert(AppPolicyEditorModel.fromPreset(
-                            packageName, preset, System.currentTimeMillis()));
+                    AppPolicy policy = AppPolicyEditorModel.fromPreset(
+                            packageName, preset, System.currentTimeMillis());
+                    db.appPolicyDao().upsert(policy);
+                    BackgroundAppManager.applyPolicyRestriction(
+                            context, packageName, policy.backgroundRestriction, true);
                     clearPendingBeforeCancel(
                             () -> NewAppSetupStore.removePending(context, packageName),
                             () -> NewAppSetupNotifier.cancel(context, packageName));

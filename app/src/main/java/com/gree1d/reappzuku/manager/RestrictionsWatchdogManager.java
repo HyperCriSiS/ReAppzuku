@@ -5,6 +5,7 @@ import android.content.pm.PackageManager;
 import android.os.Handler;
 
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -17,16 +18,15 @@ public class RestrictionsWatchdogManager {
 
     private static final long WATCHDOG_INTERVAL_MS = 35 * 60 * 1000L; 
 
-    private static final Pattern SLEEP_PACKAGES_SECTION =
-            Pattern.compile("(?m)^\\s*Packages:\\n(?:(?!^\\S).*\\n?)*");
-    private static final Pattern SLEEP_USER0_BLOCK =
-            Pattern.compile("(?m)^\\s*User 0:.*(?:\\n(?!\\s*User \\d+:).*)*");
+    private static final Pattern SLEEP_PACKAGE_HEADER = Pattern.compile("(?m)^\\s*Package \\[");
+    private static final Pattern SLEEP_USER_HEADER = Pattern.compile("(?m)^\\s*User \\d+:");
     private static final Pattern SLEEP_SUSPENDED = Pattern.compile("\\bsuspended=(true|false)\\b");
     private static final Pattern SLEEP_ENABLED = Pattern.compile("\\benabled=(\\d+)\\b");
     private static final Pattern BUCKET_LINE = Pattern.compile("(?m)^([\\w.]+):\\s*(\\d+)\\s*$");
 
     private final Context context;
     private final Handler handler;
+    private final ExecutorService executor;
     private final BackgroundAppManager appManager;
     private final ShellManager shellManager;
     private final PrivilegedShell privilegedShell;
@@ -34,22 +34,27 @@ public class RestrictionsWatchdogManager {
 
     private SleepModeManager sleepModeManager;
 
-    private boolean running = false;
+    private volatile boolean running = false;
+    // Fetched at most once per check, and only when a bucket has drifted.
+    private String foregroundPackage;
+    private String servicesDump;
 
     private final Runnable watchdogRunnable = new Runnable() {
         @Override
         public void run() {
             if (!running) return;
-            runCheck();
+            // The check runs shell commands and must stay off the main thread.
             handler.postDelayed(this, WATCHDOG_INTERVAL_MS);
+            executor.execute(RestrictionsWatchdogManager.this::runCheck);
         }
     };
 
-    public RestrictionsWatchdogManager(Context context, Handler handler,
+    public RestrictionsWatchdogManager(Context context, Handler handler, ExecutorService executor,
             BackgroundAppManager appManager, ShellManager shellManager,
             RestrictionsScheduler scheduler) {
         this.context      = context;
         this.handler      = handler;
+        this.executor     = executor;
         this.appManager       = appManager;
         this.shellManager     = shellManager;
         this.privilegedShell  = new PrivilegedShell(shellManager);
@@ -103,7 +108,12 @@ public class RestrictionsWatchdogManager {
                 && !sleepModeManager.getPermanentFreezeApps().isEmpty();
 
         if (!backgroundRestrictionActive && !sleepModeActive) {
-            stop();
+            // Stop on the thread that starts it, then look again: a target may
+            // have been added while this check was running.
+            handler.post(() -> {
+                stop();
+                startIfNeeded();
+            });
 
             return;
         }
@@ -133,30 +143,24 @@ public class RestrictionsWatchdogManager {
         return overlap >= 3;
     }
 
+    // ActivityManager.getRunningAppProcesses() only reports this app's own
+    // processes, so the foreground state comes from the privileged shell.
     private boolean isAppForeground(String packageName) {
-        android.app.ActivityManager am =
-                (android.app.ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-        if (am == null) return false;
-        for (android.app.ActivityManager.RunningAppProcessInfo info : am.getRunningAppProcesses()) {
-            if (info.importance == android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
-                    && java.util.Arrays.asList(info.pkgList).contains(packageName)) {
-                return true;
-            }
+        if (foregroundPackage == null) {
+            String parsed = SmartLifecycleTextParser.parseForegroundPackage(
+                    shellManager.runShellCommandAndGetFullOutput("dumpsys activity activities"));
+            foregroundPackage = parsed == null ? "" : parsed;
         }
-        return false;
+        return foregroundPackage.equals(packageName);
     }
 
     private boolean isAppForegroundService(String packageName) {
-        android.app.ActivityManager am =
-                (android.app.ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-        if (am == null) return false;
-        for (android.app.ActivityManager.RunningAppProcessInfo info : am.getRunningAppProcesses()) {
-            if (info.importance == android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE
-                    && java.util.Arrays.asList(info.pkgList).contains(packageName)) {
-                return true;
-            }
+        if (servicesDump == null) {
+            String dump = shellManager.runShellCommandAndGetFullOutput("dumpsys activity services");
+            servicesDump = dump == null ? "" : dump;
         }
-        return false;
+        return PackageTextMatcher.containsMarkerNearPackage(
+                servicesDump, packageName, "isForeground=true", 1800);
     }
 
     private void checkAndRepairSleepMode() {
@@ -168,10 +172,6 @@ public class RestrictionsWatchdogManager {
             return;
         }
 
-        Matcher packagesSectionMatcher = SLEEP_PACKAGES_SECTION.matcher(fullDump);
-        String packagesSection = packagesSectionMatcher.find()
-                ? packagesSectionMatcher.group() : fullDump;
-
         for (String pkg : permanent) {
             if (scheduler != null
                     && scheduler.isProtected(pkg, RestrictionsScheduler.PROTECT_SLEEP_MODE)) {
@@ -179,15 +179,8 @@ public class RestrictionsWatchdogManager {
                 continue;
             }
 
-            Pattern pkgBlockPattern = Pattern.compile(
-                    "(?m)^\\s*Package \\[" + Pattern.quote(pkg) + "\\].*\\n(?:(?!^\\s*Package \\[).*\\n?)*");
-            Matcher pkgBlockMatcher = pkgBlockPattern.matcher(packagesSection);
-            if (!pkgBlockMatcher.find()) continue;
-            String pkgBlock = pkgBlockMatcher.group();
-
-            Matcher userBlockMatcher = SLEEP_USER0_BLOCK.matcher(pkgBlock);
-            if (!userBlockMatcher.find()) continue;
-            String userBlock = userBlockMatcher.group();
+            String userBlock = userZeroBlock(fullDump, pkg);
+            if (userBlock == null) continue;
 
             boolean isSystem = sleepModeManager.isSystemPackage(pkg);
             SleepModeManager.FreezeMethod method = sleepModeManager.getFreezeMethod(pkg);
@@ -205,9 +198,32 @@ public class RestrictionsWatchdogManager {
             if (!drifted) continue;
 
 
+            // The user may have unfrozen the app since the set was read.
+            if (!sleepModeManager.getPermanentFreezeApps().contains(pkg)) continue;
             boolean ok = sleepModeManager.reapplyPermanentFreeze(pkg);
             SleepModeLogManager.logFreeze(context, pkg, ok, "WatchDog Repair", method, SleepModeManager.FreezeType.PERMANENT);
         }
+    }
+
+    /**
+     * The "User 0:" block of one package in "dumpsys package" output, or null.
+     * Plain scanning on purpose: a regex that repeats a group over a dump of
+     * this size can overflow the stack.
+     */
+    static String userZeroBlock(String dump, String pkg) {
+        int section = dump.indexOf("\nPackages:\n");
+        Matcher header = Pattern.compile("(?m)^\\s*Package \\[" + Pattern.quote(pkg) + "\\]").matcher(dump);
+        if (!header.find(Math.max(section, 0))) return null;
+        Matcher nextPackage = SLEEP_PACKAGE_HEADER.matcher(dump);
+        int packageEnd = nextPackage.find(header.end()) ? nextPackage.start() : dump.length();
+
+        Matcher user = SLEEP_USER_HEADER.matcher(dump).region(header.end(), packageEnd);
+        while (user.find()) {
+            if (!user.group().trim().equals("User 0:")) continue;
+            int start = user.start();
+            return dump.substring(start, user.find() ? user.start() : packageEnd);
+        }
+        return null;
     }
 
     private java.util.Map<String, Integer> fetchAllStandbyBuckets() {
@@ -240,6 +256,8 @@ public class RestrictionsWatchdogManager {
         Set<String> mediumSet = appManager.getMediumRestrictedApps();
         Set<String> manualSet = appManager.getManualRestrictedApps();
 
+        foregroundPackage = null;
+        servicesDump = null;
         java.util.Map<String, Integer> currentBuckets = fetchAllStandbyBuckets();
         if (currentBuckets == null) {
 
@@ -252,43 +270,22 @@ public class RestrictionsWatchdogManager {
 
                 continue;
             }
+            // The user may have removed the app since the set was read.
+            if (!appManager.getBackgroundRestrictedApps().contains(pkg)) continue;
 
-            int required;
-            if (hardSet.contains(pkg)) {
-                if (isAppForeground(pkg)) {
-
-                    continue;
-                }
-                required = 45;
-            } else if (mediumSet.contains(pkg)) {
-                if (isAppForeground(pkg) || isAppForegroundService(pkg)) {
-
-                    continue;
-                }
-                required = 40;
-            } else if (manualSet.contains(pkg)) {
-                if (isAppForeground(pkg)) {
-
-                    continue;
-                }
-                required = appManager.getManualBucket(pkg);
-                if (required == 40 && isMediumLikeManual(pkg) && isAppForegroundService(pkg)) {
-
-                    continue;
-                }
-            } else {
-                continue;
-            }
+            boolean hard = hardSet.contains(pkg);
+            boolean medium = !hard && mediumSet.contains(pkg);
+            boolean manual = !hard && !medium && manualSet.contains(pkg);
+            int required = hard ? 45 : medium ? 40 : manual ? appManager.getManualBucket(pkg) : 0;
             if (required == 0) continue;
 
             Integer current = currentBuckets.get(pkg);
-            if (current == null) {
+            if (current == null || current == required) continue;
 
-                continue;
-            }
-
-            if (current == required) continue;
-
+            // The system raises the bucket of an app in use; that is not drift.
+            if (isAppForeground(pkg)) continue;
+            if (medium && isAppForegroundService(pkg)) continue;
+            if (manual && required == 40 && isMediumLikeManual(pkg) && isAppForegroundService(pkg)) continue;
 
             boolean ok;
             try {
