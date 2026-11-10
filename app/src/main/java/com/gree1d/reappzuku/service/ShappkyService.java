@@ -306,7 +306,9 @@ public class ShappkyService extends Service {
     }
 
     private void initializeManagersAndReceivers() {
-        appManager = new BackgroundAppManager(this, handler, executor, shellManager);
+        // One shell thread for every restriction pass and repair in the process.
+        ExecutorService shellExecutor = ((App) getApplication()).getShellExecutor();
+        appManager = new BackgroundAppManager(this, handler, executor, shellExecutor, shellManager);
 
         autoKillManager = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());
         sleepModeManager = new SleepModeManager(this, handler, executor, shellManager);
@@ -316,7 +318,7 @@ public class ShappkyService extends Service {
         sleepModeManager.setScheduler(scheduler);
         appManager.setScheduler(scheduler);
 
-        watchdog = new RestrictionsWatchdogManager(this, handler, executor, appManager, shellManager, scheduler);
+        watchdog = new RestrictionsWatchdogManager(this, handler, shellExecutor, appManager, shellManager, scheduler);
         watchdog.setSleepModeManager(sleepModeManager);
 
         screenOffReceiver = new KillTriggerReceiver();

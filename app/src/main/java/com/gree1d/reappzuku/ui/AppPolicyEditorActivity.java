@@ -203,6 +203,9 @@ public class AppPolicyEditorActivity extends BaseActivity {
             if (policy == null) {
                 policy = AppPolicyEditorModel.defaultPolicy(packageName, now);
             }
+            // The restriction screens own this level; the stored row can be stale or absent.
+            policy.backgroundRestriction =
+                    BackgroundAppManager.storedRestrictionLevel(this, packageName);
             AppPolicy finalPolicy = policy;
             mainHandler.post(() -> {
                 if (isFinishing() || isDestroyed()) return;

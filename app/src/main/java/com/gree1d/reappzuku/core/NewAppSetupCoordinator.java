@@ -68,7 +68,7 @@ public final class NewAppSetupCoordinator {
                             packageName, preset, System.currentTimeMillis());
                     db.appPolicyDao().upsert(policy);
                     BackgroundAppManager.applyPolicyRestriction(
-                            context, packageName, policy.backgroundRestriction);
+                            context, packageName, policy.backgroundRestriction, true);
                     clearPendingBeforeCancel(
                             () -> NewAppSetupStore.removePending(context, packageName),
                             () -> NewAppSetupNotifier.cancel(context, packageName));

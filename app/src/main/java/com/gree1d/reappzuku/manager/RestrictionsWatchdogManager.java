@@ -18,10 +18,8 @@ public class RestrictionsWatchdogManager {
 
     private static final long WATCHDOG_INTERVAL_MS = 35 * 60 * 1000L; 
 
-    private static final Pattern SLEEP_PACKAGES_SECTION =
-            Pattern.compile("(?m)^\\s*Packages:\\n(?:(?!^\\S).*\\n?)*");
-    private static final Pattern SLEEP_USER0_BLOCK =
-            Pattern.compile("(?m)^\\s*User 0:.*(?:\\n(?!\\s*User \\d+:).*)*");
+    private static final Pattern SLEEP_PACKAGE_HEADER = Pattern.compile("(?m)^\\s*Package \\[");
+    private static final Pattern SLEEP_USER_HEADER = Pattern.compile("(?m)^\\s*User \\d+:");
     private static final Pattern SLEEP_SUSPENDED = Pattern.compile("\\bsuspended=(true|false)\\b");
     private static final Pattern SLEEP_ENABLED = Pattern.compile("\\benabled=(\\d+)\\b");
     private static final Pattern BUCKET_LINE = Pattern.compile("(?m)^([\\w.]+):\\s*(\\d+)\\s*$");
@@ -46,8 +44,8 @@ public class RestrictionsWatchdogManager {
         public void run() {
             if (!running) return;
             // The check runs shell commands and must stay off the main thread.
-            executor.execute(RestrictionsWatchdogManager.this::runCheck);
             handler.postDelayed(this, WATCHDOG_INTERVAL_MS);
+            executor.execute(RestrictionsWatchdogManager.this::runCheck);
         }
     };
 
@@ -110,7 +108,12 @@ public class RestrictionsWatchdogManager {
                 && !sleepModeManager.getPermanentFreezeApps().isEmpty();
 
         if (!backgroundRestrictionActive && !sleepModeActive) {
-            stop();
+            // Stop on the thread that starts it, then look again: a target may
+            // have been added while this check was running.
+            handler.post(() -> {
+                stop();
+                startIfNeeded();
+            });
 
             return;
         }
@@ -169,10 +172,6 @@ public class RestrictionsWatchdogManager {
             return;
         }
 
-        Matcher packagesSectionMatcher = SLEEP_PACKAGES_SECTION.matcher(fullDump);
-        String packagesSection = packagesSectionMatcher.find()
-                ? packagesSectionMatcher.group() : fullDump;
-
         for (String pkg : permanent) {
             if (scheduler != null
                     && scheduler.isProtected(pkg, RestrictionsScheduler.PROTECT_SLEEP_MODE)) {
@@ -180,15 +179,8 @@ public class RestrictionsWatchdogManager {
                 continue;
             }
 
-            Pattern pkgBlockPattern = Pattern.compile(
-                    "(?m)^\\s*Package \\[" + Pattern.quote(pkg) + "\\].*\\n(?:(?!^\\s*Package \\[).*\\n?)*");
-            Matcher pkgBlockMatcher = pkgBlockPattern.matcher(packagesSection);
-            if (!pkgBlockMatcher.find()) continue;
-            String pkgBlock = pkgBlockMatcher.group();
-
-            Matcher userBlockMatcher = SLEEP_USER0_BLOCK.matcher(pkgBlock);
-            if (!userBlockMatcher.find()) continue;
-            String userBlock = userBlockMatcher.group();
+            String userBlock = userZeroBlock(fullDump, pkg);
+            if (userBlock == null) continue;
 
             boolean isSystem = sleepModeManager.isSystemPackage(pkg);
             SleepModeManager.FreezeMethod method = sleepModeManager.getFreezeMethod(pkg);
@@ -206,9 +198,32 @@ public class RestrictionsWatchdogManager {
             if (!drifted) continue;
 
 
+            // The user may have unfrozen the app since the set was read.
+            if (!sleepModeManager.getPermanentFreezeApps().contains(pkg)) continue;
             boolean ok = sleepModeManager.reapplyPermanentFreeze(pkg);
             SleepModeLogManager.logFreeze(context, pkg, ok, "WatchDog Repair", method, SleepModeManager.FreezeType.PERMANENT);
         }
+    }
+
+    /**
+     * The "User 0:" block of one package in "dumpsys package" output, or null.
+     * Plain scanning on purpose: a regex that repeats a group over a dump of
+     * this size can overflow the stack.
+     */
+    static String userZeroBlock(String dump, String pkg) {
+        int section = dump.indexOf("\nPackages:\n");
+        Matcher header = Pattern.compile("(?m)^\\s*Package \\[" + Pattern.quote(pkg) + "\\]").matcher(dump);
+        if (!header.find(Math.max(section, 0))) return null;
+        Matcher nextPackage = SLEEP_PACKAGE_HEADER.matcher(dump);
+        int packageEnd = nextPackage.find(header.end()) ? nextPackage.start() : dump.length();
+
+        Matcher user = SLEEP_USER_HEADER.matcher(dump).region(header.end(), packageEnd);
+        while (user.find()) {
+            if (!user.group().trim().equals("User 0:")) continue;
+            int start = user.start();
+            return dump.substring(start, user.find() ? user.start() : packageEnd);
+        }
+        return null;
     }
 
     private java.util.Map<String, Integer> fetchAllStandbyBuckets() {
@@ -255,6 +270,8 @@ public class RestrictionsWatchdogManager {
 
                 continue;
             }
+            // The user may have removed the app since the set was read.
+            if (!appManager.getBackgroundRestrictedApps().contains(pkg)) continue;
 
             boolean hard = hardSet.contains(pkg);
             boolean medium = !hard && mediumSet.contains(pkg);

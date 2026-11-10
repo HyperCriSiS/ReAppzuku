@@ -62,6 +62,79 @@ public class RestrictionDeltaPolicyTest {
     }
 
     @Test
+    public void everyLevelHasItsOwnSignature() {
+        Set<String> signatures = new HashSet<>();
+        for (RestrictionType type : RestrictionType.values()) {
+            signatures.add(RestrictionDeltaPolicy.signature(type, 1, 0, false));
+        }
+        assertEquals(RestrictionType.values().length, signatures.size());
+    }
+
+    @Test
+    public void onlyACompleteApplyIsRemembered() {
+        assertTrue(RestrictionDeltaPolicy.applySucceeded(new int[] {3, 0}, true, true));
+        assertFalse(RestrictionDeltaPolicy.applySucceeded(new int[] {3, 1}, true, true));
+        assertFalse(RestrictionDeltaPolicy.applySucceeded(new int[] {0, 0}, true, true));
+        assertFalse(RestrictionDeltaPolicy.applySucceeded(new int[] {3, 0}, false, true));
+        assertFalse(RestrictionDeltaPolicy.applySucceeded(new int[] {3, 0}, true, false));
+    }
+
+    @Test
+    public void failedLiftOfAnInstalledAppIsRetried() {
+        assertFalse(RestrictionDeltaPolicy.liftCompleted(new int[] {0, 5}, true));
+        assertTrue(RestrictionDeltaPolicy.liftCompleted(new int[] {2, 3}, true));
+        assertTrue(RestrictionDeltaPolicy.liftCompleted(new int[] {0, 5}, false));
+    }
+
+    @Test
+    public void untrackedFirstPassAlsoLiftsThePreviousSetAndExplicitRemovals() {
+        assertEquals(set("live.orphan", "previous.removed", "explicit.removed"),
+                RestrictionDeltaPolicy.packagesToLiftUntracked(
+                        set("live.orphan", "kept"), set("previous.removed", "kept"),
+                        set("explicit.removed"), set("kept")));
+    }
+
+    @Test
+    public void explicitRequestsBypassTheUnchangedSkip() throws Exception {
+        String source = readManager();
+        int start = source.indexOf("    public void setBackgroundRestricted(");
+        String body = source.substring(start, source.indexOf("\n    }\n", start));
+        assertTrue(body.indexOf("targetPackages.add(packageName);")
+                < body.indexOf("saveAppliedRestrictionSignature(packageName, null);"));
+        // Tracking starts only after the live state was read successfully.
+        assertTrue(source.contains("tracked = live.querySucceeded;"));
+        // A queued watchdog repair re-checks the current set per app.
+        assertTrue(source.contains("if (!getBackgroundRestrictedApps().contains(pkg)) continue;"));
+    }
+
+    @Test
+    public void editorShowsTheLevelOfTheRestrictionSets() throws Exception {
+        String editor = read("app/src/main/java/com/gree1d/reappzuku/ui/AppPolicyEditorActivity.java");
+        assertTrue(editor.contains("BackgroundAppManager.storedRestrictionLevel(this, packageName);"));
+        String dao = read("app/src/main/java/com/gree1d/reappzuku/db/AppPolicyDao.java");
+        assertTrue(dao.contains("UPDATE app_policy SET backgroundRestriction = :level, updatedAt = :now"));
+        assertTrue(dao.contains("AND source = 0"));
+        String setup = read("app/src/main/java/com/gree1d/reappzuku/core/NewAppSetupCoordinator.java");
+        assertTrue(setup.contains("policy.backgroundRestriction, true);"));
+    }
+
+    @Test
+    public void userZeroBlockIsCutOutOfTheRightPackage() {
+        String dump = "Verifiers:\n  none\n\nPackages:\n"
+                + "  Package [com.other] (1):\n    User 0: ceDataInode=1 suspended=true enabled=0\n"
+                + "  Package [com.example.app] (2):\n    userId=10123\n"
+                + "    User 0: ceDataInode=2 suspended=false enabled=3\n      gids=[3003]\n"
+                + "    User 10: ceDataInode=3 suspended=true enabled=0\n"
+                + "  Package [com.example.app.extra] (3):\n    User 0: suspended=true enabled=0\n";
+        String block = RestrictionsWatchdogManager.userZeroBlock(dump, "com.example.app");
+        assertTrue(block.contains("suspended=false enabled=3"));
+        assertTrue(block.contains("gids=[3003]"));
+        assertFalse(block.contains("User 10:"));
+        assertFalse(block.contains("com.example.app.extra"));
+        assertEquals(null, RestrictionsWatchdogManager.userZeroBlock(dump, "com.missing"));
+    }
+
+    @Test
     public void policyLevelAndRestrictionTypeRoundTrip() {
         assertEquals(0, RestrictionDeltaPolicy.policyLevel(false, RestrictionType.HARD));
         assertEquals(null, RestrictionDeltaPolicy.typeForLevel(0));
@@ -93,7 +166,7 @@ public class RestrictionDeltaPolicyTest {
                 source.indexOf("    public void reapplySavedBackgroundRestrictions(", start));
         int skip = body.indexOf("if (!RestrictionDeltaPolicy.needsApply(");
         int allow = body.indexOf("applyAllHardOps(packageName, \"allow\");", skip);
-        int stop = body.indexOf("privilegedShell.forceStopPackage(packageName);");
+        int stop = body.indexOf("stopAfterRestriction(packageName);");
         assertTrue(skip >= 0 && skip < allow && skip < stop);
         assertTrue(body.contains("RestrictionDeltaPolicy.packagesToLift("));
     }

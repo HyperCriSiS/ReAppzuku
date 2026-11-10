@@ -151,6 +151,7 @@ public class BackgroundAppManager {
     private AutoKillManager autoKillManager;
 
     private final ExecutorService shellExecutor;
+    private boolean background;
     private final LruCache<String, Bitmap> iconCache;
 
     public BackgroundAppManager(Context context, Handler handler, ExecutorService executor,
@@ -805,6 +806,8 @@ public class BackgroundAppManager {
         Set<String> targetPackages = getBackgroundRestrictedApps();
         if (restricted) {
             targetPackages.add(packageName);
+            // An explicit request always applies, also when the stored state claims it is applied.
+            saveAppliedRestrictionSignature(packageName, null);
         } else {
             targetPackages.remove(packageName);
         }
@@ -818,14 +821,23 @@ public class BackgroundAppManager {
      * any thread; does nothing when the level is already the target state.
      */
     public static void applyPolicyRestriction(Context context, String packageName, int policyLevel) {
+        applyPolicyRestriction(context, packageName, policyLevel, false);
+    }
+
+    /**
+     * @param background true when no user action is in front: no toast, no
+     *                   permission prompt and no force-stop of the app
+     */
+    public static void applyPolicyRestriction(Context context, String packageName, int policyLevel,
+            boolean background) {
         App app = (App) context.getApplicationContext();
         Handler main = new Handler(android.os.Looper.getMainLooper());
         main.post(() -> {
             BackgroundAppManager manager = new BackgroundAppManager(
                     app, main, app.getSharedExecutor(), app.getShellExecutor(), app.getShellManager());
-            boolean restricted = manager.getBackgroundRestrictedApps().contains(packageName);
+            manager.background = background;
             RestrictionType type = RestrictionDeltaPolicy.typeForLevel(policyLevel);
-            if (RestrictionDeltaPolicy.policyLevel(restricted, manager.getRestrictionType(packageName))
+            if (storedRestrictionLevel(app, packageName)
                     == RestrictionDeltaPolicy.policyLevel(type != null, type)) {
                 return;
             }
@@ -840,16 +852,38 @@ public class BackgroundAppManager {
      * level the user has since changed elsewhere.
      */
     private void syncExplicitPoliciesWithRestrictionSets() {
-        Set<String> restricted = getBackgroundRestrictedApps();
         AppPolicyDao dao = AppDatabase.getInstance(context).appPolicyDao();
         for (AppPolicy policy : dao.getAll()) {
             if (policy.source != AppPolicy.SOURCE_EXPLICIT) continue;
-            int level = RestrictionDeltaPolicy.policyLevel(
-                    restricted.contains(policy.packageName), getRestrictionType(policy.packageName));
+            int level = storedRestrictionLevel(context, policy.packageName);
             if (policy.backgroundRestriction == level) continue;
-            policy.backgroundRestriction = level;
-            policy.updatedAt = System.currentTimeMillis();
-            dao.upsert(policy);
+            // Single-column update: a concurrent editor save keeps its other fields.
+            dao.updateExplicitRestriction(policy.packageName, level, System.currentTimeMillis());
+        }
+    }
+
+    /** The restriction level the preference sets hold for an app, as an app policy value. */
+    public static int storedRestrictionLevel(Context context, String packageName) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
+        RestrictionType type =
+                contains(prefs, KEY_MANUAL_RESTRICTION_APPS, packageName) ? RestrictionType.MANUAL
+                : contains(prefs, KEY_HARD_RESTRICTION_APPS, packageName) ? RestrictionType.HARD
+                : contains(prefs, KEY_MEDIUM_RESTRICTION_APPS, packageName) ? RestrictionType.MEDIUM
+                : RestrictionType.SOFT;
+        return RestrictionDeltaPolicy.policyLevel(
+                contains(prefs, KEY_AUTOSTART_DISABLED_APPS, packageName), type);
+    }
+
+    private static boolean contains(SharedPreferences prefs, String setKey, String packageName) {
+        return prefs.getStringSet(setKey, Collections.emptySet()).contains(packageName);
+    }
+
+    private void stopAfterRestriction(String packageName) {
+        if (background) return;
+        if (autoKillManager != null) {
+            autoKillManager.killPackageSync(packageName);
+        } else {
+            privilegedShell.forceStopPackage(packageName);
         }
     }
 
@@ -891,7 +925,9 @@ public class BackgroundAppManager {
         if (!supportsBackgroundRestriction()) {
             BackgroundRestrictionLog.log(context, null, "apply", "skipped", "Android 11+ required");
 
-            Toast.makeText(context, context.getString(R.string.toast_bg_restriction_requires_android11), Toast.LENGTH_SHORT).show();
+            if (!background) {
+                Toast.makeText(context, context.getString(R.string.toast_bg_restriction_requires_android11), Toast.LENGTH_SHORT).show();
+            }
             if (onComplete != null) {
                 handler.post(onComplete);
             }
@@ -900,7 +936,7 @@ public class BackgroundAppManager {
         if (!shellManager.hasAnyShellPermission()) {
             BackgroundRestrictionLog.log(context, null, "apply", "failed", "No Root or Shizuku permission available");
 
-            shellManager.checkShellPermissions();
+            if (!background) shellManager.checkShellPermissions();
             if (onComplete != null) {
                 handler.post(onComplete);
             }
@@ -910,14 +946,15 @@ public class BackgroundAppManager {
         shellExecutor.execute(() -> {
             Map<String, String> appliedSignatures = getAppliedRestrictionSignatures();
             Set<String> packagesToAllow;
-            if (sharedpreferences.getBoolean(KEY_APPLIED_RESTRICTION_TRACKED, false)) {
+            boolean tracked = sharedpreferences.getBoolean(KEY_APPLIED_RESTRICTION_TRACKED, false);
+            if (tracked) {
                 packagesToAllow = RestrictionDeltaPolicy.packagesToLift(
                         previouslyDesired, appliedSignatures.keySet(), explicitlyRemoved, desiredPackages);
             } else {
-                // First pass after an update: nothing is tracked yet, so lift from
-                // the live state once, as every pass did before.
-                packagesToAllow = new HashSet<>(getActualBackgroundRestrictedApps());
-                packagesToAllow.removeAll(desiredPackages);
+                BackgroundRestrictionState live = getBackgroundRestrictionState();
+                packagesToAllow = RestrictionDeltaPolicy.packagesToLiftUntracked(
+                        live.restrictedPackages, previouslyDesired, explicitlyRemoved, desiredPackages);
+                tracked = live.querySucceeded;
             }
 
             boolean success = true;
@@ -926,7 +963,9 @@ public class BackgroundAppManager {
                 resetBucket(packageName);
                 restoreBatteryWhitelist(packageName);
                 if (opsCount[0] == 0) success = false;
-                saveAppliedRestrictionSignature(packageName, null);
+                if (RestrictionDeltaPolicy.liftCompleted(opsCount, isInstalled(packageName))) {
+                    saveAppliedRestrictionSignature(packageName, null);
+                }
                 logRestrictionResult(packageName, "allow", null, null, opsCount);
             }
 
@@ -955,61 +994,52 @@ public class BackgroundAppManager {
                 resetBucket(packageName);
                 restoreBatteryWhitelist(packageName);
 
+                int[] opsCount;
+                boolean bucketOk = true;
+                boolean whitelistOk = true;
+                String action;
+                Integer bucket = null;
                 if (manualSet.contains(packageName)) {
-                    int opsMask = getManualOpsMask(packageName);
-                    int[] opsCount = applyManualOps(packageName, opsMask, "ignore");
-                    int manualBucket = getManualBucket(packageName);
-                    if (manualBucket != 0) applyBucket(packageName, manualBucket);
-                    if (getManualWhitelistRemoval(packageName)) applyBatteryWhitelistRemoval(packageName);
-                    if (autoKillManager != null) {
-                        autoKillManager.killPackageSync(packageName);
-                    } else {
-                        privilegedShell.forceStopPackage(packageName);
+                    action = "reapply-manual";
+                    opsCount = applyManualOps(packageName, getManualOpsMask(packageName), "ignore");
+                    bucket = getManualBucket(packageName);
+                    if (bucket != 0) bucketOk = applyBucket(packageName, bucket);
+                    if (getManualWhitelistRemoval(packageName)) {
+                        whitelistOk = applyBatteryWhitelistRemoval(packageName);
                     }
-                    if (opsCount[0] == 0) success = false;
-                    else saveAppliedRestrictionSignature(packageName, signature);
-                    logRestrictionResult(packageName, "reapply-manual", null, null, opsCount, manualBucket);
                 } else if (hardSet.contains(packageName)) {
-                    int[] opsCount = applyAllHardOps(packageName, "ignore");
-                    applyBucket(packageName, STANDBY_BUCKET_RESTRICTED);
-                    applyBatteryWhitelistRemoval(packageName);
-                    if (autoKillManager != null) {
-                        autoKillManager.killPackageSync(packageName);
-                    } else {
-                        privilegedShell.forceStopPackage(packageName);
-                    }
-                    if (opsCount[0] == 0) success = false;
-                    else saveAppliedRestrictionSignature(packageName, signature);
-                    logRestrictionResult(packageName, "reapply-hard", null, null, opsCount, STANDBY_BUCKET_RESTRICTED);
+                    action = "reapply-hard";
+                    opsCount = applyAllHardOps(packageName, "ignore");
+                    bucket = STANDBY_BUCKET_RESTRICTED;
+                    bucketOk = applyBucket(packageName, bucket);
+                    whitelistOk = applyBatteryWhitelistRemoval(packageName);
                 } else if (mediumSet.contains(packageName)) {
-                    int[] opsCount = applyMediumOps(packageName, "ignore");
-                    applyBucket(packageName, STANDBY_BUCKET_RARE);
-                    if (autoKillManager != null) {
-                        autoKillManager.killPackageSync(packageName);
-                    } else {
-                        privilegedShell.forceStopPackage(packageName);
-                    }
-                    if (opsCount[0] == 0) success = false;
-                    else saveAppliedRestrictionSignature(packageName, signature);
-                    logRestrictionResult(packageName, "reapply-medium", null, null, opsCount, STANDBY_BUCKET_RARE);
+                    action = "reapply-medium";
+                    opsCount = applyMediumOps(packageName, "ignore");
+                    bucket = STANDBY_BUCKET_RARE;
+                    bucketOk = applyBucket(packageName, bucket);
                 } else {
                     ShellManager.ShellResult restrictResult = privilegedShell.setAppOp(
                             packageName, BACKGROUND_RESTRICTION_OP, PrivilegedShell.AppOpMode.IGNORE);
+                    logRestrictionResult(packageName, "reapply-soft", restrictResult, null);
                     if (!restrictResult.succeeded()) {
                         success = false;
-                        logRestrictionResult(packageName, "reapply-soft", restrictResult, null);
                         continue;
                     }
-                    if (autoKillManager != null) {
-                        autoKillManager.killPackageSync(packageName);
-                    } else {
-                        privilegedShell.forceStopPackage(packageName);
-                    }
+                    stopAfterRestriction(packageName);
                     saveAppliedRestrictionSignature(packageName, signature);
-                    logRestrictionResult(packageName, "reapply-soft", restrictResult, null);
+                    continue;
                 }
+                stopAfterRestriction(packageName);
+                if (opsCount[0] == 0) success = false;
+                if (RestrictionDeltaPolicy.applySucceeded(opsCount, bucketOk, whitelistOk)) {
+                    saveAppliedRestrictionSignature(packageName, signature);
+                }
+                logRestrictionResult(packageName, action, null, null, opsCount, bucket);
             }
-            sharedpreferences.edit().putBoolean(KEY_APPLIED_RESTRICTION_TRACKED, true).apply();
+            if (tracked) {
+                sharedpreferences.edit().putBoolean(KEY_APPLIED_RESTRICTION_TRACKED, true).apply();
+            }
 
             BackgroundRestrictionState actualState = getBackgroundRestrictionState();
             for (String packageName : packagesToAllow) {
@@ -1024,10 +1054,12 @@ public class BackgroundAppManager {
 
             final boolean finalSuccess = success;
             handler.post(() -> {
-                Toast.makeText(context,
-                        finalSuccess ? context.getString(R.string.bg_manager_restriction_applied)
-                                : context.getString(R.string.toast_bg_restriction_changes_partial),
-                        Toast.LENGTH_SHORT).show();
+                if (!background) {
+                    Toast.makeText(context,
+                            finalSuccess ? context.getString(R.string.bg_manager_restriction_applied)
+                                    : context.getString(R.string.toast_bg_restriction_changes_partial),
+                            Toast.LENGTH_SHORT).show();
+                }
                 if (onComplete != null) {
                     onComplete.run();
                 }
@@ -1511,6 +1543,9 @@ public class BackgroundAppManager {
                 String pkg           = entry.getKey();
                 List<String> missing = entry.getValue();
 
+                // The user may have removed the app while this repair was queued.
+                if (!getBackgroundRestrictedApps().contains(pkg)) continue;
+
                 if (scheduler != null
                         && scheduler.isProtected(pkg, RestrictionsScheduler.PROTECT_BG_RESTRICTIONS)) {
 
@@ -1771,6 +1806,15 @@ public class BackgroundAppManager {
         sharedpreferences.edit().putStringSet(KEY_AUTOSTART_DISABLED_APPS, new HashSet<>(packageNames)).apply();
     }
 
+
+    private boolean isInstalled(String packageName) {
+        try {
+            context.getPackageManager().getApplicationInfo(packageName, 0);
+            return true;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+    }
 
     private Map<String, String> getAppliedRestrictionSignatures() {
         Map<String, String> signatures = new HashMap<>();

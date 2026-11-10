@@ -19,8 +19,26 @@ final class RestrictionDeltaPolicy {
     /** Everything that defines what gets applied to one app. */
     static String signature(BackgroundAppManager.RestrictionType type,
                             int manualOpsMask, int manualBucket, boolean manualWhitelistRemoval) {
-        if (type != BackgroundAppManager.RestrictionType.MANUAL) return type.name();
-        return type.name() + ":" + manualOpsMask + ":" + manualBucket + ":" + manualWhitelistRemoval;
+        // Bump the version when the op lists of a level change, so stored apps are re-applied.
+        String base = "v1:" + type.name();
+        if (type != BackgroundAppManager.RestrictionType.MANUAL) return base;
+        return base + ":" + manualOpsMask + ":" + manualBucket + ":" + manualWhitelistRemoval;
+    }
+
+    /**
+     * An apply is only remembered when every step worked. Anything less is
+     * retried on the next pass instead of being skipped as unchanged.
+     */
+    static boolean applySucceeded(int[] opsCount, boolean bucketOk, boolean whitelistOk) {
+        return opsCount[0] > 0 && opsCount[1] == 0 && bucketOk && whitelistOk;
+    }
+
+    /**
+     * A failed lift keeps its signature so the next pass tries again. An
+     * uninstalled app has nothing left to lift.
+     */
+    static boolean liftCompleted(int[] opsCount, boolean installed) {
+        return opsCount[0] > 0 || !installed;
     }
 
     /** The restriction level an app policy stores for the given applied state. */
@@ -62,5 +80,15 @@ final class RestrictionDeltaPolicy {
         lift.addAll(explicitlyRemoved);
         lift.removeAll(desired);
         return lift;
+    }
+
+    /**
+     * First pass after an update: nothing is tracked yet, so the live device
+     * state is lifted once, as every pass did before. Tracking only starts
+     * once that live state could actually be read.
+     */
+    static Set<String> packagesToLiftUntracked(Set<String> liveRestricted, Set<String> previouslyDesired,
+                                               Set<String> explicitlyRemoved, Set<String> desired) {
+        return packagesToLift(previouslyDesired, liveRestricted, explicitlyRemoved, desired);
     }
 }

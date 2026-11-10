@@ -31,6 +31,10 @@ public interface AppPolicyDao {
     @Delete
     void delete(AppPolicy policy);
 
+    @Query("UPDATE app_policy SET backgroundRestriction = :level, updatedAt = :now "
+            + "WHERE packageName = :packageName AND source = 0")
+    void updateExplicitRestriction(String packageName, int level, long now);
+
     @Query("DELETE FROM app_policy WHERE packageName = :packageName")
     void deleteByPackage(String packageName);
 
