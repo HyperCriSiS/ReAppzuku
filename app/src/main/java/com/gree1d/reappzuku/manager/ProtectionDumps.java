@@ -12,24 +12,25 @@ import com.gree1d.reappzuku.db.AppPolicy;
  * an app the user is actively relying on.
  */
 final class ProtectionDumps {
-    private final String media;
-    private final String widget;
-    private final String services;
-    private final String wallpaper;
-    private final String devicePolicy;
-    private final String connectivity;
+    private static final String SEPARATOR = "==reappzuku-dump==";
+    private static final String COMMAND = "dumpsys media_session; echo " + SEPARATOR
+            + "; dumpsys appwidget; echo " + SEPARATOR
+            + "; dumpsys activity services; echo " + SEPARATOR
+            + "; dumpsys wallpaper; echo " + SEPARATOR
+            + "; dumpsys device_policy; echo " + SEPARATOR
+            + "; dumpsys connectivity";
 
-    private ProtectionDumps(ShellManager shell) {
-        media = dump(shell, "dumpsys media_session");
-        widget = dump(shell, "dumpsys appwidget");
-        services = dump(shell, "dumpsys activity services");
-        wallpaper = dump(shell, "dumpsys wallpaper");
-        devicePolicy = dump(shell, "dumpsys device_policy");
-        connectivity = dump(shell, "dumpsys connectivity");
+    private final String[] dumps;
+
+    /** @param output the output of {@link #COMMAND}, or null when the shell failed */
+    ProtectionDumps(String output) {
+        String[] parts = output == null ? new String[0] : output.split(SEPARATOR, -1);
+        dumps = parts.length == 6 ? parts : null;
     }
 
+    /** One shell invocation, so a pass under a short wakelock is not six round trips. */
     static ProtectionDumps collect(ShellManager shell) {
-        return new ProtectionDumps(shell);
+        return new ProtectionDumps(shell.runShellCommandAndGetFullOutput(COMMAND));
     }
 
     /** @param policy the app's explicit policy, or null when every protection applies */
@@ -40,8 +41,14 @@ final class ProtectionDumps {
         if (isEnabledIn(context, "enabled_notification_listeners", pkg)) {
             return "notification listener";
         }
+        return dumpReasonFor(pkg, policy);
+    }
+
+    String dumpReasonFor(String pkg, AppPolicy policy) {
+        // Without the dumps nothing is known about the app, so it is left alone.
+        if (dumps == null || dumps[2].trim().isEmpty()) return "protection state unknown";
         return SmartLifecycleProtectionPolicy.getDumpProtectionReason(
-                pkg, media, widget, services, wallpaper, devicePolicy, connectivity,
+                pkg, dumps[0], dumps[1], dumps[2], dumps[3], dumps[4], dumps[5],
                 policy == null || policy.protectMedia,
                 policy == null || policy.protectForegroundServices,
                 policy == null || policy.protectWidgets);
@@ -55,10 +62,5 @@ final class ProtectionDumps {
             if (cn != null && pkg.equals(cn.getPackageName())) return true;
         }
         return false;
-    }
-
-    private static String dump(ShellManager shell, String command) {
-        String output = shell.runShellCommandAndGetFullOutput(command);
-        return output == null ? "" : output;
     }
 }

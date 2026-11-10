@@ -39,9 +39,15 @@ public class SmartLifecyclePolicyRoutingSourceTest {
     public void autoKillChecksTheSameProtectionBeforeKilling() throws Exception {
         String source = readRepositoryFile(
                 "app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java");
-        int protect = source.indexOf("dumps.reasonFor(context, pkg, explicitPolicies.get(pkg))");
+        int protect = source.indexOf(
+                "if (dumps.reasonFor(context, pkg, explicitPolicies.get(pkg)) == null) {");
+        int record = source.indexOf("recordSuccessfulKills(toKill, null, source);");
         int kill = source.indexOf("privilegedShell.killPackagesAndGetFullOutput(");
-        assertTrue(protect >= 0 && protect < kill);
+        assertTrue(protect >= 0 && protect < record && record < kill);
+        // Remembered spared apps are dropped before any dump is collected.
+        int remembered = source.indexOf("sparedPackages.isSpared(pkg, protectionCheckAt)");
+        int collect = source.indexOf("ProtectionDumps.collect(shellManager)");
+        assertTrue(remembered >= 0 && remembered < collect && collect < protect);
     }
 
     @Test

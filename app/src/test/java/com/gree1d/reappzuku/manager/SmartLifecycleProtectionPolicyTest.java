@@ -79,6 +79,23 @@ public class SmartLifecycleProtectionPolicyTest {
     }
 
     @Test
+    public void notVpnCapabilityOfAnOrdinaryNetworkDoesNotProtect() {
+        String connectivity = "NetworkRequest [ REQUEST id=7, [ Capabilities: INTERNET&NOT_VPN"
+                + " RequestorUid: 10123 RequestorPkg: " + PKG + " ] ]";
+        assertNull(reason("", "", "", "", "", connectivity));
+        assertEquals("VPN/network service", reason("", "", "", "", "",
+                "Transports: VPN Capabilities: INTERNET OwnerPkg: " + PKG + " "));
+    }
+
+    @Test
+    public void widgetHostWithoutPlacedWidgetIsNotProtected() {
+        String hostOnly = "Providers:\n\nWidgets:\n\nHosts:\n  [0] hostId=HostId{user:0, pkg:"
+                + PKG + "}\n";
+        assertNull(reason("", hostOnly, "", "", "", ""));
+        assertEquals("active widget", reason("", "Widgets:\n provider=" + PKG + "/.W", "", "", "", ""));
+    }
+
+    @Test
     public void noProtectionSignalReturnsNull() {
         assertNull(reason("", "", "", "", "", ""));
     }

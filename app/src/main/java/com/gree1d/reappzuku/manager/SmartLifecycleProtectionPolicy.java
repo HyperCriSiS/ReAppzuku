@@ -4,7 +4,7 @@ package com.gree1d.reappzuku.manager;
  * Pure dump-based Smart Lifecycle protection policy.
  *
  * Android Settings-backed protections (accessibility service / notification listener) stay in
- * SmartLifecycleManager because they require a ContentResolver. Text-dump decisions live here so
+ * ProtectionDumps because they require a ContentResolver. Text-dump decisions live here so
  * they can be exhaustively regression-tested without Android runtime dependencies.
  */
 final class SmartLifecycleProtectionPolicy {
@@ -57,8 +57,10 @@ final class SmartLifecycleProtectionPolicy {
         if (PackageTextMatcher.containsExactPackage(devicePolicyDump, packageName)) {
             return "device policy";
         }
+        // Ordinary networks carry the NOT_VPN capability, which is not a VPN signal.
         if (PackageTextMatcher.containsMarkerNearPackage(
-                connectivityDump, packageName, "VPN", ASSOCIATION_RADIUS)) {
+                connectivityDump == null ? null : connectivityDump.replace("NOT_VPN", ""),
+                packageName, "VPN", ASSOCIATION_RADIUS)) {
             return "VPN/network service";
         }
         return null;
