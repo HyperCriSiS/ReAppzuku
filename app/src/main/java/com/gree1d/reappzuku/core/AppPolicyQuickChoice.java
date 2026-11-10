@@ -34,6 +34,24 @@ public final class AppPolicyQuickChoice {
                     .getInt(PreferenceKeys.KEY_AUTO_KILL_TYPE, 0) == 1
                     ? AppPolicy.KILL_METHOD_AM_KILL : AppPolicy.KILL_METHOD_FORCE_STOP;
         }
+        save(context, database, policy);
+    }
+
+    /** Gives the app exactly the values of a built-in preset, replacing its policy. */
+    @WorkerThread
+    public static void applyPreset(Context context, String packageName, long presetId) {
+        AppDatabase database = AppDatabase.getInstance(context);
+        PolicyPresetSeeder.seedBuiltIns(database);
+        AppPolicy existing = database.appPolicyDao().getByPackage(packageName);
+        long now = System.currentTimeMillis();
+        AppPolicy policy = AppPolicyEditorModel.fromPreset(
+                packageName, database.policyPresetDao().getById(presetId), now);
+        if (existing != null && existing.createdAt > 0L) policy.createdAt = existing.createdAt;
+        save(context, database, policy);
+    }
+
+    private static void save(Context context, AppDatabase database, AppPolicy policy) {
+        String packageName = policy.packageName;
         // The restriction screens own this level; the choice must not change it.
         policy.backgroundRestriction =
                 BackgroundAppManager.storedRestrictionLevel(context, packageName);

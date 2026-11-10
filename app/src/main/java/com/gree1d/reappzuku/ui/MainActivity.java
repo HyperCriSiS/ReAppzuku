@@ -1126,7 +1126,6 @@ public class MainActivity extends BaseActivity {
         super.onResume();
 
         setupBottomNavigation();
-        updateRecommendationsCard();
 
         int newAccent = sharedPreferences.getInt(KEY_ACCENT, ACCENT_SYSTEM);
         boolean newIsAmoled = sharedPreferences.getBoolean(KEY_AMOLED, false);
@@ -1142,6 +1141,8 @@ public class MainActivity extends BaseActivity {
         loadSettingsAndApplyToManager();
         ensureServiceRunning();
         loadBackgroundApps();
+        // Queued behind the list load, which shares the executor.
+        updateRecommendationsCard();
         cpuMonitor.startMonitoring();
     }
 

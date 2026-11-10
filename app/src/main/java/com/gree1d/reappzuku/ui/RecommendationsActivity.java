@@ -86,13 +86,32 @@ public class RecommendationsActivity extends BaseActivity {
             }
             ((TextView) row.findViewById(R.id.recommendation_app)).setText(name);
             ((TextView) row.findViewById(R.id.recommendation_reason)).setText(reasonText(suggestion));
-            row.findViewById(R.id.recommendation_apply).setOnClickListener(v -> apply(suggestion));
-            row.findViewById(R.id.recommendation_dismiss).setOnClickListener(v -> {
+            View apply = row.findViewById(R.id.recommendation_apply);
+            View dismiss = row.findViewById(R.id.recommendation_dismiss);
+            // Every row has the same two button texts; a screen reader needs the app with them.
+            apply.setContentDescription(getString(R.string.recommendations_apply) + ": " + name);
+            dismiss.setContentDescription(getString(R.string.recommendations_dismiss) + ": " + name);
+            apply.setOnClickListener(v -> {
+                // A second tap must not run the change twice.
+                apply.setEnabled(false);
+                dismiss.setEnabled(false);
+                apply(suggestion, row);
+            });
+            dismiss.setOnClickListener(v -> {
                 SuggestionLoader.dismiss(this, suggestion);
-                reload();
+                removeRow(row);
             });
             list.addView(row);
         }
+    }
+
+    /** Removes one row and keeps the others, so the focus does not jump away on a TV remote. */
+    private void removeRow(View row) {
+        int index = list.indexOfChild(row);
+        list.removeView(row);
+        empty.setVisibility(list.getChildCount() == 0 ? View.VISIBLE : View.GONE);
+        View next = list.getChildAt(Math.min(index, list.getChildCount() - 1));
+        if (next != null) next.findViewById(R.id.recommendation_apply).requestFocus();
     }
 
     private String reasonText(SuggestionEngine.Suggestion suggestion) {
@@ -109,14 +128,14 @@ public class RecommendationsActivity extends BaseActivity {
         }
     }
 
-    private void apply(SuggestionEngine.Suggestion suggestion) {
+    private void apply(SuggestionEngine.Suggestion suggestion, View row) {
         executor.execute(() -> {
-            AppPolicyQuickChoice.apply(
-                    getApplicationContext(), suggestion.packageName, suggestion.strategy);
+            AppPolicyQuickChoice.applyPreset(getApplicationContext(),
+                    suggestion.packageName, SuggestionLoader.APPLIED_PRESET);
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 Toast.makeText(this, R.string.policy_editor_saved, Toast.LENGTH_SHORT).show();
-                reload();
+                removeRow(row);
             });
         });
     }

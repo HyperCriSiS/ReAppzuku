@@ -3,11 +3,11 @@
     <string name="recommendations_title">Рекомендації</string>
     <string name="recommendations_subtitle">Поради на основі вимірювань цього пристрою</string>
     <string name="recommendations_card">Рекомендації: %1$d</string>
-    <string name="recommendations_intro">На основі того, що цей пристрій виміряв за останні 7 днів. Нічого не змінюється, доки ви не застосуєте рекомендацію.</string>
-    <string name="recommendations_empty">Наразі рекомендацій немає. Вони з\'являться, коли накопичиться статистика за кілька днів.</string>
+    <string name="recommendations_intro">На основі того, що цей пристрій виміряв за останні 7 днів. Застосування рекомендації переводить застосунок у режим очікування після 4 годин без використання. Застосунок ніколи не зупиняється, тому будильники та повідомлення працюють далі. Нічого не змінюється, доки ви не застосуєте рекомендацію.</string>
+    <string name="recommendations_empty">Наразі рекомендацій немає.</string>
     <string name="recommendations_dismiss">Приховати</string>
-    <string name="recommendations_apply_smart">Перевести у Smart</string>
+    <string name="recommendations_apply">Обмежити в простої</string>
     <string name="recommendations_reason_restarts">Зупинок за 7 днів: %1$d. Повторних запусків після них: %2$d. Постійні зупинки коштують більше, ніж простій.</string>
-    <string name="recommendations_reason_unused">Днів від останнього відкриття: %1$d. Частка виміряного заряду: %2$d%%.</string>
-    <string name="recommendations_reason_heavy">Витратило %1$d%% виміряного заряду за останні 7 днів і нічим не керується.</string>
+    <string name="recommendations_reason_unused">Днів від останнього відкриття: %1$d. Частка в усьому виміряному енергоспоживанні застосунків: %2$d%%.</string>
+    <string name="recommendations_reason_heavy">Не відкривалося кілька днів, але його частка в усьому виміряному енергоспоживанні застосунків становить %1$d%%.</string>
 </resources>

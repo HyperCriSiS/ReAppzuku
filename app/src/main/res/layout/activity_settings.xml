@@ -864,6 +864,7 @@
                         android:id="@+id/layout_recommendations"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:focusable="true"
                         android:orientation="vertical"
                         android:paddingHorizontal="8dp"
                         android:paddingVertical="12dp"
