@@ -205,6 +205,11 @@
     <string name="settings_shell_root_ok" translatable="false">Root access ✅</string>
     <string name="settings_shell_no_access">No access ❌</string>
     <string name="settings_shell_mode_title">Access mode</string>
+    <string name="capability_all_available">All features are available.</string>
+    <string name="capability_needs_privilege">Without Root or Shizuku the app can analyze, but it cannot stop or restrict apps.</string>
+    <string name="capability_needs_android_11">Background restrictions and cache clearing require Android 11 or newer.</string>
+    <string name="capability_rss_only">Memory figures use RSS, which overstates shared memory. Shizuku provides exact values.</string>
+    <string name="capability_inexact_alarms">Exact alarms are not allowed, so schedules can run late.</string>
     <string name="settings_requires_privilege">Requires Root or Shizuku</string>
     <string name="settings_requires_service_enabled">Enable background service first</string>
 

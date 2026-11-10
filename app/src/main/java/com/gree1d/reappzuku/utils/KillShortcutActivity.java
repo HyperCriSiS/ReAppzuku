@@ -103,7 +103,7 @@ public class KillShortcutActivity extends Activity {
         shellManager.prepareShellBackendAsync(state -> {
             if (!state.isReady()) {
 
-                Toast.makeText(getApplicationContext(), "Shizuku or Root permission required", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getApplicationContext(), getString(com.gree1d.reappzuku.R.string.settings_requires_privilege), Toast.LENGTH_SHORT).show();
                 finish();
                 return;
             }

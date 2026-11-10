@@ -189,6 +189,11 @@
     <!-- Shell / access mode status -->
     <string name="settings_shell_no_access">无权限 ❌</string>
     <string name="settings_shell_mode_title">访问模式</string>
+    <string name="capability_all_available">所有功能均可用。</string>
+    <string name="capability_needs_privilege">没有 Root 或 Shizuku 时，应用只能分析，无法停止或限制应用。</string>
+    <string name="capability_needs_android_11">后台限制和清除缓存需要 Android 11 或更高版本。</string>
+    <string name="capability_rss_only">内存数据使用 RSS，会高估共享内存。Shizuku 可提供精确数值。</string>
+    <string name="capability_inexact_alarms">未允许精确闹钟，计划任务可能延迟执行。</string>
     <string name="settings_requires_privilege">需要 Root 或 Shizuku</string>
     <string name="settings_requires_service_enabled">请先启用后台服务</string>
 

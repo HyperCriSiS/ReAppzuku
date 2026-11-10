@@ -184,6 +184,11 @@
     <!-- Статус режима доступа -->
     <string name="settings_shell_no_access">Нет доступа ❌</string>
     <string name="settings_shell_mode_title">Режим работы</string>
+    <string name="capability_all_available">Все функции доступны.</string>
+    <string name="capability_needs_privilege">Без Root или Shizuku приложение может анализировать, но не может останавливать или ограничивать приложения.</string>
+    <string name="capability_needs_android_11">Фоновые ограничения и очистка кэша требуют Android 11 или новее.</string>
+    <string name="capability_rss_only">Данные о памяти используют RSS, который завышает общую память. Shizuku даёт точные значения.</string>
+    <string name="capability_inexact_alarms">Точные будильники не разрешены, поэтому расписания могут срабатывать с опозданием.</string>
     <string name="settings_requires_privilege">Требуется Root или Shizuku</string>
     <string name="settings_requires_service_enabled">Сначала включите фоновый сервис</string>
 

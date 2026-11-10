@@ -21,6 +21,7 @@ import androidx.appcompat.app.AlertDialog;
 
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.databinding.ActivitySettingsBinding;
+import com.gree1d.reappzuku.core.CapabilityMatrix;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.BackupManager;
 import com.gree1d.reappzuku.core.BackgroundWorkPolicy;
@@ -486,15 +487,14 @@ public class SettingsActivity extends SettingsActivityDialogs
         binding.layoutHiddenApps.setOnClickListener(v -> showHiddenAppsDialog());
 
 
-        binding.layoutBackgroundRestriction.setVisibility(
-                appManager.supportsBackgroundRestriction() ? View.VISIBLE : View.GONE);
+        // Unsupported rows stay visible and explain themselves instead of vanishing.
         binding.layoutBackgroundRestriction.setOnClickListener(v -> {
+            if (!appManager.supportsBackgroundRestriction()) { showRequiresAndroid11Toast(); return; }
             if (!isServiceEnabled()) { showServiceRequiredToast(); return; }
             showBackgroundRestrictionDialog();
         });
-        binding.layoutReapplyRestrictions.setVisibility(
-                appManager.supportsBackgroundRestriction() ? View.VISIBLE : View.GONE);
         binding.layoutReapplyRestrictions.setOnClickListener(v -> {
+            if (!appManager.supportsBackgroundRestriction()) { showRequiresAndroid11Toast(); return; }
             if (!isServiceEnabled()) { showServiceRequiredToast(); return; }
             Set<String> savedRestrictions = appManager.getBackgroundRestrictedApps();
             if (savedRestrictions.isEmpty()) {
@@ -800,9 +800,10 @@ public class SettingsActivity extends SettingsActivityDialogs
 
         binding.layoutAutoKillType.setAlpha(alpha);
 
+        float restrictionAlpha = appManager.supportsBackgroundRestriction() ? alpha : 0.5f;
+        binding.layoutBackgroundRestriction.setAlpha(restrictionAlpha);
+        binding.layoutReapplyRestrictions.setAlpha(restrictionAlpha);
         if (appManager.supportsBackgroundRestriction()) {
-            binding.layoutBackgroundRestriction.setAlpha(alpha);
-            binding.layoutReapplyRestrictions.setAlpha(alpha);
             binding.layoutRestrictionsScheduler.setAlpha(alpha);
         }
 
@@ -886,24 +887,56 @@ public class SettingsActivity extends SettingsActivityDialogs
         editor.apply();
     }
 
+    private void showRequiresAndroid11Toast() {
+        Toast.makeText(this, getString(R.string.toast_bg_restriction_requires_android11), Toast.LENGTH_SHORT).show();
+    }
+
     private void showServiceRequiredToast() {
         Toast.makeText(this, getString(R.string.settings_requires_service_enabled), Toast.LENGTH_SHORT).show();
     }
 
+    private String describeLimits(CapabilityMatrix matrix) {
+        StringBuilder limits = new StringBuilder();
+        for (CapabilityMatrix.Feature feature : new CapabilityMatrix.Feature[] {
+                CapabilityMatrix.Feature.KILL_APPS,
+                CapabilityMatrix.Feature.BACKGROUND_RESTRICTION,
+                CapabilityMatrix.Feature.MEMORY_PSS,
+                CapabilityMatrix.Feature.EXACT_ALARMS}) {
+            int reason;
+            switch (matrix.of(feature)) {
+                case UNAVAILABLE_NEEDS_PRIVILEGE:
+                    // Every intervention shares this reason; say it once.
+                    if (feature != CapabilityMatrix.Feature.KILL_APPS) continue;
+                    reason = R.string.capability_needs_privilege;
+                    break;
+                case UNAVAILABLE_NEEDS_ANDROID_11: reason = R.string.capability_needs_android_11; break;
+                case DEGRADED_RSS_ONLY: reason = R.string.capability_rss_only; break;
+                case DEGRADED_INEXACT_ALARMS: reason = R.string.capability_inexact_alarms; break;
+                default: continue;
+            }
+            if (limits.length() > 0) limits.append('\n');
+            limits.append(getString(reason));
+        }
+        return limits.length() > 0 ? limits.toString() : getString(R.string.capability_all_available);
+    }
+
     private void updateShellModeText() {
         executor.execute(() -> {
-            final boolean privileged = shellManager.hasShizukuPermission() || shellManager.resolveAnyShellPermission();
+            final CapabilityMatrix matrix = CapabilityMatrix.current(this, shellManager);
+            final boolean privileged = matrix.mode() != CapabilityMatrix.Mode.NONE;
             final String text;
-            if (shellManager.hasShizukuPermission()) {
-                text = getString(R.string.settings_shell_shizuku_ok);
-            } else if (shellManager.resolveAnyShellPermission()) {
+            if (matrix.mode() == CapabilityMatrix.Mode.ROOT) {
                 text = getString(R.string.settings_shell_root_ok);
+            } else if (privileged) {
+                text = getString(R.string.settings_shell_shizuku_ok);
             } else {
                 text = getString(R.string.settings_shell_no_access);
             }
+            final String limits = describeLimits(matrix);
             handler.post(() -> {
                 if (binding == null) return;
                 binding.textShellMode.setText(text);
+                binding.textShellModeLimits.setText(limits);
                 if (!privileged) {
                     binding.switchAutoKill.setEnabled(false);
                     binding.switchAutoKill.setAlpha(0.5f);

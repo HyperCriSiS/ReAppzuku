@@ -98,6 +98,13 @@
                             android:layout_height="wrap_content"
                             android:textColor="@color/text_secondary"
                             android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/text_shell_mode_limits"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="12sp" />
                     </LinearLayout>
 
 

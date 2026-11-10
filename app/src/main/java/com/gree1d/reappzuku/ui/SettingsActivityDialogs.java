@@ -37,6 +37,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.databinding.ActivitySettingsBinding;
+import com.gree1d.reappzuku.core.CapabilityMatrix;
 import com.gree1d.reappzuku.core.BackupFileStore;
 import com.gree1d.reappzuku.core.BackupManager;
 import com.gree1d.reappzuku.core.BaseActivity;
@@ -1519,9 +1520,10 @@ protected void showSpecialThanksDialog() {
         cbClearCache.setPadding(dp4, dp8, dp24, dp8);
         cbClearCache.setLayoutParams(cbParams);
         if (checkboxTint != null) cbClearCache.setButtonTintList(checkboxTint);
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+        if (!CapabilityMatrix.hasAndroid11Commands(Build.VERSION.SDK_INT)) {
             cbClearCache.setEnabled(false);
             cbClearCache.setAlpha(0.4f);
+            cbClearCache.append("\n" + getString(R.string.capability_needs_android_11));
         }
         layoutTargetApps.addView(cbClearCache);
 

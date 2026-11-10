@@ -43,6 +43,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import com.gree1d.reappzuku.utils.AppModel;
+import com.gree1d.reappzuku.core.CapabilityMatrix;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.utils.PresetModel;
@@ -716,9 +717,10 @@ public class PresetSettingsActivity extends BaseActivity {
         CheckBox cbClearCache = makeCheckBox(getString(R.string.scenarios_app_launch_clear_cache),
                 workingModel.appLaunchClearCache, dp4, dp8, checkboxTint);
         cbClearCache.setLayoutParams(cbParams);
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+        if (!CapabilityMatrix.hasAndroid11Commands(Build.VERSION.SDK_INT)) {
             cbClearCache.setEnabled(false);
             cbClearCache.setAlpha(0.4f);
+            cbClearCache.append("\n" + getString(R.string.capability_needs_android_11));
         }
         layoutTargetApps.addView(cbClearCache);
         root.addView(layoutTargetApps);
