@@ -24,6 +24,7 @@ public class FirstRunPolicyTest {
         // An update keeps a working configuration; nobody is interrupted.
         assertFalse(FirstRunPolicy.shouldOffer(false, 1_000L, 2_000L));
         assertFalse(FirstRunPolicy.shouldOffer(true, 1_000L, 1_000L));
+        assertFalse(FirstRunPolicy.shouldOffer(true, 1_000L, 2_000L));
     }
 
     @Test
@@ -40,6 +41,25 @@ public class FirstRunPolicyTest {
                 FirstRunPolicy.defaultPreset(FirstRunPolicy.CHOICE_GENTLE));
         assertEquals(PolicyPresetSeeder.PRESET_BALANCED,
                 FirstRunPolicy.defaultPreset(FirstRunPolicy.CHOICE_BALANCED));
+        assertEquals(NewAppSetupPolicy.MODE_APPLY_DEFAULT_PRESET,
+                FirstRunPolicy.newAppMode(FirstRunPolicy.CHOICE_BALANCED));
+    }
+
+    @Test
+    public void confirmingWithoutAChangeLeavesStoredSettingsAlone() throws Exception {
+        // "Leave unmanaged" opens as Ask. Done without a change must not turn it into Ask.
+        int opened = FirstRunPolicy.choiceFor(
+                NewAppSetupPolicy.MODE_LEAVE_UNMANAGED, PolicyPresetSeeder.PRESET_BALANCED);
+        assertFalse(FirstRunPolicy.shouldWrite(opened, opened));
+        assertTrue(FirstRunPolicy.shouldWrite(opened, FirstRunPolicy.CHOICE_GENTLE));
+
+        String screen = read("app/src/main/java/com/gree1d/reappzuku/ui/FirstRunActivity.java");
+        int guard = screen.indexOf("if (FirstRunPolicy.shouldWrite(storedChoice, choice)) {");
+        assertTrue(guard >= 0 && guard < screen.indexOf("NewAppSetupStore.setMode("));
+        // Choosing Ask keeps whatever default preset is stored.
+        assertTrue(screen.contains("if (choice != FirstRunPolicy.CHOICE_ASK) {"));
+        // Apps already waiting for a decision are never processed from this screen.
+        assertFalse(screen.contains("replayPending"));
     }
 
     @Test
@@ -57,7 +77,7 @@ public class FirstRunPolicyTest {
     }
 
     @Test
-    public void setupNeverOpensByItselfAndNeverSwitchesAutomationOn() throws Exception {
+    public void setupNeverOpensByItselfAndNeverTouchesAutoKill() throws Exception {
         String main = read("app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java");
         int start = main.indexOf("private void updateFirstRunCard() {");
         String card = main.substring(start, main.indexOf("\n    }\n", start));
@@ -68,7 +88,12 @@ public class FirstRunPolicyTest {
         String screen = read("app/src/main/java/com/gree1d/reappzuku/ui/FirstRunActivity.java");
         assertFalse(screen.contains("KEY_AUTO_KILL_ENABLED"));
         assertFalse(screen.contains("ShappkyService"));
-        assertTrue(screen.contains("NewAppSetupCoordinator.replayPending(getApplicationContext())"));
+        for (String method : new String[] {"onCreate", "onResume"}) {
+            int at = main.indexOf("protected void " + method + "(");
+            assertTrue(method, at >= 0);
+            assertFalse(method, main.substring(at, main.indexOf("\n    }\n", at))
+                    .contains("FirstRunActivity"));
+        }
 
         String manifest = read("app/src/main/AndroidManifest.xml");
         int entry = manifest.indexOf("com.gree1d.reappzuku.ui.FirstRunActivity\"");
@@ -84,6 +109,16 @@ public class FirstRunPolicyTest {
             assertEquals(locale, expected, names(read(
                     "app/src/main/res/values-" + locale + "/strings_first_run.xml")));
         }
+        // The delays named on the screen are the ones the presets really use.
+        String english = read("app/src/main/res/values/strings_first_run.xml");
+        assertTrue(english.contains("Standby after 4 hours without use. Never stopped."));
+        assertTrue(english.contains("Standby after 1 hour without use, stopped after 6 hours"));
+        String seeder = read("app/src/main/java/com/gree1d/reappzuku/core/PolicyPresetSeeder.java");
+        assertTrue(seeder.contains("messenger.standbyDelayMs = 4L * HOUR_MS;"));
+        assertTrue(seeder.contains("messenger.forceStopDelayMs = Long.MAX_VALUE;"));
+        assertEquals(60L * 60L * 1000L, com.gree1d.reappzuku.db.AppPolicy.DEFAULT_SMART_STANDBY_DELAY_MS);
+        assertEquals(6L * 60L * 60L * 1000L,
+                com.gree1d.reappzuku.db.AppPolicy.DEFAULT_SMART_FORCE_STOP_DELAY_MS);
     }
 
     private static List<String> names(String xml) {

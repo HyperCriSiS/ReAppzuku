@@ -12,7 +12,6 @@ import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.BaseActivity;
 import com.gree1d.reappzuku.core.CapabilityMatrix;
 import com.gree1d.reappzuku.core.FirstRunPolicy;
-import com.gree1d.reappzuku.core.NewAppSetupCoordinator;
 import com.gree1d.reappzuku.core.NewAppSetupStore;
 import com.gree1d.reappzuku.core.PreferenceKeys;
 
@@ -24,8 +23,8 @@ import java.util.concurrent.ExecutorService;
  * changed here.
  */
 public class FirstRunActivity extends BaseActivity {
-    private ExecutorService executor;
     private RadioGroup choices;
+    private int storedChoice;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -38,12 +37,13 @@ public class FirstRunActivity extends BaseActivity {
             getSupportActionBar().setTitle(R.string.first_run_title);
         }
         App app = (App) getApplication();
-        executor = app.getSharedExecutor();
+        ExecutorService executor = app.getSharedExecutor();
         choices = findViewById(R.id.first_run_choices);
 
+        storedChoice = FirstRunPolicy.choiceFor(
+                NewAppSetupStore.getMode(this), NewAppSetupStore.getDefaultPresetId(this));
         if (savedInstanceState == null) {
-            choices.check(buttonFor(FirstRunPolicy.choiceFor(
-                    NewAppSetupStore.getMode(this), NewAppSetupStore.getDefaultPresetId(this))));
+            choices.check(buttonFor(storedChoice));
         }
         findViewById(R.id.first_run_done).setOnClickListener(v -> save());
         findViewById(R.id.first_run_later).setOnClickListener(v -> finishSetup());
@@ -74,10 +74,17 @@ public class FirstRunActivity extends BaseActivity {
 
     private void save() {
         int choice = choiceFor(choices.getCheckedRadioButtonId());
-        NewAppSetupStore.setMode(this, FirstRunPolicy.newAppMode(choice));
-        NewAppSetupStore.setDefaultPresetId(this, FirstRunPolicy.defaultPreset(choice));
-        // Apps that were waiting for a decision follow the new mode.
-        executor.execute(() -> NewAppSetupCoordinator.replayPending(getApplicationContext()));
+        // The three options do not cover every stored setting (for example
+        // "leave unmanaged" or another default preset). Confirming without a
+        // change must leave such a setting as it is.
+        if (FirstRunPolicy.shouldWrite(storedChoice, choice)) {
+            NewAppSetupStore.setMode(this, FirstRunPolicy.newAppMode(choice));
+            if (choice != FirstRunPolicy.CHOICE_ASK) {
+                NewAppSetupStore.setDefaultPresetId(this, FirstRunPolicy.defaultPreset(choice));
+            }
+        }
+        // Apps that are already waiting for a decision keep waiting. Applying a
+        // preset to them is done in the new-app settings, which ask first.
         finishSetup();
     }
 

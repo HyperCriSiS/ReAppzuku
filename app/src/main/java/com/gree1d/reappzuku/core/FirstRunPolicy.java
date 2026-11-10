@@ -20,6 +20,11 @@ public final class FirstRunPolicy {
         return !done && firstInstallTime == lastUpdateTime;
     }
 
+    /** Only a choice the user actually changed is written. */
+    public static boolean shouldWrite(int storedChoice, int chosen) {
+        return storedChoice != chosen;
+    }
+
     public static int newAppMode(int choice) {
         return choice == CHOICE_ASK
                 ? NewAppSetupPolicy.MODE_ASK_AFTER_INSTALL

@@ -236,7 +236,7 @@ Don't rush to enable Auto-Kill or configure other restrictions right away. Give 
 Once data has been collected, go to the **"Statistics & Logs"** section and study the consumption charts (Battery, CPU, RAM). You can also cross-check with the battery statistics in your phone's settings. The chart legend shows which apps consume the most resources.
 
 **Configuring Auto-Kill**\
-Auto-Kill only targets apps you gave the **Immediate** strategy (tap an app in the list, then **Strategy**). Apps without a strategy are left alone. For the periodic Auto-Kill interval, you can start with 1 minute and adjust it later to suit your needs.\
+Auto-Kill targets apps with the **Immediate** strategy (tap an app in the list, then **Strategy**). Apps without a strategy are left alone. If you used Whitelist mode in an earlier version, every app outside your whitelist was converted to Immediate, so check the list. For the periodic Auto-Kill interval, you can start with 1 minute and adjust it later to suit your needs.\
 After a few days of statistics, the **Recommendations** screen (Settings, or the line above the app list) names apps worth limiting, with the measured numbers as the reason.\
 After Auto-Kill has been running for 1–2 hours, go to the "Statistics & Logs" section and open the **Top Offenders** log. There you'll see which apps were killed most often and which of them restarted immediately.\
 Apps that restart more than 3 times are good candidates for Background Restrictions. You can start by setting them to the Soft restriction type.
@@ -669,7 +669,7 @@ Additional condition — Kill only fires **if** RAM exceeds selected threshold. 
 Only relevant if ReAppzuku conflicts with your firmware. If you notice unusual behavior in other apps, try switching to `am kill`.
 
 **Which apps Auto-Kill targets**\
-Auto-Kill stops the apps that have the **Immediate** strategy, on the triggers enabled above. There is no separate whitelist or blacklist screen any more: the strategy of each app decides. Lists from earlier versions were converted into strategies. See [Per-App Strategy](#per-app-strategy-setup-and-recommendations).
+Auto-Kill stops the apps that have the **Immediate** strategy, on the triggers enabled above. The main settings have no whitelist or blacklist screen any more: the strategy of each app decides. Lists from earlier versions were converted into strategies; with Whitelist mode that means every app outside the whitelist became Immediate. Automation Schedules (called Auto-Kill Presets below) still carry their own lists and use them while a schedule is active. See [Per-App Strategy](#per-app-strategy-setup-and-recommendations).
 
 **Advanced Conditions**\
 Expand Auto-Kill with extra triggers — for cases where regular schedule is not enough.
@@ -1060,8 +1060,8 @@ Every app has one of four strategies. Tap an app on the Main screen and choose *
 | Strategy | What happens |
 |---|---|
 | **Unmanaged** | ReAppzuku leaves the app alone. This is the default. |
-| **Protected** | The app is never stopped, put on standby or selected for a manual kill. It shows a lock in the list. |
-| **Smart** | The app keeps running. After it has been idle for a while it is put on standby, and after a longer idle time it is stopped. A new Smart choice uses the Balanced preset: standby after 1 hour, stop after 6 hours. |
+| **Protected** | The app is never stopped, put on standby or selected for a manual kill. It shows a Protected badge in the list and has no kill button. |
+| **Smart** | The app keeps running. After it has been idle for a while it is put on standby, and after a longer idle time it is stopped. A new Smart choice uses the Balanced preset: standby after 1 hour, stop after 6 hours, and stop after a restart of the device if the app was not used since. |
 | **Immediate** | The app is stopped by Auto-Kill on the enabled triggers (periodic, screen off, RAM threshold and the Advanced Conditions). |
 
 > [!WARNING]
@@ -1071,7 +1071,7 @@ Every app has one of four strategies. Tap an app on the Main screen and choose *
 The policy editor offers presets: Never touch, Messenger (standby after 4 hours, never stopped), Media, Balanced, Rarely used and Aggressive. A preset fills in the values; you can still change each one. The three switches for media, foreground services and widgets decide whether an app with active playback, a foreground service or a widget on the home screen is spared.
 
 **Setup**\
-**Settings → Setup** shows what the current access mode allows and asks what should happen to apps you install from now on: ask each time, Gentle (standby only, never stopped) or Balanced. On a fresh install the Main screen offers this screen as one line above the app list. It does not change apps that are already installed and it does not switch Auto-Kill on.
+**Settings → Setup** shows what the current access mode allows and asks what should happen to apps you install from now on: ask each time, Gentle (standby only, never stopped) or Balanced. On a fresh install the Main screen offers this screen as a line above the app list. It does not change apps that are already installed or already waiting for a decision, and it does not switch Auto-Kill on. More options, such as leaving new apps unmanaged or another default preset, are under **Settings → New app setup**.
 
 **Recommendations**\
 **Settings → Recommendations** lists what ReAppzuku suggests from its own measurements of the last 7 days:
@@ -1080,7 +1080,7 @@ The policy editor offers presets: Never touch, Messenger (standby after 4 hours,
 - an unmanaged app that was not opened for 14 days and still accounts for at least 2% of all measured app power use,
 - an unmanaged app that was not opened for 3 days and accounts for at least 10%.
 
-**Limit when idle** gives the app the Messenger preset: standby after 4 hours without use, never stopped. **Dismiss** hides that recommendation for good. Nothing changes until you apply a recommendation. Battery shares are only used once at least 3 days of statistics and a real amount of battery drain exist, so the screen stays empty at first. The statistics behind it are kept per app and day for 90 days.
+**Limit when idle** gives the app the Messenger preset: standby after 4 hours without use, never stopped. **Dismiss** hides that recommendation for good. Nothing changes until you apply a recommendation. Battery shares are only used once at least 3 days of statistics and a real amount of battery drain exist, so the two battery recommendations do not appear at first. The statistics behind it are kept per app and day for 90 days.
 
 ---
 
@@ -1131,7 +1131,7 @@ These apps are **never affected** by Auto-Kill or other restrictions, regardless
 Auto-Kill and Smart also spare an app, for as long as it applies, when it has an active media session, runs a foreground service, has a widget placed on the home screen, is an enabled accessibility service or notification listener, is the live wallpaper, is a device admin, or provides the VPN. For media, foreground services and widgets this can be switched off per app in the policy editor.
 
 **Background restrictions set elsewhere**\
-ReAppzuku only lifts restrictions it set itself. A restriction you set in the system battery settings stays, unless you remove that app explicitly in the app list.
+After its first restriction pass, ReAppzuku only lifts restrictions it set itself. A restriction you set in the system battery settings then stays, unless you remove that app explicitly in the app list. The very first pass after installing or updating still lifts every background restriction on apps that are not in your list, as earlier versions did on every pass.
 
 ---
 
@@ -1152,7 +1152,7 @@ Enable **Background Service** — it automatically restores all saved restrictio
 
 **❓ Which strategy should I choose for an app?**
 
-Leave it Unmanaged unless it causes trouble. Smart is the safe step for an app that drains battery while idle. Immediate is for apps you want stopped on every trigger and do not need notifications from. Protected is for apps that must never be touched. The Recommendations screen suggests candidates.
+Leave it Unmanaged unless it causes trouble. Smart with the Messenger preset (standby only, never stopped) is the safe step for an app that drains battery while idle; Smart with a stop time saves more but silences the app until you open it. Immediate is for apps you want stopped on every trigger and do not need notifications from. Protected is for apps that must never be touched. The Recommendations screen suggests candidates.
 
 ---
 

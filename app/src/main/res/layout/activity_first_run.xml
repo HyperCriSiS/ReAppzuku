@@ -64,19 +64,22 @@
                     android:id="@+id/first_run_choice_ask"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingVertical="8dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
                     android:text="@string/first_run_choice_ask" />
                 <RadioButton
                     android:id="@+id/first_run_choice_gentle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingVertical="8dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
                     android:text="@string/first_run_choice_gentle" />
                 <RadioButton
                     android:id="@+id/first_run_choice_balanced"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingVertical="8dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
                     android:text="@string/first_run_choice_balanced" />
             </RadioGroup>
             <TextView
