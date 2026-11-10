@@ -9,7 +9,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 
+import com.gree1d.reappzuku.core.DailyUsageMath;
 import com.gree1d.reappzuku.db.AppDatabase;
+import com.gree1d.reappzuku.db.DailyUsageDao;
 import com.gree1d.reappzuku.db.ResourceSnapshot;
 import com.gree1d.reappzuku.db.ResourceSnapshotDao;
 
@@ -228,6 +230,45 @@ public class CollectStatsManager {
         }
     }
 
+    /**
+     * Adds what happened between the previous snapshot batch and this one to
+     * today's long-term rows. The first batch ever only sets the baseline.
+     */
+    @WorkerThread
+    private void accumulateDailyUsage(@Nullable ResourceSnapshot previousBatch,
+            List<ResourceSnapshot> current, double currentRawTotal, int batteryLevel, long now) {
+        if (previousBatch == null || current.isEmpty()) return;
+        Map<String, ResourceSnapshot> previous = new HashMap<>();
+        for (ResourceSnapshot row : getDao().getSnapshotsBetween(
+                previousBatch.timestamp, previousBatch.timestamp)) {
+            previous.put(row.packageName, row);
+        }
+        // A batch without battery data (fallback parser) is no baseline for battery deltas.
+        boolean batteryKnown = previousBatch.totalRawPwiBatch > 0 && currentRawTotal > 0;
+        java.util.TimeZone zone = java.util.TimeZone.getDefault();
+        int day = DailyUsageMath.dayKey(now, zone);
+        AppDatabase database = AppDatabase.getInstance(context);
+        DailyUsageDao usage = database.dailyUsageDao();
+        database.runInTransaction(() -> {
+            for (ResourceSnapshot row : current) {
+                // A package without a row in the previous batch had no usage counted until then.
+                ResourceSnapshot before = previous.get(row.packageName);
+                double battery = !batteryKnown ? 0 : DailyUsageMath.counterDelta(
+                        before == null ? 0 : before.batteryMah, row.batteryMah);
+                long cpu = DailyUsageMath.counterDelta(
+                        before == null ? 0L : before.cpuTimeMs, row.cpuTimeMs);
+                if (battery > 0 || cpu > 0) {
+                    usage.accumulate(row.packageName, day, battery, cpu, 0, 0);
+                }
+            }
+            double drop = DailyUsageMath.levelDrop(previousBatch.batteryLevelPct, batteryLevel);
+            if (drop > 0) usage.accumulateDrain(day, drop);
+            int cutoff = DailyUsageMath.dayKey(now, zone, DailyUsageMath.RETENTION_DAYS);
+            usage.deleteAppUsageBefore(cutoff);
+            usage.deleteDeviceUsageBefore(cutoff);
+        });
+    }
+
     @WorkerThread
     private void takeSnapshotBlocking() {
         long now = System.currentTimeMillis();
@@ -272,7 +313,13 @@ public class CollectStatsManager {
                 snap.totalRawPwiBatch  = totalRawPwiBatch;
                 snapshots.add(snap);
             }
+            ResourceSnapshot previousBatch = getDao().getLatestSnapshot();
             getDao().insertAll(snapshots);
+            try {
+                accumulateDailyUsage(previousBatch, snapshots, totalRawPwiBatch, batteryLevel, now);
+            } catch (RuntimeException e) {
+                // The history is an extra; a failure here must not stop snapshots or pruning.
+            }
 
             saveLastSnapshotMs(now);
 

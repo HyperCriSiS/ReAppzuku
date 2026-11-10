@@ -386,24 +386,41 @@ public class AutoKillManager {
         if (recentlyKilled == null || recentlyKilled.isEmpty()) return;
 
         List<String> snapshot = new ArrayList<>(new HashSet<>(recentlyKilled));
+        long killedAt = System.currentTimeMillis();
         relaunchHandler.postDelayed(() -> executor.execute(() -> {
             com.gree1d.reappzuku.db.AppDatabase db =
                     com.gree1d.reappzuku.db.AppDatabase.getInstance(context);
-            checkRelaunches(snapshot, db);
+            List<String> stillStopped = new ArrayList<>(snapshot);
+            stillStopped.removeAll(checkRelaunches(snapshot, db));
+            if (stillStopped.isEmpty()) return;
+            // Many apps come back through a job or an alarm later than a few seconds.
+            relaunchHandler.postDelayed(() -> executor.execute(() -> {
+                Map<String, Long> lastUsed = com.gree1d.reappzuku.core.UsageAccess
+                        .lastUsedByPackage(context, System.currentTimeMillis());
+                // Without usage data an app the user opened in the meantime
+                // cannot be told from one that restarted itself.
+                if (lastUsed == null) return;
+                stillStopped.removeIf(pkg -> lastUsed.getOrDefault(pkg, 0L) >= killedAt);
+                checkRelaunches(stillStopped, db);
+            }), RELAUNCH_LATE_CHECK_DELAY_MS - RELAUNCH_CHECK_DELAY_MS);
         }), RELAUNCH_CHECK_DELAY_MS);
     }
 
-    private void checkRelaunches(List<String> recentlyKilled,
+    private Set<String> checkRelaunches(List<String> recentlyKilled,
             com.gree1d.reappzuku.db.AppDatabase db) {
+        if (recentlyKilled.isEmpty()) return Collections.emptySet();
         String psOutput = shellManager.runShellCommandAndGetFullOutput("ps -A -o name | grep '\\.'");
         Set<String> relaunched = RelaunchDetector.findRelaunchedPackages(recentlyKilled, psOutput);
-        if (relaunched.isEmpty()) return;
+        if (relaunched.isEmpty()) return relaunched;
 
         long now = System.currentTimeMillis();
+        int day = com.gree1d.reappzuku.core.DailyUsageMath.dayKey(now, java.util.TimeZone.getDefault());
         for (String packageName : relaunched) {
             db.appStatsDao().incrementRelaunch(packageName, now);
+            db.dailyUsageDao().accumulate(packageName, day, 0, 0, 0, 1);
         }
         reportRelaunches(relaunched);
+        return relaunched;
     }
 
     private void reportRelaunches(Set<String> relaunched) {
@@ -630,6 +647,10 @@ public class AutoKillManager {
             stats.totalRecoveredKb = recoveredKb;
 
             appStatsDao.insert(stats);
+            // The kill log can be cleared by the user; the daily history keeps its own count.
+            com.gree1d.reappzuku.db.AppDatabase.getInstance(context).dailyUsageDao().accumulate(
+                    packageName, com.gree1d.reappzuku.core.DailyUsageMath.dayKey(
+                            now, java.util.TimeZone.getDefault()), 0, 0, 1, 0);
 
 
         }

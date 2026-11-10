@@ -40,7 +40,7 @@ jobs:
       - name: Compile release-variant Java without signing or publishing
         run: ./gradlew :app:compileReleaseJavaWithJavac
       - name: Verify current Room schema export
-        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/13.json
+        run: test -f app/schemas/com.gree1d.reappzuku.db.AppDatabase/14.json
       - name: Build debug APK
         run: ./gradlew assembleDebug
       - name: Upload debug APK

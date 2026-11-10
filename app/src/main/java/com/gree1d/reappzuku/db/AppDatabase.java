@@ -19,9 +19,11 @@ import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory;
         SchedulerLog.class,
         SleepModeLog.class,
         AppPolicy.class,
-        PolicyPreset.class
+        PolicyPreset.class,
+        DailyAppUsage.class,
+        DailyDeviceUsage.class
     },
-    version = 13,
+    version = 14,
     exportSchema = true
 )
 public abstract class AppDatabase extends RoomDatabase {
@@ -202,6 +204,21 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    static final Migration MIGRATION_13_14 = new Migration(13, 14) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase db) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS `daily_app_usage` ("
+                    + "`packageName` TEXT NOT NULL, `day` INTEGER NOT NULL, "
+                    + "`rawBattery` REAL NOT NULL, `cpuMs` INTEGER NOT NULL, "
+                    + "`kills` INTEGER NOT NULL, `relaunches` INTEGER NOT NULL, "
+                    + "PRIMARY KEY(`packageName`, `day`))");
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_daily_app_usage_day` "
+                    + "ON `daily_app_usage` (`day`)");
+            db.execSQL("CREATE TABLE IF NOT EXISTS `daily_device_usage` ("
+                    + "`day` INTEGER NOT NULL, `drainPct` REAL NOT NULL, PRIMARY KEY(`day`))");
+        }
+    };
+
     private static final int SQL_CACHE_SIZE = 64;
 
     private static final Callback RAISE_STATEMENT_CACHE_CALLBACK = new Callback() {
@@ -226,6 +243,7 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract SleepModeLog.Dao sleepModeLogDao();
     public abstract AppPolicyDao appPolicyDao();
     public abstract PolicyPresetDao policyPresetDao();
+    public abstract DailyUsageDao dailyUsageDao();
 
     public static synchronized AppDatabase getInstance(Context context) {
         if (instance == null) {
@@ -243,7 +261,8 @@ public abstract class AppDatabase extends RoomDatabase {
                         MIGRATION_9_10,
                         MIGRATION_10_11,
                         MIGRATION_11_12,
-                        MIGRATION_12_13
+                        MIGRATION_12_13,
+                        MIGRATION_13_14
                     )
                     .openHelperFactory(new RequerySQLiteOpenHelperFactory())
                     .addCallback(RAISE_STATEMENT_CACHE_CALLBACK)
