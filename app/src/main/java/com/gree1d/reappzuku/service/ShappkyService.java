@@ -117,6 +117,11 @@ public class ShappkyService extends Service {
                 || KEY_KILL_INTERVAL.equals(key)) {
             scheduleNextKill();
         }
+        // The watchdog stops itself when nothing is left to guard.
+        if (watchdog != null && (KEY_AUTOSTART_DISABLED_APPS.equals(key)
+                || KEY_SLEEP_MODE_APPS_PERMANENT.equals(key))) {
+            watchdog.startIfNeeded();
+        }
     };
 
     public static boolean isRunning() {
@@ -311,7 +316,8 @@ public class ShappkyService extends Service {
         sleepModeManager.setScheduler(scheduler);
         appManager.setScheduler(scheduler);
 
-        watchdog = new RestrictionsWatchdogManager(this, handler, appManager, shellManager, scheduler);
+        watchdog = new RestrictionsWatchdogManager(this, handler, executor, appManager, shellManager, scheduler);
+        watchdog.setSleepModeManager(sleepModeManager);
 
         screenOffReceiver = new KillTriggerReceiver();
         IntentFilter filter = new IntentFilter();

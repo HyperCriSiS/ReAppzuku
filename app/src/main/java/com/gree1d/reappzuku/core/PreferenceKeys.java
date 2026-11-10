@@ -26,6 +26,8 @@ public final class PreferenceKeys {
     public static final String KEY_MANUAL_WHITELIST_REMOVAL_PREFIX = "manual_whitelist_removal_";
 
     public static final String KEY_BATTERY_WHITELIST_REMOVED = "battery_whitelist_removed";
+    public static final String KEY_APPLIED_RESTRICTION_PREFIX = "applied_restriction_";
+    public static final String KEY_APPLIED_RESTRICTION_TRACKED = "applied_restriction_tracked";
 
     // Kill Mode
     public static final String KEY_KILL_MODE = "kill_mode"; 

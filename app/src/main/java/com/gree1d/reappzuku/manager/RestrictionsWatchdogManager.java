@@ -5,6 +5,7 @@ import android.content.pm.PackageManager;
 import android.os.Handler;
 
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,6 +28,7 @@ public class RestrictionsWatchdogManager {
 
     private final Context context;
     private final Handler handler;
+    private final ExecutorService executor;
     private final BackgroundAppManager appManager;
     private final ShellManager shellManager;
     private final PrivilegedShell privilegedShell;
@@ -34,22 +36,27 @@ public class RestrictionsWatchdogManager {
 
     private SleepModeManager sleepModeManager;
 
-    private boolean running = false;
+    private volatile boolean running = false;
+    // Fetched at most once per check, and only when a bucket has drifted.
+    private String foregroundPackage;
+    private String servicesDump;
 
     private final Runnable watchdogRunnable = new Runnable() {
         @Override
         public void run() {
             if (!running) return;
-            runCheck();
+            // The check runs shell commands and must stay off the main thread.
+            executor.execute(RestrictionsWatchdogManager.this::runCheck);
             handler.postDelayed(this, WATCHDOG_INTERVAL_MS);
         }
     };
 
-    public RestrictionsWatchdogManager(Context context, Handler handler,
+    public RestrictionsWatchdogManager(Context context, Handler handler, ExecutorService executor,
             BackgroundAppManager appManager, ShellManager shellManager,
             RestrictionsScheduler scheduler) {
         this.context      = context;
         this.handler      = handler;
+        this.executor     = executor;
         this.appManager       = appManager;
         this.shellManager     = shellManager;
         this.privilegedShell  = new PrivilegedShell(shellManager);
@@ -133,30 +140,24 @@ public class RestrictionsWatchdogManager {
         return overlap >= 3;
     }
 
+    // ActivityManager.getRunningAppProcesses() only reports this app's own
+    // processes, so the foreground state comes from the privileged shell.
     private boolean isAppForeground(String packageName) {
-        android.app.ActivityManager am =
-                (android.app.ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-        if (am == null) return false;
-        for (android.app.ActivityManager.RunningAppProcessInfo info : am.getRunningAppProcesses()) {
-            if (info.importance == android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
-                    && java.util.Arrays.asList(info.pkgList).contains(packageName)) {
-                return true;
-            }
+        if (foregroundPackage == null) {
+            String parsed = SmartLifecycleTextParser.parseForegroundPackage(
+                    shellManager.runShellCommandAndGetFullOutput("dumpsys activity activities"));
+            foregroundPackage = parsed == null ? "" : parsed;
         }
-        return false;
+        return foregroundPackage.equals(packageName);
     }
 
     private boolean isAppForegroundService(String packageName) {
-        android.app.ActivityManager am =
-                (android.app.ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-        if (am == null) return false;
-        for (android.app.ActivityManager.RunningAppProcessInfo info : am.getRunningAppProcesses()) {
-            if (info.importance == android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE
-                    && java.util.Arrays.asList(info.pkgList).contains(packageName)) {
-                return true;
-            }
+        if (servicesDump == null) {
+            String dump = shellManager.runShellCommandAndGetFullOutput("dumpsys activity services");
+            servicesDump = dump == null ? "" : dump;
         }
-        return false;
+        return PackageTextMatcher.containsMarkerNearPackage(
+                servicesDump, packageName, "isForeground=true", 1800);
     }
 
     private void checkAndRepairSleepMode() {
@@ -240,6 +241,8 @@ public class RestrictionsWatchdogManager {
         Set<String> mediumSet = appManager.getMediumRestrictedApps();
         Set<String> manualSet = appManager.getManualRestrictedApps();
 
+        foregroundPackage = null;
+        servicesDump = null;
         java.util.Map<String, Integer> currentBuckets = fetchAllStandbyBuckets();
         if (currentBuckets == null) {
 
@@ -253,42 +256,19 @@ public class RestrictionsWatchdogManager {
                 continue;
             }
 
-            int required;
-            if (hardSet.contains(pkg)) {
-                if (isAppForeground(pkg)) {
-
-                    continue;
-                }
-                required = 45;
-            } else if (mediumSet.contains(pkg)) {
-                if (isAppForeground(pkg) || isAppForegroundService(pkg)) {
-
-                    continue;
-                }
-                required = 40;
-            } else if (manualSet.contains(pkg)) {
-                if (isAppForeground(pkg)) {
-
-                    continue;
-                }
-                required = appManager.getManualBucket(pkg);
-                if (required == 40 && isMediumLikeManual(pkg) && isAppForegroundService(pkg)) {
-
-                    continue;
-                }
-            } else {
-                continue;
-            }
+            boolean hard = hardSet.contains(pkg);
+            boolean medium = !hard && mediumSet.contains(pkg);
+            boolean manual = !hard && !medium && manualSet.contains(pkg);
+            int required = hard ? 45 : medium ? 40 : manual ? appManager.getManualBucket(pkg) : 0;
             if (required == 0) continue;
 
             Integer current = currentBuckets.get(pkg);
-            if (current == null) {
+            if (current == null || current == required) continue;
 
-                continue;
-            }
-
-            if (current == required) continue;
-
+            // The system raises the bucket of an app in use; that is not drift.
+            if (isAppForeground(pkg)) continue;
+            if (medium && isAppForegroundService(pkg)) continue;
+            if (manual && required == 40 && isMediumLikeManual(pkg) && isAppForegroundService(pkg)) continue;
 
             boolean ok;
             try {
