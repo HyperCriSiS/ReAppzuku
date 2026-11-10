@@ -1,6 +1,10 @@
 package com.gree1d.reappzuku.manager;
 
 import com.gree1d.reappzuku.core.CapabilityMatrix;
+import com.gree1d.reappzuku.core.App;
+import com.gree1d.reappzuku.db.AppDatabase;
+import com.gree1d.reappzuku.db.AppPolicy;
+import com.gree1d.reappzuku.db.AppPolicyDao;
 import com.gree1d.reappzuku.core.PackageNameValidator;
 import com.gree1d.reappzuku.core.PackageStateSource;
 import com.gree1d.reappzuku.core.PrivilegedShell;
@@ -809,6 +813,46 @@ public class BackgroundAppManager {
                 restricted ? Collections.emptySet() : Collections.singleton(packageName), onComplete);
     }
 
+    /**
+     * Executes the restriction level stored in an app policy. Safe to call from
+     * any thread; does nothing when the level is already the target state.
+     */
+    public static void applyPolicyRestriction(Context context, String packageName, int policyLevel) {
+        App app = (App) context.getApplicationContext();
+        Handler main = new Handler(android.os.Looper.getMainLooper());
+        main.post(() -> {
+            BackgroundAppManager manager = new BackgroundAppManager(
+                    app, main, app.getSharedExecutor(), app.getShellExecutor(), app.getShellManager());
+            boolean restricted = manager.getBackgroundRestrictedApps().contains(packageName);
+            RestrictionType type = RestrictionDeltaPolicy.typeForLevel(policyLevel);
+            if (RestrictionDeltaPolicy.policyLevel(restricted, manager.getRestrictionType(packageName))
+                    == RestrictionDeltaPolicy.policyLevel(type != null, type)) {
+                return;
+            }
+            if (type != null) manager.setRestrictionType(packageName, type);
+            manager.setBackgroundRestricted(packageName, type != null, null);
+        });
+    }
+
+    /**
+     * The legacy restriction screens write the preference sets. Explicit app
+     * policies follow them, so the policy editor never shows or re-applies a
+     * level the user has since changed elsewhere.
+     */
+    private void syncExplicitPoliciesWithRestrictionSets() {
+        Set<String> restricted = getBackgroundRestrictedApps();
+        AppPolicyDao dao = AppDatabase.getInstance(context).appPolicyDao();
+        for (AppPolicy policy : dao.getAll()) {
+            if (policy.source != AppPolicy.SOURCE_EXPLICIT) continue;
+            int level = RestrictionDeltaPolicy.policyLevel(
+                    restricted.contains(policy.packageName), getRestrictionType(policy.packageName));
+            if (policy.backgroundRestriction == level) continue;
+            policy.backgroundRestriction = level;
+            policy.updatedAt = System.currentTimeMillis();
+            dao.upsert(policy);
+        }
+    }
+
     public void applyBackgroundRestriction(Set<String> targetPackages, Runnable onComplete) {
         applyBackgroundRestriction(targetPackages, null, onComplete);
     }
@@ -840,6 +884,7 @@ public class BackgroundAppManager {
         Set<String> existingMedium = getMediumRestrictedApps();
         existingMedium.retainAll(desiredPackages);
         saveMediumRestrictedApps(existingMedium);
+        shellExecutor.execute(this::syncExplicitPoliciesWithRestrictionSets);
 
 
 

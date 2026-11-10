@@ -62,6 +62,30 @@ public class RestrictionDeltaPolicyTest {
     }
 
     @Test
+    public void policyLevelAndRestrictionTypeRoundTrip() {
+        assertEquals(0, RestrictionDeltaPolicy.policyLevel(false, RestrictionType.HARD));
+        assertEquals(null, RestrictionDeltaPolicy.typeForLevel(0));
+        assertEquals(null, RestrictionDeltaPolicy.typeForLevel(99));
+        for (RestrictionType type : RestrictionType.values()) {
+            int level = RestrictionDeltaPolicy.policyLevel(true, type);
+            assertTrue(level > 0);
+            assertEquals(type, RestrictionDeltaPolicy.typeForLevel(level));
+        }
+    }
+
+    @Test
+    public void policyWritersExecuteTheStoredRestrictionLevel() throws Exception {
+        String editor = read("app/src/main/java/com/gree1d/reappzuku/ui/AppPolicyEditorActivity.java");
+        assertTrue(editor.indexOf("database.appPolicyDao().upsert(saved);")
+                < editor.indexOf("BackgroundAppManager.applyPolicyRestriction("));
+        String setup = read("app/src/main/java/com/gree1d/reappzuku/core/NewAppSetupCoordinator.java");
+        assertTrue(setup.contains("BackgroundAppManager.applyPolicyRestriction("));
+        // Legacy screens funnel through the apply pass, which updates explicit policies.
+        assertTrue(readManager().contains(
+                "shellExecutor.execute(this::syncExplicitPoliciesWithRestrictionSets);"));
+    }
+
+    @Test
     public void applyPassSkipsUnchangedAppsBeforeTouchingThem() throws Exception {
         String source = readManager();
         int start = source.indexOf("    private void applyBackgroundRestriction(Set<String> targetPackages,");
@@ -75,7 +99,10 @@ public class RestrictionDeltaPolicyTest {
     }
 
     private static String readManager() throws Exception {
-        String relative = "app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java";
+        return read("app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java");
+    }
+
+    private static String read(String relative) throws Exception {
         for (Path candidate : Arrays.asList(
                 Paths.get(""), Paths.get(".."), Paths.get("..", ".."))) {
             if (Files.isDirectory(candidate.resolve("app/src/main/java"))) {

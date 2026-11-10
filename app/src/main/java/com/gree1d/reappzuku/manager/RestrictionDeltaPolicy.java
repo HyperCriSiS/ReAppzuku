@@ -1,5 +1,7 @@
 package com.gree1d.reappzuku.manager;
 
+import com.gree1d.reappzuku.db.AppPolicy;
+
 import java.util.HashSet;
 import java.util.Set;
 
@@ -19,6 +21,28 @@ final class RestrictionDeltaPolicy {
                             int manualOpsMask, int manualBucket, boolean manualWhitelistRemoval) {
         if (type != BackgroundAppManager.RestrictionType.MANUAL) return type.name();
         return type.name() + ":" + manualOpsMask + ":" + manualBucket + ":" + manualWhitelistRemoval;
+    }
+
+    /** The restriction level an app policy stores for the given applied state. */
+    static int policyLevel(boolean restricted, BackgroundAppManager.RestrictionType type) {
+        if (!restricted) return AppPolicy.RESTRICTION_NONE;
+        switch (type) {
+            case MEDIUM: return AppPolicy.RESTRICTION_MEDIUM;
+            case HARD: return AppPolicy.RESTRICTION_HARD;
+            case MANUAL: return AppPolicy.RESTRICTION_MANUAL;
+            default: return AppPolicy.RESTRICTION_SOFT;
+        }
+    }
+
+    /** @return null for {@link AppPolicy#RESTRICTION_NONE} and unknown levels */
+    static BackgroundAppManager.RestrictionType typeForLevel(int policyLevel) {
+        switch (policyLevel) {
+            case AppPolicy.RESTRICTION_SOFT: return BackgroundAppManager.RestrictionType.SOFT;
+            case AppPolicy.RESTRICTION_MEDIUM: return BackgroundAppManager.RestrictionType.MEDIUM;
+            case AppPolicy.RESTRICTION_HARD: return BackgroundAppManager.RestrictionType.HARD;
+            case AppPolicy.RESTRICTION_MANUAL: return BackgroundAppManager.RestrictionType.MANUAL;
+            default: return null;
+        }
     }
 
     static boolean needsApply(String appliedSignature, String desiredSignature) {
