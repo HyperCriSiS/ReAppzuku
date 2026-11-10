@@ -53,6 +53,7 @@ public class AutoKillManager {
     private final SharedPreferences sharedpreferences;
     private final List<AppModel> currentAppsList;
     private RestrictionsScheduler scheduler;
+    private final SparedPackages sparedPackages = new SparedPackages();
 
     public AutoKillManager(Context context, Handler handler, ExecutorService executor,
             ShellManager shellManager, List<AppModel> currentAppsList) {
@@ -267,7 +268,20 @@ public class AutoKillManager {
                             return false;
                         }
                     })
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toCollection(ArrayList::new));
+
+            long protectionCheckAt = android.os.SystemClock.elapsedRealtime();
+            toKill.removeIf(pkg -> sparedPackages.isSpared(pkg, protectionCheckAt));
+            if (!toKill.isEmpty()) {
+                ProtectionDumps dumps = ProtectionDumps.collect(shellManager);
+                toKill.removeIf(pkg -> {
+                    if (dumps.reasonFor(context, pkg, explicitPolicies.get(pkg)) == null) {
+                        return false;
+                    }
+                    sparedPackages.spare(pkg, protectionCheckAt);
+                    return true;
+                });
+            }
 
 
 

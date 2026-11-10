@@ -1,11 +1,9 @@
 package com.gree1d.reappzuku.manager;
 
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.provider.Settings;
 
 import com.gree1d.reappzuku.core.AppConstants;
 import com.gree1d.reappzuku.core.AppPolicyLegacyMigrator;
@@ -146,12 +144,7 @@ public final class SmartLifecycleManager {
         if (currentForeground != null) recordForeground(context, currentForeground);
 
         Set<String> running = getRunningPackages();
-        String mediaDump = safeShell("dumpsys media_session");
-        String widgetDump = safeShell("dumpsys appwidget");
-        String servicesDump = safeShell("dumpsys activity services");
-        String wallpaperDump = safeShell("dumpsys wallpaper");
-        String devicePolicyDump = safeShell("dumpsys device_policy");
-        String connectivityDump = safeShell("dumpsys connectivity");
+        ProtectionDumps protectionDumps = ProtectionDumps.collect(shellManager);
 
         long now = System.currentTimeMillis();
         long bootEpoch = prefs.getLong(KEY_SMART_BOOT_EPOCH_MS, 0L);
@@ -179,8 +172,7 @@ public final class SmartLifecycleManager {
                 continue;
             }
 
-            String protectionReason = getProtectionReason(pkg, mediaDump, widgetDump, servicesDump,
-                    wallpaperDump, devicePolicyDump, connectivityDump);
+            String protectionReason = protectionDumps.reasonFor(context, pkg, explicitPolicy);
             if (protectionReason != null) {
                 clearBackgroundState(pkg);
                 continue;
@@ -249,38 +241,6 @@ public final class SmartLifecycleManager {
         } catch (PackageManager.NameNotFoundException e) {
             return false;
         }
-    }
-
-    private String getProtectionReason(String pkg, String mediaDump, String widgetDump,
-            String servicesDump, String wallpaperDump, String devicePolicyDump,
-            String connectivityDump) {
-        if (isEnabledAccessibilityService(pkg)) return "accessibility service";
-        if (isEnabledNotificationListener(pkg)) return "notification listener";
-        return SmartLifecycleProtectionPolicy.getDumpProtectionReason(
-                pkg, mediaDump, widgetDump, servicesDump,
-                wallpaperDump, devicePolicyDump, connectivityDump);
-    }
-
-    private boolean isEnabledAccessibilityService(String pkg) {
-        String raw = Settings.Secure.getString(context.getContentResolver(),
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        if (raw == null || raw.isEmpty()) return false;
-        for (String component : raw.split(":")) {
-            ComponentName cn = ComponentName.unflattenFromString(component);
-            if (cn != null && pkg.equals(cn.getPackageName())) return true;
-        }
-        return false;
-    }
-
-    private boolean isEnabledNotificationListener(String pkg) {
-        String raw = Settings.Secure.getString(context.getContentResolver(),
-                "enabled_notification_listeners");
-        if (raw == null || raw.isEmpty()) return false;
-        for (String component : raw.split(":")) {
-            ComponentName cn = ComponentName.unflattenFromString(component);
-            if (cn != null && pkg.equals(cn.getPackageName())) return true;
-        }
-        return false;
     }
 
     private String getCurrentForegroundPackage() {

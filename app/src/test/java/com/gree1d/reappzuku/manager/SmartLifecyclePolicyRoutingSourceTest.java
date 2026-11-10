@@ -36,15 +36,34 @@ public class SmartLifecyclePolicyRoutingSourceTest {
     }
 
     @Test
+    public void autoKillChecksTheSameProtectionBeforeKilling() throws Exception {
+        String source = readRepositoryFile(
+                "app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java");
+        int protect = source.indexOf(
+                "if (dumps.reasonFor(context, pkg, explicitPolicies.get(pkg)) == null) {");
+        int record = source.indexOf("recordSuccessfulKills(toKill, null, source);");
+        int kill = source.indexOf("privilegedShell.killPackagesAndGetFullOutput(");
+        assertTrue(protect >= 0 && protect < record && record < kill);
+        // Remembered spared apps are dropped before any dump is collected.
+        int remembered = source.indexOf("sparedPackages.isSpared(pkg, protectionCheckAt)");
+        int collect = source.indexOf("ProtectionDumps.collect(shellManager)");
+        assertTrue(remembered >= 0 && remembered < collect && collect < protect);
+    }
+
+    @Test
     public void managerKeepsExistingFailSafeProtectionLayers() throws Exception {
         String source = readRepositoryFile(
                 "app/src/main/java/com/gree1d/reappzuku/manager/SmartLifecycleManager.java");
 
         assertTrue(source.contains("ProtectedApps.isProtected(context, pkg)"));
         assertTrue(source.contains("ApplicationInfo.FLAG_PERSISTENT"));
-        assertTrue(source.contains("isEnabledAccessibilityService(pkg)"));
-        assertTrue(source.contains("isEnabledNotificationListener(pkg)"));
-        assertTrue(source.contains("SmartLifecycleProtectionPolicy.getDumpProtectionReason("));
+        assertTrue(source.contains("protectionDumps.reasonFor(context, pkg, explicitPolicy)"));
+
+        String dumps = readRepositoryFile(
+                "app/src/main/java/com/gree1d/reappzuku/manager/ProtectionDumps.java");
+        assertTrue(dumps.contains("Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES"));
+        assertTrue(dumps.contains("\"enabled_notification_listeners\""));
+        assertTrue(dumps.contains("SmartLifecycleProtectionPolicy.getDumpProtectionReason("));
     }
 
     @Test
