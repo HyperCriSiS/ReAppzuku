@@ -1,5 +1,7 @@
 # Real AppOps read-only evidence — Android 17 emulator
 
+> **Removed 2026-11-10.** The code this document describes (the `manager/Scheduler*` evidence classes, `RootAppOpsReadOnlyExecutor`, the pinned read-only AppOps session in `ShellManager`, and their tests and CI steps) was never wired into the app and has been deleted. The text below is kept as a design record; the code is in the git history before that date.
+
 Date: 2026-10-11 · Issue: [#130](https://github.com/HyperCriSiS/ReAppzuku/issues/130) · PR: [#151](https://github.com/HyperCriSiS/ReAppzuku/pull/151)
 
 ## Exact evidence
