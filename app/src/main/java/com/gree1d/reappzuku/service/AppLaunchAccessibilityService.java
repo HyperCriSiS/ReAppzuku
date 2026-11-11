@@ -141,6 +141,7 @@ public class AppLaunchAccessibilityService extends AccessibilityService {
         SharedPreferences prefs = getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         Set<String> whitelistedApps = prefs.getStringSet(KEY_WHITELISTED_APPS, new HashSet<>());
         Set<String> hiddenApps = prefs.getStringSet(KEY_HIDDEN_APPS, new HashSet<>());
+        Set<String> protectedByStrategy = ProtectedApps.withProtectedStrategy(getApplicationContext());
 
         for (ApplicationInfo app : installedApps) {
             String pkg = app.packageName;
@@ -149,6 +150,7 @@ public class AppLaunchAccessibilityService extends AccessibilityService {
             if (excludePackages.contains(pkg)) continue;
             if (hiddenApps.contains(pkg)) continue;
             if (whitelistedApps.contains(pkg)) continue;
+            if (protectedByStrategy.contains(pkg)) continue;
             if (ProtectedApps.isProtected(getApplicationContext(), pkg)) continue;
             if ((app.flags & ApplicationInfo.FLAG_PERSISTENT) != 0) continue;
 

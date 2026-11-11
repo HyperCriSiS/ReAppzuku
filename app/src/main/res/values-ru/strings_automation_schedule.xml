@@ -15,10 +15,10 @@
     <string name="automation_schedule_time_range_error_same">Время начала и конца должны различаться</string>
     <string name="automation_schedule_app_list_mode_title">Источник списка приложений</string>
     <string name="automation_schedule_app_list_mode_dialog_title">Источник списка приложений</string>
-    <string name="automation_schedule_app_list_mode_current">Использовать текущий белый / чёрный список</string>
+    <string name="automation_schedule_app_list_mode_current">Использовать белый / чёрный список из прежних версий</string>
     <string name="automation_schedule_app_list_mode_own">Использовать собственный список расписания</string>
     <string name="automation_schedule_app_list_mode_switch_hint">Переключитесь на «Собственный список» для редактирования</string>
-    <string name="automation_schedule_list_count_current">%d приложений (из текущих настроек)</string>
+    <string name="automation_schedule_list_count_current">%d приложений (из прежних версий)</string>
     <string name="automation_schedule_list_count_own">Выбрано приложений: %d</string>
     <string name="automation_schedule_saved">Расписание автоматизации %d сохранено</string>
     <string name="automation_schedule_export_json_button">Экспорт в JSON</string>

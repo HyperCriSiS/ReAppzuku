@@ -197,7 +197,8 @@ public class SuggestionEngineTest {
         assertTrue(loader.indexOf("SuggestionEngine.suggest(facts, dismissed)")
                 < loader.indexOf("isManageable(context, packageManager, suggestion.packageName"));
         assertFalse(loader.contains("ProtectedApps.isProtected(context,"));
-        assertTrue(loader.contains("new HashSet<>(dismissed(context))"));
+        // The stored set is never modified in place; a new set is written.
+        assertTrue(loader.contains("putStringSet(KEY_DISMISSED, entries(active))"));
         String main = read("app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java");
         int resume = main.indexOf("    protected void onResume() {");
         String body = main.substring(resume, main.indexOf("\n    }\n", resume));

@@ -600,6 +600,9 @@ Zeigt den aktuellen Zugriffsmodus: **Root**, **Shizuku** oder **Kein Zugriff**, 
 **Hilfe**\
 Link zu diesem FAQ.
 
+**Angezeigte Einstellungen**\
+Legt fest, wie viel von diesem Bildschirm sichtbar ist. **Einfach** zeigt den Zugriffsmodus, die Einrichtung, Empfehlungen und die wichtigsten Schalter. **Erweitert** ergänzt die Auto-Kill-Regeln, Automatisierungszeitpläne, Hintergrundbeschränkungen, Schlafmodus und die Karte mit dem App-Verhalten. **Experte** zeigt alles, einschließlich Auto-Kill-Typ, Erweiterter Bedingungen, Planung der Beschränkungen, Cache-Leeren, ausgeblendeter Apps und der RAM-Kill-Verknüpfung. Ausgeblendete Zeilen funktionieren mit ihren aktuellen Werten weiter; nur ihre Bedienelemente sind nicht sichtbar.
+
 ---
 
 ### 🎨 Aussehen
@@ -669,7 +672,7 @@ Zusätzliche Bedingung — Beenden wird **nur** ausgelöst, **wenn** die RAM-Aus
 Nur relevant, wenn ReAppzuku mit Ihrer Firmware in Konflikt gerät. Wenn Sie ungewöhnliches Verhalten bei anderen Apps bemerken, versuchen Sie, auf `am kill` umzuschalten.
 
 **Welche Apps Auto-Kill anvisiert**\
-Auto-Kill beendet die Apps mit der Strategie **Sofort**, bei den oben aktivierten Auslösern. Die Haupteinstellungen haben keinen Whitelist- oder Blacklist-Bildschirm mehr: Die Strategie jeder App entscheidet. Listen aus früheren Versionen wurden in Strategien umgewandelt; beim Whitelist-Modus bedeutet das, dass jede App außerhalb der Whitelist zu Sofort wurde. Automatisierungszeitpläne (unten Auto-Kill-Voreinstellungen genannt) tragen weiterhin eigene Listen und verwenden sie, solange ein Zeitplan aktiv ist. Siehe [Strategie pro App](#strategie-pro-app-einrichtung-und-empfehlungen).
+Auto-Kill beendet die Apps mit der Strategie **Sofort**, bei den oben aktivierten Auslösern. Die Haupteinstellungen haben keinen Whitelist- oder Blacklist-Bildschirm mehr: Die Strategie jeder App entscheidet. Listen aus früheren Versionen wurden in Strategien umgewandelt; beim Whitelist-Modus bedeutet das, dass jede App außerhalb der Whitelist zu Sofort wurde. Automatisierungszeitpläne (siehe unten) tragen eigene Listen und verwenden sie, solange ein Zeitplan aktiv ist. Siehe [Strategie pro App](#strategie-pro-app-einrichtung-und-empfehlungen).
 
 **Erweiterte Bedingungen**\
 Erweitern Sie Auto-Kill um zusätzliche Auslöser — für Fälle, in denen der reguläre Zeitplan nicht ausreicht.
@@ -683,46 +686,46 @@ Auto-Kill wird genau dann ausgelöst, wenn ausgewählte Ziel-Apps geöffnet werd
 > [!IMPORTANT]
 > Die Funktion **App-Start** benötigt eine spezielle Berechtigung in den "Bedienungshilfen"-Einstellungen. Diese Funktion kann den Akkuverbrauch von ReAppzuku selbst leicht erhöhen.
 
-**Auto-Kill-Voreinstellungen**\
-Speichern Sie Ihren eigenen Satz von Auto-Kill-Einstellungen, der automatisch zu einer bestimmten Tageszeit aktiviert wird und die aktuellen Einstellungen für die Dauer seines aktiven Fensters ersetzt. Wenn das Fenster endet, werden die ursprünglichen Einstellungen automatisch wiederhergestellt.
-**2 Voreinstellungen** sind verfügbar. Jede kann unabhängig konfiguriert werden: eigener Name, eigener aktiver Zeitbereich, eigene Auto-Kill-Regeln, eigene App-Listen und eigene Zusatzszenarien.
+**Automatisierungszeitpläne**\
+Zwei Zeitpläne, jeder aktiv in einem von Ihnen festgelegten Zeitfenster. Solange ein Zeitplan aktiv ist, ersetzen seine Auto-Kill-Einstellungen (Schalter, Intervall, RAM-Schwelle, Auto-Kill-Typ und Erweiterte Bedingungen) die Haupteinstellungen; wenn das Fenster endet, werden die Haupteinstellungen automatisch wiederhergestellt.
+Die App-Liste des Zeitplans ersetzt nichts. Sie wird über die App-Strategien gelegt: Für jede App ohne eine von Ihnen gewählte Strategie entscheidet der Zeitplan. Im Blacklist-Modus werden die Apps auf seiner Liste beendet, im Whitelist-Modus jede App außerhalb seiner Liste. Apps, denen Sie eine Strategie gegeben haben, behalten sie, und geschützte Apps werden nie beendet. Die App-Strategien bleiben unverändert.
 > [!WARNING]
-> Während ihrer Aktivität ignorieren Voreinstellungen die Immunität, die Apps durch die Planung der Beschränkungen gewährt wird. Dies geschieht, um Verwirrung bei den Einstellungen zu vermeiden.
+> Während ihrer Aktivität ignorieren Zeitpläne die Immunität, die Apps durch die Planung der Beschränkungen gewährt wird. Dies geschieht, um Verwirrung bei den Einstellungen zu vermeiden.
 
-- **Voreinstellung aktivieren**.
-Der Hauptschalter. Wenn deaktiviert, wird die Voreinstellung **nicht** planmäßig aktiviert, selbst wenn ihr Zeitfenster beginnt. Wenn die Voreinstellung derzeit aktiv ist und dieser Schalter ausgeschaltet wird, wird sie sofort deaktiviert und die ursprünglichen Einstellungen werden wiederhergestellt.
+- **Zeitplan aktivieren**.
+Der Hauptschalter. Wenn deaktiviert, wird der Zeitplan **nicht** aktiviert, selbst wenn sein Zeitfenster beginnt. Wenn der Zeitplan derzeit aktiv ist und dieser Schalter ausgeschaltet wird, wird er sofort deaktiviert und die Haupteinstellungen werden wiederhergestellt.
 
-- **Name der Voreinstellung**.
-Ein benutzerdefinierter Name, bis zu 30 Zeichen. Wird im Auswahldialog für Voreinstellungen in den Haupt-Einstellungen angezeigt. Wenn die Voreinstellung derzeit aktiv ist, erscheint ein **"Aktiv"**-Abzeichen neben ihrem Namen.
+- **Name des Zeitplans**.
+Ein benutzerdefinierter Name, bis zu 30 Zeichen. Wenn der Zeitplan derzeit aktiv ist, erscheint ein **"Aktiv"**-Abzeichen neben seinem Namen.
 
 - **Aktive Zeit**.
-Ein "Von — Bis"-Bereich, der im Zeitformat des Geräts (12/24-Stunden) angezeigt wird. Bereiche, die Mitternacht überschreiten, werden unterstützt (z.B. 22:00 – 06:00).
+Ein "Von – Bis"-Bereich, der im Zeitformat des Geräts (12/24-Stunden) angezeigt wird. Bereiche, die Mitternacht überschreiten, werden unterstützt (z.B. 22:00 – 06:00).
 > [!WARNING]
-> Die beiden Voreinstellungen dürfen sich in ihrer aktiven Zeit nicht überschneiden. Wenn Sie versuchen, eine Voreinstellung mit einem überschneidenden Bereich zu speichern, wird eine Warnung mit dem Zeitbereich der kollidierenden Voreinstellung angezeigt — passen Sie die Zeit einer der Voreinstellungen an, um das Problem zu beheben.
+> Die beiden Zeitpläne dürfen sich in ihrer aktiven Zeit nicht überschneiden. Wenn Sie versuchen, einen Zeitplan mit einem überschneidenden Bereich zu speichern, zeigt eine Warnung den Zeitbereich des kollidierenden Zeitplans an; passen Sie die Zeit eines der beiden an, um das Problem zu beheben.
 
-- **Quelle der App-Liste**
+- **Quelle der App-Liste**.
 Wählen Sie zwischen:
-  - **Aktuelle Whitelist / Blacklist verwenden** — Die Voreinstellung verwendet immer die aktuelle Whitelist/Blacklist aus den Haupt-Einstellungen zum Zeitpunkt ihrer Aktivierung.
-  - **Eigene Liste der Voreinstellung verwenden** — Die Voreinstellung hat eine eigene unabhängige Whitelist/Blacklist, die separat bearbeitet wird und von Änderungen an den Haupt-Einstellungen nicht betroffen ist.
+  - **Whitelist / Blacklist aus früheren Versionen verwenden**: kopiert beim Speichern die Listen, die gespeichert waren, bevor App-Strategien sie ersetzt haben. Diese Listen lassen sich sonst nirgends mehr bearbeiten.
+  - **Eigene Liste des Zeitplans verwenden**: Der Zeitplan hat eine eigene Whitelist und Blacklist, die hier bearbeitet werden.
 
 - **Auto-Kill-Verwaltung und Erweiterte Bedingungen**.
 Ein Standardblock für Auto-Kill-Einstellungen, identisch mit den regulären App-Einstellungen. Alle diese Einstellungen werden unter [Auto-Kill-Einstellungen](#auto-kill-einstellungen) beschrieben.
 
-- **Voreinstellung speichern**.
-Übernimmt alle Änderungen: Speichert die Einstellungen, plant die Aktivierungs-/Deaktivierungs-Alarme neu und aktiviert oder deaktiviert die Voreinstellung sofort, falls erforderlich (wenn die Änderungen das aktuelle Zeitfenster betreffen).
+- **Zeitplan speichern**.
+Übernimmt alle Änderungen: Speichert die Einstellungen, plant die Aktivierungs- und Deaktivierungs-Alarme neu und aktiviert oder deaktiviert den Zeitplan sofort, falls die Änderung das aktuelle Zeitfenster betrifft.
 
 - **JSON-Datei importieren/exportieren**.
-Speichert die Voreinstellung in einer JSON-Datei oder stellt sie aus einer Sicherungsdatei wieder her. Um die Änderungen zu übernehmen, klicken Sie auf die Schaltfläche "Speichern".
+Speichert einen Zeitplan in einer JSON-Datei oder stellt ihn aus einer Sicherungsdatei wieder her. Um die Änderungen zu übernehmen, tippen Sie auf "Speichern".
 
-- **Voreinstellung zurücksetzen**.
-Setzt alle aktuellen Einstellungen auf dem Bildschirm auf ihre Standardwerte zurück (übernommen aus den Haupt-Einstellungen der App). **Die Änderungen werden erst übernommen**, wenn Sie auf "Speichern" drücken — Sie können den Bildschirm einfach ohne Speichern verlassen, und der Reset hat keinen Einfluss auf die bereits gespeicherte Voreinstellung.
+- **Zeitplan zurücksetzen**.
+Setzt alle Einstellungen auf dem Bildschirm auf ihre Standardwerte zurück (übernommen aus den Haupteinstellungen). **Die Änderungen werden erst übernommen**, wenn Sie auf "Speichern" drücken; Sie können den Bildschirm ohne Speichern verlassen, und der Reset hat keinen Einfluss auf den gespeicherten Zeitplan.
 
 **RAM-Kill-Verknüpfung**\
 Fügt eine kleine 1x1-Desktop-Verknüpfung hinzu, die die RAM-Auslastung in Echtzeit in Prozent und GB anzeigt.\
 Ein Tippen auf die Verknüpfung löst sofort Auto-Kill basierend auf den aktuellen Einstellungen aus und leert den RAM.
 
 > [!TIP]
-> Der RAM wird trotzdem geleert, unabhängig davon, ob Apps während Auto-Kill geschlossen wurden oder nicht. Zum Leeren des RAMs wird der Befehl `am send-trim-memory` verwendet. Nur die Whitelist und persistente Anwendungen sind davon nicht betroffen.
+> Der RAM wird auch dann freigegeben, wenn Auto-Kill nichts beendet hat: Jede andere laufende App wird aufgefordert, ihren Speicher zu verkleinern (`am send-trim-memory`). Geschützte Apps, Apps auf der Whitelist aus früheren Versionen und persistente System-Apps bleiben außen vor.
 
 ---
 
@@ -961,7 +964,7 @@ Führt `pm trim-caches` aus — leert den Cache aller Apps auf einmal.
 Apps hier erscheinen nicht auf dem Hauptbildschirm und werden von Auto-Kill niemals berührt. Nützlich für Dienstprozesse, die Sie nicht sehen müssen.
 
 **Sicherung & Wiederherstellung**\
-Exportieren und importieren Sie alle Einstellungen als JSON. Umfasst Whitelist, Blacklist, ausgeblendete Apps, Hintergrundbeschränkungen, Schlafmodus und alle Automatisierungseinstellungen.
+Exportieren und importieren Sie alle Einstellungen als JSON. Umfasst App-Strategien und Lebenszyklus-Richtlinien, Ihre eigenen Richtlinien-Voreinstellungen, die Einrichtung neuer Apps, Automatisierungszeitpläne, ausgeblendete Apps, Hintergrundbeschränkungen, Schlafmodus, alle Automatisierungseinstellungen und die Listen aus früheren Versionen.
 
 ---
 
@@ -1001,6 +1004,9 @@ Interaktive Diagramme der RAM-, CPU- und Akkunutzung über die verfolgten Apps. 
 
 > [!TIP]
 > Tippen Sie auf eine **App in der Diagrammlegende**, um ihr **persönliches Aktivitätsdiagramm** zu öffnen.
+
+**Letzte 30 Tage**\
+Die persönliche Seite einer App zeigt außerdem einen Balken pro Tag für die letzten 30 Tage: den Anteil der App am gesamten gemessenen App-Stromverbrauch an diesem Tag. Tage ohne Akkudaten bleiben leer. Unter dem Diagramm steht, an wie vielen Tagen Daten vorlagen, wie oft die App beendet wurde und wie oft sie nach einem Beenden zurückkam.
 
 **Auto-Kill-Protokoll**\
 Zeigt die Aktivität der letzten **12 Stunden**: Auto-Kill-Zählung, Neustarts, freigegebener RAM und Zeit des letzten Ereignisses pro App.
@@ -1081,7 +1087,10 @@ Der Richtlinien-Editor bietet Voreinstellungen (Presets): Nie anfassen (Never to
 - eine nicht verwaltete App, die 14 Tage nicht geöffnet wurde und weiterhin mindestens 2 % des gesamten gemessenen App-Stromverbrauchs ausmacht,
 - eine nicht verwaltete App, die 3 Tage nicht geöffnet wurde und mindestens 10 % ausmacht.
 
-**Bei Inaktivität begrenzen (Limit when idle)** gibt der App die Voreinstellung Messenger: Standby nach 4 Stunden ohne Nutzung, nie beendet. **Verwerfen (Dismiss)** blendet diese Empfehlung dauerhaft aus. Es ändert sich nichts, bis Sie eine Empfehlung anwenden. Akkuanteile werden erst verwendet, wenn mindestens 3 Tage Statistik und ein nennenswerter Akkuverbrauch vorliegen, daher erscheinen die beiden Akku-Empfehlungen zunächst nicht. Die zugrunde liegende Statistik wird pro App und Tag 90 Tage lang aufbewahrt.
+**Bei Inaktivität begrenzen (Limit when idle)** gibt der App die Voreinstellung Messenger: Standby nach 4 Stunden ohne Nutzung, nie beendet. **Verwerfen (Dismiss)** blendet diese Empfehlung 30 Tage lang aus. Es ändert sich nichts, bis Sie eine Empfehlung anwenden. Akkuanteile werden erst verwendet, wenn mindestens 3 Tage Statistik und ein nennenswerter Akkuverbrauch vorliegen, daher erscheinen die beiden Akku-Empfehlungen zunächst nicht. Die zugrunde liegende Statistik wird pro App und Tag 90 Tage lang aufbewahrt.
+
+**Angewendete Empfehlungen**\
+Sieben Tage nachdem Sie eine Empfehlung angewendet haben, vergleicht der Bildschirm den Anteil der App am gesamten gemessenen App-Stromverbrauch in der Woche davor und in der Woche danach. Ist er um mindestens ein Drittel gesunken, hat die Änderung geholfen. Andernfalls steht dort, dass es keinen klaren Unterschied gibt, und es erscheint **Rückgängig**, wodurch die App die Strategie von vorher zurückbekommt. **Behalten** entfernt den Eintrag. Reichen die Statistiken aus beiden Wochen nicht aus, steht das dort, statt zu raten.
 
 ---
 

@@ -15,10 +15,10 @@
     <string name="automation_schedule_time_range_error_same">La hora de inicio y de finalización deben ser diferentes</string>
     <string name="automation_schedule_app_list_mode_title">Origen de la lista de apps</string>
     <string name="automation_schedule_app_list_mode_dialog_title">Origen de la lista de apps</string>
-    <string name="automation_schedule_app_list_mode_current">Usar lista blanca / lista negra actual</string>
+    <string name="automation_schedule_app_list_mode_current">Usar la lista blanca / negra de versiones anteriores</string>
     <string name="automation_schedule_app_list_mode_own">Usar la lista propia del horario</string>
     <string name="automation_schedule_app_list_mode_switch_hint">Cambia a "Lista propia" para editar</string>
-    <string name="automation_schedule_list_count_current">%d apps (desde los ajustes actuales)</string>
+    <string name="automation_schedule_list_count_current">%d apps (de versiones anteriores)</string>
     <string name="automation_schedule_list_count_own">%d apps seleccionadas</string>
     <string name="automation_schedule_saved">Horario de automatización %d guardado</string>
     <string name="automation_schedule_export_json_button">Exportar a JSON</string>

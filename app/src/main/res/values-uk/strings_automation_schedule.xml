@@ -15,10 +15,10 @@
     <string name="automation_schedule_time_range_error_same">Час початку та завершення має відрізнятися</string>
     <string name="automation_schedule_app_list_mode_title">Джерело списку застосунків</string>
     <string name="automation_schedule_app_list_mode_dialog_title">Джерело списку застосунків</string>
-    <string name="automation_schedule_app_list_mode_current">Використовувати поточний білий / чорний список</string>
+    <string name="automation_schedule_app_list_mode_current">Використовувати білий / чорний список із попередніх версій</string>
     <string name="automation_schedule_app_list_mode_own">Використовувати власний список розкладу</string>
     <string name="automation_schedule_app_list_mode_switch_hint">Перейдіть до «Власного списку» для редагування</string>
-    <string name="automation_schedule_list_count_current">%d застосунків (з поточних налаштувань)</string>
+    <string name="automation_schedule_list_count_current">%d застосунків (з попередніх версій)</string>
     <string name="automation_schedule_list_count_own">Вибрано застосунків: %d</string>
     <string name="automation_schedule_saved">Розклад автоматизації %d збережено</string>
     <string name="automation_schedule_export_json_button">Експорт у JSON</string>
