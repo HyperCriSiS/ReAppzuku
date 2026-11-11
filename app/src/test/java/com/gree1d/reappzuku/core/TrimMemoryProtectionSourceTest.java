@@ -22,6 +22,9 @@ public class TrimMemoryProtectionSourceTest {
         }
         assertTrue(read("app/src/main/java/com/gree1d/reappzuku/core/ProtectedApps.java")
                 .contains(".getByStrategy(AppPolicy.STRATEGY_PROTECTED)"));
+        // A database failure leaves the trim running with the legacy checks.
+        assertTrue(read("app/src/main/java/com/gree1d/reappzuku/core/ProtectedApps.java")
+                .contains("A database failure must not crash a memory trim"));
     }
 
     private static String read(String relative) throws Exception {

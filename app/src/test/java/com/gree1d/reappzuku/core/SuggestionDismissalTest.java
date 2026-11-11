@@ -28,4 +28,27 @@ public class SuggestionDismissalTest {
         assertEquals(Long.valueOf(NOW), active.get("a|2"));
         assertEquals(1, active.size());
     }
+
+    @Test
+    public void aTimeAheadOfTheClockStartsTheThirtyDaysNow() {
+        Map<String, Long> active = SuggestionLoader.activeDismissals(
+                new HashSet<>(Arrays.asList("a|1|" + (NOW + 365L * 24 * 60 * 60 * 1000))), NOW);
+        assertEquals(Long.valueOf(NOW), active.get("a|1"));
+    }
+
+    @Test
+    public void dismissingAndTheReloadWriteBackDoNotRace() throws Exception {
+        String loader = new String(java.nio.file.Files.readAllBytes(locate(
+                "app/src/main/java/com/gree1d/reappzuku/core/SuggestionLoader.java")), "UTF-8");
+        assertTrue(loader.contains("public static synchronized void dismiss(Context context,"));
+        assertTrue(loader.contains("private static synchronized Set<String> dismissed(Context context) {"));
+    }
+
+    private static java.nio.file.Path locate(String relative) throws java.io.IOException {
+        for (String prefix : new String[] {"", "../", "../../"}) {
+            java.nio.file.Path path = java.nio.file.Paths.get(prefix + relative);
+            if (java.nio.file.Files.exists(path)) return path;
+        }
+        throw new java.io.IOException(relative);
+    }
 }

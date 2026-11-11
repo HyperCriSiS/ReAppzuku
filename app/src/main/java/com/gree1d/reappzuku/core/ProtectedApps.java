@@ -132,9 +132,13 @@ public final class ProtectedApps {
     /** Apps the user gave the Protected strategy. Reads Room, so never on the main thread. */
     public static Set<String> withProtectedStrategy(Context context) {
         Set<String> packages = new HashSet<>();
-        for (AppPolicy policy : AppDatabase.getInstance(context).appPolicyDao()
-                .getByStrategy(AppPolicy.STRATEGY_PROTECTED)) {
-            packages.add(policy.packageName);
+        try {
+            for (AppPolicy policy : AppDatabase.getInstance(context).appPolicyDao()
+                    .getByStrategy(AppPolicy.STRATEGY_PROTECTED)) {
+                packages.add(policy.packageName);
+            }
+        } catch (RuntimeException e) {
+            // A database failure must not crash a memory trim; the legacy checks still apply.
         }
         return packages;
     }

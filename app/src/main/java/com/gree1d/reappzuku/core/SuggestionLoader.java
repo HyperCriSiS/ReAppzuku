@@ -127,7 +127,8 @@ public final class SuggestionLoader {
         }
     }
 
-    public static void dismiss(Context context, SuggestionEngine.Suggestion suggestion) {
+    // Synchronized with the write-back in dismissed(): a reload must not overwrite a new dismissal.
+    public static synchronized void dismiss(Context context, SuggestionEngine.Suggestion suggestion) {
         long now = System.currentTimeMillis();
         Map<String, Long> active = activeDismissals(
                 prefs(context).getStringSet(KEY_DISMISSED, Collections.emptySet()), now);
@@ -135,7 +136,7 @@ public final class SuggestionLoader {
         prefs(context).edit().putStringSet(KEY_DISMISSED, entries(active)).apply();
     }
 
-    private static Set<String> dismissed(Context context) {
+    private static synchronized Set<String> dismissed(Context context) {
         Set<String> stored = prefs(context).getStringSet(KEY_DISMISSED, Collections.emptySet());
         Map<String, Long> active = activeDismissals(stored, System.currentTimeMillis());
         Set<String> entries = entries(active);
@@ -167,6 +168,8 @@ public final class SuggestionLoader {
                     continue;
                 }
             }
+            // A time ahead of now comes from a clock that was set back; start the days again.
+            if (at > now) at = now;
             if (now - at < DISMISS_MS) active.put(key, at);
         }
         return active;
