@@ -53,13 +53,15 @@ public class SmartLifecycleWorker extends Worker {
     static final long MAX_PERIOD_MINUTES = 60;
 
     /**
-     * Checks run four times per shortest standby delay, so a deadline is met
-     * at most a quarter late. WorkManager allows no less than 15 minutes; more
-     * than an hour would let a stop come noticeably late.
+     * Checks run eight times per shortest standby delay. Without usage data an
+     * idle clock starts at the first check that sees the app idle, so an action
+     * can come up to two periods late: a quarter of the delay. WorkManager
+     * allows no less than 15 minutes; more than an hour would let a stop come
+     * noticeably late.
      */
     static long periodMinutes(long shortestStandbyDelayMs) {
-        long quarter = TimeUnit.MILLISECONDS.toMinutes(shortestStandbyDelayMs) / 4;
-        return Math.max(MIN_PERIOD_MINUTES, Math.min(MAX_PERIOD_MINUTES, quarter));
+        long eighth = TimeUnit.MILLISECONDS.toMinutes(shortestStandbyDelayMs) / 8;
+        return Math.max(MIN_PERIOD_MINUTES, Math.min(MAX_PERIOD_MINUTES, eighth));
     }
 
     /** Reconcile periodic Smart work from canonical policy ownership plus bounded legacy fallback. */
@@ -94,17 +96,16 @@ public class SmartLifecycleWorker extends Worker {
                 shortest = shortest == 0L ? delay : Math.min(shortest, delay);
             }
         }
-        if (shortest > 0L) return shortest;
-
         if (migrationSnapshotCurrent
                 || !prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false)) {
-            return 0L;
+            return shortest;
         }
         Set<String> legacyBlacklist = prefs.getStringSet(
                 KEY_BLACKLISTED_APPS, Collections.emptySet());
-        // Legacy profiles can use a 30 minute delay; keep the shortest period for them.
+        // The pass also runs the legacy blacklist apps, whose profile can use a
+        // 30 minute delay; keep the shortest period for them.
         return legacyBlacklist != null && !legacyBlacklist.isEmpty()
-                ? TimeUnit.MINUTES.toMillis(MIN_PERIOD_MINUTES) : 0L;
+                ? TimeUnit.MINUTES.toMillis(MIN_PERIOD_MINUTES) : shortest;
     }
 
     public static void scheduleAfterBoot(Context context) {

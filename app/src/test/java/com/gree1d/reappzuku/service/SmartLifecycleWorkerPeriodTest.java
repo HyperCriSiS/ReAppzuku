@@ -15,9 +15,10 @@ public class SmartLifecycleWorkerPeriodTest {
     }
 
     @Test
-    public void checksRunFourTimesPerShortestStandbyDelay() {
-        assertEquals(30, SmartLifecycleWorker.periodMinutes(minutes(120)));
-        assertEquals(45, SmartLifecycleWorker.periodMinutes(minutes(180)));
+    public void checksRunEightTimesPerShortestStandbyDelay() {
+        assertEquals(15, SmartLifecycleWorker.periodMinutes(minutes(120)));
+        assertEquals(22, SmartLifecycleWorker.periodMinutes(minutes(180)));
+        assertEquals(30, SmartLifecycleWorker.periodMinutes(minutes(240)));
     }
 
     @Test
@@ -26,8 +27,25 @@ public class SmartLifecycleWorkerPeriodTest {
         assertEquals(15, SmartLifecycleWorker.periodMinutes(AppPolicy.DEFAULT_SMART_STANDBY_DELAY_MS));
         assertEquals(15, SmartLifecycleWorker.periodMinutes(minutes(30)));
         assertEquals(15, SmartLifecycleWorker.periodMinutes(1));
-        // Messenger: standby after 4 hours, checked hourly.
-        assertEquals(60, SmartLifecycleWorker.periodMinutes(minutes(240)));
-        assertEquals(60, SmartLifecycleWorker.periodMinutes(Long.MAX_VALUE / 2));
+        assertEquals(60, SmartLifecycleWorker.periodMinutes(minutes(600)));
+        assertEquals(60, SmartLifecycleWorker.periodMinutes(Long.MAX_VALUE));
+    }
+
+    @Test
+    public void legacyBlacklistAppsKeepTheShortestPeriodNextToPolicies() throws Exception {
+        String worker = new String(java.nio.file.Files.readAllBytes(locate(
+                "app/src/main/java/com/gree1d/reappzuku/service/SmartLifecycleWorker.java")), "UTF-8");
+        int legacy = worker.indexOf("? TimeUnit.MINUTES.toMillis(MIN_PERIOD_MINUTES) : shortest;");
+        // The legacy check is reached also when policies already gave a delay.
+        org.junit.Assert.assertTrue(legacy > 0);
+        org.junit.Assert.assertFalse(worker.contains("if (shortest > 0L) return shortest;"));
+    }
+
+    private static java.nio.file.Path locate(String relative) throws java.io.IOException {
+        for (String prefix : new String[] {"", "../", "../../"}) {
+            java.nio.file.Path path = java.nio.file.Paths.get(prefix + relative);
+            if (java.nio.file.Files.exists(path)) return path;
+        }
+        throw new java.io.IOException(relative);
     }
 }
