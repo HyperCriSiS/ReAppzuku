@@ -109,11 +109,14 @@ public final class SuggestionEngine {
          * included. 0 until there are enough days and enough drain to compare
          * apps fairly.
          */
+        /** Enough days and enough drain to compare apps fairly. */
+        public boolean hasEnoughData() {
+            return daysWithBattery.size() >= MIN_DAYS_WITH_DATA && drainPct >= MIN_DRAIN_PCT
+                    && totalBattery > 0;
+        }
+
         public double batteryShare(String packageName) {
-            if (daysWithBattery.size() < MIN_DAYS_WITH_DATA || drainPct < MIN_DRAIN_PCT
-                    || totalBattery <= 0) {
-                return 0;
-            }
+            if (!hasEnoughData()) return 0;
             double sum = 0;
             for (DailyAppUsage row : rowsOf(packageName)) sum += row.rawBattery;
             return sum / totalBattery;

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recommendation_effect_title">Applied recommendations</string>
+    <string name="recommendation_effect_helped">Before: %1$d%% of all measured app power use. After: %2$d%%. The change helped.</string>
+    <string name="recommendation_effect_none">Before: %1$d%% of all measured app power use. After: %2$d%%. No clear difference, so you can undo the change.</string>
+    <string name="recommendation_effect_unknown">There are not enough statistics from the weeks before and after the change to compare them.</string>
+    <string name="recommendation_effect_keep">Keep</string>
+    <string name="recommendation_effect_undo">Undo</string>
+</resources>

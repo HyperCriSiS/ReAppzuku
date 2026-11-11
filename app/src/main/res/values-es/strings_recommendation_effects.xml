@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recommendation_effect_title">Recomendaciones aplicadas</string>
+    <string name="recommendation_effect_helped">Antes: %1$d%% de todo el consumo medido de las apps. Después: %2$d%%. El cambio ayudó.</string>
+    <string name="recommendation_effect_none">Antes: %1$d%% de todo el consumo medido de las apps. Después: %2$d%%. Sin diferencia clara, así que puedes deshacer el cambio.</string>
+    <string name="recommendation_effect_unknown">No hay suficientes estadísticas de las semanas anterior y posterior al cambio para compararlas.</string>
+    <string name="recommendation_effect_keep">Mantener</string>
+    <string name="recommendation_effect_undo">Deshacer</string>
+</resources>

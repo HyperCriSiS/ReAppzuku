@@ -16,6 +16,7 @@ import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.AppPolicyQuickChoice;
 import com.gree1d.reappzuku.core.BaseActivity;
+import com.gree1d.reappzuku.core.RecommendationEffect;
 import com.gree1d.reappzuku.core.SuggestionEngine;
 import com.gree1d.reappzuku.core.SuggestionLoader;
 
@@ -27,6 +28,8 @@ public class RecommendationsActivity extends BaseActivity {
     private ExecutorService executor;
     private LinearLayout list;
     private TextView empty;
+    private TextView effectsTitle;
+    private LinearLayout effectsList;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -40,6 +43,8 @@ public class RecommendationsActivity extends BaseActivity {
         }
         list = findViewById(R.id.recommendations_list);
         empty = findViewById(R.id.recommendations_empty);
+        effectsTitle = findViewById(R.id.recommendations_effects_title);
+        effectsList = findViewById(R.id.recommendations_effects_list);
         executor = ((App) getApplication()).getSharedExecutor();
     }
 
@@ -61,9 +66,11 @@ public class RecommendationsActivity extends BaseActivity {
     private void reload() {
         executor.execute(() -> {
             List<SuggestionEngine.Suggestion> suggestions = SuggestionLoader.load(getApplicationContext());
+            List<RecommendationEffect> effects = RecommendationEffect.loadReady(getApplicationContext());
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 show(suggestions);
+                showEffects(effects);
             });
         });
     }
@@ -105,6 +112,72 @@ public class RecommendationsActivity extends BaseActivity {
         }
     }
 
+    /** What earlier changes did; each row offers Keep, and Undo when nothing clear changed. */
+    private void showEffects(List<RecommendationEffect> effects) {
+        effectsList.removeAllViews();
+        effectsTitle.setVisibility(effects.isEmpty() ? View.GONE : View.VISIBLE);
+        PackageManager packageManager = getPackageManager();
+        for (RecommendationEffect effect : effects) {
+            View row = getLayoutInflater().inflate(R.layout.item_recommendation, effectsList, false);
+            CharSequence name = effect.packageName;
+            try {
+                name = packageManager.getApplicationLabel(
+                        packageManager.getApplicationInfo(effect.packageName, 0));
+                ((ImageView) row.findViewById(R.id.recommendation_icon)).setImageDrawable(
+                        packageManager.getApplicationIcon(effect.packageName));
+            } catch (PackageManager.NameNotFoundException e) {
+                RecommendationEffect.forget(this, effect.packageName);
+                continue; // uninstalled: nothing left to keep or undo
+            }
+            ((TextView) row.findViewById(R.id.recommendation_app)).setText(name);
+            ((TextView) row.findViewById(R.id.recommendation_reason)).setText(effectText(effect));
+            TextView keep = row.findViewById(R.id.recommendation_dismiss);
+            TextView undo = row.findViewById(R.id.recommendation_apply);
+            keep.setText(R.string.recommendation_effect_keep);
+            undo.setText(R.string.recommendation_effect_undo);
+            keep.setContentDescription(getString(R.string.recommendation_effect_keep) + ": " + name);
+            undo.setContentDescription(getString(R.string.recommendation_effect_undo) + ": " + name);
+            undo.setVisibility(effect.verdict == RecommendationEffect.VERDICT_NO_CLEAR_EFFECT
+                    ? View.VISIBLE : View.GONE);
+            keep.setOnClickListener(v -> {
+                RecommendationEffect.forget(this, effect.packageName);
+                effectsList.removeView(row);
+                effectsTitle.setVisibility(effectsList.getChildCount() == 0 ? View.GONE : View.VISIBLE);
+            });
+            undo.setOnClickListener(v -> {
+                keep.setEnabled(false);
+                undo.setEnabled(false);
+                executor.execute(() -> {
+                    // List statuses and strategies share their numbers.
+                    AppPolicyQuickChoice.apply(getApplicationContext(),
+                            effect.packageName, effect.previousStatus);
+                    RecommendationEffect.forget(getApplicationContext(), effect.packageName);
+                    runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed()) return;
+                        Toast.makeText(this, R.string.policy_editor_saved, Toast.LENGTH_SHORT).show();
+                        effectsList.removeView(row);
+                        effectsTitle.setVisibility(
+                                effectsList.getChildCount() == 0 ? View.GONE : View.VISIBLE);
+                    });
+                });
+            });
+            effectsList.addView(row);
+        }
+    }
+
+    private String effectText(RecommendationEffect effect) {
+        int before = (int) Math.round(effect.shareBefore * 100);
+        int after = (int) Math.round(effect.shareAfter * 100);
+        switch (effect.verdict) {
+            case RecommendationEffect.VERDICT_HELPED:
+                return getString(R.string.recommendation_effect_helped, before, after);
+            case RecommendationEffect.VERDICT_NO_CLEAR_EFFECT:
+                return getString(R.string.recommendation_effect_none, before, after);
+            default:
+                return getString(R.string.recommendation_effect_unknown);
+        }
+    }
+
     /** Removes one row and keeps the others, so the focus does not jump away on a TV remote. */
     private void removeRow(View row) {
         int index = list.indexOfChild(row);
@@ -130,6 +203,8 @@ public class RecommendationsActivity extends BaseActivity {
 
     private void apply(SuggestionEngine.Suggestion suggestion, View row) {
         executor.execute(() -> {
+            RecommendationEffect.recordApplied(getApplicationContext(),
+                    suggestion.packageName, suggestion.facts.status);
             AppPolicyQuickChoice.applyPreset(getApplicationContext(),
                     suggestion.packageName, SuggestionLoader.APPLIED_PRESET);
             runOnUiThread(() -> {
