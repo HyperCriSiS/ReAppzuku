@@ -600,6 +600,9 @@ Muestra el modo de acceso actual: **Root**, **Shizuku** o **Sin acceso**, y deba
 **Ayuda**\
 Enlace a estas preguntas frecuentes (FAQ).
 
+**Ajustes visibles**\
+Elige cuánto de esta pantalla se muestra. **Sencillo** mantiene el modo de acceso, la configuración inicial, las recomendaciones y los interruptores principales. **Avanzado** añade las reglas de Auto-Kill, los Horarios de automatización, las Restricciones de segundo plano, el Modo sueño y la tarjeta de comportamiento de las apps. **Experto** lo muestra todo, incluidos el Tipo de Auto-Kill, las Condiciones avanzadas, el Programador de restricciones, la limpieza de caché, las apps ocultas y el acceso directo de RAM. Las filas ocultas siguen funcionando con los valores que tienen; solo sus controles quedan fuera de la vista.
+
 ---
 
 ### 🎨 Apariencia
@@ -669,7 +672,7 @@ Condición adicional — el Kill solo se activa **si** la RAM supera el umbral s
 Solo es relevante si ReAppzuku tiene conflictos con tu firmware. Si notas un comportamiento inusual en otras apps, intenta cambiar a `am kill`.
 
 **Qué apps afecta el Auto-Kill**\
-El Auto-Kill detiene las apps con la estrategia **Inmediato**, con los disparadores activados arriba. Los ajustes principales ya no tienen pantalla de lista blanca ni de lista negra: decide la estrategia de cada app. Las listas de versiones anteriores se convirtieron en estrategias; con el modo Lista blanca eso significa que todas las apps fuera de la lista blanca pasaron a Inmediato. Las programaciones de automatización (llamadas ajustes preestablecidos de Auto-Kill más abajo) siguen teniendo sus propias listas y las usan mientras una programación está activa. Ver [Estrategia por app](#estrategia-por-app-configuración-inicial-y-recomendaciones).
+El Auto-Kill detiene las apps con la estrategia **Inmediato**, con los disparadores activados arriba. Los ajustes principales ya no tienen pantalla de lista blanca ni de lista negra: decide la estrategia de cada app. Las listas de versiones anteriores se convirtieron en estrategias; con el modo Lista blanca eso significa que todas las apps fuera de la lista blanca pasaron a Inmediato. Los horarios de automatización (más abajo) tienen sus propias listas y las usan mientras una programación está activa. Ver [Estrategia por app](#estrategia-por-app-configuración-inicial-y-recomendaciones).
 
 **Condiciones avanzadas**\
 Expande el Auto-Kill con disparadores adicionales — para casos en los que la programación regular no es suficiente.
@@ -683,46 +686,46 @@ Auto-Kill se activa justo cuando se abren las apps objetivo seleccionadas — ú
 > [!IMPORTANT]
 > La función **Inicio de app** requiere un permiso especial en los ajustes de "Accesibilidad". Esta característica también puede aumentar ligeramente el uso de batería de ReAppzuku.
 
-**Ajustes preestablecidos de Auto-Kill**\
-Guarda tu propio conjunto de ajustes de Auto-Kill que se activa automáticamente a una hora específica del día y reemplaza la configuración actual durante la duración de su ventana activa. Cuando la ventana termina, los ajustes originales se restauran automáticamente.
-Hay **2 preajustes** disponibles. Cada uno se puede configurar de forma independiente: su propio nombre, su propio rango de tiempo activo, sus propias reglas de Auto-Kill, sus propias listas de apps y sus propios escenarios adicionales.
+**Horarios de automatización**\
+Dos horarios, cada uno activo en una franja horaria que tú defines. Mientras un horario está activo, sus ajustes de Auto-Kill (interruptores, intervalo, umbral de RAM, tipo de Auto-Kill y Condiciones avanzadas) sustituyen a los principales; cuando la franja termina, los ajustes principales se restauran automáticamente.
+La lista de apps del horario no sustituye nada. Se superpone a las estrategias de las apps: para cada app sin una estrategia elegida por ti, decide el horario. En modo Lista negra se detienen las apps de su lista, en modo Lista blanca todas las apps fuera de ella. Las apps a las que diste una estrategia la conservan, y las apps Protegidas nunca se detienen. Las estrategias de las apps no cambian.
 > [!WARNING]
-> Mientras están activos, los preajustes ignoran la inmunidad otorgada a las apps por el Programador de restricciones. Esto se hace para evitar confusiones en los ajustes.
+> Mientras están activos, los horarios ignoran la inmunidad otorgada a las apps por el Programador de restricciones. Esto se hace para evitar confusiones en los ajustes.
 
-- **Habilitar preajuste**.
-El interruptor principal. Si está deshabilitado, el preajuste **no se activará** según la programación, incluso si inicia su ventana de tiempo. Si el preajuste está activo actualmente y este interruptor se apaga, se desactiva inmediatamente y se restauran los ajustes originales.
+- **Activar horario**.
+El interruptor principal. Si está desactivado, el horario **no se activará**, incluso si inicia su franja horaria. Si el horario está activo actualmente y este interruptor se apaga, se desactiva inmediatamente y se restauran los ajustes principales.
 
-- **Nombre del preajuste**.
-Un nombre personalizado de hasta 30 caracteres. Se muestra en el diálogo de selección de preajustes en los ajustes principales. Si el preajuste está activo actualmente, aparecerá la etiqueta **"Activo"** junto a su nombre.
+- **Nombre del horario**.
+Un nombre personalizado de hasta 30 caracteres. Si el horario está activo actualmente, aparecerá la etiqueta **"Activo"** junto a su nombre.
 
 - **Horario activo**.
-Un rango "Desde — Hasta", mostrado usando el formato de hora del dispositivo (12/24 horas). Se admiten rangos que cruzan la medianoche (por ejemplo, 22:00 – 06:00).
+Un rango "Desde – Hasta", mostrado usando el formato de hora del dispositivo (12/24 horas). Se admiten rangos que cruzan la medianoche (por ejemplo, 22:00 – 06:00).
 > [!WARNING]
-> Los dos preajustes no pueden superponerse en su horario activo. Si intentas guardar un preajuste con un rango que se superpone, una advertencia mostrará el rango de tiempo del preajuste en conflicto — ajusta la hora de uno de los preajustes para solucionarlo.
+> Los dos horarios no pueden superponerse en su horario activo. Si intentas guardar un horario con un rango que se superpone, una advertencia muestra el rango de tiempo del horario en conflicto; ajusta la hora de uno de ellos para solucionarlo.
 
-- **Origen de la lista de apps**
+- **Origen de la lista de apps**.
 Elige entre:
-  - **Usar lista blanca / lista negra actual** — el preajuste siempre utiliza la lista blanca/lista negra activa de los ajustes principales en el momento en que se activa.
-  - **Usar la lista propia del preajuste** — el preajuste tiene su propia lista blanca/lista negra independiente, que se edita por separado y no se ve afectada por los cambios en los ajustes principales.
+  - **Usar la lista blanca / negra de versiones anteriores**: copia, en el momento de guardar, las listas que se guardaron antes de que las estrategias de las apps las reemplazaran. Esas listas ya no se pueden editar en ningún otro sitio.
+  - **Usar la lista propia del horario**: el horario tiene su propia lista blanca y lista negra, que se editan aquí.
 
 - **Gestión de Auto-Kill y Condiciones avanzadas**.
-Un bloque estándar de ajustes de Auto-Kill, igual al de los ajustes regulares de la app. Todos estos ajustes se describen en [Ajustes de Auto-Kill](#-auto-kill-settings)
+Un bloque estándar de ajustes de Auto-Kill, igual al de los ajustes regulares de la app. Todos estos ajustes se describen en [Ajustes de Auto-Kill](#-auto-kill-settings).
 
-- **Guardar preajuste**.
-Aplica todos los cambios: guarda la configuración, vuelve a programar las alarmas de activación/desactivación y activa o desactiva inmediatamente el preajuste si es necesario (if los cambios afectan la ventana de tiempo actual).
+- **Guardar horario**.
+Aplica todos los cambios: guarda la configuración, vuelve a programar las alarmas de activación y desactivación y activa o desactiva inmediatamente el horario si el cambio afecta a la franja horaria actual.
 
 - **Importar/Exportar archivo JSON**.
-Guarda el preajuste en un archivo JSON o restáuralo desde un archivo de copia de seguridad. Para aplicar los cambios, haz clic en el botón "Guardar".
+Guarda un horario en un archivo JSON o restáuralo desde un archivo de copia de seguridad. Para aplicar los cambios, toca "Guardar".
 
-- **Restablecer preajuste**.
-Restablece todos los ajustes actuales en pantalla a sus valores predeterminados (tomados de los ajustes principales de la app). **Los cambios no se aplican** hasta que se presione "Guardar" — puedes simplemente salir de la pantalla sin guardar y el restablecimiento no afectará al preajuste ya guardado.
+- **Restablecer horario**.
+Restablece todos los ajustes en pantalla a sus valores predeterminados (tomados de los ajustes principales). **Los cambios no se aplican** hasta que se presione "Guardar"; puedes salir de la pantalla sin guardar y el restablecimiento no afecta al horario ya guardado.
 
 **Acceso directo para Kill de RAM**\
 Añade un pequeño acceso directo de 1x1 en el escritorio que muestra el uso de RAM en tiempo real en porcentaje y GB.\
 Al tocar el acceso directo se activa un Auto-Kill instantáneo basado en los ajustes actuales y se limpia la RAM.
 
 > [!TIP]
-> La RAM se limpia de todos modos, ya sea que las apps se hayan cerrado durante el Auto-Kill o no. Para limpiar la RAM se utiliza el comando am send-trim-memory. Solo la lista blanca y las aplicaciones persistentes no se ven afectadas.
+> La RAM se libera incluso cuando el Auto-Kill no detuvo nada: a todas las demás apps en ejecución se les pide que reduzcan su memoria (`am send-trim-memory`). Quedan fuera las apps Protegidas, las apps de la lista blanca de versiones anteriores y las apps persistentes del sistema.
 
 ---
 
@@ -962,7 +965,7 @@ Ejecuta `pm trim-caches` — limpia la caché de todas las apps a la vez.
 Las apps aquí no aparecen en la pantalla principal y el Auto-Kill nunca las toca. Útil para procesos de servicio que no necesitas ver.
 
 **Copia de seguridad y restauración**\
-Exporta e importa todos los ajustes en formato JSON. Incluye la lista blanca, la lista negra, las apps ocultas, las restricciones de segundo plano, el Modo sueño y todos los ajustes de automatización.
+Exporta e importa todos los ajustes en formato JSON. Incluye las estrategias de las apps y las políticas de ciclo de vida, tus propios preajustes de política, la configuración de las apps nuevas, los Horarios de automatización, las apps ocultas, las restricciones de segundo plano, el Modo sueño, todos los ajustes de automatización y las listas de versiones anteriores.
 
 ---
 
@@ -1002,6 +1005,9 @@ Gráficos interactivos del uso de RAM, CPU y batería de las apps rastreadas. Ca
 
 > [!TIP]
 > Toca una **app en la leyenda del gráfico** para abrir su **gráfico de actividad personal**
+
+**Últimos 30 días**\
+La página personal de una app también muestra una barra por día de los últimos 30 días: la parte de la app en todo el consumo medido de las apps ese día. Los días sin datos de batería quedan vacíos. Debajo del gráfico: en cuántos días hubo datos, cuántas veces se detuvo la app y cuántas volvió tras una detención.
 
 **Registro de Auto-Kill**\
 Muestra la actividad de las últimas **12 horas**: conteo de Auto-Kill, reinicios, RAM liberada y la hora del último evento por app.
@@ -1082,7 +1088,10 @@ El editor de políticas ofrece preajustes: No tocar nunca, Mensajería (en esper
 - una app sin gestionar que no se abrió durante 14 días y aún representa al menos el 2 % del consumo de energía de las apps medido,
 - una app sin gestionar que no se abrió durante 3 días y representa al menos el 10 %.
 
-**Limitar en reposo** aplica a la app el preajuste Mensajería: en espera tras 4 horas sin uso, nunca se detiene. **Descartar** oculta esa recomendación para siempre. No cambia nada hasta que apliques una recomendación. Los porcentajes de batería solo se usan cuando existen al menos 3 días de estadísticas y un consumo de batería real, por lo que las dos recomendaciones de batería no aparecen al principio. Las estadísticas se conservan por app y día durante 90 días.
+**Limitar en reposo** aplica a la app el preajuste Mensajería: en espera tras 4 horas sin uso, nunca se detiene. **Descartar** oculta esa recomendación durante 30 días. No cambia nada hasta que apliques una recomendación. Los porcentajes de batería solo se usan cuando existen al menos 3 días de estadísticas y un consumo de batería real, por lo que las dos recomendaciones de batería no aparecen al principio. Las estadísticas se conservan por app y día durante 90 días.
+
+**Recomendaciones aplicadas**\
+Siete días después de aplicar una recomendación, la pantalla compara la parte de la app en todo el consumo medido de las apps en la semana anterior y en la posterior. Si bajó al menos un tercio, el cambio ayudó. Si no, indica que no hay una diferencia clara y ofrece **Deshacer**, que devuelve a la app la estrategia que tenía antes. **Mantener** elimina la entrada. Si no hay suficientes estadísticas de ambas semanas, lo indica en lugar de adivinar.
 
 ---
 
