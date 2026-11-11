@@ -1,6 +1,9 @@
 package com.gree1d.reappzuku.core;
 
+import android.content.Context;
 import android.content.ServiceConnection;
+
+import rikka.shizuku.ShizukuProvider;
 
 import rikka.shizuku.Shizuku;
 
@@ -17,9 +20,23 @@ interface ShizukuBridge {
     void removeBinderDeadListener(Shizuku.OnBinderDeadListener listener);
     void bindUserService(Shizuku.UserServiceArgs args, ServiceConnection connection);
     void unbindUserService(Shizuku.UserServiceArgs args, ServiceConnection connection, boolean remove);
+
+    /**
+     * Asks this app's ":shizuku" provider process again for the Binder it
+     * holds. Blocking, so never on the main thread. Each call also registers
+     * one more receiver inside the Shizuku library, so callers keep the number
+     * of calls small.
+     */
+    default void requestBinderFromProvider(Context context) {
+    }
 }
 
 final class RealShizukuBridge implements ShizukuBridge {
+    @Override
+    public void requestBinderFromProvider(Context context) {
+        ShizukuProvider.requestBinderForNonProviderProcess(context);
+    }
+
     @Override public boolean pingBinder() { return Shizuku.pingBinder(); }
     @Override public int checkSelfPermission() { return Shizuku.checkSelfPermission(); }
     @Override public void requestPermission(int requestCode) { Shizuku.requestPermission(requestCode); }

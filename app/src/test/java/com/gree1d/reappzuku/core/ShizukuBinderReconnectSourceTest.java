@@ -31,11 +31,27 @@ public class ShizukuBinderReconnectSourceTest {
         int request = shell.indexOf("private final Runnable binderRequest");
         String requestBody = shell.substring(request, shell.indexOf("};", request));
         assertTrue(requestBody.contains("if (!shizukuBinderLost || binderRequestsLeft <= 0) return;"));
-        assertTrue(requestBody.contains("rikka.shizuku.ShizukuProvider.requestBinderForNonProviderProcess(context);"));
+        // Off the main thread, through the bridge, without a new receiver per call.
+        assertTrue(requestBody.contains("executor.execute(() -> {"));
+        assertTrue(requestBody.contains("shizuku.requestBinderFromProvider(context);"));
+        // Each request leaves a receiver in the library: the rounds per process are capped.
+        assertTrue(shell.contains("if (binderRequestRounds >= BINDER_REQUEST_ROUNDS) return;"));
+        assertTrue(ShellManager.BINDER_REQUEST_ROUNDS * ShellManager.BINDER_REQUEST_ATTEMPTS < 100);
 
         // Two minutes of retries, then only on the next user action.
         assertEquals(120_000L, ShellManager.BINDER_REQUEST_INTERVAL_MS * ShellManager.BINDER_REQUEST_ATTEMPTS);
         assertTrue(shell.contains("if (shizukuBinderLost && binderRequestsLeft <= 0) {"));
+    }
+
+    @Test
+    public void serviceAndActivityKeepSeparateBinderListeners() throws Exception {
+        String shell = read("app/src/main/java/com/gree1d/reappzuku/core/ShellManager.java");
+        assertTrue(shell.contains("public synchronized void setShizukuBinderListeners(Object owner,"));
+        assertTrue(shell.contains("public synchronized void removeShizukuBinderListeners(Object owner) {"));
+        assertTrue(read("app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java")
+                .contains("shellManager.removeShizukuBinderListeners(this);"));
+        assertTrue(read("app/src/main/java/com/gree1d/reappzuku/service/ShappkyService.java")
+                .contains("shellManager.removeShizukuBinderListeners(this);"));
     }
 
     private static String read(String relative) throws Exception {

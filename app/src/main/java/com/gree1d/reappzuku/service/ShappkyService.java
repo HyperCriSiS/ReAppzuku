@@ -646,7 +646,7 @@ public class ShappkyService extends Service {
 
     private void registerShizukuBinderListeners() {
 
-        shellManager.setShizukuBinderListeners(
+        shellManager.setShizukuBinderListeners(this,
                 this::handleShizukuBinderReceived,
                 this::handleShizukuBinderDead
         );
@@ -654,7 +654,7 @@ public class ShappkyService extends Service {
 
     private void unregisterShizukuBinderListeners() {
         if (shellManager != null) {
-            shellManager.removeShizukuBinderListeners();
+            shellManager.removeShizukuBinderListeners(this);
         }
     }
 

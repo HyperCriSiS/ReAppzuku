@@ -253,7 +253,7 @@ public class MainActivity extends BaseActivity {
         // SHIZUKU_UNAVAILABLE. Re-enter preparation when it becomes available so a
         // first-run permission request cannot be lost in that race. The listener is
         // sticky, which also covers a Binder that arrived just before onStart().
-        shellManager.setShizukuBinderListeners(this::prepareShellAndLoadApps, null);
+        shellManager.setShizukuBinderListeners(this, this::prepareShellAndLoadApps, null);
     }
 
     @Override
@@ -261,7 +261,7 @@ public class MainActivity extends BaseActivity {
         super.onStop();
 
         shellManager.removeShizukuPermissionListener(shizukuPermissionListener);
-        shellManager.removeShizukuBinderListeners();
+        shellManager.removeShizukuBinderListeners(this);
     }
 
     @Override
