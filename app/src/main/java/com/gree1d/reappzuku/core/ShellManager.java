@@ -70,9 +70,36 @@ public class ShellManager {
                 }
             };
 
+    // Shizuku hands its Binder to the ":shizuku" provider process. After the
+    // Shizuku server restarts, a running main process is not told again, so it
+    // asks the provider a few times, as it does once at startup.
+    static final long BINDER_REQUEST_INTERVAL_MS = 10_000L;
+    static final int BINDER_REQUEST_ATTEMPTS = 12;
+    private volatile int binderRequestsLeft;
+    private final Runnable binderRequest = new Runnable() {
+        @Override
+        public void run() {
+            if (!shizukuBinderLost || binderRequestsLeft <= 0) return;
+            binderRequestsLeft--;
+            try {
+                rikka.shizuku.ShizukuProvider.requestBinderForNonProviderProcess(context);
+            } catch (RuntimeException e) {
+                // The provider may be gone with the server; the next attempt asks again.
+            }
+            handler.postDelayed(this, BINDER_REQUEST_INTERVAL_MS);
+        }
+    };
+
+    private void requestBinderAgain() {
+        ShellManager.this.handler.removeCallbacks(binderRequest);
+        binderRequestsLeft = BINDER_REQUEST_ATTEMPTS;
+        handler.postDelayed(binderRequest, BINDER_REQUEST_INTERVAL_MS);
+    }
+
     private final Shizuku.OnBinderReceivedListener internalBinderReceivedListener = () -> {
         shizukuBinderEverSeen = true;
         shizukuBinderLost = false;
+        ShellManager.this.handler.removeCallbacks(binderRequest);
 
         try {
             if (shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) bindUserService();
@@ -89,7 +116,7 @@ public class ShellManager {
         userServiceBinding = false;
         userServiceReadyLatch.countDown();
         userServiceReadyLatch = new CountDownLatch(1);
-
+        ShellManager.this.handler.post(this::requestBinderAgain);
     };
 
     private final ServiceConnection userServiceConnection = new ServiceConnection() {
@@ -326,6 +353,10 @@ public class ShellManager {
     }
 
     public void checkShellPermissions() {
+        // A user action after the retries ran out asks once more.
+        if (shizukuBinderLost && binderRequestsLeft <= 0) {
+            handler.post(this::requestBinderAgain);
+        }
         if (hasRoot != null && hasRoot) {
 
             return;
