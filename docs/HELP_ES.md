@@ -4,9 +4,6 @@
 
 ---
 
-> [!NOTE]
-> Esta traducción todavía describe el estado anterior a la reestructuración de noviembre de 2026. La lista blanca, la lista negra y el modo de Auto-Kill ya no existen; cada app tiene ahora una estrategia. La [ayuda en inglés](HELP.md) está actualizada, véase "Per-App Strategy, Setup and Recommendations".
-
 ## Tabla de contenidos
 
 - [¿Qué es ReAppzuku?](#qué-es-reappzuku)
@@ -28,6 +25,7 @@
     - [Modo sueño](#modo-sueño-sleep-mode)
   - [Acerca de](#ℹ️-acerca-de)
 - [Estadísticas y Registros](#-estadísticas-y-registros)
+- [Estrategia por app, configuración inicial y recomendaciones](#estrategia-por-app-configuración-inicial-y-recomendaciones)
 - [Apps protegidas](#apps-protegidas)
 - [Preguntas frecuentes (FAQ)](#preguntas-frecuentes-faq)
 
@@ -238,7 +236,8 @@ No actives Auto-Kill de inmediato ni configures otras restricciones apresuradame
 Después de recopilar los datos, ve a la sección **"Estadísticas y registros"** y revisa los gráficos de consumo (Batería, CPU, RAM). Adicionalmente, puedes comparar con las estadísticas de batería de los ajustes del teléfono. En la leyenda de los gráficos se puede ver qué aplicaciones consumen más recursos.
 
 **Configuración de Auto-Kill**\
-Se recomienda comenzar con el modo **Lista negra**, ya que es más seguro al afectar solo a las aplicaciones seleccionadas explícitamente, sin afectar al resto. El intervalo del Auto-Kill periódico puede establecerse inicialmente en 1 minuto, ajustándolo posteriormente según tus necesidades.\
+El Auto-Kill actúa sobre las apps con la estrategia **Inmediato** (toca una app de la lista y luego **Estrategia**). Las apps sin estrategia se dejan en paz. Si usaste el modo Lista blanca en una versión anterior, todas las apps fuera de tu lista blanca se convirtieron a Inmediato, así que revisa la lista. El intervalo del Auto-Kill periódico puede establecerse inicialmente en 1 minuto, ajustándolo posteriormente según tus necesidades.\
+Tras unos días de estadísticas, la pantalla **Recomendaciones** (Ajustes, o la línea sobre la lista de apps) indica las apps que conviene limitar, con las cifras medidas como motivo.\
 Tras 1–2 horas de funcionamiento de Auto-Kill, ve a la sección "Estadísticas y registros" y abre el registro **Principales infractores**. Ahí verás qué aplicaciones fueron cerradas con más frecuencia y cuáles se reiniciaron de inmediato.\
 Las aplicaciones que se reinician más de 3 veces son buenas candidatas para las Restricciones de segundo plano. Para empezar, se les puede asignar el tipo Suave / Soft de Restricción de segundo plano.
 
@@ -259,7 +258,7 @@ Añadidos al panel de notificaciones:
 | Botón | Acción |
 |---|---|
 | **Kill App** | Cierra la app actual en primer plano |
-| **Kill Background Apps** | Ejecuta el Auto-Kill con tus ajustes de lista blanca/lista negra |
+| **Kill Background Apps** | Ejecuta el Auto-Kill sobre las apps con la estrategia Inmediato |
 
 **Widget**\
 Widget para la pantalla de inicio — muestra las estadísticas de Auto-Kill de las últimas 12 horas y la carga actual de RAM.
@@ -315,9 +314,9 @@ Al tocar una app en la lista se abre el menú de acciones rápidas:
 - **Información de la app** — abre la información estándar de la app del sistema
 - **Disparadores de la app** — análisis detallado de las causas de la actividad en segundo plano (ver abajo)
 - **Desinstalar** — elimina la app del dispositivo (no disponible para apps del sistema)
-- **Añadir a...** — añade rápidamente a una de estas listas:
-  - Lista blanca
-  - Lista negra
+- **Política de ciclo de vida**: abre el editor de políticas de la app
+- **Añadir a...**
+  - **Estrategia**: muestra la estrategia actual y permite elegir Sin gestionar, Protegido, Smart o Inmediato (ver [Estrategia por app](#estrategia-por-app-configuración-inicial-y-recomendaciones))
   - Ocultas
   - Restricción de segundo plano (Suave/Soft)
 
@@ -596,7 +595,7 @@ Android 11–13: el dispositivo está en modo Deep Doze o Light Doze. Los Wakelo
 ↩️[Tabla de contenidos](#table-of-contents)
 
 **Modo de acceso de ReAppzuku**\
-Muestra el modo de acceso actual: **Root**, **Shizuku** o **Sin acceso**. Solo lectura.
+Muestra el modo de acceso actual: **Root**, **Shizuku** o **Sin acceso**, y debajo qué no puede hacer ese modo en este dispositivo. Sin Root ni Shizuku la app solo puede analizar; no puede detener ni restringir apps. Solo con Root, las cifras de memoria son RSS en lugar del PSS, más exacto. Las restricciones de segundo plano y la limpieza de caché requieren Android 11 o posterior; en versiones anteriores esas filas siguen visibles y lo explican al tocarlas. Solo lectura.
 
 **Ayuda**\
 Enlace a estas preguntas frecuentes (FAQ).
@@ -633,7 +632,7 @@ Mantiene inactivo el proceso principal cuando Shizuku arranca o se reinicia. El 
 En la pantalla principal, Atrás desconecta el UserService de Shizuku, elimina ReAppzuku de Recientes y finaliza el proceso principal.
 
 **Compatibilidad con la automatización en segundo plano**\
-El comportamiento bajo demanda no está disponible mientras Auto-Kill, Smart Lifecycle, el modo de suspensión, un preset activo o una programación de restricciones necesite continuidad en segundo plano. La pantalla de ajustes muestra el bloqueo activo en lugar de desactivar las opciones sin explicación.
+El comportamiento bajo demanda no está disponible mientras Auto-Kill, el modo de suspensión, una programación de automatización activa o una programación de restricciones necesite continuidad en segundo plano. La pantalla de ajustes muestra el bloqueo activo en lugar de desactivar las opciones sin explicación.
 
 ---
 
@@ -669,17 +668,8 @@ Condición adicional — el Kill solo se activa **si** la RAM supera el umbral s
 **Tipo de Auto-Kill**\
 Solo es relevante si ReAppzuku tiene conflictos con tu firmware. Si notas un comportamiento inusual en otras apps, intenta cambiar a `am kill`.
 
-**Modo de Auto-Kill**\
-Determina **cuáles** apps serán el objetivo de Auto-Kill.
-
-- **🛡️ Lista blanca** — cierra todas las apps en segundo plano **excepto** las que están en la lista blanca. Úsalo para una limpieza máxima.
-> [!WARNING]
-> Al usar la Lista Blanca, se recomienda encarecidamente agregar la mayoría de las aplicaciones del sistema para evitar problemas con el dispositivo
-
-- **🎯 Lista negra (predeterminado)** — cierra **solo** las apps que están en la lista negra. Úsalo para detener apps específicas sin tocar todo lo demás.
-
-**Lista blanca / Lista negra**\
-Lista de apps para el modo seleccionado. Se muestra una de las dos listas dependiendo del modo.
+**Qué apps afecta el Auto-Kill**\
+El Auto-Kill detiene las apps con la estrategia **Inmediato**, con los disparadores activados arriba. Los ajustes principales ya no tienen pantalla de lista blanca ni de lista negra: decide la estrategia de cada app. Las listas de versiones anteriores se convirtieron en estrategias; con el modo Lista blanca eso significa que todas las apps fuera de la lista blanca pasaron a Inmediato. Las programaciones de automatización (llamadas ajustes preestablecidos de Auto-Kill más abajo) siguen teniendo sus propias listas y las usan mientras una programación está activa. Ver [Estrategia por app](#estrategia-por-app-configuración-inicial-y-recomendaciones).
 
 **Condiciones avanzadas**\
 Expande el Auto-Kill con disparadores adicionales — para casos en los que la programación regular no es suficiente.
@@ -1063,6 +1053,39 @@ Contiene registros de la actividad del Programador de restricciones. Cada entrad
 
 ---
 
+## Estrategia por app, configuración inicial y recomendaciones
+↩️[Tabla de contenidos](#tabla-de-contenidos)
+
+**Estrategia**\
+Cada app tiene una de cuatro estrategias. Toca una app en la pantalla Principal y elige **Estrategia**, o abre **Política de ciclo de vida** para ver todos los detalles.
+
+| Estrategia | Qué ocurre |
+|---|---|
+| **Sin gestionar** | ReAppzuku deja la app en paz. Es el valor predeterminado. |
+| **Protegido** | La app nunca se detiene, se pone en espera ni se selecciona para un cierre manual. Muestra una insignia Protegida en la lista y no tiene botón de cierre. |
+| **Smart** | La app sigue en ejecución. Tras un tiempo inactiva se pone en espera, y tras más tiempo inactiva se detiene. Una nueva elección de Smart usa el preajuste Equilibrado: en espera tras 1 hora, detenida tras 6 horas y detenida tras reiniciar el dispositivo si no se ha usado desde entonces. |
+| **Inmediato** | El Auto-Kill detiene la app con los disparadores activados (periódico, pantalla apagada, umbral de RAM y las Condiciones avanzadas). |
+
+> [!WARNING]
+> Una app detenida no puede mostrar notificaciones ni hacer sonar alarmas hasta que la abras de nuevo. Usa Inmediato, y Smart con tiempo de detención, solo para apps de las que no necesitas recibir avisos.
+
+**Preajustes**\
+El editor de políticas ofrece preajustes: No tocar nunca, Mensajería (en espera tras 4 horas, nunca se detiene), Multimedia, Equilibrado, Uso poco frecuente y Agresivo. Un preajuste rellena los valores; aún puedes cambiar cada uno. Los tres interruptores de multimedia, servicios en primer plano y widgets deciden si se respeta una app con reproducción activa, un servicio en primer plano o un widget en la pantalla de inicio.
+
+**Configuración inicial**\
+**Ajustes → Configuración inicial** muestra lo que permite el modo de acceso actual y pregunta qué debe ocurrir con las apps que instales a partir de ahora: preguntar cada vez (Preguntarme), Suave (solo en espera, nunca se detiene) o Equilibrado. En una instalación nueva, la pantalla Principal ofrece esta pantalla como una línea sobre la lista de apps. No cambia las apps ya instaladas ni las que ya esperan una decisión, y no activa el Auto-Kill. Hay más opciones, como dejar las apps nuevas sin gestionar u otro preajuste predeterminado, en **Ajustes → Configuración de apps nuevas**.
+
+**Recomendaciones**\
+**Ajustes → Recomendaciones** enumera lo que ReAppzuku sugiere a partir de sus propias mediciones de los últimos 7 días:
+
+- una app con la estrategia Inmediato que se detuvo al menos 5 veces y volvió al menos la mitad de las veces,
+- una app sin gestionar que no se abrió durante 14 días y aún representa al menos el 2 % del consumo de energía de las apps medido,
+- una app sin gestionar que no se abrió durante 3 días y representa al menos el 10 %.
+
+**Limitar en reposo** aplica a la app el preajuste Mensajería: en espera tras 4 horas sin uso, nunca se detiene. **Descartar** oculta esa recomendación para siempre. No cambia nada hasta que apliques una recomendación. Los porcentajes de batería solo se usan cuando existen al menos 3 días de estadísticas y un consumo de batería real, por lo que las dos recomendaciones de batería no aparecen al principio. Las estadísticas se conservan por app y día durante 90 días.
+
+---
+
 ## Apps protegidas
 ↩️[Tabla de contenidos](#table-of-contents)
 
@@ -1106,6 +1129,12 @@ Estas apps **nunca se ven afectadas** por el Auto-Kill u otras restricciones, in
 - Teclado actual (detectado automáticamente en tiempo de ejecución)
 - Lanzador actual (detectado automáticamente en tiempo de ejecución)
 
+**Apps en uso**\
+El Auto-Kill y Smart también respetan una app, mientras corresponda, cuando tiene una sesión multimedia activa, ejecuta un servicio en primer plano, tiene un widget en la pantalla de inicio, es un servicio de accesibilidad o un escucha de notificaciones activado, es el fondo de pantalla animado, es administrador del dispositivo o proporciona la VPN. Para multimedia, servicios en primer plano y widgets esto se puede desactivar por app en el editor de políticas.
+
+**Restricciones de segundo plano establecidas en otro lugar**\
+Después de su primera pasada de restricciones, ReAppzuku solo levanta las restricciones que él mismo estableció. Una restricción que establezcas en los ajustes de batería del sistema se mantiene, salvo que quites esa app explícitamente en la lista de apps. La primera pasada tras instalar o actualizar sigue levantando todas las restricciones de segundo plano de las apps que no están en tu lista, como hacían las versiones anteriores en cada pasada.
+
 ---
 
 ## Preguntas frecuentes (FAQ)
@@ -1123,9 +1152,9 @@ Habilita el **Servicio de segundo plano** — restaura automáticamente todas la
 
 ---
 
-**❓ ¿Qué modo debería elegir — lista blanca o lista negra?**
+**❓ ¿Qué estrategia debería elegir para una app?**
 
-Lista blanca — detiene todo excepto lo que importa. Lista negra — detiene solo apps específicas y deja todo lo demás tranquilo.
+Déjala en Sin gestionar salvo que cause problemas. Smart con el preajuste Mensajería (solo en espera, nunca se detiene) es el paso seguro para una app que gasta batería en reposo; Smart con tiempo de detención ahorra más, pero silencia la app hasta que la abras. Inmediato es para apps que quieres detener con cada disparador y de las que no necesitas notificaciones. Protegido es para apps que nunca deben tocarse. La pantalla Recomendaciones sugiere candidatas.
 
 ---
 
