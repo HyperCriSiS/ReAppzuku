@@ -4,6 +4,9 @@
 
 ---
 
+> [!NOTE]
+> Esta traducción todavía describe el estado anterior a la reestructuración de noviembre de 2026. La lista blanca, la lista negra y el modo de Auto-Kill ya no existen; cada app tiene ahora una estrategia. La [ayuda en inglés](HELP.md) está actualizada, véase "Per-App Strategy, Setup and Recommendations".
+
 ## Tabla de contenidos
 
 - [¿Qué es ReAppzuku?](#qué-es-reappzuku)

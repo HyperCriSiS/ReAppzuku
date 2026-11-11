@@ -106,13 +106,35 @@
         </LinearLayout>
 
         <TextView
+            android:id="@+id/first_run_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="4dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:text="@string/first_run_card"
+            android:textColor="?attr/colorPrimary"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
+        <TextView
             android:id="@+id/recommendations_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
             android:layout_marginBottom="4dp"
-            android:paddingVertical="10dp"
-            android:paddingHorizontal="12dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"

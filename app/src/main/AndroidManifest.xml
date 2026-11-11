@@ -98,6 +98,10 @@
             android:exported="false"
             android:parentActivityName="com.gree1d.reappzuku.ui.SettingsActivity" />
         <activity
+            android:name="com.gree1d.reappzuku.ui.FirstRunActivity"
+            android:exported="false"
+            android:parentActivityName="com.gree1d.reappzuku.ui.MainActivity" />
+        <activity
             android:name="com.gree1d.reappzuku.ui.RecommendationsActivity"
             android:exported="false"
             android:parentActivityName="com.gree1d.reappzuku.ui.MainActivity" />

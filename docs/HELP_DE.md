@@ -4,6 +4,9 @@
 
 ---
 
+> [!NOTE]
+> Diese Übersetzung beschreibt noch den Stand vor dem Umbau vom November 2026. Whitelist, Blacklist und Auto-Kill-Modus gibt es nicht mehr; jede App hat stattdessen eine Strategie. Aktuell ist die [englische Hilfe](HELP.md), siehe dort "Per-App Strategy, Setup and Recommendations".
+
 ## Inhaltsverzeichnis
 
 - [Was ist ReAppzuku?](#was-ist-reappzuku)

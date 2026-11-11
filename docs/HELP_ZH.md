@@ -4,6 +4,9 @@
 
 ---
 
+> [!NOTE]
+> 本译文描述的仍是 2026 年 11 月改版之前的状态。白名单、黑名单和 Auto-Kill 模式已不存在；现在每个应用都有一个策略。最新内容见[英文帮助](HELP.md)中的 "Per-App Strategy, Setup and Recommendations" 一节。
+
 ## 目录
 
 - [什么是 ReAppzuku？](#什么是-reappzuku)

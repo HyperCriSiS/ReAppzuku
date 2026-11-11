@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="first_run_title">Configuración inicial</string>
+    <string name="first_run_subtitle">Modo de acceso y tratamiento de las apps nuevas</string>
+    <string name="first_run_card">Primeros pasos: comprueba el acceso y elige cómo tratar las apps nuevas</string>
+    <string name="first_run_new_apps_title">Apps recién instaladas</string>
+    <string name="first_run_new_apps_intro">¿Qué debe ocurrir cuando instalas una app? Puedes cambiarlo en cualquier momento.</string>
+    <string name="first_run_choice_ask">Preguntarme\nRecibes una notificación tras cada instalación y decides para esa app.</string>
+    <string name="first_run_choice_gentle">Suave\nEn espera tras 4 horas sin uso. Nunca se detiene. Las alarmas y los mensajes pueden llegar con retraso.</string>
+    <string name="first_run_choice_balanced">Equilibrado\nEn espera tras 1 hora sin uso, detenida tras 6 horas y tras reiniciar el dispositivo. Ahorra más, pero una app detenida no puede avisarte hasta que la abras.</string>
+    <string name="first_run_existing_apps_note">Las apps ya instaladas o que ya esperan una decisión no se cambian aquí. Las recomendaciones para las apps instaladas aparecen tras unos días de estadísticas.</string>
+    <string name="first_run_done">Listo</string>
+    <string name="first_run_later">Ahora no</string>
+</resources>
