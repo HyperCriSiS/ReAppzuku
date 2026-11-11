@@ -4,9 +4,6 @@
 
 ---
 
-> [!NOTE]
-> Diese Übersetzung beschreibt noch den Stand vor dem Umbau vom November 2026. Whitelist, Blacklist und Auto-Kill-Modus gibt es nicht mehr; jede App hat stattdessen eine Strategie. Aktuell ist die [englische Hilfe](HELP.md), siehe dort "Per-App Strategy, Setup and Recommendations".
-
 ## Inhaltsverzeichnis
 
 - [Was ist ReAppzuku?](#was-ist-reappzuku)
@@ -28,6 +25,7 @@
     - [Schlafmodus](#schlafmodus)
   - [Über](#ℹ️-über)
 - [Statistiken & Protokolle](#-statistiken--protokolle)
+- [Strategie pro App, Einrichtung und Empfehlungen](#strategie-pro-app-einrichtung-und-empfehlungen)
 - [Geschützte Apps](#geschützte-apps)
 - [FAQ](#faq)
 
@@ -238,7 +236,8 @@ Aktivieren Sie nicht sofort Auto-Kill oder konfigurieren Sie andere Einschränku
 Sobald Daten gesammelt wurden, gehen Sie zum Abschnitt **"Statistiken & Protokolle"** und studieren Sie die Verbrauchsdiagramme (Akku, CPU, RAM). Sie können dies auch mit den Batteriestatistiken in den Einstellungen Ihres Telefons abgleichen. Die Diagrammlegende zeigt, welche Apps die meisten Ressourcen verbrauchen.
 
 **Auto-Kill konfigurieren**\
-Es wird empfohlen, mit dem **Blacklist-Modus** zu beginnen — das ist sicherer, da er nur explizit ausgewählte Apps betrifft und nicht alle. Für das periodische Auto-Kill-Intervall können Sie mit 1 Minute beginnen und es später an Ihre Bedürfnisse anpassen.\
+Auto-Kill wirkt auf Apps mit der Strategie **Sofort (Immediate)** (App in der Liste antippen, dann **Strategie (Strategy)**). Apps ohne Strategie bleiben unberührt. Wenn Sie in einer früheren Version den Whitelist-Modus verwendet haben, wurde jede App außerhalb Ihrer Whitelist in Sofort umgewandelt; prüfen Sie deshalb die Liste. Für das periodische Auto-Kill-Intervall können Sie mit 1 Minute beginnen und es später an Ihre Bedürfnisse anpassen.\
+Nach einigen Tagen Statistik nennt der Bildschirm **Empfehlungen (Recommendations)** (Einstellungen oder die Zeile über der App-Liste) Apps, die eine Begrenzung lohnen, mit den gemessenen Werten als Begründung.\
 Nachdem Auto-Kill 1–2 Stunden gelaufen ist, gehen Sie zum Abschnitt "Statistiken & Protokolle" und öffnen Sie das Protokoll **Top Offenders**. Dort sehen Sie, welche Apps am häufigsten beendet wurden und welche davon sofort neu gestartet wurden.\
 Apps, die mehr als 3 Mal neu starten, sind gute Kandidaten für Hintergrundbeschränkungen. Sie können mit dem Einschränkungstyp "Sanft" beginnen.
 
@@ -259,7 +258,7 @@ Zum Benachrichtigungsfeld hinzugefügt:
 | Kachel | Aktion |
 | :--- | :--- |
 | **App beenden** | Beendet die aktuelle Vordergrund-App |
-| **Hintergrund-Apps beenden** | Führt Auto-Kill mit Ihren Whitelist-/Blacklist-Einstellungen aus |
+| **Hintergrund-Apps beenden** | Führt Auto-Kill für die Apps mit der Strategie Sofort aus |
 
 **Widget**\
 Widget für den Startbildschirm — zeigt die Auto-Kill-Statistiken der letzten 12 Stunden und die aktuelle RAM-Auslastung an.
@@ -315,9 +314,9 @@ Das Antippen einer App in der Liste öffnet ein Schnellaktionsmenü:
 - **App-Info** — Öffnet die standardmäßige System-App-Info
 - **App-Trigger** — Detaillierte Analyse der Ursachen für Hintergrundaktivität (siehe unten)
 - **Deinstallieren** — Entfernt die App vom Gerät (bei System-Apps nicht verfügbar)
-- **Hinzufügen zu...** — Fügt die App schnell zu einer der folgenden Listen hinzu:
-  - Whitelist
-  - Blacklist
+- **Lebenszyklus-Richtlinie (Lifecycle policy)**: Öffnet den Richtlinien-Editor der App
+- **Hinzufügen zu...**
+  - **Strategie**: Zeigt die aktuelle Strategie und lässt Sie Nicht verwaltet, Geschützt, Smart oder Sofort wählen (siehe [Strategie pro App](#strategie-pro-app-einrichtung-und-empfehlungen))
   - Ausgeblendete Apps
   - Hintergrundbeschränkung (Sanft)
 
@@ -596,7 +595,7 @@ Android 11–13: Das Gerät befindet sich im Deep Doze oder Light Doze. Wakelock
 ↩️ [Inhaltsverzeichnis](#inhaltsverzeichnis)
 
 **ReAppzuku-Zugriffsmodus**\
-Zeigt den aktuellen Zugriffsmodus: **Root**, **Shizuku** oder **Kein Zugriff**. Schreibgeschützt.
+Zeigt den aktuellen Zugriffsmodus: **Root**, **Shizuku** oder **Kein Zugriff**, und darunter, was dieser Modus auf diesem Gerät nicht kann. Ohne Root oder Shizuku kann die App nur analysieren; sie kann Apps weder beenden noch beschränken. Mit Root allein sind Speicherwerte RSS statt des genaueren PSS. Hintergrundbeschränkungen und das Leeren des Caches erfordern Android 11 oder neuer; auf älteren Versionen bleiben diese Zeilen sichtbar und erklären das beim Antippen. Schreibgeschützt.
 
 **Hilfe**\
 Link zu diesem FAQ.
@@ -633,7 +632,7 @@ Hält den Hauptprozess inaktiv, wenn Shizuku startet oder neu startet. Der separ
 Auf dem Hauptbildschirm trennt Zurück den Shizuku UserService, entfernt ReAppzuku aus den letzten Apps und beendet den Hauptprozess.
 
 **Kompatibilität mit Hintergrundautomatisierung**\
-Das On-demand-Verhalten ist nicht verfügbar, solange Auto-Kill, Smart Lifecycle, Schlafmodus, eine aktive Voreinstellung oder ein Beschränkungszeitplan einen laufenden Hintergrundprozess benötigt. Die Einstellungen zeigen den aktiven Blocker direkt an, statt die Optionen stillschweigend zu deaktivieren.
+Das On-demand-Verhalten ist nicht verfügbar, solange Auto-Kill, Schlafmodus, ein aktiver Automatisierungszeitplan oder ein Beschränkungszeitplan einen laufenden Hintergrundprozess benötigt. Die Einstellungen zeigen den aktiven Blocker direkt an, statt die Optionen stillschweigend zu deaktivieren.
 
 ---
 
@@ -669,17 +668,8 @@ Zusätzliche Bedingung — Beenden wird **nur** ausgelöst, **wenn** die RAM-Aus
 **Auto-Kill-Typ**\
 Nur relevant, wenn ReAppzuku mit Ihrer Firmware in Konflikt gerät. Wenn Sie ungewöhnliches Verhalten bei anderen Apps bemerken, versuchen Sie, auf `am kill` umzuschalten.
 
-**Auto-Kill-Modus**\
-Bestimmt, **welche** Apps von Auto-Kill anvisiert werden.
-
-- **🛡️ Whitelist** — Beendet alle Hintergrund-Apps **außer** denen auf der Whitelist. Verwenden Sie dies für maximale Bereinigung.
-> [!WARNING]
-> Bei Verwendung der Whitelist wird dringend empfohlen, die meisten Systemanwendungen hinzuzufügen, um Geräteprobleme zu vermeiden
-
-- **🎯 Blacklist (Standard)** — Beendet **nur** Apps auf der Blacklist. Verwenden Sie dies, um bestimmte Apps zu stoppen, ohne alles andere anzurühren.
-
-**Whitelist / Blacklist**\
-App-Liste für den ausgewählten Modus. Eine der beiden Listen wird je nach Modus angezeigt.
+**Welche Apps Auto-Kill anvisiert**\
+Auto-Kill beendet die Apps mit der Strategie **Sofort**, bei den oben aktivierten Auslösern. Die Haupteinstellungen haben keinen Whitelist- oder Blacklist-Bildschirm mehr: Die Strategie jeder App entscheidet. Listen aus früheren Versionen wurden in Strategien umgewandelt; beim Whitelist-Modus bedeutet das, dass jede App außerhalb der Whitelist zu Sofort wurde. Automatisierungszeitpläne (unten Auto-Kill-Voreinstellungen genannt) tragen weiterhin eigene Listen und verwenden sie, solange ein Zeitplan aktiv ist. Siehe [Strategie pro App](#strategie-pro-app-einrichtung-und-empfehlungen).
 
 **Erweiterte Bedingungen**\
 Erweitern Sie Auto-Kill um zusätzliche Auslöser — für Fälle, in denen der reguläre Zeitplan nicht ausreicht.
@@ -1062,6 +1052,39 @@ Enthält Aufzeichnungen der Aktivitäten der Planung der Beschränkungen. Jeder 
 
 ---
 
+## Strategie pro App, Einrichtung und Empfehlungen
+↩️ [Inhaltsverzeichnis](#inhaltsverzeichnis)
+
+**Strategie**\
+Jede App hat eine von vier Strategien. Tippen Sie auf dem Hauptbildschirm eine App an und wählen Sie **Strategie**, oder öffnen Sie **Lebenszyklus-Richtlinie** für alle Details.
+
+| Strategie | Was passiert |
+| :--- | :--- |
+| **Nicht verwaltet (Unmanaged)** | ReAppzuku lässt die App in Ruhe. Das ist der Standard. |
+| **Geschützt (Protected)** | Die App wird nie beendet, in den Standby versetzt oder für ein manuelles Beenden ausgewählt. Sie zeigt in der Liste ein Geschützt-Abzeichen und hat keine Beenden-Schaltfläche. |
+| **Smart** | Die App läuft weiter. Nach einer gewissen Leerlaufzeit wird sie in den Standby versetzt, nach längerer Leerlaufzeit beendet. Eine neue Smart-Wahl verwendet die Voreinstellung Ausgewogen (Balanced): Standby nach 1 Stunde, Beenden nach 6 Stunden und Beenden nach einem Neustart des Geräts, wenn die App seitdem nicht benutzt wurde. |
+| **Sofort (Immediate)** | Die App wird von Auto-Kill bei den aktivierten Auslösern beendet (periodisch, Bildschirm aus, RAM-Schwelle und die Erweiterten Bedingungen). |
+
+> [!WARNING]
+> Eine beendete App kann keine Benachrichtigungen anzeigen und keine Wecker auslösen, bis Sie sie erneut öffnen. Verwenden Sie Sofort sowie Smart mit Beendigungszeit nur für Apps, von denen Sie nichts hören müssen.
+
+**Voreinstellungen**\
+Der Richtlinien-Editor bietet Voreinstellungen (Presets): Nie anfassen (Never touch), Messenger (Standby nach 4 Stunden, nie beendet), Medien (Media), Ausgewogen, Selten genutzt (Rarely used) und Aggressiv (Aggressive). Eine Voreinstellung füllt die Werte aus; Sie können jeden Wert weiterhin ändern. Die drei Schalter für Medien, Vordergrunddienste und Widgets bestimmen, ob eine App mit aktiver Wiedergabe, einem Vordergrunddienst oder einem Widget auf dem Startbildschirm verschont wird.
+
+**Einrichtung**\
+**Einstellungen → Einrichtung (Setup)** zeigt, was der aktuelle Zugriffsmodus erlaubt, und fragt, was mit Apps geschehen soll, die Sie ab jetzt installieren: jedes Mal nachfragen (Nachfragen), Schonend (Gentle; nur Standby, nie beendet) oder Ausgewogen. Bei einer Neuinstallation bietet der Hauptbildschirm diesen Bildschirm als Zeile über der App-Liste an. Er ändert keine bereits installierten oder bereits auf eine Entscheidung wartenden Apps und schaltet Auto-Kill nicht ein. Weitere Optionen, etwa neue Apps unverwaltet zu lassen oder eine andere Standard-Voreinstellung, finden Sie unter **Einstellungen → Einrichtung neuer Apps (New app setup)**.
+
+**Empfehlungen**\
+**Einstellungen → Empfehlungen** listet, was ReAppzuku aus seinen eigenen Messungen der letzten 7 Tage vorschlägt:
+
+- eine App mit der Strategie Sofort, die mindestens 5-mal beendet wurde und in mindestens der Hälfte der Fälle zurückkam,
+- eine nicht verwaltete App, die 14 Tage nicht geöffnet wurde und weiterhin mindestens 2 % des gesamten gemessenen App-Stromverbrauchs ausmacht,
+- eine nicht verwaltete App, die 3 Tage nicht geöffnet wurde und mindestens 10 % ausmacht.
+
+**Bei Inaktivität begrenzen (Limit when idle)** gibt der App die Voreinstellung Messenger: Standby nach 4 Stunden ohne Nutzung, nie beendet. **Verwerfen (Dismiss)** blendet diese Empfehlung dauerhaft aus. Es ändert sich nichts, bis Sie eine Empfehlung anwenden. Akkuanteile werden erst verwendet, wenn mindestens 3 Tage Statistik und ein nennenswerter Akkuverbrauch vorliegen, daher erscheinen die beiden Akku-Empfehlungen zunächst nicht. Die zugrunde liegende Statistik wird pro App und Tag 90 Tage lang aufbewahrt.
+
+---
+
 ## Geschützte Apps
 ↩️ [Inhaltsverzeichnis](#inhaltsverzeichnis)
 
@@ -1105,6 +1128,12 @@ Diese Apps werden **niemals** von Auto-Kill oder anderen Einschränkungen beeinf
 - Aktuelle Tastatur (wird zur Laufzeit automatisch erkannt)
 - Aktueller Startbildschirm (wird zur Laufzeit automatisch erkannt)
 
+**Apps in Benutzung**\
+Auto-Kill und Smart verschonen eine App außerdem, solange es zutrifft, wenn sie eine aktive Mediensitzung hat, einen Vordergrunddienst ausführt, ein Widget auf dem Startbildschirm platziert hat, ein aktivierter Bedienungshilfendienst oder Benachrichtigungs-Listener ist, das Live-Hintergrundbild ist, ein Geräteadministrator ist oder das VPN bereitstellt. Für Medien, Vordergrunddienste und Widgets lässt sich das pro App im Richtlinien-Editor abschalten.
+
+**Anderswo gesetzte Hintergrundbeschränkungen**\
+Nach seinem ersten Beschränkungsdurchlauf hebt ReAppzuku nur Beschränkungen auf, die es selbst gesetzt hat. Eine Beschränkung, die Sie in den System-Akkueinstellungen gesetzt haben, bleibt dann bestehen, außer Sie entfernen diese App ausdrücklich in der App-Liste. Der allererste Durchlauf nach Installation oder Update hebt weiterhin alle Hintergrundbeschränkungen von Apps auf, die nicht in Ihrer Liste stehen, wie frühere Versionen es bei jedem Durchlauf taten.
+
 ---
 
 ## FAQ
@@ -1118,9 +1147,9 @@ Fügen Sie sie zu den **Hintergrundbeschränkungen** hinzu — dies verhindert, 
 
 Aktivieren Sie den **Hintergrunddienst** — dieser stellt alle gespeicherten Beschränkungen nach dem Neustart automatisch wieder her.
 
-**❓ Welchen Modus soll ich wählen — Whitelist oder Blacklist?**
+**❓ Welche Strategie soll ich für eine App wählen?**
 
-Whitelist — stoppt alles außer dem, was wichtig ist. Blacklist — stoppt nur bestimmte Apps und lässt alles andere in Ruhe.
+Lassen Sie sie auf Nicht verwaltet, solange sie keine Probleme macht. Smart mit der Voreinstellung Messenger (nur Standby, nie beendet) ist der sichere Schritt für eine App, die im Leerlauf Akku verbraucht; Smart mit Beendigungszeit spart mehr, macht die App aber stumm, bis Sie sie öffnen. Sofort ist für Apps, die bei jedem Auslöser beendet werden sollen und von denen Sie keine Benachrichtigungen brauchen. Geschützt ist für Apps, die nie angefasst werden dürfen. Der Bildschirm Empfehlungen schlägt Kandidaten vor.
 
 **❓ Ist der Hintergrunddienst für das manuelle Beenden erforderlich?**
 
