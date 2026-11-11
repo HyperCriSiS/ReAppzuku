@@ -11,6 +11,9 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.gree1d.reappzuku.db.AppDatabase;
+import com.gree1d.reappzuku.core.DailyTrend;
+import com.gree1d.reappzuku.core.DailyUsageMath;
 import com.gree1d.reappzuku.core.AppPolicyListSnapshot;
 import com.gree1d.reappzuku.core.AppPolicyQuickChoice;
 import com.gree1d.reappzuku.core.ShellManager;
@@ -98,6 +101,7 @@ public class AppResourceDetailActivity extends BaseActivity {
         executor             = app.getSharedExecutor();
         shellManager        = app.getShellManager();
         collectStatsManager = new CollectStatsManager(getApplicationContext(), handler, executor, shellManager);
+        loadTrend();
         appManager           = new BackgroundAppManager(this, handler, executor, app.getShellExecutor(), shellManager);
         autoKillManager      = new AutoKillManager(this, handler, executor, shellManager, appManager.getCurrentAppsList());
 
@@ -341,6 +345,68 @@ public class AppResourceDetailActivity extends BaseActivity {
             @Override public void onTabUnselected(TabLayout.Tab tab) {}
             @Override public void onTabReselected(TabLayout.Tab tab) {}
         });
+    }
+
+    /** The last 30 days from the long-term history; hidden while there is no battery data yet. */
+    private void loadTrend() {
+        executor.execute(() -> {
+            DailyTrend trend;
+            try {
+                long now = System.currentTimeMillis();
+                java.util.TimeZone zone = java.util.TimeZone.getDefault();
+                trend = DailyTrend.of(AppDatabase.getInstance(this).dailyUsageDao().getAppUsageBetween(
+                        DailyUsageMath.dayKey(now, zone, DailyTrend.DAYS - 1),
+                        DailyUsageMath.dayKey(now, zone)), packageName);
+            } catch (RuntimeException e) {
+                return; // the trend is an extra; the rest of the screen works without it
+            }
+            handler.post(() -> {
+                if (binding == null || isFinishing() || isDestroyed()) return;
+                showTrend(trend);
+            });
+        });
+    }
+
+    private void showTrend(DailyTrend trend) {
+        if (!trend.hasBatteryData()) return;
+        java.util.List<com.github.mikephil.charting.data.BarEntry> entries = new java.util.ArrayList<>();
+        java.util.List<String> labels = new java.util.ArrayList<>();
+        for (int i = 0; i < trend.days.size(); i++) {
+            DailyTrend.Day day = trend.days.get(i);
+            // A day without battery data is drawn empty, not as zero use.
+            entries.add(new com.github.mikephil.charting.data.BarEntry(
+                    i, (float) Math.max(0, day.share * 100)));
+            labels.add((day.day % 100) + "." + ((day.day / 100) % 100) + ".");
+        }
+        int textColor = ContextCompat.getColor(this, R.color.text_secondary);
+        com.github.mikephil.charting.data.BarDataSet set =
+                new com.github.mikephil.charting.data.BarDataSet(entries, "");
+        set.setColor(getAccentColor());
+        set.setDrawValues(false);
+        com.github.mikephil.charting.charts.BarChart chart = binding.chartDetailTrend;
+        chart.setData(new com.github.mikephil.charting.data.BarData(set));
+        chart.getDescription().setEnabled(false);
+        chart.getLegend().setEnabled(false);
+        chart.getAxisRight().setEnabled(false);
+        chart.getAxisLeft().setAxisMinimum(0f);
+        chart.getAxisLeft().setTextColor(textColor);
+        chart.getAxisLeft().setValueFormatter(new com.github.mikephil.charting.formatter.ValueFormatter() {
+            @Override
+            public String getFormattedValue(float value) {
+                return Math.round(value) + "%";
+            }
+        });
+        chart.getXAxis().setPosition(com.github.mikephil.charting.components.XAxis.XAxisPosition.BOTTOM);
+        chart.getXAxis().setDrawGridLines(false);
+        chart.getXAxis().setGranularity(1f);
+        chart.getXAxis().setTextColor(textColor);
+        chart.getXAxis().setValueFormatter(
+                new com.github.mikephil.charting.formatter.IndexAxisValueFormatter(labels));
+        chart.setScaleEnabled(false);
+        chart.invalidate();
+        binding.tvDetailTrendSummary.setText(getString(
+                R.string.detail_trend_summary, trend.days.size(), trend.kills, trend.relaunches));
+        binding.cardDetailTrend.setVisibility(View.VISIBLE);
     }
 
     private void loadData(int hours) {

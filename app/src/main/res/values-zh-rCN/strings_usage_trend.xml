@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detail_trend_title">最近 30 天</string>
+    <string name="detail_trend_subtitle">每天占全部已测应用耗电的比例。没有电池数据的日期保持空白。</string>
+    <string name="detail_trend_summary">有数据的天数：%1$d。停止次数：%2$d。停止后重新启动次数：%3$d。</string>
+</resources>

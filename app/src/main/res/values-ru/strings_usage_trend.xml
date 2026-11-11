@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detail_trend_title">Последние 30 дней</string>
+    <string name="detail_trend_subtitle">Доля во всём измеренном энергопотреблении приложений по дням. Дни без данных о батарее остаются пустыми.</string>
+    <string name="detail_trend_summary">Дней с данными: %1$d. Остановок: %2$d. Повторных запусков после остановки: %3$d.</string>
+</resources>

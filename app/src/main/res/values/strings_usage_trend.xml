@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detail_trend_title">Last 30 days</string>
+    <string name="detail_trend_subtitle">Share of all measured app power use per day. Days without battery data stay empty.</string>
+    <string name="detail_trend_summary">Days with data: %1$d. Stops: %2$d. Restarts after a stop: %3$d.</string>
+</resources>

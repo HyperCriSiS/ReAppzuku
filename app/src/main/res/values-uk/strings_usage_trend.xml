@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detail_trend_title">Останні 30 днів</string>
+    <string name="detail_trend_subtitle">Частка в усьому виміряному енергоспоживанні застосунків за днями. Дні без даних про батарею залишаються порожніми.</string>
+    <string name="detail_trend_summary">Днів із даними: %1$d. Зупинок: %2$d. Повторних запусків після зупинки: %3$d.</string>
+</resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detail_trend_title">Últimos 30 días</string>
+    <string name="detail_trend_subtitle">Parte de todo el consumo medido de las apps por día. Los días sin datos de batería quedan vacíos.</string>
+    <string name="detail_trend_summary">Días con datos: %1$d. Detenciones: %2$d. Reinicios tras una detención: %3$d.</string>
+</resources>
