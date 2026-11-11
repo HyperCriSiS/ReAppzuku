@@ -14,6 +14,7 @@ import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import com.gree1d.reappzuku.core.AppPolicyResolver;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.AppPolicyLegacyMigrator;
 import com.gree1d.reappzuku.core.ShellManager;
@@ -38,17 +39,37 @@ public class SmartLifecycleWorker extends Worker {
     }
 
     public static void schedulePeriodic(Context context) {
+        schedulePeriodic(context, MIN_PERIOD_MINUTES);
+    }
+
+    private static void schedulePeriodic(Context context, long minutes) {
         PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(
-                SmartLifecycleWorker.class, 15, TimeUnit.MINUTES).build();
+                SmartLifecycleWorker.class, minutes, TimeUnit.MINUTES).build();
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 PERIODIC_WORK, ExistingPeriodicWorkPolicy.UPDATE, request);
+    }
+
+    static final long MIN_PERIOD_MINUTES = 15;
+    static final long MAX_PERIOD_MINUTES = 60;
+
+    /**
+     * Checks run eight times per shortest standby delay. Without usage data an
+     * idle clock starts at the first check that sees the app idle, so an action
+     * can come up to two periods late: a quarter of the delay. WorkManager
+     * allows no less than 15 minutes; more than an hour would let a stop come
+     * noticeably late.
+     */
+    static long periodMinutes(long shortestStandbyDelayMs) {
+        long eighth = TimeUnit.MILLISECONDS.toMinutes(shortestStandbyDelayMs) / 8;
+        return Math.max(MIN_PERIOD_MINUTES, Math.min(MAX_PERIOD_MINUTES, eighth));
     }
 
     /** Reconcile periodic Smart work from canonical policy ownership plus bounded legacy fallback. */
     public static void reconcilePeriodic(Context context) {
         try {
-            if (hasEffectiveSmartWork(context)) {
-                schedulePeriodic(context);
+            long shortestDelay = shortestSmartStandbyDelayMs(context);
+            if (shortestDelay > 0L) {
+                schedulePeriodic(context, periodMinutes(shortestDelay));
             } else {
                 cancel(context);
             }
@@ -58,28 +79,33 @@ public class SmartLifecycleWorker extends Worker {
         }
     }
 
-    static boolean hasEffectiveSmartWork(Context context) {
+    /** The shortest standby delay of any app Smart manages, or 0 when it manages none. */
+    static long shortestSmartStandbyDelayMs(Context context) {
         Context appContext = context.getApplicationContext();
         SharedPreferences prefs = appContext.getSharedPreferences(
                 PREFERENCES_NAME, Context.MODE_PRIVATE);
         boolean migrationSnapshotCurrent =
                 AppPolicyLegacyMigrator.isMigrationSnapshotCurrent(prefs);
 
+        long shortest = 0L;
         for (AppPolicy policy : AppDatabase.getInstance(appContext).appPolicyDao().getAll()) {
             AppPolicy effective = AppPolicyLegacyMigrator.resolveEffectivePolicy(
                     policy, migrationSnapshotCurrent);
             if (effective != null && effective.strategy == AppPolicy.STRATEGY_SMART) {
-                return true;
+                long delay = AppPolicyResolver.resolveSmartStandbyDelayMs(effective, 0L);
+                shortest = shortest == 0L ? delay : Math.min(shortest, delay);
             }
         }
-
         if (migrationSnapshotCurrent
                 || !prefs.getBoolean(KEY_SMART_LIFECYCLE_ENABLED, false)) {
-            return false;
+            return shortest;
         }
         Set<String> legacyBlacklist = prefs.getStringSet(
                 KEY_BLACKLISTED_APPS, Collections.emptySet());
-        return legacyBlacklist != null && !legacyBlacklist.isEmpty();
+        // The pass also runs the legacy blacklist apps, whose profile can use a
+        // 30 minute delay; keep the shortest period for them.
+        return legacyBlacklist != null && !legacyBlacklist.isEmpty()
+                ? TimeUnit.MINUTES.toMillis(MIN_PERIOD_MINUTES) : shortest;
     }
 
     public static void scheduleAfterBoot(Context context) {
