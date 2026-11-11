@@ -277,8 +277,8 @@ public class PresetManager {
         if (currentActive == 0) {
 
             saveBackup();
-        } else if (currentActive != presetNumber) {
-
+        } else {
+            restoreListsFromBackup();
         }
 
         applyPreset(model);
@@ -352,6 +352,9 @@ public class PresetManager {
         e.putBoolean(KEY_BACKUP_PREFIX + KEY_RAM_THRESHOLD_ENABLED, mainPrefs.getBoolean(KEY_RAM_THRESHOLD_ENABLED, false));
         e.putInt(KEY_BACKUP_PREFIX + KEY_RAM_THRESHOLD, mainPrefs.getInt(KEY_RAM_THRESHOLD, 80));
         e.putInt(KEY_BACKUP_PREFIX + KEY_AUTO_KILL_TYPE, mainPrefs.getInt(KEY_AUTO_KILL_TYPE, 0));
+        // The lists are no longer swapped, but an earlier version that is
+        // reinstalled during a schedule still expects these copies.
+        e.putInt(KEY_BACKUP_PREFIX + KEY_KILL_MODE, mainPrefs.getInt(KEY_KILL_MODE, AppConstants.DEFAULT_KILL_MODE));
         e.putBoolean(KEY_BACKUP_PREFIX + KEY_HW_TRIGGER_HEADSET, mainPrefs.getBoolean(KEY_HW_TRIGGER_HEADSET, false));
         e.putBoolean(KEY_BACKUP_PREFIX + KEY_HW_TRIGGER_USB, mainPrefs.getBoolean(KEY_HW_TRIGGER_USB, false));
         e.putBoolean(KEY_BACKUP_PREFIX + KEY_HW_TRIGGER_CHARGER, mainPrefs.getBoolean(KEY_HW_TRIGGER_CHARGER, false));
@@ -363,8 +366,33 @@ public class PresetManager {
         e.putBoolean(KEY_BACKUP_PREFIX + KEY_APP_LAUNCH_CLEAR_CACHE, mainPrefs.getBoolean(KEY_APP_LAUNCH_CLEAR_CACHE, false));
         Set<String> launchPkgs = mainPrefs.getStringSet(KEY_APP_LAUNCH_TRIGGER_PACKAGES, new HashSet<>());
         e.putStringSet(KEY_BACKUP_PREFIX + KEY_APP_LAUNCH_TRIGGER_PACKAGES, new HashSet<>(launchPkgs));
+        e.putStringSet(KEY_BACKUP_PREFIX + KEY_WHITELISTED_APPS,
+                new HashSet<>(mainPrefs.getStringSet(KEY_WHITELISTED_APPS, new HashSet<>())));
+        e.putStringSet(KEY_BACKUP_PREFIX + KEY_BLACKLISTED_APPS,
+                new HashSet<>(mainPrefs.getStringSet(KEY_BLACKLISTED_APPS, new HashSet<>())));
         e.apply();
 
+    }
+
+    /**
+     * A schedule activated by an earlier version wrote its lists into the
+     * stored ones. Put the saved originals back, keeping the copies until the
+     * schedule ends.
+     */
+    private void restoreListsFromBackup() {
+        SharedPreferences.Editor e = mainPrefs.edit();
+        if (mainPrefs.contains(KEY_BACKUP_PREFIX + KEY_KILL_MODE)) {
+            e.putInt(KEY_KILL_MODE, mainPrefs.getInt(KEY_BACKUP_PREFIX + KEY_KILL_MODE, AppConstants.DEFAULT_KILL_MODE));
+        }
+        if (mainPrefs.contains(KEY_BACKUP_PREFIX + KEY_WHITELISTED_APPS)) {
+            e.putStringSet(KEY_WHITELISTED_APPS, new HashSet<>(
+                    mainPrefs.getStringSet(KEY_BACKUP_PREFIX + KEY_WHITELISTED_APPS, new HashSet<>())));
+        }
+        if (mainPrefs.contains(KEY_BACKUP_PREFIX + KEY_BLACKLISTED_APPS)) {
+            e.putStringSet(KEY_BLACKLISTED_APPS, new HashSet<>(
+                    mainPrefs.getStringSet(KEY_BACKUP_PREFIX + KEY_BLACKLISTED_APPS, new HashSet<>())));
+        }
+        e.apply();
     }
 
     private void restoreBackup() {

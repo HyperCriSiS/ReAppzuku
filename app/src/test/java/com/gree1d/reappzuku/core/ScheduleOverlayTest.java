@@ -29,8 +29,16 @@ public class ScheduleOverlayTest {
                 Collections.singleton("w"), Collections.singleton("a"));
         assertTrue(overlay.targets("a", null));
         assertFalse(overlay.targets("other", null));
-        assertTrue(overlay.targets("a", policy(AppPolicy.STRATEGY_UNMANAGED)));
-        assertTrue(overlay.targets("a", policy(AppPolicy.STRATEGY_SMART)));
+    }
+
+    @Test
+    public void aStrategyTheUserChoseWinsOverTheSchedule() {
+        ScheduleOverlay overlay = new ScheduleOverlay(AppConstants.KILL_MODE_BLACKLIST,
+                Collections.emptySet(), Collections.singleton("a"));
+        for (int strategy : new int[] {AppPolicy.STRATEGY_UNMANAGED, AppPolicy.STRATEGY_PROTECTED,
+                AppPolicy.STRATEGY_SMART, AppPolicy.STRATEGY_IMMEDIATE}) {
+            assertFalse(overlay.targets("a", policy(strategy)));
+        }
     }
 
     @Test
@@ -69,6 +77,14 @@ public class ScheduleOverlayTest {
         String killer = read("app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java");
         int overlay = killer.indexOf("scheduleOverlay.targets(pkg, explicitPolicy)");
         assertTrue(overlay >= 0 && overlay < killer.indexOf("AppPolicyResolver.shouldExecuteImmediate("));
+        // The overlay runs after the hidden, protected, foreground and persistent exclusions.
+        assertTrue(killer.indexOf("ProtectedApps.isProtected(pkg, currentKeyboard, currentLauncher)") < overlay);
+        assertTrue(killer.indexOf("ApplicationInfo.FLAG_PERSISTENT") < overlay);
+        // While a schedule is active the legacy lists take no part: no fallback, no migrated rows.
+        assertTrue(killer.contains("AppPolicyResolver.LegacyState legacyState = scheduleOverlay != null ? null"));
+        assertTrue(killer.contains("effectivePolicy.source == AppPolicy.SOURCE_LEGACY_MIGRATED"));
+        // Switching between schedules puts back lists an earlier version had swapped.
+        assertTrue(manager.contains("} else {\n            restoreListsFromBackup();"));
         assertEquals(1, AppConstants.KILL_MODE_BLACKLIST);
         assertEquals(0, AppConstants.KILL_MODE_WHITELIST);
     }

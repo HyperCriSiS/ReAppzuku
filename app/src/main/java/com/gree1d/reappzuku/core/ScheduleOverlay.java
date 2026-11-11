@@ -25,11 +25,12 @@ public final class ScheduleOverlay {
 
     /**
      * @param explicit the app's explicit policy, or null
-     * @return true when the schedule wants the app stopped; an app the user
-     *         protected stays protected
+     * @return true when the schedule wants the app stopped. A strategy the user
+     *         chose for the app wins, as it did over the lists before; the
+     *         schedule only decides for apps without one.
      */
     public boolean targets(String packageName, AppPolicy explicit) {
-        if (explicit != null && explicit.strategy == AppPolicy.STRATEGY_PROTECTED) return false;
+        if (explicit != null) return false;
         return killMode == AppConstants.KILL_MODE_WHITELIST
                 ? !whitelist.contains(packageName)
                 : blacklist.contains(packageName);

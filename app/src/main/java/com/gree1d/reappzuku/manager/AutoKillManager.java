@@ -121,6 +121,12 @@ public class AutoKillManager {
             for (AppPolicy policy : AppDatabase.getInstance(context).appPolicyDao().getAll()) {
                 AppPolicy effectivePolicy = AppPolicyLegacyMigrator.resolveEffectivePolicy(
                         policy, migrationSnapshotCurrent);
+                // While a schedule is active its lists replace the legacy lists, so the
+                // rows migrated from those lists do not take part.
+                if (scheduleOverlay != null && effectivePolicy != null
+                        && effectivePolicy.source == AppPolicy.SOURCE_LEGACY_MIGRATED) {
+                    continue;
+                }
                 if (effectivePolicy != null && effectivePolicy.packageName != null) {
                     explicitPolicies.put(effectivePolicy.packageName, effectivePolicy);
                 }
@@ -258,8 +264,9 @@ public class AutoKillManager {
                             if (scheduleOverlay != null && scheduleOverlay.targets(pkg, explicitPolicy)) {
                                 return true;
                             }
-                            AppPolicyResolver.LegacyState legacyState =
-                                    new AppPolicyResolver.LegacyState(
+                            // The schedule's lists replace the legacy fallback while it is active.
+                            AppPolicyResolver.LegacyState legacyState = scheduleOverlay != null ? null
+                                    : new AppPolicyResolver.LegacyState(
                                             legacyAutoKillEnabled,
                                             legacySmartEnabled,
                                             killMode == 0,
