@@ -15,10 +15,10 @@
     <string name="automation_schedule_time_range_error_same">开始和结束时间必须不同</string>
     <string name="automation_schedule_app_list_mode_title">应用列表来源</string>
     <string name="automation_schedule_app_list_mode_dialog_title">应用列表来源</string>
-    <string name="automation_schedule_app_list_mode_current">使用当前白名单 / 黑名单</string>
+    <string name="automation_schedule_app_list_mode_current">使用旧版本的白名单 / 黑名单</string>
     <string name="automation_schedule_app_list_mode_own">使用计划自己的列表</string>
     <string name="automation_schedule_app_list_mode_switch_hint">切换到“自有列表”进行编辑</string>
-    <string name="automation_schedule_list_count_current">%d 个应用（来自当前设置）</string>
+    <string name="automation_schedule_list_count_current">%d 个应用（来自旧版本）</string>
     <string name="automation_schedule_list_count_own">已选择 %d 个应用</string>
     <string name="automation_schedule_saved">自动化计划 %d 已保存</string>
     <string name="automation_schedule_export_json_button">导出为 JSON</string>

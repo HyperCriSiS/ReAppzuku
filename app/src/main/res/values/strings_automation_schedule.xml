@@ -15,10 +15,10 @@
     <string name="automation_schedule_time_range_error_same">Start and end time must differ</string>
     <string name="automation_schedule_app_list_mode_title">App list source</string>
     <string name="automation_schedule_app_list_mode_dialog_title">App list source</string>
-    <string name="automation_schedule_app_list_mode_current">Use current whitelist / blacklist</string>
+    <string name="automation_schedule_app_list_mode_current">Use the whitelist / blacklist from earlier versions</string>
     <string name="automation_schedule_app_list_mode_own">Use schedule’s own list</string>
     <string name="automation_schedule_app_list_mode_switch_hint">Switch to "Own list" to edit</string>
-    <string name="automation_schedule_list_count_current">%d apps (from current settings)</string>
+    <string name="automation_schedule_list_count_current">%d apps (from earlier versions)</string>
     <string name="automation_schedule_list_count_own">%d apps selected</string>
     <string name="automation_schedule_saved">Automation Schedule %d saved</string>
     <string name="automation_schedule_export_json_button">Export to JSON</string>

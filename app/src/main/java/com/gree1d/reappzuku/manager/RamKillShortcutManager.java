@@ -137,6 +137,7 @@ public class RamKillShortcutManager {
         }
         android.content.pm.PackageManager pm = context.getPackageManager();
         java.util.Set<String> whitelist = autoKillManager.getWhitelistedApps();
+        java.util.Set<String> protectedByStrategy = ProtectedApps.withProtectedStrategy(context);
         for (String line : psOutput.split("\n")) {
             String[] parts = line.trim().split("\\s+", 2);
             if (parts.length < 2) continue;
@@ -145,6 +146,7 @@ public class RamKillShortcutManager {
             String basePkg = fullName.contains(":") ? fullName.substring(0, fullName.indexOf(":")) : fullName;
             if (basePkg.isEmpty() || !basePkg.contains(".")) continue;
             if (whitelist.contains(basePkg)) continue;
+            if (protectedByStrategy.contains(basePkg)) continue;
             if (ProtectedApps.isProtected(context, basePkg)) continue;
             try {
                 android.content.pm.ApplicationInfo ai = pm.getApplicationInfo(basePkg, 0);

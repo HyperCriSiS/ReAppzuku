@@ -70,6 +70,16 @@ public class StatsAppOptionsBottomSheet extends BottomSheetDialogFragment {
         this.appIcon = icon;
     }
 
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // Recreated by the system after rotation or process death: the listener and
+        // the app it acted on are gone, so the sheet closes instead of doing nothing.
+        if (savedInstanceState != null) {
+            dismissAllowingStateLoss();
+        }
+    }
+
     public void setListener(Listener listener) {
         this.listener = listener;
     }

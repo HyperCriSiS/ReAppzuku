@@ -600,6 +600,9 @@ Shows current access mode: **Root**, **Shizuku**, or **No Access**, and below it
 **Help**\
 Link to this FAQ.
 
+**Settings shown**\
+Chooses how much of this screen is visible. **Simple** keeps the access mode, setup, recommendations and the main switches. **Advanced** adds the Auto-Kill rules, Automation Schedules, Background Restrictions, Sleep Mode and the app behavior card. **Expert** shows everything, including the Auto-Kill type, Advanced Conditions, the Restrictions Scheduler, cache clearing, hidden apps and the RAM shortcut. Hidden rows keep working with the values they have; only their controls are out of sight.
+
 ---
 
 ### 🎨 Appearance
@@ -669,7 +672,7 @@ Additional condition — Kill only fires **if** RAM exceeds selected threshold. 
 Only relevant if ReAppzuku conflicts with your firmware. If you notice unusual behavior in other apps, try switching to `am kill`.
 
 **Which apps Auto-Kill targets**\
-Auto-Kill stops the apps that have the **Immediate** strategy, on the triggers enabled above. The main settings have no whitelist or blacklist screen any more: the strategy of each app decides. Lists from earlier versions were converted into strategies; with Whitelist mode that means every app outside the whitelist became Immediate. Automation Schedules (called Auto-Kill Presets below) still carry their own lists and use them while a schedule is active. See [Per-App Strategy](#per-app-strategy-setup-and-recommendations).
+Auto-Kill stops the apps that have the **Immediate** strategy, on the triggers enabled above. The main settings have no whitelist or blacklist screen any more: the strategy of each app decides. Lists from earlier versions were converted into strategies; with Whitelist mode that means every app outside the whitelist became Immediate. Automation Schedules (below) carry their own lists and use them while a schedule is active. See [Per-App Strategy](#per-app-strategy-setup-and-recommendations).
 
 **Advanced Conditions**\
 Expand Auto-Kill with extra triggers — for cases where regular schedule is not enough.
@@ -683,46 +686,46 @@ Auto-Kill triggers right when selected target apps are opened — useful on budg
 > [!IMPORTANT]
 > **App Launch** function requires special permission in "Accessibility" settings. This feature can also slightly increase battery usage by ReAppzuku itself.
 
-**Auto-Kill Presets**\
-Save your own set of Auto-Kill settings that activates automatically at a specific time of day and replaces the current settings for the duration of its active window. When the window ends, the original settings are restored automatically.
-**2 presets** are available. Each can be configured independently: its own name, its own active time range, its own Auto-Kill rules, its own app lists, and its own additional scenarios.
+**Automation Schedules**\
+Two schedules, each active in a time window you set. While a schedule is active, its Auto-Kill settings (switches, interval, RAM threshold, Auto-Kill type and Advanced Conditions) replace the main ones; when the window ends, the main settings are restored automatically.
+The schedule's app list does not replace anything. It is laid over the app strategies: for every app without a strategy you chose, the schedule decides. In Blacklist mode the apps on its list are stopped, in Whitelist mode every app outside its list. Apps you gave a strategy keep it, and Protected apps are never stopped. The app strategies stay unchanged.
 > [!WARNING]
-> While active, presets ignore the immunity granted to apps by the Restrictions Scheduler. This is done to avoid confusion in the settings.
+> While active, schedules ignore the immunity granted to apps by the Restrictions Scheduler. This is done to avoid confusion in the settings.
 
-- **Enable preset**.
-The master switch. If disabled, the preset **will not activate** on schedule, even if its time window starts. If the preset is currently active and this switch is turned off, it deactivates immediately and the original settings are restored.
+- **Enable schedule**.
+The master switch. If disabled, the schedule **will not activate**, even if its time window starts. If the schedule is currently active and this switch is turned off, it deactivates immediately and the main settings are restored.
 
-- **Preset name**.
-A custom name, up to 30 characters. Shown in the preset picker dialog in the main settings. If the preset is currently active, an **"Active"** badge appears next to its name.
+- **Schedule name**.
+A custom name, up to 30 characters. If the schedule is currently active, an **"Active"** badge appears next to its name.
 
 - **Active time**.
-A "From — To" range, displayed using the device's time format (12/24-hour). Ranges that cross midnight are supported (e.g. 22:00 – 06:00).
+A "From – To" range, displayed using the device's time format (12/24-hour). Ranges that cross midnight are supported (e.g. 22:00 – 06:00).
 > [!WARNING]
-> The two presets cannot overlap in their active time. If you try to save a preset with an overlapping range, a warning will show the conflicting preset's time range — adjust one of the presets' times to resolve it.
+> The two schedules cannot overlap in their active time. If you try to save a schedule with an overlapping range, a warning shows the conflicting schedule's time range; adjust one of them to resolve it.
 
-- **App list source**
+- **App list source**.
 Choose between:
-  - **Use current whitelist / blacklist** — the preset always uses the live whitelist/blacklist from the main settings at the moment it activates
-  - **Use preset's own list** — the preset has its own independent whitelist/blacklist, edited separately and unaffected by changes to the main settings
+  - **Use the whitelist / blacklist from earlier versions**: copies the lists that were stored before app strategies replaced them, at the moment you save. Those lists can no longer be edited anywhere else.
+  - **Use schedule's own list**: the schedule has its own whitelist and blacklist, edited here.
 
 - **Auto-Kill management and Advanced Conditions**.
-A standard Auto-Kill settings block, same as in the regular app settings. All these settings are described in [Auto-Kill Settings](#-auto-kill-settings)
+A standard Auto-Kill settings block, same as in the regular app settings. All these settings are described in [Auto-Kill Settings](#-auto-kill-settings).
 
-- **Save preset**.
-Applies all changes: saves the settings, reschedules the activation/deactivation alarms, and immediately activates or deactivates the preset if needed (if the changes affect the current time window).
+- **Save schedule**.
+Applies all changes: saves the settings, reschedules the activation and deactivation alarms, and immediately activates or deactivates the schedule if the change affects the current time window.
 
 - **Import/Export JSON file**.
-Save preset to JSON file or restore it from a backup file. To apply changes, click "Save" button.
+Save a schedule to a JSON file or restore it from a backup file. To apply changes, tap "Save".
 
-- **Reset preset**.
-Resets all current settings on screen back to their default values (taken from the app's main settings). **Changes are not applied** until "Save" is pressed — you can simply leave the screen without saving, and the reset will not affect the already-saved preset.
+- **Reset schedule**.
+Resets all settings on screen to their default values (taken from the main settings). **Changes are not applied** until "Save" is pressed; you can leave the screen without saving, and the reset does not affect the saved schedule.
 
 **RAM Kill Shortcut**\
 Adds small 1x1 desktop shortcut showing real-time RAM usage in percent and GB.\
 Tapping shortcut triggers instant Auto-Kill based on current settings and clears RAM.
 
 > [!TIP]
-> RAM clears anyway, whether apps were closed during Auto-Kill or not. To clear RAM using am send-trim-memory command. Only whitelist and application persistent are unaffected.
+> RAM is freed even when Auto-Kill stopped nothing: every other running app is asked to trim its memory (`am send-trim-memory`). Protected apps, apps on the whitelist from earlier versions and persistent system apps are left out.
 
 ---
 
@@ -960,7 +963,7 @@ Runs `pm trim-caches` — clears cache of all apps at once.
 Apps here don't appear on main screen and are never touched by Auto-Kill. Useful for service processes you don't need to see.
 
 **Backup & Restore**\
-Export and import all settings as JSON. Covers whitelist, blacklist, hidden apps, background restrictions, Sleep Mode, and all automation settings.
+Export and import all settings as JSON. Covers app strategies and lifecycle policies, your own policy presets, new app setup, Automation Schedules, hidden apps, background restrictions, Sleep Mode, all automation settings and the lists from earlier versions.
 
 ---
 
@@ -1000,6 +1003,9 @@ Interactive charts of RAM, CPU, and battery usage across tracked apps. Switch be
 
 > [!TIP]
 > Tap an **app in chart legend** to open its **personal activity graph**
+
+**Last 30 days**\
+The personal page of an app also shows one bar per day for the last 30 days: the app's share of all measured app power use that day. Days without battery data stay empty. Below the chart: on how many days there was data, how often the app was stopped and how often it came back after a stop.
 
 **Auto-Kill Log**\
 Shows activity for last **12 hours**: Auto-Kill count, restarts, RAM freed, and last event time per app.
@@ -1080,7 +1086,10 @@ The policy editor offers presets: Never touch, Messenger (standby after 4 hours,
 - an unmanaged app that was not opened for 14 days and still accounts for at least 2% of all measured app power use,
 - an unmanaged app that was not opened for 3 days and accounts for at least 10%.
 
-**Limit when idle** gives the app the Messenger preset: standby after 4 hours without use, never stopped. **Dismiss** hides that recommendation for good. Nothing changes until you apply a recommendation. Battery shares are only used once at least 3 days of statistics and a real amount of battery drain exist, so the two battery recommendations do not appear at first. The statistics behind it are kept per app and day for 90 days.
+**Limit when idle** gives the app the Messenger preset: standby after 4 hours without use, never stopped. **Dismiss** hides that recommendation for 30 days. Nothing changes until you apply a recommendation. Battery shares are only used once at least 3 days of statistics and a real amount of battery drain exist, so the two battery recommendations do not appear at first. The statistics behind it are kept per app and day for 90 days.
+
+**Applied recommendations**\
+Seven days after you applied a recommendation, the screen compares the app's share of all measured app power use in the week before and the week after. If it dropped by at least a third, the change helped. Otherwise it says there is no clear difference and offers **Undo**, which gives the app back the strategy it had before. **Keep** removes the entry. Without enough statistics from both weeks, it says so instead of guessing.
 
 ---
 

@@ -13,6 +13,7 @@ import com.gree1d.reappzuku.db.DailyDeviceUsage;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +28,8 @@ public final class SuggestionLoader {
     private static final String PREFS = "recommendations";
     private static final String KEY_DISMISSED = "dismissed";
     private static final long DAY_MS = 24L * 60 * 60 * 1000;
+    /** How long a dismissed recommendation stays hidden. */
+    static final long DISMISS_MS = 30 * DAY_MS;
 
     private SuggestionLoader() {
     }
@@ -125,14 +128,56 @@ public final class SuggestionLoader {
     }
 
     public static void dismiss(Context context, SuggestionEngine.Suggestion suggestion) {
-        // The stored set must not be modified in place.
-        Set<String> dismissed = new HashSet<>(dismissed(context));
-        dismissed.add(suggestion.key());
-        prefs(context).edit().putStringSet(KEY_DISMISSED, dismissed).apply();
+        long now = System.currentTimeMillis();
+        Map<String, Long> active = activeDismissals(
+                prefs(context).getStringSet(KEY_DISMISSED, Collections.emptySet()), now);
+        active.put(suggestion.key(), now);
+        prefs(context).edit().putStringSet(KEY_DISMISSED, entries(active)).apply();
     }
 
     private static Set<String> dismissed(Context context) {
-        return prefs(context).getStringSet(KEY_DISMISSED, Collections.emptySet());
+        Set<String> stored = prefs(context).getStringSet(KEY_DISMISSED, Collections.emptySet());
+        Map<String, Long> active = activeDismissals(stored, System.currentTimeMillis());
+        Set<String> entries = entries(active);
+        if (!entries.equals(stored)) {
+            // Drops expired entries and stamps the ones stored before the time was kept.
+            prefs(context).edit().putStringSet(KEY_DISMISSED, entries).apply();
+        }
+        return active.keySet();
+    }
+
+    /**
+     * @param stored entries "key|dismissedAt"; a key is "package|reason", so an
+     *               entry with a single separator was stored without a time
+     * @return the keys still hidden at {@code now}, with the time they were dismissed.
+     *         An entry without a time counts as dismissed at {@code now}.
+     */
+    static Map<String, Long> activeDismissals(Set<String> stored, long now) {
+        Map<String, Long> active = new HashMap<>();
+        for (String entry : stored) {
+            int last = entry.lastIndexOf('|');
+            if (last < 0) continue;
+            String key = entry;
+            long at = now;
+            if (entry.indexOf('|') != last) {
+                key = entry.substring(0, last);
+                try {
+                    at = Long.parseLong(entry.substring(last + 1));
+                } catch (NumberFormatException e) {
+                    continue;
+                }
+            }
+            if (now - at < DISMISS_MS) active.put(key, at);
+        }
+        return active;
+    }
+
+    private static Set<String> entries(Map<String, Long> active) {
+        Set<String> entries = new HashSet<>();
+        for (Map.Entry<String, Long> entry : active.entrySet()) {
+            entries.add(entry.getKey() + "|" + entry.getValue());
+        }
+        return entries;
     }
 
     private static SharedPreferences prefs(Context context) {

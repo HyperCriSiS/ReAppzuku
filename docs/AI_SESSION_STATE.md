@@ -1,6 +1,6 @@
 # AI Session State
 
-Updated: 2026-11-10
+Updated: 2026-11-12
 
 ## Process manager rework (2026-11-10)
 
@@ -12,19 +12,24 @@ Also merged: removal of the scheduler evidence code (#185) and the strategy choi
 
 Also merged: the daily usage history (#187) and recommendations from it (#188). The last step adds a setup screen for the access mode and the handling of newly installed apps, and updates `docs/HELP.md`. The translated help files carry a notice that they describe the earlier state.
 
-Not done from the original plan: automation schedules still write the legacy whitelist, blacklist and kill mode when they activate; Settings is not split into levels; the statistics screens have no multi-day trend view; recommendations have no before and after effect display and no targeted restriction rules; the Smart worker still ticks every 15 minutes (most ticks end after one usage query).
+Merged after that: recommendation effects with undo (#190), a 30 day trend card on the app detail screen (#191), translated help (#192), Settings levels (#193), Automation Schedules laid over the app policies instead of swapping the stored lists (#194), a Smart Lifecycle check interval derived from the shortest standby delay (#195), AGP 9.5.0, Kotlin 2.4.21 and Gradle 9.8.2 (#196), and a bounded Shizuku Binder re-request after the server restarts (#197).
+
+Not done from the original plan: recommendations that propose targeted background restrictions from a cause analysis. A cheap per-app cause summary does not exist yet; the trigger analysis runs several shell dumps per app.
+
+Emulator evidence on `main` after #197 (Android 17 API 37 runtime run `43118009443`): `AppDatabaseMigrationTest` passed on API 37, including `migrate13To14_addsEmptyDailyUsageTablesAndKeepsPolicies` and `migrate2To14_preservesExistingStatsAndAddsPolicySchema`; 54 instrumentation tests passed and 37 were skipped by their own preconditions. The run is red because the general suite also starts four probes that only work through their dedicated CI wrapper (`Api24Api37ProcessRestartInstrumentationTest`, `Api37RealClockBroadcastDeliveryInstrumentationTest`, `ExactAlarmPermissionTransitionInstrumentationTest#grantedUsesExactAfterDelayedPermission`) or need an API 24 device (`Api24PolicyEditorSaveNotificationInstrumentationTest#preOreoNotificationOpensEditorWithoutSilentlySaving`, which waits for a notification without the API 33 notification permission). The real Shizuku tests were skipped: no workflow on `main` installs a Shizuku server, so issue #170 stays open.
 
 Open device checks, none of which has been run:
 
-- Room migration 13 to 14 on an upgraded install (`AppDatabaseMigrationTest` on an emulator, then a real upgrade).
+- A real upgrade from a Room 13 install on a device.
 - The usage access self-grant: that the GET_USAGE_STATS AppOp alone lets `queryAndAggregateUsageStats` return data on API 24 to 37.
 - The formats of `dumpsys appwidget`, `connectivity`, `device_policy`, `media_session` and `dumpsys package` that the protection checks and the permanent freeze repair parse.
 - Delta restriction apply: toggle one app and confirm that other restricted apps are not force-stopped; Resume in the out-of-sync dialog.
 - Non-wakeup snapshot and heartbeat alarms, and the display loops resuming after screen on.
-- Visual check of the new screens (recommendations, setup, strategy dialog) with long translations, a custom accent and D-pad focus.
-- The API 24 and API 37 emulator workflows after their steps for the removed evidence code were deleted.
+- An Automation Schedule window: apps on its list stopped, apps with an explicit strategy untouched, main settings restored at the end.
+- The Shizuku reconnect after a Shizuku server restart (#170).
+- Visual check of the new screens (recommendations and their effects, setup, strategy dialog, Settings levels, the trend card) with long translations, a custom accent and D-pad focus.
 
-None of these changes has been validated on a physical device. Local evidence is `./gradlew testDebugUnitTest lintDebug assembleDebug`.
+None of these changes has been validated on a physical device. Local evidence is `./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest`.
 
 ## Last completed work blocks
 

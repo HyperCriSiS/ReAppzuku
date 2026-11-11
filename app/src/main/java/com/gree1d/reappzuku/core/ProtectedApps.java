@@ -7,6 +7,9 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.provider.Settings;
 
+import com.gree1d.reappzuku.db.AppDatabase;
+import com.gree1d.reappzuku.db.AppPolicy;
+
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -124,6 +127,16 @@ public final class ProtectedApps {
         }
 
         return false;
+    }
+
+    /** Apps the user gave the Protected strategy. Reads Room, so never on the main thread. */
+    public static Set<String> withProtectedStrategy(Context context) {
+        Set<String> packages = new HashSet<>();
+        for (AppPolicy policy : AppDatabase.getInstance(context).appPolicyDao()
+                .getByStrategy(AppPolicy.STRATEGY_PROTECTED)) {
+            packages.add(policy.packageName);
+        }
+        return packages;
     }
 
     public static boolean isWhitelisted(Context context, String packageName) {
