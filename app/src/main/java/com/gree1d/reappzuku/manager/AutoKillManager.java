@@ -1,5 +1,6 @@
 package com.gree1d.reappzuku.manager;
 
+import com.gree1d.reappzuku.core.ScheduleOverlay;
 import com.gree1d.reappzuku.core.AppPolicyLegacyMigrator;
 import com.gree1d.reappzuku.core.AppPolicyResolver;
 import com.gree1d.reappzuku.core.PackageNameValidator;
@@ -106,7 +107,9 @@ public class AutoKillManager {
             Set<String> whitelistedApps = getWhitelistedApps();
             Set<String> blacklistedApps = getBlacklistedApps();
             int killMode = getKillMode();
-            boolean presetActive = new PresetManager(context).getActivePresetNumber() != 0;
+            PresetManager presetManager = new PresetManager(context);
+            boolean presetActive = presetManager.getActivePresetNumber() != 0;
+            ScheduleOverlay scheduleOverlay = presetActive ? presetManager.activeOverlay() : null;
             boolean legacyAutoKillEnabled =
                     sharedpreferences.getBoolean(KEY_AUTO_KILL_ENABLED, false) || presetActive;
             boolean legacySmartEnabled =
@@ -252,6 +255,9 @@ public class AutoKillManager {
                             }
 
                             AppPolicy explicitPolicy = explicitPolicies.get(pkg);
+                            if (scheduleOverlay != null && scheduleOverlay.targets(pkg, explicitPolicy)) {
+                                return true;
+                            }
                             AppPolicyResolver.LegacyState legacyState =
                                     new AppPolicyResolver.LegacyState(
                                             legacyAutoKillEnabled,

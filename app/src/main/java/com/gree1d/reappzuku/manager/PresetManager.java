@@ -1,5 +1,6 @@
 package com.gree1d.reappzuku.manager;
 
+import com.gree1d.reappzuku.core.ScheduleOverlay;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -239,6 +240,15 @@ public class PresetManager {
         return presetPrefs(presetNumber).getString(P_NAME, "Preset " + presetNumber);
     }
 
+    /** The target lists of the active schedule, or null when no schedule is active. */
+    public ScheduleOverlay activeOverlay() {
+        int active = getActivePresetNumber();
+        if (active == 0) return null;
+        PresetModel model = loadPreset(active);
+        return model == null ? null
+                : new ScheduleOverlay(model.killMode, model.whitelistedApps, model.blacklistedApps);
+    }
+
     public int getActivePresetNumber() {
         return mainPrefs.getInt(KEY_ACTIVE_PRESET, 0);
     }
@@ -313,7 +323,6 @@ public class PresetManager {
         editor.putBoolean(KEY_RAM_THRESHOLD_ENABLED, model.ramThresholdEnabled);
         editor.putInt(KEY_RAM_THRESHOLD, model.ramThreshold);
         editor.putInt(KEY_AUTO_KILL_TYPE, model.autoKillType);
-        editor.putInt(KEY_KILL_MODE, model.killMode);
         editor.putBoolean(KEY_HW_TRIGGER_HEADSET, model.hwTriggerHeadset);
         editor.putBoolean(KEY_HW_TRIGGER_USB, model.hwTriggerUsb);
         editor.putBoolean(KEY_HW_TRIGGER_CHARGER, model.hwTriggerCharger);
@@ -324,8 +333,9 @@ public class PresetManager {
         editor.putBoolean(KEY_APP_LAUNCH_TRIGGER_ENABLED, model.appLaunchTriggerEnabled);
         editor.putBoolean(KEY_APP_LAUNCH_CLEAR_CACHE, model.appLaunchClearCache);
         editor.putStringSet(KEY_APP_LAUNCH_TRIGGER_PACKAGES, new HashSet<>(model.appLaunchTriggerPackages));
-        editor.putStringSet(KEY_WHITELISTED_APPS, new HashSet<>(model.whitelistedApps));
-        editor.putStringSet(KEY_BLACKLISTED_APPS, new HashSet<>(model.blacklistedApps));
+        // The schedule's kill mode and lists are not written here. Auto-Kill reads
+        // them through activeOverlay() while the schedule is active, so the
+        // stored lists and the app policies built from them stay untouched.
         editor.apply();
 
 
@@ -342,7 +352,6 @@ public class PresetManager {
         e.putBoolean(KEY_BACKUP_PREFIX + KEY_RAM_THRESHOLD_ENABLED, mainPrefs.getBoolean(KEY_RAM_THRESHOLD_ENABLED, false));
         e.putInt(KEY_BACKUP_PREFIX + KEY_RAM_THRESHOLD, mainPrefs.getInt(KEY_RAM_THRESHOLD, 80));
         e.putInt(KEY_BACKUP_PREFIX + KEY_AUTO_KILL_TYPE, mainPrefs.getInt(KEY_AUTO_KILL_TYPE, 0));
-        e.putInt(KEY_BACKUP_PREFIX + KEY_KILL_MODE, mainPrefs.getInt(KEY_KILL_MODE, AppConstants.DEFAULT_KILL_MODE));
         e.putBoolean(KEY_BACKUP_PREFIX + KEY_HW_TRIGGER_HEADSET, mainPrefs.getBoolean(KEY_HW_TRIGGER_HEADSET, false));
         e.putBoolean(KEY_BACKUP_PREFIX + KEY_HW_TRIGGER_USB, mainPrefs.getBoolean(KEY_HW_TRIGGER_USB, false));
         e.putBoolean(KEY_BACKUP_PREFIX + KEY_HW_TRIGGER_CHARGER, mainPrefs.getBoolean(KEY_HW_TRIGGER_CHARGER, false));
@@ -354,10 +363,6 @@ public class PresetManager {
         e.putBoolean(KEY_BACKUP_PREFIX + KEY_APP_LAUNCH_CLEAR_CACHE, mainPrefs.getBoolean(KEY_APP_LAUNCH_CLEAR_CACHE, false));
         Set<String> launchPkgs = mainPrefs.getStringSet(KEY_APP_LAUNCH_TRIGGER_PACKAGES, new HashSet<>());
         e.putStringSet(KEY_BACKUP_PREFIX + KEY_APP_LAUNCH_TRIGGER_PACKAGES, new HashSet<>(launchPkgs));
-        Set<String> whitelist = mainPrefs.getStringSet(KEY_WHITELISTED_APPS, new HashSet<>());
-        e.putStringSet(KEY_BACKUP_PREFIX + KEY_WHITELISTED_APPS, new HashSet<>(whitelist));
-        Set<String> blacklist = mainPrefs.getStringSet(KEY_BLACKLISTED_APPS, new HashSet<>());
-        e.putStringSet(KEY_BACKUP_PREFIX + KEY_BLACKLISTED_APPS, new HashSet<>(blacklist));
         e.apply();
 
     }
@@ -375,7 +380,10 @@ public class PresetManager {
         e.putBoolean(KEY_RAM_THRESHOLD_ENABLED, mainPrefs.getBoolean(KEY_BACKUP_PREFIX + KEY_RAM_THRESHOLD_ENABLED, false));
         e.putInt(KEY_RAM_THRESHOLD, mainPrefs.getInt(KEY_BACKUP_PREFIX + KEY_RAM_THRESHOLD, 80));
         e.putInt(KEY_AUTO_KILL_TYPE, mainPrefs.getInt(KEY_BACKUP_PREFIX + KEY_AUTO_KILL_TYPE, 0));
-        e.putInt(KEY_KILL_MODE, mainPrefs.getInt(KEY_BACKUP_PREFIX + KEY_KILL_MODE, AppConstants.DEFAULT_KILL_MODE));
+        // Only a schedule activated by an earlier version overwrote these and left a copy.
+        if (mainPrefs.contains(KEY_BACKUP_PREFIX + KEY_KILL_MODE)) {
+            e.putInt(KEY_KILL_MODE, mainPrefs.getInt(KEY_BACKUP_PREFIX + KEY_KILL_MODE, AppConstants.DEFAULT_KILL_MODE));
+        }
         e.putBoolean(KEY_HW_TRIGGER_HEADSET, mainPrefs.getBoolean(KEY_BACKUP_PREFIX + KEY_HW_TRIGGER_HEADSET, false));
         e.putBoolean(KEY_HW_TRIGGER_USB, mainPrefs.getBoolean(KEY_BACKUP_PREFIX + KEY_HW_TRIGGER_USB, false));
         e.putBoolean(KEY_HW_TRIGGER_CHARGER, mainPrefs.getBoolean(KEY_BACKUP_PREFIX + KEY_HW_TRIGGER_CHARGER, false));
@@ -387,10 +395,14 @@ public class PresetManager {
         e.putBoolean(KEY_APP_LAUNCH_CLEAR_CACHE, mainPrefs.getBoolean(KEY_BACKUP_PREFIX + KEY_APP_LAUNCH_CLEAR_CACHE, false));
         Set<String> launchPkgs = mainPrefs.getStringSet(KEY_BACKUP_PREFIX + KEY_APP_LAUNCH_TRIGGER_PACKAGES, new HashSet<>());
         e.putStringSet(KEY_APP_LAUNCH_TRIGGER_PACKAGES, new HashSet<>(launchPkgs));
-        Set<String> whitelist = mainPrefs.getStringSet(KEY_BACKUP_PREFIX + KEY_WHITELISTED_APPS, new HashSet<>());
-        e.putStringSet(KEY_WHITELISTED_APPS, new HashSet<>(whitelist));
-        Set<String> blacklist = mainPrefs.getStringSet(KEY_BACKUP_PREFIX + KEY_BLACKLISTED_APPS, new HashSet<>());
-        e.putStringSet(KEY_BLACKLISTED_APPS, new HashSet<>(blacklist));
+        if (mainPrefs.contains(KEY_BACKUP_PREFIX + KEY_WHITELISTED_APPS)) {
+            Set<String> whitelist = mainPrefs.getStringSet(KEY_BACKUP_PREFIX + KEY_WHITELISTED_APPS, new HashSet<>());
+            e.putStringSet(KEY_WHITELISTED_APPS, new HashSet<>(whitelist));
+        }
+        if (mainPrefs.contains(KEY_BACKUP_PREFIX + KEY_BLACKLISTED_APPS)) {
+            Set<String> blacklist = mainPrefs.getStringSet(KEY_BACKUP_PREFIX + KEY_BLACKLISTED_APPS, new HashSet<>());
+            e.putStringSet(KEY_BLACKLISTED_APPS, new HashSet<>(blacklist));
+        }
 
         e.remove(KEY_BACKUP_PREFIX + KEY_AUTO_KILL_ENABLED);
         e.remove(KEY_BACKUP_PREFIX + KEY_PERIODIC_KILL_ENABLED);
