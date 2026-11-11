@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_level_title">Ajustes visibles</string>
+    <string-array name="settings_levels">
+        <item>Sencillo</item>
+        <item>Avanzado</item>
+        <item>Experto (todo)</item>
+    </string-array>
+</resources>

@@ -21,6 +21,7 @@ import androidx.appcompat.app.AlertDialog;
 
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.databinding.ActivitySettingsBinding;
+import com.gree1d.reappzuku.core.SettingsLevel;
 import com.gree1d.reappzuku.core.CapabilityMatrix;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.BackupManager;
@@ -422,6 +423,14 @@ public class SettingsActivity extends SettingsActivityDialogs
 
         binding.layoutAccentOnColor.setOnClickListener(v -> showAccentOnColorDialog());
         binding.layoutNotificationMode.setOnClickListener(v -> showNotificationModeDialog());
+        binding.layoutSettingsLevel.setOnClickListener(v -> showSingleChoiceDialog(
+                getString(R.string.settings_level_title),
+                getResources().getStringArray(R.array.settings_levels),
+                settingsLevel(), level -> {
+                    sharedPreferences.edit().putInt(KEY_SETTINGS_LEVEL, level).apply();
+                    applySettingsLevel();
+                }));
+        applySettingsLevel();
 
         binding.switchOnDemandMode.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (updatingAppBehaviorSwitches) return;
@@ -889,6 +898,32 @@ public class SettingsActivity extends SettingsActivityDialogs
 
     private void showRequiresAndroid11Toast() {
         Toast.makeText(this, getString(R.string.toast_bg_restriction_requires_android11), Toast.LENGTH_SHORT).show();
+    }
+
+    private int settingsLevel() {
+        return SettingsLevel.sanitize(sharedPreferences.getInt(KEY_SETTINGS_LEVEL, SettingsLevel.EXPERT));
+    }
+
+    /** Hides the rows above the chosen level; their state and listeners stay as they are. */
+    private void applySettingsLevel() {
+        int level = settingsLevel();
+        binding.textSettingsLevel.setText(
+                getResources().getStringArray(R.array.settings_levels)[level]);
+        View[] advanced = {binding.cardAppBehavior, binding.layoutPeriodicKill,
+                binding.layoutKillInterval, binding.layoutScreenLock,
+                binding.layoutRamThresholdToggle, binding.layoutRamThreshold, binding.layoutPresets,
+                binding.layoutRestrictionsHeader, binding.layoutBackgroundRestriction,
+                binding.layoutReapplyRestrictions, binding.layoutSleepMode,
+                binding.layoutSleepModeApps, binding.layoutSleepModeDelay};
+        View[] expert = {binding.layoutAutoKillType, binding.layoutAdditionalScenarios,
+                binding.layoutRestrictionsScheduler, binding.layoutClearCache,
+                binding.layoutHiddenApps, binding.layoutAddShortcut};
+        for (View view : advanced) {
+            view.setVisibility(SettingsLevel.shows(level, SettingsLevel.ADVANCED) ? View.VISIBLE : View.GONE);
+        }
+        for (View view : expert) {
+            view.setVisibility(SettingsLevel.shows(level, SettingsLevel.EXPERT) ? View.VISIBLE : View.GONE);
+        }
     }
 
     private void showServiceRequiredToast() {

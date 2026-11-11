@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_level_title">显示的设置</string>
+    <string-array name="settings_levels">
+        <item>简单</item>
+        <item>高级</item>
+        <item>专家（全部）</item>
+    </string-array>
+</resources>

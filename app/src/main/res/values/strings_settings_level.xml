@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_level_title">Settings shown</string>
+    <string-array name="settings_levels">
+        <item>Simple</item>
+        <item>Advanced</item>
+        <item>Expert (everything)</item>
+    </string-array>
+</resources>
