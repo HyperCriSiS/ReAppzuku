@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recommendation_effect_title">已应用的建议</string>
+    <string name="recommendation_effect_helped">之前：占全部已测应用耗电的 %1$d%%。之后：%2$d%%。此更改有效。</string>
+    <string name="recommendation_effect_none">之前：占全部已测应用耗电的 %1$d%%。之后：%2$d%%。没有明显差别，您可以撤销此更改。</string>
+    <string name="recommendation_effect_unknown">更改前后一周的统计数据不足，无法比较。</string>
+    <string name="recommendation_effect_keep">保留</string>
+    <string name="recommendation_effect_undo">撤销</string>
+</resources>

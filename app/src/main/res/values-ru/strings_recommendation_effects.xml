@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recommendation_effect_title">Применённые рекомендации</string>
+    <string name="recommendation_effect_helped">До: %1$d%% всего измеренного энергопотребления приложений. После: %2$d%%. Изменение помогло.</string>
+    <string name="recommendation_effect_none">До: %1$d%% всего измеренного энергопотребления приложений. После: %2$d%%. Явной разницы нет, изменение можно отменить.</string>
+    <string name="recommendation_effect_unknown">Недостаточно статистики за неделю до и после изменения, чтобы их сравнить.</string>
+    <string name="recommendation_effect_keep">Оставить</string>
+    <string name="recommendation_effect_undo">Отменить</string>
+</resources>

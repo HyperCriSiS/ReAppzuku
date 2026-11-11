@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recommendation_effect_title">Застосовані рекомендації</string>
+    <string name="recommendation_effect_helped">До: %1$d%% усього виміряного енергоспоживання застосунків. Після: %2$d%%. Зміна допомогла.</string>
+    <string name="recommendation_effect_none">До: %1$d%% усього виміряного енергоспоживання застосунків. Після: %2$d%%. Явної різниці немає, зміну можна скасувати.</string>
+    <string name="recommendation_effect_unknown">Недостатньо статистики за тиждень до і після зміни, щоб їх порівняти.</string>
+    <string name="recommendation_effect_keep">Залишити</string>
+    <string name="recommendation_effect_undo">Скасувати</string>
+</resources>

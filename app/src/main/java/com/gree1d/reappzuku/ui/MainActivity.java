@@ -60,6 +60,7 @@ import static com.gree1d.reappzuku.core.PreferenceKeys.*;
 import static com.gree1d.reappzuku.core.AppConstants.*;
 
 import com.gree1d.reappzuku.core.FirstRunPolicy;
+import com.gree1d.reappzuku.core.RecommendationEffect;
 import com.gree1d.reappzuku.core.SuggestionLoader;
 import com.gree1d.reappzuku.core.AppPolicyQuickChoice;
 import com.gree1d.reappzuku.core.ShellManager;
@@ -1003,7 +1004,8 @@ public class MainActivity extends BaseActivity {
     /** One line above the list while there is something to recommend; it opens the full screen. */
     private void updateRecommendationsCard() {
         executor.execute(() -> {
-            int count = SuggestionLoader.load(getApplicationContext()).size();
+            int count = SuggestionLoader.load(getApplicationContext()).size()
+                    + RecommendationEffect.loadReady(getApplicationContext()).size();
             handler.post(() -> {
                 if (binding == null || isFinishing() || isDestroyed()) return;
                 binding.recommendationsCard.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
