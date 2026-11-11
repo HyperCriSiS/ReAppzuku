@@ -1,5 +1,6 @@
 package com.gree1d.reappzuku.manager;
 
+import com.gree1d.reappzuku.core.ScheduleOverlay;
 import com.gree1d.reappzuku.core.AppPolicyLegacyMigrator;
 import com.gree1d.reappzuku.core.AppPolicyResolver;
 import com.gree1d.reappzuku.core.PackageNameValidator;
@@ -106,7 +107,9 @@ public class AutoKillManager {
             Set<String> whitelistedApps = getWhitelistedApps();
             Set<String> blacklistedApps = getBlacklistedApps();
             int killMode = getKillMode();
-            boolean presetActive = new PresetManager(context).getActivePresetNumber() != 0;
+            PresetManager presetManager = new PresetManager(context);
+            boolean presetActive = presetManager.getActivePresetNumber() != 0;
+            ScheduleOverlay scheduleOverlay = presetActive ? presetManager.activeOverlay() : null;
             boolean legacyAutoKillEnabled =
                     sharedpreferences.getBoolean(KEY_AUTO_KILL_ENABLED, false) || presetActive;
             boolean legacySmartEnabled =
@@ -118,6 +121,12 @@ public class AutoKillManager {
             for (AppPolicy policy : AppDatabase.getInstance(context).appPolicyDao().getAll()) {
                 AppPolicy effectivePolicy = AppPolicyLegacyMigrator.resolveEffectivePolicy(
                         policy, migrationSnapshotCurrent);
+                // While a schedule is active its lists replace the legacy lists, so the
+                // rows migrated from those lists do not take part.
+                if (scheduleOverlay != null && effectivePolicy != null
+                        && effectivePolicy.source == AppPolicy.SOURCE_LEGACY_MIGRATED) {
+                    continue;
+                }
                 if (effectivePolicy != null && effectivePolicy.packageName != null) {
                     explicitPolicies.put(effectivePolicy.packageName, effectivePolicy);
                 }
@@ -252,8 +261,12 @@ public class AutoKillManager {
                             }
 
                             AppPolicy explicitPolicy = explicitPolicies.get(pkg);
-                            AppPolicyResolver.LegacyState legacyState =
-                                    new AppPolicyResolver.LegacyState(
+                            if (scheduleOverlay != null && scheduleOverlay.targets(pkg, explicitPolicy)) {
+                                return true;
+                            }
+                            // The schedule's lists replace the legacy fallback while it is active.
+                            AppPolicyResolver.LegacyState legacyState = scheduleOverlay != null ? null
+                                    : new AppPolicyResolver.LegacyState(
                                             legacyAutoKillEnabled,
                                             legacySmartEnabled,
                                             killMode == 0,
