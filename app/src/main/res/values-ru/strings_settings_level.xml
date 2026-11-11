@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_level_title">Отображаемые настройки</string>
+    <string-array name="settings_levels">
+        <item>Простые</item>
+        <item>Расширенные</item>
+        <item>Экспертные (все)</item>
+    </string-array>
+</resources>
