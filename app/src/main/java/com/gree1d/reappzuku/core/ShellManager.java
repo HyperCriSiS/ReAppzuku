@@ -36,8 +36,9 @@ public class ShellManager {
 
     private volatile Boolean hasRoot = null;
 
-    private Shizuku.OnBinderReceivedListener shizukuBinderReceivedListener;
-    private Shizuku.OnBinderDeadListener shizukuBinderDeadListener;
+    // One listener pair per owner: the service and an activity both listen, and
+    // an activity that stops must not take the service's listeners with it.
+    private final java.util.Map<Object, Object[]> shizukuBinderListeners = new java.util.HashMap<>();
 
     private static final long SHIZUKU_COMMAND_TIMEOUT_MS = 15_000L;
     private static final int SHIZUKU_PERMISSION_REQUEST_CODE = 0;
@@ -70,9 +71,44 @@ public class ShellManager {
                 }
             };
 
+    // Shizuku hands its Binder to the ":shizuku" provider process. After the
+    // Shizuku server restarts, a running main process is not told again, so it
+    // asks the provider a few times, as it does once at startup.
+    static final long BINDER_REQUEST_INTERVAL_MS = 10_000L;
+    static final int BINDER_REQUEST_ATTEMPTS = 12;
+    /** Every request leaves a receiver behind in the Shizuku library; this caps them per process. */
+    static final int BINDER_REQUEST_ROUNDS = 5;
+    private volatile int binderRequestsLeft;
+    private int binderRequestRounds;
+    private final Runnable binderRequest = new Runnable() {
+        @Override
+        public void run() {
+            if (!shizukuBinderLost || binderRequestsLeft <= 0) return;
+            binderRequestsLeft--;
+            // A cross-process call that may start the provider process: off the main thread.
+            executor.execute(() -> {
+                try {
+                    shizuku.requestBinderFromProvider(context);
+                } catch (RuntimeException e) {
+                    // The provider may be gone with the server; the next attempt asks again.
+                }
+            });
+            if (binderRequestsLeft > 0) handler.postDelayed(this, BINDER_REQUEST_INTERVAL_MS);
+        }
+    };
+
+    private void requestBinderAgain() {
+        if (binderRequestRounds >= BINDER_REQUEST_ROUNDS) return;
+        binderRequestRounds++;
+        handler.removeCallbacks(binderRequest);
+        binderRequestsLeft = BINDER_REQUEST_ATTEMPTS;
+        handler.postDelayed(binderRequest, BINDER_REQUEST_INTERVAL_MS);
+    }
+
     private final Shizuku.OnBinderReceivedListener internalBinderReceivedListener = () -> {
         shizukuBinderEverSeen = true;
         shizukuBinderLost = false;
+        ShellManager.this.handler.removeCallbacks(binderRequest);
 
         try {
             if (shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) bindUserService();
@@ -89,7 +125,7 @@ public class ShellManager {
         userServiceBinding = false;
         userServiceReadyLatch.countDown();
         userServiceReadyLatch = new CountDownLatch(1);
-
+        ShellManager.this.handler.post(this::requestBinderAgain);
     };
 
     private final ServiceConnection userServiceConnection = new ServiceConnection() {
@@ -231,35 +267,29 @@ public class ShellManager {
         }
     }
 
-    public void setShizukuBinderListeners(Runnable onReceived, Runnable onDead) {
-        removeShizukuBinderListeners();
+    public synchronized void setShizukuBinderListeners(Object owner, Runnable onReceived, Runnable onDead) {
+        removeShizukuBinderListeners(owner);
 
-        shizukuBinderReceivedListener = () -> {
-
+        Shizuku.OnBinderReceivedListener received = () -> {
             if (onReceived != null) {
                 handler.post(onReceived);
             }
         };
-        shizukuBinderDeadListener = () -> {
-
+        Shizuku.OnBinderDeadListener dead = () -> {
             if (onDead != null) {
                 handler.post(onDead);
             }
         };
-
-        shizuku.addBinderReceivedListenerSticky(shizukuBinderReceivedListener);
-        shizuku.addBinderDeadListener(shizukuBinderDeadListener);
+        shizukuBinderListeners.put(owner, new Object[] {received, dead});
+        shizuku.addBinderReceivedListenerSticky(received);
+        shizuku.addBinderDeadListener(dead);
     }
 
-    public void removeShizukuBinderListeners() {
-        if (shizukuBinderReceivedListener != null) {
-            shizuku.removeBinderReceivedListener(shizukuBinderReceivedListener);
-            shizukuBinderReceivedListener = null;
-        }
-        if (shizukuBinderDeadListener != null) {
-            shizuku.removeBinderDeadListener(shizukuBinderDeadListener);
-            shizukuBinderDeadListener = null;
-        }
+    public synchronized void removeShizukuBinderListeners(Object owner) {
+        Object[] pair = shizukuBinderListeners.remove(owner);
+        if (pair == null) return;
+        shizuku.removeBinderReceivedListener((Shizuku.OnBinderReceivedListener) pair[0]);
+        shizuku.removeBinderDeadListener((Shizuku.OnBinderDeadListener) pair[1]);
     }
 
     public boolean hasRootAccess() {
@@ -329,6 +359,10 @@ public class ShellManager {
         if (hasRoot != null && hasRoot) {
 
             return;
+        }
+        // A user action after the retries ran out asks once more.
+        if (shizukuBinderLost && binderRequestsLeft <= 0) {
+            handler.post(this::requestBinderAgain);
         }
         try {
             if (!shizuku.pingBinder()) {
