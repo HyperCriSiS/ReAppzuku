@@ -58,6 +58,22 @@ public class DozeExemptionTest {
         assertFalse(analyzer.contains("grep -E 'whitelist|except|power-save|restricted|exemption'"));
     }
 
+    @Test
+    public void anOperationUsedLongAgoIsNotActiveNow() throws Exception {
+        assertTrue(DozeOpsAnalyzer.usedWithinTheHour("3m12s40ms"));
+        assertTrue(DozeOpsAnalyzer.usedWithinTheHour("59m59s999ms"));
+        assertTrue(DozeOpsAnalyzer.usedWithinTheHour("12ms"));
+        assertFalse(DozeOpsAnalyzer.usedWithinTheHour("1h0m0s0ms"));
+        // Seen on a device under "active now": a wakelock from 150 days ago.
+        assertFalse(DozeOpsAnalyzer.usedWithinTheHour("150d22h21m42s560ms"));
+        assertFalse(DozeOpsAnalyzer.usedWithinTheHour(null));
+        String analyzer = read(
+                "app/src/main/java/com/gree1d/reappzuku/utils/triggers/analyzers/DozeOpsAnalyzer.java");
+        assertTrue(analyzer.contains("current ? desc.group : TriggerInfo.Group.OTHER,"));
+        // History does not raise the score of the app.
+        assertTrue(analyzer.contains("current ? desc.severity : TriggerInfo.Severity.INFO));"));
+    }
+
     private static String read(String relative) throws Exception {
         for (Path candidate : Arrays.asList(Paths.get(""), Paths.get(".."), Paths.get("..", ".."))) {
             if (Files.isDirectory(candidate.resolve("app/src/main/java"))) {
