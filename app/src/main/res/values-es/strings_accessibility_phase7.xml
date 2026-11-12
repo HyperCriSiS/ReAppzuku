@@ -3,7 +3,7 @@
     <string name="a11y_protected_app">App protegida</string>
     <string name="a11y_app_status">Estado de la app</string>
     <string name="a11y_sleep_mode_app">App gestionada por el modo de reposo</string>
-    <string name="a11y_whitelisted_app">App en la lista blanca</string>
+    <string name="a11y_whitelisted_app">Estrategia: protegida</string>
     <string name="a11y_app_action">Acción de la app</string>
     <string name="a11y_select_app">Seleccionar app</string>
     <string name="a11y_deselect_app">Deseleccionar app</string>

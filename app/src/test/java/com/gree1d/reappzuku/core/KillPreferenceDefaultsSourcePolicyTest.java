@@ -81,7 +81,8 @@ public class KillPreferenceDefaultsSourcePolicyTest {
     public void serviceLoopClampsThePersistedInterval() throws Exception {
         String source = readRepositoryFile(
                 "app/src/main/java/com/gree1d/reappzuku/service/ShappkyService.java");
-        assertEquals(1, count(source, "KillIntervalPolicy.clampServiceIntervalMs("));
+        // serviceDelayMs clamps first, then applies the screen-off floor.
+        assertEquals(1, count(source, "KillIntervalPolicy.serviceDelayMs("));
     }
 
     private static final class SourceFile {

@@ -26,6 +26,19 @@ public final class KillIntervalPolicy {
         return storedMs;
     }
 
+    /**
+     * While the screen is off a pass runs at most every 5 minutes. Measured on a
+     * device running API 36, the 18 second default cost about 2 s of CPU per
+     * 90 s with nothing to stop, and Android freezes cached apps by itself.
+     */
+    public static final int SCREEN_OFF_MIN_INTERVAL_MS = 5 * 60_000;
+
+    /** The delay until the next in-service pass. */
+    public static int serviceDelayMs(int storedMs, boolean screenOff) {
+        int delay = clampServiceIntervalMs(storedMs);
+        return screenOff ? Math.max(delay, SCREEN_OFF_MIN_INTERVAL_MS) : delay;
+    }
+
     /** Convert the stored millisecond interval to the WorkManager period in minutes. */
     public static long workerIntervalMinutes(int storedMs) {
         long minutes = (clampServiceIntervalMs(storedMs) + 59_999L) / 60_000L;

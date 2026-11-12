@@ -3,7 +3,7 @@
     <string name="a11y_protected_app">Захищений застосунок</string>
     <string name="a11y_app_status">Стан застосунку</string>
     <string name="a11y_sleep_mode_app">Застосунок керується режимом сну</string>
-    <string name="a11y_whitelisted_app">Застосунок у білому списку</string>
+    <string name="a11y_whitelisted_app">Стратегія: захищено</string>
     <string name="a11y_app_action">Дія застосунку</string>
     <string name="a11y_select_app">Вибрати застосунок</string>
     <string name="a11y_deselect_app">Зняти вибір застосунку</string>

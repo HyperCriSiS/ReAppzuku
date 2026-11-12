@@ -473,6 +473,8 @@ public class ShappkyService extends Service {
 
             case "SCREEN_ON":
                 syncDisplayLoopsWithScreen();
+                // Back to the chosen interval instead of waiting out the screen-off delay.
+                scheduleNextKill();
                 handler.postDelayed(() -> {
                     if (!managersInitialized || sleepModeManager == null) return;
                     if (!isScreenInteractive()) {
@@ -928,8 +930,8 @@ public class ShappkyService extends Service {
                 || !prefs.getBoolean(KEY_PERIODIC_KILL_ENABLED, false)) {
             return;
         }
-        handler.postDelayed(periodicKillRunnable, KillIntervalPolicy.clampServiceIntervalMs(
-                prefs.getInt(KEY_KILL_INTERVAL, DEFAULT_KILL_INTERVAL_MS)));
+        handler.postDelayed(periodicKillRunnable, KillIntervalPolicy.serviceDelayMs(
+                prefs.getInt(KEY_KILL_INTERVAL, DEFAULT_KILL_INTERVAL_MS), screenOff));
     }
 
     private void runPeriodicKill() {

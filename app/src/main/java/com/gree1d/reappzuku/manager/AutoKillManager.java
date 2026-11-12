@@ -132,14 +132,9 @@ public class AutoKillManager {
                 }
             }
 
-            String dumpOutput = shellManager.runShellCommandAndGetFullOutput("dumpsys activity activities");
-
-            if (dumpOutput == null) {
-
-                if (onComplete != null)
-                    handler.post(onComplete);
-                return;
-            }
+            // Fetched once, and only when an app the policies want stopped is running:
+            // most passes find none, and the dump costs system_server time too.
+            String[] activityDump = new String[1];
 
 
             Set<String> runningPackages = new HashSet<>();
@@ -176,11 +171,7 @@ public class AutoKillManager {
 
             for (Map.Entry<String, List<Integer>> entry : pidsByPackage.entrySet()) {
                 String packageName = entry.getKey();
-                try {
-                    pm.getApplicationInfo(packageName, 0);
-                } catch (PackageManager.NameNotFoundException ignored) {
-                    continue;
-                }
+                // Whether the name is an installed package is checked for kill candidates only.
                 long total = 0;
                 for (int pid : entry.getValue()) {
                     total += psRssByPid.getOrDefault(pid, 0L);
@@ -233,6 +224,28 @@ public class AutoKillManager {
             List<String> toKill = runningPackages.stream()
                     .filter(pkg -> {
                         try {
+                            // The policy decision needs no system call, so it comes first.
+                            AppPolicy explicitPolicy = explicitPolicies.get(pkg);
+                            boolean wanted;
+                            if (scheduleOverlay != null && scheduleOverlay.targets(pkg, explicitPolicy)) {
+                                wanted = true;
+                            } else {
+                                // The schedule's lists replace the legacy fallback while it is active.
+                                AppPolicyResolver.LegacyState legacyState = scheduleOverlay != null ? null
+                                        : new AppPolicyResolver.LegacyState(
+                                                legacyAutoKillEnabled,
+                                                legacySmartEnabled,
+                                                killMode == 0,
+                                                whitelistedApps.contains(pkg),
+                                                blacklistedApps.contains(pkg));
+                                wanted = AppPolicyResolver.shouldExecuteImmediate(
+                                        explicitPolicy,
+                                        migrationSnapshotCurrent ? null : legacyState,
+                                        trigger);
+                            }
+                            if (!wanted) {
+                                return false;
+                            }
                             if (hiddenApps.contains(pkg)) {
 
                                 return false;
@@ -249,7 +262,13 @@ public class AutoKillManager {
 
                                 return false;
                             }
-                            if (containsPackage(dumpOutput, pkg)) {
+                            if (activityDump[0] == null) {
+                                activityDump[0] = shellManager.runShellCommandAndGetFullOutput(
+                                        "dumpsys activity activities");
+                                // Without it a visible app cannot be told apart: stop nothing.
+                                if (activityDump[0] == null) activityDump[0] = "";
+                            }
+                            if (activityDump[0].isEmpty() || containsPackage(activityDump[0], pkg)) {
 
                                 return false;
                             }
@@ -260,22 +279,7 @@ public class AutoKillManager {
                                 return false;
                             }
 
-                            AppPolicy explicitPolicy = explicitPolicies.get(pkg);
-                            if (scheduleOverlay != null && scheduleOverlay.targets(pkg, explicitPolicy)) {
-                                return true;
-                            }
-                            // The schedule's lists replace the legacy fallback while it is active.
-                            AppPolicyResolver.LegacyState legacyState = scheduleOverlay != null ? null
-                                    : new AppPolicyResolver.LegacyState(
-                                            legacyAutoKillEnabled,
-                                            legacySmartEnabled,
-                                            killMode == 0,
-                                            whitelistedApps.contains(pkg),
-                                            blacklistedApps.contains(pkg));
-                            return AppPolicyResolver.shouldExecuteImmediate(
-                                    explicitPolicy,
-                                    migrationSnapshotCurrent ? null : legacyState,
-                                    trigger);
+                            return true;
                         } catch (PackageManager.NameNotFoundException e) {
 
                             return false;

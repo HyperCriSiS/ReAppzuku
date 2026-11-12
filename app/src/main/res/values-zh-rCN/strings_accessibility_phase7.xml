@@ -3,7 +3,7 @@
     <string name="a11y_protected_app">受保护的应用</string>
     <string name="a11y_app_status">应用状态</string>
     <string name="a11y_sleep_mode_app">由睡眠模式管理的应用</string>
-    <string name="a11y_whitelisted_app">白名单应用</string>
+    <string name="a11y_whitelisted_app">策略：受保护</string>
     <string name="a11y_app_action">应用操作</string>
     <string name="a11y_select_app">选择应用</string>
     <string name="a11y_deselect_app">取消选择应用</string>
