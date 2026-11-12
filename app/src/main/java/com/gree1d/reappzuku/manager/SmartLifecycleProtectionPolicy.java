@@ -8,7 +8,8 @@ package com.gree1d.reappzuku.manager;
  * they can be exhaustively regression-tested without Android runtime dependencies.
  */
 final class SmartLifecycleProtectionPolicy {
-    private static final int ASSOCIATION_RADIUS = 1800;
+    private static final java.util.regex.Pattern FOREGROUND_ID =
+            java.util.regex.Pattern.compile("foregroundId=[1-9]");
 
     private SmartLifecycleProtectionPolicy() {
     }
@@ -44,26 +45,81 @@ final class SmartLifecycleProtectionPolicy {
         if (protectMedia && PackageTextMatcher.containsExactPackage(mediaDump, packageName)) {
             return "media session";
         }
-        if (protectForegroundServices
-                && (PackageTextMatcher.containsMarkerNearPackage(
-                        servicesDump, packageName, "isForeground=true", ASSOCIATION_RADIUS)
-                || PackageTextMatcher.containsMarkerNearPackage(
-                        servicesDump, packageName, "foregroundId=", ASSOCIATION_RADIUS))) {
+        if (protectForegroundServices && runsForegroundService(servicesDump, packageName)) {
             return "foreground service";
         }
         if (PackageTextMatcher.containsExactPackage(wallpaperDump, packageName)) {
             return "wallpaper";
         }
-        if (PackageTextMatcher.containsExactPackage(devicePolicyDump, packageName)) {
+        if (PackageTextMatcher.containsExactPackage(adminState(devicePolicyDump), packageName)) {
             return "device policy";
         }
-        // Ordinary networks carry the NOT_VPN capability, which is not a VPN signal.
-        if (PackageTextMatcher.containsMarkerNearPackage(
-                connectivityDump == null ? null : connectivityDump.replace("NOT_VPN", ""),
-                packageName, "VPN", ASSOCIATION_RADIUS)) {
+        if (ownsVpn(connectivityDump, packageName)) {
             return "VPN/network service";
         }
         return null;
+    }
+
+    /**
+     * A ServiceRecord of the package that runs in the foreground. Each record
+     * is checked on its own: one long dump area would let a package borrow the
+     * foreground flag of the next app's service.
+     */
+    static boolean runsForegroundService(String servicesDump, String packageName) {
+        if (servicesDump == null) return false;
+        String[] records = servicesDump.split("ServiceRecord[{]", -1);
+        for (int i = 1; i < records.length; i++) {
+            String record = records[i];
+            int lineEnd = record.indexOf('\n');
+            String header = lineEnd < 0 ? record : record.substring(0, lineEnd);
+            if (!PackageTextMatcher.containsExactPackage(header, packageName)) continue;
+            if (record.contains("isForeground=true")
+                    || FOREGROUND_ID.matcher(record).find()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The package and a VPN transport on the same line. Ordinary networks carry
+     * the NOT_VPN capability, and a request line names the app that asked for a
+     * network (SystemUI listens for VPNs), not the app that runs one; a whole
+     * dump area around the package would borrow both.
+     */
+    static boolean ownsVpn(String connectivityDump, String packageName) {
+        if (connectivityDump == null) return false;
+        for (String line : connectivityDump.split("\n")) {
+            if (line.contains("RequestorPkg: " + packageName)) continue;
+            if (line.replace("NOT_VPN", "").contains("VPN")
+                    && PackageTextMatcher.containsExactPackage(line, packageName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Android 16 appends "PersonalAppsSuspensionHelper", which lists every app
+     * that could be suspended (nearly all of them) and names no admin. That
+     * section, up to the next unindented line, is left out.
+     */
+    static String adminState(String devicePolicyDump) {
+        if (devicePolicyDump == null) return null;
+        int start = devicePolicyDump.indexOf("\nPersonalAppsSuspensionHelper");
+        if (start < 0) return devicePolicyDump;
+        int end = start + 1;
+        while (true) {
+            end = devicePolicyDump.indexOf('\n', end);
+            if (end < 0 || end + 1 >= devicePolicyDump.length()) {
+                return devicePolicyDump.substring(0, start);
+            }
+            char next = devicePolicyDump.charAt(end + 1);
+            if (next != ' ' && next != '\t' && next != '\n' && next != '\r') {
+                return devicePolicyDump.substring(0, start) + devicePolicyDump.substring(end);
+            }
+            end++;
+        }
     }
 
     /**
