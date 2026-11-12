@@ -13,7 +13,8 @@ import java.util.Map;
 /**
  * Usage statistics for this app's own decisions. Access comes from the
  * GET_USAGE_STATS AppOp, which the privileged shell grants to this package.
- * The manifest deliberately does not request PACKAGE_USAGE_STATS.
+ * The manifest declares PACKAGE_USAGE_STATS, without which Android 16 ignores
+ * the AppOp change (seen on a device running API 36).
  */
 public final class UsageAccess {
     private static final String OP = "GET_USAGE_STATS";

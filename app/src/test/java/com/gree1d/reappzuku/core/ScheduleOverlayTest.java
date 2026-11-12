@@ -77,9 +77,12 @@ public class ScheduleOverlayTest {
         String killer = read("app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java");
         int overlay = killer.indexOf("scheduleOverlay.targets(pkg, explicitPolicy)");
         assertTrue(overlay >= 0 && overlay < killer.indexOf("AppPolicyResolver.shouldExecuteImmediate("));
-        // The overlay runs after the hidden, protected, foreground and persistent exclusions.
-        assertTrue(killer.indexOf("ProtectedApps.isProtected(pkg, currentKeyboard, currentLauncher)") < overlay);
-        assertTrue(killer.indexOf("ApplicationInfo.FLAG_PERSISTENT") < overlay);
+        // The overlay only decides whether an app is wanted; the hidden, protected,
+        // foreground and persistent exclusions still follow and can veto it.
+        int veto = killer.indexOf("if (!wanted) {");
+        assertTrue(overlay < veto);
+        assertTrue(veto < killer.indexOf("ProtectedApps.isProtected(pkg, currentKeyboard, currentLauncher)"));
+        assertTrue(veto < killer.indexOf("ApplicationInfo.FLAG_PERSISTENT"));
         // While a schedule is active the legacy lists take no part: no fallback, no migrated rows.
         assertTrue(killer.contains("AppPolicyResolver.LegacyState legacyState = scheduleOverlay != null ? null"));
         assertTrue(killer.contains("effectivePolicy.source == AppPolicy.SOURCE_LEGACY_MIGRATED"));

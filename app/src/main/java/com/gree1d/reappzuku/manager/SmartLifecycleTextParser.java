@@ -24,6 +24,42 @@ final class SmartLifecycleTextParser {
         return matcher.find() ? matcher.group(1) : null;
     }
 
+    private static final Pattern HISTORY_ENTRY = Pattern.compile("\\* Hist +#\\d+: ");
+    private static final Pattern RECORD_PACKAGE = Pattern.compile(
+            "^ActivityRecord\\{\\S+ u\\d+ ([A-Za-z0-9_.$]+)/");
+
+    /**
+     * Packages with an activity on screen or about to be: resumed, paused
+     * (picture in picture, split screen), started or requested visible, plus
+     * the app on top, which is the one the user left when the screen went off.
+     * An app that only sits further down in Recents is not included.
+     *
+     * @return null when no activity history entry could be read, so the caller
+     *         cannot tell which apps are on screen
+     */
+    static Set<String> parseVisiblePackages(String activitiesDump) {
+        if (activitiesDump == null) return null;
+        String[] entries = HISTORY_ENTRY.split(activitiesDump, -1);
+        Set<String> visible = new HashSet<>();
+        boolean anyRecord = false;
+        for (int i = 1; i < entries.length; i++) {
+            Matcher record = RECORD_PACKAGE.matcher(entries[i]);
+            if (!record.find()) continue;
+            String entry = entries[i];
+            // The first entry belongs to the top task.
+            if (!anyRecord || entry.contains("nowVisible=true") || entry.contains("state=RESUMED")
+                    || entry.contains("state=PAUSED") || entry.contains("state=STARTED")
+                    || entry.contains("mVisibleRequested=true")) {
+                visible.add(record.group(1));
+            }
+            anyRecord = true;
+        }
+        if (!anyRecord) return null;
+        Matcher foreground = FOREGROUND_PACKAGE.matcher(activitiesDump);
+        while (foreground.find()) visible.add(foreground.group(1));
+        return visible;
+    }
+
     static Set<String> parseRunningPackages(String text) {
         Set<String> result = new HashSet<>();
         if (text == null || text.isEmpty()) return result;

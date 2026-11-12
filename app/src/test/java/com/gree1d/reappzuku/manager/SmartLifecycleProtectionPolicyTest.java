@@ -110,4 +110,71 @@ public class SmartLifecycleProtectionPolicyTest {
         return SmartLifecycleProtectionPolicy.getDumpProtectionReason(
                 PKG, media, widget, services, wallpaper, devicePolicy, connectivity);
     }
+
+    @Test
+    public void android16SuspensionCandidateListIsNoDeviceAdmin() {
+        // dumpsys device_policy on Android 16 lists nearly every app here.
+        String policy = "Device state cache:\n  Device provisioned: true\n\n"
+                + "PersonalAppsSuspensionHelper\n  critical packages: empty\n"
+                + "  Packages subject to suspension: 2 apps\n    0: " + PKG + "\n    1: com.other.app\n"
+                + "\nEncryption Status: per-user\n";
+        assertNull(reason("", "", "", "", policy, ""));
+        assertEquals("device policy", reason("", "", "", "",
+                policy + "Enabled Device Admins (User 0):\n  admin=" + PKG + "/.Receiver\n", ""));
+    }
+
+    @Test
+    public void aRequestNextToSystemUiListeningForVpnsIsNoVpn() {
+        String connectivity = "  uid/pid:10135/3093 callbackRequest: 48 [NetworkRequest [ LISTEN id=48,"
+                + " [ Transports: VPN RequestorUid: 10135 RequestorPkg: com.android.systemui ] ]]\n"
+                + "      NetworkRequest [ REQUEST id=371, [ Capabilities: INTERNET&NOT_VCN_MANAGED"
+                + " Uid: 10244 RequestorUid: 10244 RequestorPkg: " + PKG + " ] ]\n";
+        assertNull(reason("", "", "", "", "", connectivity));
+        // The app that asked for VPN networks does not run one either.
+        assertNull(SmartLifecycleProtectionPolicy.getDumpProtectionReason("com.android.systemui",
+                "", "", "", "", "", connectivity, true, true, true));
+    }
+
+    @Test
+    public void aForegroundFlagBelongsToItsOwnServiceRecord() {
+        String services = "  * ServiceRecord{1 u0 " + PKG + "/.Sync}\n    isForeground=false foregroundId=0\n"
+                + "  * ServiceRecord{2 u0 com.other.app/.Player}\n    isForeground=true foregroundId=7\n";
+        assertNull(reason("", "", services, "", "", ""));
+        assertEquals("foreground service", SmartLifecycleProtectionPolicy.getDumpProtectionReason(
+                "com.other.app", "", "", services, "", "", "", true, true, true));
+    }
+
+    @Test
+    public void aRunningVpnServiceIsProtectedThroughItsServiceRecord() {
+        String services = "  * ServiceRecord{3 u0 " + PKG + "/.Tunnel}\n"
+                + "    intent={act=android.net.VpnService cmp=" + PKG + "/.Tunnel}\n"
+                + "    permission=android.permission.BIND_VPN_SERVICE\n"
+                + "    app=ProcessRecord{45d1bfc 23792:" + PKG + "/u0a172}\n"
+                + "    isForeground=false foregroundId=0\n";
+        assertEquals("VPN/network service", reason("", "", services, "", "", ""));
+        // A declared but not running VPN service is no VPN.
+        assertNull(reason("", "", services.replace("app=ProcessRecord{", "app=null "), "", "", ""));
+    }
+
+    @Test
+    public void anotherUsersAdminAfterTheSuspensionListStaysProtected() {
+        String policy = "Device state cache:\n\nPersonalAppsSuspensionHelper\n  Packages subject to suspension: 1 apps\n"
+                + "    0: com.other.app\n  Enabled Device Admins (User 10, provisioningState: 3):\n"
+                + "    admin=" + PKG + "/.Receiver\n";
+        assertEquals("device policy", reason("", "", "", "", policy, ""));
+        assertNull(SmartLifecycleProtectionPolicy.getDumpProtectionReason("com.other.app",
+                "", "", "", "", policy, "", true, true, true));
+    }
+
+    @Test
+    public void theWatchdogAndThePassShareTheForegroundServiceCheck() throws Exception {
+        String root = java.nio.file.Files.isDirectory(java.nio.file.Paths.get("app")) ? "" : "../";
+        String watchdog = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(root
+                + "app/src/main/java/com/gree1d/reappzuku/manager/RestrictionsWatchdogManager.java")), "UTF-8");
+        org.junit.Assert.assertTrue(watchdog.contains("SmartLifecycleProtectionPolicy.runsForegroundService(servicesDump, packageName)"));
+        String killer = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(root
+                + "app/src/main/java/com/gree1d/reappzuku/manager/AutoKillManager.java")), "UTF-8");
+        // A root shell reports a failed dumpsys as text; that is no dump either.
+        org.junit.Assert.assertTrue(killer.contains("activityDump[0].startsWith(\"ERROR:\")"));
+    }
 }
