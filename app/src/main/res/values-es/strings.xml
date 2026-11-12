@@ -872,8 +872,6 @@
     <string name="triggers_fgs_boot_blocked_explanation">Android 14+: un receptor BOOT_COMPLETED no puede iniciar un FGS de tipo MICROPHONE (API 34) o PHONE_CALL (API 35). La app está intentando evadir esta restricción.</string>
     <string name="triggers_fgs_boot_exception_detail">ForegroundServiceStartNotAllowedException en el encendido</string>
     <string name="triggers_fgs_boot_exception_explanation">Android 15: el intento de iniciar un FGS desde BOOT_COMPLETED resultó en una excepción. El tipo de servicio (dataSync/mediaProcessing/phoneCall) tiene prohibido lanzarse en el encendido.</string>
-    <string name="triggers_doze_battery_opt_detail">Optimización de batería desactivada · RUN_ANY_IN_BACKGROUND=allow</string>
-    <string name="triggers_doze_battery_opt_explanation">La app fue excluida de la optimización de batería por el usuario o el sistema. Puede ejecutarse en segundo plano sin restricciones de Doze o App Standby.</string>
     <string name="triggers_doze_battery_exempt_detail">Exento de batería (dumpsys battery)</string>
     <string name="triggers_doze_battery_exempt_explanation">La app está en la lista de exenciones del administrador de batería.</string>
     <string name="triggers_bucket_restricted_explanation">Estado RESTRICTED (Android 12+): Las tareas y alarmas están completamente bloqueadas. En Android 14, incluso se ignoran las alarmas ALLOW_WHILE_IDLE. App restringida debido a un consumo excesivo en segundo plano.</string>

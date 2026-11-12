@@ -875,8 +875,6 @@
     <string name="triggers_fgs_boot_blocked_explanation">Android 14+: BOOT_COMPLETED receiver не может запустить FGS типа MICROPHONE (API 34) или PHONE_CALL (API 35). Приложение пытается обойти это ограничение.</string>
     <string name="triggers_fgs_boot_exception_detail">ForegroundServiceStartNotAllowedException при boot</string>
     <string name="triggers_fgs_boot_exception_explanation">Android 15: попытка запустить FGS из BOOT_COMPLETED завершилась исключением. Тип сервиса (dataSync/mediaProcessing/phoneCall) запрещён к запуску при загрузке.</string>
-    <string name="triggers_doze_battery_opt_detail">Battery optimization disabled · RUN_ANY_IN_BACKGROUND=allow</string>
-    <string name="triggers_doze_battery_opt_explanation">Приложение исключено из оптимизации батареи пользователем или системой. Может работать в фоне без ограничений Doze/App Standby.</string>
     <string name="triggers_doze_battery_exempt_detail">Battery exempt (dumpsys battery)</string>
     <string name="triggers_doze_battery_exempt_explanation">Приложение в списке исключений battery manager.</string>
     <string name="triggers_bucket_restricted_explanation">RESTRICTED bucket (Android 12+): Jobs и Alarms полностью заблокированы. На Android 14 даже ALLOW_WHILE_IDLE аларм игнорируется. Приложение попало под ограничения за чрезмерное потребление в фоне.</string>
