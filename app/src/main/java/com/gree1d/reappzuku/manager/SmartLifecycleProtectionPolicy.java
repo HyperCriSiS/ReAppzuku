@@ -10,8 +10,9 @@ package com.gree1d.reappzuku.manager;
 final class SmartLifecycleProtectionPolicy {
     private static final java.util.regex.Pattern FOREGROUND_ID =
             java.util.regex.Pattern.compile("foregroundId=[1-9]");
+    // "state=PLAYING(3)" on recent releases, the bare number "state=3" on older ones.
     private static final java.util.regex.Pattern PLAYBACK_STATE =
-            java.util.regex.Pattern.compile("state=PlaybackState \\{state=[A-Z_]*\\((\\d+)\\)");
+            java.util.regex.Pattern.compile("^state=PlaybackState \\{state=(?:[A-Z_]*\\()?(\\d{1,3})\\b");
     private static final java.util.regex.Pattern PLAYBACK_UPDATED =
             java.util.regex.Pattern.compile("\\bupdated=(\\d+)");
     /**
@@ -99,24 +100,30 @@ final class SmartLifecycleProtectionPolicy {
      *
      * In "dumpsys media_session" each session has a line "package=name" and,
      * further down, "state=PlaybackState {state=PLAYING(3), ..., updated=ms".
-     * A dump without any such state line is in a layout this does not know;
-     * then any mention of the package counts, as it did before.
+     * Only lines that start with these words count, so a title or an error
+     * text of a session cannot pose as one. A dump with neither the list of
+     * sessions nor a session is in a layout this does not know; then any
+     * mention of the package counts, as it did before.
      */
     static boolean playsMedia(String mediaDump, String packageName, long nowElapsedMs) {
         if (mediaDump == null) return false;
-        boolean anyState = false;
+        boolean knownLayout = false;
         boolean playing = false;
         String owner = null;
         for (String line : mediaDump.split("\n")) {
             String text = line.trim();
+            if (text.startsWith("Sessions Stack")) {
+                knownLayout = true;
+                continue;
+            }
             if (text.startsWith("package=")) {
+                knownLayout = true;
                 owner = text.substring("package=".length()).trim();
                 continue;
             }
+            if (!packageName.equals(owner)) continue;
             java.util.regex.Matcher state = PLAYBACK_STATE.matcher(text);
             if (!state.find()) continue;
-            anyState = true;
-            if (!packageName.equals(owner)) continue;
             switch (Integer.parseInt(state.group(1))) {
                 case 3: // playing
                 case 4: // fast forwarding
@@ -129,17 +136,30 @@ final class SmartLifecycleProtectionPolicy {
                     playing = true;
                     break;
                 case 2: // paused
-                    java.util.regex.Matcher updated = PLAYBACK_UPDATED.matcher(text);
-                    if (nowElapsedMs <= 0 || !updated.find()
-                            || nowElapsedMs - Long.parseLong(updated.group(1)) < PAUSE_GRACE_MS) {
-                        playing = true;
-                    }
+                    if (pausedRecently(text, nowElapsedMs)) playing = true;
                     break;
                 default: // none, stopped, error
                     break;
             }
         }
-        return anyState ? playing : PackageTextMatcher.containsExactPackage(mediaDump, packageName);
+        return knownLayout ? playing : PackageTextMatcher.containsExactPackage(mediaDump, packageName);
+    }
+
+    /**
+     * The time of the last state change is normally the elapsed realtime, but
+     * an app may set any value. Without a usable time on either side the
+     * pause counts as recent.
+     */
+    private static boolean pausedRecently(String stateLine, long nowElapsedMs) {
+        java.util.regex.Matcher updated = PLAYBACK_UPDATED.matcher(stateLine);
+        if (nowElapsedMs <= 0 || !updated.find()) return true;
+        long at;
+        try {
+            at = Long.parseLong(updated.group(1));
+        } catch (NumberFormatException e) {
+            return true;
+        }
+        return at <= 0 || nowElapsedMs - at < PAUSE_GRACE_MS;
     }
 
     /**
@@ -175,6 +195,20 @@ final class SmartLifecycleProtectionPolicy {
     }
 
     /** The ServiceRecord blocks whose header names the package. */
+    /**
+     * The package a service belongs to, from the rest of its header line:
+     * "6dc3974 u0 owner/.Service c:caller}". The part after "c:" is the app
+     * that last called the service. Matching the whole line let that app
+     * borrow the foreground service of the app it had called.
+     */
+    static String ownerOf(String header) {
+        for (String token : header.trim().split("\\s+")) {
+            int slash = token.indexOf('/');
+            if (slash > 0 && !token.startsWith("c:")) return token.substring(0, slash);
+        }
+        return null;
+    }
+
     private static java.util.List<String> serviceRecords(String servicesDump, String packageName) {
         java.util.List<String> result = new java.util.ArrayList<>();
         if (servicesDump == null) return result;
@@ -183,7 +217,7 @@ final class SmartLifecycleProtectionPolicy {
             String record = records[i];
             int lineEnd = record.indexOf('\n');
             String header = lineEnd < 0 ? record : record.substring(0, lineEnd);
-            if (PackageTextMatcher.containsExactPackage(header, packageName)) result.add(record);
+            if (packageName.equals(ownerOf(header))) result.add(record);
         }
         return result;
     }
