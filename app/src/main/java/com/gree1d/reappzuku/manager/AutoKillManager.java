@@ -135,6 +135,8 @@ public class AutoKillManager {
             // Fetched once, and only when an app the policies want stopped is running:
             // most passes find none, and the dump costs system_server time too.
             String[] activityDump = new String[1];
+            java.util.concurrent.atomic.AtomicReference<Set<String>> visiblePackages =
+                    new java.util.concurrent.atomic.AtomicReference<>();
 
 
             Set<String> runningPackages = new HashSet<>();
@@ -269,8 +271,15 @@ public class AutoKillManager {
                                 if (activityDump[0] == null || activityDump[0].startsWith("ERROR:")) {
                                     activityDump[0] = "";
                                 }
+                                visiblePackages.set(SmartLifecycleTextParser.parseVisiblePackages(activityDump[0]));
                             }
-                            if (activityDump[0].trim().isEmpty() || containsPackage(activityDump[0], pkg)) {
+                            if (activityDump[0].trim().isEmpty()) {
+                                return false;
+                            }
+                            // An app in Recents is stopped; one on screen is not. An unknown
+                            // dump format falls back to sparing every app the dump names.
+                            if (visiblePackages.get() != null ? visiblePackages.get().contains(pkg)
+                                    : containsPackage(activityDump[0], pkg)) {
 
                                 return false;
                             }

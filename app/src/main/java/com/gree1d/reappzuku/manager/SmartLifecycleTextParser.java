@@ -24,6 +24,37 @@ final class SmartLifecycleTextParser {
         return matcher.find() ? matcher.group(1) : null;
     }
 
+    private static final Pattern HISTORY_ENTRY = Pattern.compile("\\* Hist +#\\d+: ");
+    private static final Pattern RECORD_PACKAGE = Pattern.compile(
+            "^ActivityRecord\\{\\S+ u\\d+ ([A-Za-z0-9_.$]+)/");
+
+    /**
+     * Packages with an activity on screen: resumed, paused (picture in picture,
+     * split screen) or reported visible. An app that only sits in Recents is
+     * not on screen.
+     *
+     * @return null when the dump has no activity history entries, so the
+     *         caller cannot tell which apps are on screen
+     */
+    static Set<String> parseVisiblePackages(String activitiesDump) {
+        if (activitiesDump == null) return null;
+        String[] entries = HISTORY_ENTRY.split(activitiesDump, -1);
+        if (entries.length < 2) return null;
+        Set<String> visible = new HashSet<>();
+        for (int i = 1; i < entries.length; i++) {
+            Matcher record = RECORD_PACKAGE.matcher(entries[i]);
+            if (!record.find()) continue;
+            String entry = entries[i];
+            if (entry.contains("nowVisible=true") || entry.contains("state=RESUMED")
+                    || entry.contains("state=PAUSED")) {
+                visible.add(record.group(1));
+            }
+        }
+        String foreground = parseForegroundPackage(activitiesDump);
+        if (foreground != null) visible.add(foreground);
+        return visible;
+    }
+
     static Set<String> parseRunningPackages(String text) {
         Set<String> result = new HashSet<>();
         if (text == null || text.isEmpty()) return result;
