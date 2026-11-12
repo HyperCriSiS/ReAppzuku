@@ -20,7 +20,7 @@ public class ManifestCapabilityPolicyTest {
     private static final String TOOLS_NS = "http://schemas.android.com/tools";
 
     @Test
-    public void packageVisibilityIsExplicitAndUsageStatsIsNotRequested() throws Exception {
+    public void packageVisibilityIsExplicitAndUsageStatsIsDeclaredForTheAppOp() throws Exception {
         Document document = parseManifest();
 
         Element queryAll = findUsesPermission(document, "android.permission.QUERY_ALL_PACKAGES");
@@ -28,8 +28,10 @@ public class ManifestCapabilityPolicyTest {
         assertTrue("QUERY_ALL_PACKAGES must carry its reviewed lint justification",
                 queryAll.getAttributeNS(TOOLS_NS, "ignore").contains("QueryAllPackagesPermission"));
 
-        assertFalse("PACKAGE_USAGE_STATS must not silently enter the normal-app permission surface",
-                hasUsesPermission(document, "android.permission.PACKAGE_USAGE_STATS"));
+        // Without the declaration the GET_USAGE_STATS AppOp grant has no effect on API 36.
+        Element usage = findUsesPermission(document, "android.permission.PACKAGE_USAGE_STATS");
+        assertNotNull("PACKAGE_USAGE_STATS is required for the usage access AppOp", usage);
+        assertTrue(usage.getAttributeNS(TOOLS_NS, "ignore").contains("ProtectedPermissions"));
     }
 
     @Test
