@@ -301,6 +301,8 @@ Realiza un escaneo de la carga actual en el sistema de todas las apps activas en
 - Retención de sensores
 - Retención de GPS
 
+Toca una app en el resultado para ver lo que se encontró. **Gestionar esta app**, debajo de los hallazgos, abre las opciones de la app, donde puedes fijar su estrategia o restringirla.
+
 > [!NOTE]
 > El escaneo no funciona en apps persistentes ni protegidas, incluso si aparecen en la lista de apps activas.
 

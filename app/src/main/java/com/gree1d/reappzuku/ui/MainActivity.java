@@ -571,13 +571,21 @@ public class MainActivity extends BaseActivity {
                         dialogView.findViewById(R.id.scan_recycler);
                 recycler.setLayoutManager(
                         new androidx.recyclerview.widget.LinearLayoutManager(this));
-                recycler.setAdapter(new ScanResultAdapter(this, loads));
-
                 AlertDialog resultDialog = new MaterialAlertDialogBuilder(this)
                         .setTitle(getString(R.string.scansystem_dialog_title))
                         .setView(dialogView)
                         .setPositiveButton(getString(R.string.dialog_close), null)
                         .create();
+                recycler.setAdapter(new ScanResultAdapter(this, loads, packageName -> {
+                    // From seeing what an app does to limiting it: its options sheet.
+                    for (AppModel app : fullAppsList) {
+                        if (app.getPackageName().equals(packageName)) {
+                            resultDialog.dismiss();
+                            showAppOptionsMenu(app, binding.recyclerView);
+                            return;
+                        }
+                    }
+                }));
                 resultDialog.show();
                 tintDialogButtons(resultDialog);
             });
