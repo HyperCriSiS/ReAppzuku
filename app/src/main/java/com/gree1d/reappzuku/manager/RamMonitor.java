@@ -26,6 +26,23 @@ public class RamMonitor {
     private final ExecutorService executor;
     private volatile boolean isMonitoring = false;
     private Runnable monitorRunnable;
+    /** What the bar shows; -1 before the first value and after the accent color was set from outside. */
+    private long shownUsedMb = -1;
+    private int shownBand = -1;
+
+    /**
+     * The bar is only moved for a change of half a percent or more. Its
+     * animation renders dozens of frames, and a smaller step is not visible.
+     */
+    static boolean barNeedsUpdate(long shownUsedMb, long usedMb, long totalMb) {
+        return shownUsedMb < 0 || Math.abs(usedMb - shownUsedMb) * 200 >= totalMb;
+    }
+
+    /** 0 normal, 1 from 60 percent, 2 from 85 percent: the three colors of the bar. */
+    static int colorBand(long usedMb, long totalMb) {
+        float fraction = (float) usedMb / totalMb;
+        return fraction >= 0.85f ? 2 : fraction >= 0.6f ? 1 : 0;
+    }
 
     public RamMonitor(Context context, Handler handler,
                       LinearProgressIndicator ramUsageBar, TextView ramUsageText) {
@@ -50,6 +67,7 @@ public class RamMonitor {
                     ramUsageBar, androidx.appcompat.R.attr.colorPrimary);
         }
         ramUsageBar.setIndicatorColor(baseColor);
+        shownBand = -1;
     }
 
     public void startMonitoring() {
@@ -74,19 +92,27 @@ public class RamMonitor {
                             return;
 
                         if (ramInfo != null && ramInfo.totalMb > 0) {
-                            ramUsageBar.setMax((int) ramInfo.totalMb);
-                            ramUsageBar.setProgress((int) ramInfo.usedMb, true);
+                            if (barNeedsUpdate(shownUsedMb, ramInfo.usedMb, ramInfo.totalMb)) {
+                                ramUsageBar.setMax((int) ramInfo.totalMb);
+                                // Animated when the bar first fills. A later step of a few
+                                // pixels rendered some 70 frames for a move nobody can follow.
+                                ramUsageBar.setProgress((int) ramInfo.usedMb, shownUsedMb < 0);
+                                shownUsedMb = ramInfo.usedMb;
+                            }
                             ramUsageText.setText(context.getString(R.string.ram_usage,
                                     ramInfo.usedMb, ramInfo.totalMb));
 
-                            float fraction = (float) ramInfo.usedMb / ramInfo.totalMb;
-                            if (fraction >= 0.85f) {
-                                ramUsageBar.setIndicatorColor(
-                                        resolveAttrColor(androidx.appcompat.R.attr.colorError));
-                            } else if (fraction >= 0.6f) {
-                                ramUsageBar.setIndicatorColor(0xFFFF9800);
-                            } else {
-                                applyAccentColor();
+                            int band = colorBand(ramInfo.usedMb, ramInfo.totalMb);
+                            if (band != shownBand) {
+                                if (band == 2) {
+                                    ramUsageBar.setIndicatorColor(
+                                            resolveAttrColor(androidx.appcompat.R.attr.colorError));
+                                } else if (band == 1) {
+                                    ramUsageBar.setIndicatorColor(0xFFFF9800);
+                                } else {
+                                    applyAccentColor();
+                                }
+                                shownBand = band;
                             }
                         } else {
 
