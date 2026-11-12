@@ -18,6 +18,8 @@ public final class BackgroundActivityParser {
     private static final long DAY_MS = 24L * 60 * 60 * 1000;
     /** A shorter window says too little: one job right after unplugging would look like hours per day. */
     static final long MIN_WINDOW_MS = 6L * 60 * 60 * 1000;
+    /** Less than this in the whole window is not worth naming, whatever it is per day. */
+    static final long MIN_BUSY_MS = 5L * 60 * 1000;
 
     private BackgroundActivityParser() {
     }
@@ -25,7 +27,8 @@ public final class BackgroundActivityParser {
     /**
      * @return minutes per day each uid held a wakelock or ran jobs, whichever
      *         is longer (a running job holds a wakelock, so the two overlap).
-     *         Empty when the statistics cover less than {@link #MIN_WINDOW_MS}.
+     *         Empty when the statistics cover less than {@link #MIN_WINDOW_MS};
+     *         a uid with less than {@link #MIN_BUSY_MS} in total is left out.
      */
     public static Map<Integer, Double> minutesPerDay(String checkin) {
         Map<Integer, Double> result = new HashMap<>();
@@ -64,6 +67,7 @@ public final class BackgroundActivityParser {
             jobMs.merge(entry.getKey(), entry.getValue(), Math::max);
         }
         for (Map.Entry<Integer, Long> entry : jobMs.entrySet()) {
+            if (entry.getValue() < MIN_BUSY_MS) continue;
             result.put(entry.getKey(), entry.getValue() / 60_000.0 / days);
         }
         return result;

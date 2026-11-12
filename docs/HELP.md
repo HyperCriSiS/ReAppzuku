@@ -1088,25 +1088,25 @@ The policy editor offers presets: Never touch, Messenger (standby after 4 hours,
 
 Two more come from what Android itself counted since the last full charge, so they can appear on the first day. They need Root or Shizuku access and only name apps you installed yourself:
 
-- an unmanaged app that was not opened for 3 days and held wakelocks or ran jobs for at least 2 minutes per day,
+- an unmanaged app that was not opened for 3 days and held wakelocks or ran jobs for at least 2 minutes per day and 5 minutes in total,
 - an unmanaged app that was not opened for 3 days and keeps a sensor switched on in the background.
 
-An app that was never opened counts as idle since the day it was installed.
+For these two, an app that was never opened counts as idle since the day it was installed, if it has an icon to open it with.
 
 **Limit when idle** asks how firmly the app should be limited:
 
-- **Gentle** gives the app the Messenger preset: standby after 4 hours without use, never stopped. Notifications, alarms and sync keep working.
-- **Balanced** does the same and also restricts background activity (Soft). Urgent push messages still arrive; the app's own background sync stops.
+- **Gentle** gives the app the Messenger preset: standby after 4 hours without use, never stopped. Standby delays the app's background work; notifications and alarms keep working.
+- **Balanced** does the same and also restricts background activity (Soft). The app's background work stops and notifications usually do not arrive until you open it.
 - **Strict** gives the app the Rarely used preset and the Medium restriction: standby after 30 minutes and stopped after 2 hours without use. Nothing arrives until you open the app again.
 
-A restriction level you already set for the app is kept. For an app with the Immediate strategy that keeps restarting there is no question: it gets the Gentle step.
+Balanced and Strict are only offered with Root or Shizuku access on Android 11 or later; otherwise the app gets the Gentle step. A restriction level you already set for the app is kept. For an app with the Immediate strategy that keeps restarting there is no question: it gets the Gentle step.
 
-Android's standby does not switch off a sensor an app left on. When a Smart app goes on standby and holds a sensor, ReAppzuku therefore ends its idle process once. This is the same thing Android does when it needs memory: alarms, jobs and notifications start the app again.
+Android's standby does not switch off a sensor an app left on. When a Smart app goes on standby and holds a sensor, ReAppzuku therefore ends its idle process once, unless the app shares its user ID with another app. This is the same thing Android does when it needs memory: alarms, jobs and notifications start the app again. An app that restarts itself right away can switch the sensor on again.
 
 **Dismiss** hides that recommendation for 30 days. Nothing changes until you apply a recommendation. Battery shares are only used once at least 3 days of statistics and a real amount of battery drain exist, so the two battery recommendations do not appear at first. The statistics behind it are kept per app and day for 90 days.
 
 **Applied recommendations**\
-Seven days after you applied a recommendation, the screen compares the app's share of all measured app power use in the week before and the week after. If it dropped by at least a third, the change helped. Otherwise it says there is no clear difference and offers **Undo**, which gives the app back the strategy and the restriction level it had before. **Keep** removes the entry. Without enough statistics from both weeks, it says so instead of guessing.
+Seven days after you applied a recommendation, the screen compares the app's share of all measured app power use in the week before and the week after. If it dropped by at least a third, the change helped. Otherwise it says there is no clear difference and offers **Undo**, which gives the app back the strategy it had before and lifts a restriction the recommendation set, unless you changed that restriction since. **Keep** removes the entry. Without enough statistics from both weeks, it says so instead of guessing.
 
 ---
 

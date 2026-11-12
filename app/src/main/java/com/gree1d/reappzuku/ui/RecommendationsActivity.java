@@ -20,6 +20,7 @@ import com.gree1d.reappzuku.core.BaseActivity;
 import com.gree1d.reappzuku.core.RecommendationEffect;
 import com.gree1d.reappzuku.core.SuggestionEngine;
 import com.gree1d.reappzuku.core.SuggestionLoader;
+import com.gree1d.reappzuku.db.AppPolicy;
 import com.gree1d.reappzuku.manager.BackgroundAppManager;
 
 import java.util.List;
@@ -105,8 +106,10 @@ public class RecommendationsActivity extends BaseActivity {
                 // A second tap must not run the change twice.
                 apply.setEnabled(false);
                 dismiss.setEnabled(false);
-                if (suggestion.reason == SuggestionEngine.REASON_RESTARTS) {
+                if (suggestion.reason == SuggestionEngine.REASON_RESTARTS
+                        || !SuggestionLoader.canRestrict(this)) {
                     // An app that restarts itself is only ever eased, never limited more firmly.
+                    // And a restriction that cannot be applied now is not offered.
                     apply(suggestion, row, SuggestionLoader.LEVEL_GENTLE);
                     return;
                 }
@@ -177,9 +180,11 @@ public class RecommendationsActivity extends BaseActivity {
                     // List statuses and strategies share their numbers.
                     AppPolicyQuickChoice.apply(getApplicationContext(),
                             effect.packageName, effect.previousStatus);
-                    if (effect.previousRestriction >= 0) {
+                    if (RecommendationEffect.shouldLiftRestriction(effect.appliedRestriction,
+                            BackgroundAppManager.storedRestrictionLevel(
+                                    getApplicationContext(), effect.packageName))) {
                         BackgroundAppManager.applyPolicyRestriction(getApplicationContext(),
-                                effect.packageName, effect.previousRestriction, true);
+                                effect.packageName, AppPolicy.RESTRICTION_NONE, true);
                     }
                     RecommendationEffect.forget(getApplicationContext(), effect.packageName);
                     runOnUiThread(() -> {
@@ -244,7 +249,12 @@ public class RecommendationsActivity extends BaseActivity {
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 Toast.makeText(this, R.string.policy_editor_saved, Toast.LENGTH_SHORT).show();
-                removeRow(row);
+                if (row.getParent() == null) {
+                    // The list was rebuilt while the level dialog was open; the new row is stale.
+                    reload();
+                } else {
+                    removeRow(row);
+                }
             });
         });
     }

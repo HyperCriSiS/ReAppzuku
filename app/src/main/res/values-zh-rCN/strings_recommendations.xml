@@ -13,7 +13,7 @@
     <string name="recommendations_reason_background">距上次打开的天数：%1$d。每天仍在后台活动约 %2$d 分钟。</string>
     <string name="recommendations_reason_sensor">距上次打开的天数：%1$d。仍在后台保持传感器开启。</string>
     <string name="recommendations_level_title">应以多大力度限制 %1$s？</string>
-    <string name="recommendations_level_gentle">温和：4 小时未使用后进入待机。若其保持传感器开启，则结束其空闲进程。通知、闹钟和同步照常工作。</string>
-    <string name="recommendations_level_balanced">均衡：同时限制后台活动。紧急推送消息仍会送达，其自身的后台同步会停止。</string>
-    <string name="recommendations_level_strict">严格：同时在 2 小时未使用后停止该应用。在您再次打开之前不会收到任何内容。</string>
+    <string name="recommendations_level_gentle">温和：4 小时未使用后进入待机，这会延迟其后台工作。若其保持传感器开启，则会结束其空闲进程一次。通知和闹钟照常工作。</string>
+    <string name="recommendations_level_balanced">均衡：同时限制后台活动。其后台工作会停止，在您打开该应用之前通常不会收到通知。</string>
+    <string name="recommendations_level_strict">严格：更严格地限制后台活动，30 分钟后让应用进入待机，2 小时未使用后将其停止。在您再次打开之前不会收到任何内容。</string>
 </resources>

@@ -37,7 +37,7 @@ public class SavingLevelsTest {
                 "9,10453,l,jb,\"#ScribesWorker#@androidx.work.systemjobscheduler@com.twitter.android/"
                         + "androidx.work.impl.background.systemjob.SystemJobService\",1298125,4,1298125,4",
                 "9,10453,l,jb,\"#DatabaseCleanupWorker#@x/y\",48,1,48,1",
-                "9,10428,l,awl,1000,1000",
+                "9,10428,l,awl,299999,299999",
                 "9,10170,l,jb,\"a,b\",600000,2,600000,2",
                 "9,10170,l,cpu,26699,33456,0",
                 "garbage");
@@ -48,9 +48,13 @@ public class SavingLevelsTest {
         Map<Integer, Double> minutes = BackgroundActivityParser.minutesPerDay(checkin(2 * DAY_MS));
         // Jobs 1298125 + 48 ms outlast the 1282637 ms wakelock; a running job holds one, so they are not added.
         assertEquals((1298125 + 48) / 60_000.0 / 2, minutes.get(10453), 1e-9);
-        assertEquals(1000 / 60_000.0 / 2, minutes.get(10428), 1e-9);
         assertEquals(5.0, minutes.get(10170), 1e-9);
-        assertEquals(3, minutes.size());
+        // Just under five minutes in the whole window is not named, whatever it is per day.
+        assertFalse(minutes.containsKey(10428));
+        assertEquals(2, minutes.size());
+        // Windows line endings do not break the numbers at the end of a line.
+        assertEquals(minutes, BackgroundActivityParser.minutesPerDay(
+                checkin(2 * DAY_MS).replace("\n", "\r\n")));
     }
 
     @Test
@@ -122,23 +126,77 @@ public class SavingLevelsTest {
     @Test
     public void applyingKeepsAnExistingRestrictionAndDoesNotStopTheApp() throws Exception {
         String loader = read("app/src/main/java/com/gree1d/reappzuku/core/SuggestionLoader.java");
-        assertTrue(loader.contains("&& restriction == AppPolicy.RESTRICTION_NONE) {"));
+        assertTrue(loader.contains("&& BackgroundAppManager.storedRestrictionLevel(context, packageName)\n"
+                + "                        == AppPolicy.RESTRICTION_NONE;"));
+        // Undo is told what the recommendation set, and nothing when it set nothing.
+        assertTrue(loader.contains("restrict ? restrictionFor(level) : -1);"));
         // The quiet variant: the visible one force-stops the app, which would cut its notifications.
         assertTrue(loader.contains("context, packageName, restrictionFor(level), true);"));
         // The level dialog is skipped for a restart loop, which is only ever eased.
         String screen = read("app/src/main/java/com/gree1d/reappzuku/ui/RecommendationsActivity.java");
-        assertTrue(screen.contains("if (suggestion.reason == SuggestionEngine.REASON_RESTARTS) {"));
+        assertTrue(screen.contains("if (suggestion.reason == SuggestionEngine.REASON_RESTARTS\n"
+                + "                        || !SuggestionLoader.canRestrict(this)) {"));
+        // A list rebuilt under the open dialog would leave a stale row that could be applied again.
+        assertTrue(screen.contains("if (row.getParent() == null) {"));
     }
 
     @Test
-    public void undoKnowsTheRestrictionLevelFromBefore() {
+    public void theStrictLevelIsTheRarelyUsedPreset() {
+        for (com.gree1d.reappzuku.db.PolicyPreset preset : PolicyPresetSeeder.builtIns(0)) {
+            if (preset.id != PolicyPresetSeeder.PRESET_RARELY_USED) continue;
+            assertEquals(AppPolicy.STRATEGY_SMART, preset.strategy);
+            assertEquals(30L * 60_000L, preset.standbyDelayMs);
+            assertEquals(2L * 60 * 60_000L, preset.forceStopDelayMs);
+            // The level text and the help promise exactly this restriction.
+            assertEquals(SuggestionLoader.restrictionFor(SuggestionLoader.LEVEL_STRICT),
+                    preset.backgroundRestriction);
+        }
+    }
+
+    @Test
+    public void onlyUserAppsThatCanBeOpenedCountAsIdleSinceInstall() throws Exception {
+        String loader = read("app/src/main/java/com/gree1d/reappzuku/core/SuggestionLoader.java");
+        // A system component the user can never open must not turn up as unused for years.
+        assertTrue(loader.contains("&& background.contains(packageName)\n"
+                + "                    && packageManager.getLaunchIntentForPackage(packageName) != null) {"));
+        assertTrue(loader.contains("(info.flags & ApplicationInfo.FLAG_SYSTEM) == 0 ? packages[0] : null;"));
+        assertTrue(loader.contains("if (packages == null || packages.length != 1) return null;"));
+        // The copy of an app in a work profile is not this user's app.
+        assertTrue(loader.contains(
+                "if (uid / PER_USER_RANGE != android.os.Process.myUid() / PER_USER_RANGE) return null;"));
+    }
+
+    @Test
+    public void theSystemDumpsDoNotHoldUpDismissAndAFailedDumpIsNotKept() throws Exception {
+        String loader = read("app/src/main/java/com/gree1d/reappzuku/core/SuggestionLoader.java");
+        assertTrue(loader.contains("private static Background background(Context context, long now) {\n"
+                + "        synchronized (BACKGROUND_LOCK) {"));
+        int failed = loader.indexOf("if (checkin == null || checkin.isEmpty()) return result;");
+        assertTrue(failed >= 0 && failed < loader.indexOf("cachedBackground = result;"));
+    }
+
+    @Test
+    public void undoOnlyLiftsARestrictionTheRecommendationSetAndThatIsStillInPlace() {
         RecommendationEffect.Applied applied =
-                new RecommendationEffect.Applied("com.example.app", 1234L, 0, AppPolicy.RESTRICTION_NONE);
-        assertEquals("com.example.app|1234|0|0", applied.encode());
-        assertEquals(AppPolicy.RESTRICTION_NONE,
-                RecommendationEffect.Applied.decode(applied.encode()).previousRestriction);
-        // An entry stored by an earlier version has no level: undo leaves the restriction alone.
-        assertEquals(-1, RecommendationEffect.Applied.decode("com.example.app|1234|0").previousRestriction);
+                new RecommendationEffect.Applied("com.example.app", 1234L, 0, AppPolicy.RESTRICTION_SOFT);
+        assertEquals("com.example.app|1234|0|1", applied.encode());
+        assertEquals(AppPolicy.RESTRICTION_SOFT,
+                RecommendationEffect.Applied.decode(applied.encode()).appliedRestriction);
+        // An entry stored by an earlier version, or a Gentle one, set no restriction.
+        assertEquals(-1, RecommendationEffect.Applied.decode("com.example.app|1234|0").appliedRestriction);
+        assertEquals("com.example.app|1234|0",
+                new RecommendationEffect.Applied("com.example.app", 1234L, 0, -1).encode());
+
+        assertTrue(RecommendationEffect.shouldLiftRestriction(
+                AppPolicy.RESTRICTION_SOFT, AppPolicy.RESTRICTION_SOFT));
+        // The user raised or removed it by hand since: it is theirs.
+        assertFalse(RecommendationEffect.shouldLiftRestriction(
+                AppPolicy.RESTRICTION_SOFT, AppPolicy.RESTRICTION_HARD));
+        assertFalse(RecommendationEffect.shouldLiftRestriction(
+                AppPolicy.RESTRICTION_SOFT, AppPolicy.RESTRICTION_NONE));
+        // Nothing was set, so a restriction found now was never the recommendation's.
+        assertFalse(RecommendationEffect.shouldLiftRestriction(-1, AppPolicy.RESTRICTION_HARD));
+        assertFalse(RecommendationEffect.shouldLiftRestriction(-1, AppPolicy.RESTRICTION_NONE));
         assertNull(RecommendationEffect.Applied.decode("com.example.app|1234|0|x"));
         assertNull(RecommendationEffect.Applied.decode("com.example.app|1234|0|0|0"));
     }
@@ -157,6 +215,9 @@ public class SavingLevelsTest {
         // One sensor dump per pass at most, and none when no app goes on standby.
         assertEquals(1, smart.split("dumpsys sensorservice", -1).length - 1);
         assertTrue(smart.contains("if (sensorHolders == null) {"));
+        // With a shared uid the sensor may belong to another app.
+        assertTrue(smart.contains(
+                "return sensorHolders.containsKey(uid) && packages != null && packages.length == 1;"));
     }
 
     private static String read(String relative) throws Exception {

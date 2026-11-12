@@ -302,7 +302,10 @@ public final class SmartLifecycleManager {
 
     private boolean holdsSensor(String pkg, Map<Integer, List<String>> sensorHolders) {
         try {
-            return sensorHolders.containsKey(packageManager.getApplicationInfo(pkg, 0).uid);
+            int uid = packageManager.getApplicationInfo(pkg, 0).uid;
+            // With a shared uid the sensor may belong to another app.
+            String[] packages = packageManager.getPackagesForUid(uid);
+            return sensorHolders.containsKey(uid) && packages != null && packages.length == 1;
         } catch (PackageManager.NameNotFoundException e) {
             return false;
         }

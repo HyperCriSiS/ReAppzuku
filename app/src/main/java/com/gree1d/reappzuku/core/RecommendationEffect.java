@@ -39,8 +39,8 @@ public final class RecommendationEffect {
     public final long appliedAt;
     /** The {@link AppPolicyListState} status before the change, which undo restores. */
     public final int previousStatus;
-    /** The background restriction level before the change, or -1 if it was not recorded. */
-    public final int previousRestriction;
+    /** The background restriction level the change set, or -1 if it set none. */
+    public final int appliedRestriction;
     public final double shareBefore;
     public final double shareAfter;
     public final int verdict;
@@ -49,7 +49,7 @@ public final class RecommendationEffect {
         this.packageName = applied.packageName;
         this.appliedAt = applied.appliedAt;
         this.previousStatus = applied.previousStatus;
-        this.previousRestriction = applied.previousRestriction;
+        this.appliedRestriction = applied.appliedRestriction;
         this.shareBefore = shareBefore;
         this.shareAfter = shareAfter;
         this.verdict = verdict;
@@ -65,23 +65,23 @@ public final class RecommendationEffect {
         final String packageName;
         final long appliedAt;
         final int previousStatus;
-        /** -1 in entries stored before the level was kept. */
-        final int previousRestriction;
+        /** The restriction level the change set; -1 if none, as in entries of earlier versions. */
+        final int appliedRestriction;
 
         Applied(String packageName, long appliedAt, int previousStatus) {
             this(packageName, appliedAt, previousStatus, -1);
         }
 
-        Applied(String packageName, long appliedAt, int previousStatus, int previousRestriction) {
+        Applied(String packageName, long appliedAt, int previousStatus, int appliedRestriction) {
             this.packageName = packageName;
             this.appliedAt = appliedAt;
             this.previousStatus = previousStatus;
-            this.previousRestriction = previousRestriction;
+            this.appliedRestriction = appliedRestriction;
         }
 
         String encode() {
             return packageName + "|" + appliedAt + "|" + previousStatus
-                    + (previousRestriction < 0 ? "" : "|" + previousRestriction);
+                    + (appliedRestriction < 0 ? "" : "|" + appliedRestriction);
         }
 
         /** @return null for a malformed entry */
@@ -98,6 +98,14 @@ public final class RecommendationEffect {
     }
 
     /** The day the after window ends is the last day that has to be complete. */
+    /**
+     * Undo lifts a restriction only if the recommendation set it and it is
+     * still the level in place. One the user changed by hand since is theirs.
+     */
+    public static boolean shouldLiftRestriction(int appliedRestriction, int currentRestriction) {
+        return appliedRestriction > 0 && appliedRestriction == currentRestriction;
+    }
+
     static boolean isReady(long appliedAt, long now, TimeZone zone) {
         return DailyUsageMath.dayKey(now, zone) > DailyUsageMath.dayKey(appliedAt, zone, -MEASURE_DAYS);
     }
@@ -108,12 +116,12 @@ public final class RecommendationEffect {
     }
 
     public static void recordApplied(Context context, String packageName, int previousStatus,
-            int previousRestriction) {
+            int appliedRestriction) {
         Set<String> entries = new HashSet<>(stored(context));
         // A newer change of the same app replaces the older measurement.
         entries.removeIf(entry -> entry.startsWith(packageName + "|"));
         entries.add(new Applied(packageName, System.currentTimeMillis(), previousStatus,
-                previousRestriction).encode());
+                appliedRestriction).encode());
         prefs(context).edit().putStringSet(KEY_APPLIED, entries).apply();
     }
 

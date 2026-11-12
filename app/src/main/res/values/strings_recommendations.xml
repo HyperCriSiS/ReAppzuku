@@ -13,7 +13,7 @@
     <string name="recommendations_reason_background">Days since it was last opened: %1$d. Minutes active in the background per day: %2$d.</string>
     <string name="recommendations_reason_sensor">Days since it was last opened: %1$d. Still keeps a sensor switched on in the background.</string>
     <string name="recommendations_level_title">How firmly should %1$s be limited?</string>
-    <string name="recommendations_level_gentle">Gentle: standby after 4 hours without use. If it keeps a sensor on, its idle process is ended. Notifications, alarms and sync keep working.</string>
-    <string name="recommendations_level_balanced">Balanced: also restricts background activity. Urgent push messages still arrive, its own background sync stops.</string>
-    <string name="recommendations_level_strict">Strict: also stops the app after 2 hours without use. Nothing arrives until you open it again.</string>
+    <string name="recommendations_level_gentle">Gentle: standby after 4 hours without use, which delays its background work. If it keeps a sensor on, its idle process is ended once. Notifications and alarms keep working.</string>
+    <string name="recommendations_level_balanced">Balanced: also restricts background activity. Its background work stops and notifications usually do not arrive until you open the app.</string>
+    <string name="recommendations_level_strict">Strict: restricts background activity more firmly, puts the app on standby after 30 minutes and stops it after 2 hours without use. Nothing arrives until you open it again.</string>
 </resources>

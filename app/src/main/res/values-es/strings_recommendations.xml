@@ -13,7 +13,7 @@
     <string name="recommendations_reason_background">Días desde la última apertura: %1$d. Sigue activa en segundo plano unos %2$d minutos al día.</string>
     <string name="recommendations_reason_sensor">Días desde la última apertura: %1$d. Sigue manteniendo un sensor activado en segundo plano.</string>
     <string name="recommendations_level_title">¿Con qué firmeza debe limitarse %1$s?</string>
-    <string name="recommendations_level_gentle">Leve: en espera tras 4 horas sin uso. Si mantiene un sensor activado, se finaliza su proceso inactivo. Las notificaciones, las alarmas y la sincronización siguen funcionando.</string>
-    <string name="recommendations_level_balanced">Equilibrado: además restringe la actividad en segundo plano. Los mensajes push urgentes siguen llegando, su propia sincronización en segundo plano se detiene.</string>
-    <string name="recommendations_level_strict">Estricto: además detiene la app tras 2 horas sin uso. No llega nada hasta que la abras de nuevo.</string>
+    <string name="recommendations_level_gentle">Leve: en espera tras 4 horas sin uso, lo que retrasa su trabajo en segundo plano. Si mantiene un sensor activado, su proceso inactivo se finaliza una vez. Las notificaciones y las alarmas siguen funcionando.</string>
+    <string name="recommendations_level_balanced">Equilibrado: además restringe la actividad en segundo plano. Su trabajo en segundo plano se detiene y las notificaciones normalmente no llegan hasta que abras la app.</string>
+    <string name="recommendations_level_strict">Estricto: restringe la actividad en segundo plano con más firmeza, pone la app en espera a los 30 minutos y la detiene tras 2 horas sin uso. No llega nada hasta que la abras de nuevo.</string>
 </resources>
