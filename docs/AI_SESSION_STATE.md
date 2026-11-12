@@ -45,7 +45,7 @@ Open device checks:
 - Delta restriction apply: toggle one app and confirm that other restricted apps are not force-stopped; Resume in the out-of-sync dialog.
 - Non-wakeup snapshot and heartbeat alarms, and the display loops resuming after screen on.
 - An Automation Schedule window: apps on its list stopped, apps with an explicit strategy untouched, main settings restored at the end.
-- The Shizuku reconnect after a Shizuku server restart (#170).
+- The Shizuku reconnect after a Shizuku server restart (#170) is measured on the Android 17 emulator with the official Shizuku 13.6.0 server (runs `43299303119` and `43301331127`, opt-in class `RealShizukuBinderReconnectInstrumentationTest`): the restarted server does not hand its Binder to the app while the app stays in the background (40 seconds, four requests of the app to its provider process), and hands it over within about 2 seconds once the app comes to the foreground, to the same app process. The notification "No Shizuku access" opens the app. On the Android 16 phone the Binder came back in the background. Not checked: a granted Shizuku permission and the UserService after the reconnect.
 - Visual check of the new screens (recommendations and their effects, setup, strategy dialog, Settings levels, the trend card) with long translations, a custom accent and D-pad focus.
 
 None of these changes has been validated on a physical device. Local evidence is `./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest`.
