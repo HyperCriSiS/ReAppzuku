@@ -5,3 +5,5 @@ Read [`docs/AI_SESSION_STATE.md`](docs/AI_SESSION_STATE.md) for the current work
 Treat all existing documentation paths as canonical unless references, workflows and consumers are updated together. Do not interpret a task marked as complete in documentation as proof that tests or physical-device validation passed; rely on actual recorded evidence.
 
 Make changes in a task branch and use a pull request to integrate into the protected `main` branch. Preserve long-lived backup branches and do not discard unmerged work.
+
+This repository is a fork. Pull requests, issues, comments, releases and pushes go to `HyperCriSiS/ReAppzuku` only, never to the repository it was forked from. Name the target explicitly (`gh pr create --repo HyperCriSiS/ReAppzuku`): on a fork `gh` may otherwise pick the parent repository. Reading from the parent is fine.
