@@ -201,6 +201,24 @@ public class SavingLevelsTest {
         assertNull(RecommendationEffect.Applied.decode("com.example.app|1234|0|0|0"));
     }
 
+    @Test
+    public void anAppExemptFromBatteryOptimizationIsPointedOut() throws Exception {
+        // From an Android 16 device: only the user's own exemptions count.
+        java.util.Set<String> exempt = SuggestionLoader.userExempt(String.join("\n",
+                "system-excidle,com.android.providers.calendar,10071",
+                "system,com.android.shell,2000",
+                "user,com.machiav3lli.backup,10171",
+                "user,com.aurora.store,10170\r"));
+        assertEquals(new java.util.HashSet<>(Arrays.asList(
+                "com.machiav3lli.backup", "com.aurora.store")), exempt);
+        assertTrue(SuggestionLoader.userExempt(null).isEmpty());
+        assertTrue(SuggestionLoader.userExempt("").isEmpty());
+        // The note is part of the reason, so it is read before a level is chosen.
+        String screen = read("app/src/main/java/com/gree1d/reappzuku/ui/RecommendationsActivity.java");
+        assertTrue(screen.contains("SuggestionLoader.isBatteryExempt(suggestion.packageName)"));
+        assertTrue(screen.contains("R.string.recommendations_exempt_note"));
+    }
+
     // ---- Smart standby ----
 
     @Test

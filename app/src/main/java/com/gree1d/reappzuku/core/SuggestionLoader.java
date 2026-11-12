@@ -39,6 +39,8 @@ public final class SuggestionLoader {
     private static final Object BACKGROUND_LOCK = new Object();
     private static Background cachedBackground;
     private static long cachedBackgroundAt;
+    /** Read by the screen without the lock; replaced as a whole. */
+    private static volatile Set<String> batteryExempt = Collections.emptySet();
 
     private static final String PREFS = "recommendations";
     private static final String KEY_DISMISSED = "dismissed";
@@ -172,10 +174,32 @@ public final class SuggestionLoader {
                 String packageName = userAppOf(packageManager, uid);
                 if (packageName != null) result.sensorHolders.add(packageName);
             }
+            batteryExempt = userExempt(
+                    shell.runShellCommandAndGetFullOutput("dumpsys deviceidle whitelist"));
             cachedBackground = result;
             cachedBackgroundAt = now;
             return result;
         }
+    }
+
+    /**
+     * The apps the user exempted from battery optimization, from "dumpsys
+     * deviceidle whitelist" (lines "user,package,uid"). Android ignores standby
+     * buckets and background restrictions for them.
+     */
+    static Set<String> userExempt(String dump) {
+        Set<String> result = new HashSet<>();
+        if (dump == null) return result;
+        for (String line : dump.split("\n")) {
+            String[] parts = line.trim().split(",");
+            if (parts.length >= 2 && "user".equals(parts[0])) result.add(parts[1]);
+        }
+        return result;
+    }
+
+    /** Whether the last look at the system found the app exempt from battery optimization. */
+    public static boolean isBatteryExempt(String packageName) {
+        return batteryExempt.contains(packageName);
     }
 
     /** The package of a uid that belongs to exactly one user-installed app, else null. */

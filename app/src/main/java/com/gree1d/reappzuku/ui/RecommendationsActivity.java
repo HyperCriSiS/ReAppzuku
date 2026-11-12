@@ -223,6 +223,13 @@ public class RecommendationsActivity extends BaseActivity {
     }
 
     private String reasonText(SuggestionEngine.Suggestion suggestion) {
+        String reason = reasonOf(suggestion);
+        // Said before the user chooses a level that Android would then ignore.
+        return SuggestionLoader.isBatteryExempt(suggestion.packageName)
+                ? reason + " " + getString(R.string.recommendations_exempt_note) : reason;
+    }
+
+    private String reasonOf(SuggestionEngine.Suggestion suggestion) {
         int percent = (int) Math.round(suggestion.facts.batteryShare * 100);
         switch (suggestion.reason) {
             case SuggestionEngine.REASON_RESTARTS:
