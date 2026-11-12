@@ -994,6 +994,8 @@ Top of screen shows **ReAppzuku's own resource usage** — RAM, CPU, and battery
 **Resource Usage Charts**\
 Interactive charts of RAM, CPU, and battery usage across tracked apps. Switch between chart types with **arrows**.
 
+While the background service is off, or has not collected enough for the chosen period yet, the charts show what Android itself counted since the last full charge instead, and a line above them says so. That view needs Root or Shizuku access and has no memory figures.
+
 | Period | Description |
 |---|---|
 | 2 hours | Last 2 hours |

@@ -515,6 +515,7 @@
     <string name="stats_partial_data_warning">⚠ Неполные данные: история ещё накапливается</string>
     <string name="stats_disclaimer">Оценочные данные на основе Android batterystats / procstats. Реальные значения могут отличаться. Статистика батареи может быть неточной, если телефон долгое время был на зарядке.</string>
     <string name="stats_service_inactive_hint">Статистика собирается только при активном фоновом сервисе. Включите сервис в настройках приложения.</string>
+    <string name="stats_since_charge_notice">%1$s Вместо этого показано то, что сам Android насчитал с последней полной зарядки (часов: %2$d). Данных о памяти в этом нет.</string>
 
     <string-array name="chart_period_labels">
         <item>2ч</item>

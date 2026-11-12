@@ -26,6 +26,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.gree1d.reappzuku.core.BackgroundActivityParser;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.R;
 
@@ -138,6 +139,50 @@ public class CollectStatsManager {
             PeriodStats result = getStatsForPeriodBlocking(hours);
             handler.post(() -> callback.onResult(result));
         });
+    }
+
+    /**
+     * What Android itself counted since the last full charge, for a screen
+     * that has no snapshots of its own yet. One dump, nothing is stored.
+     */
+    public void getStatsSinceChargeAsync(@NonNull StatsCallback callback) {
+        executor.execute(() -> {
+            PeriodStats result = getStatsSinceChargeBlocking();
+            handler.post(() -> callback.onResult(result));
+        });
+    }
+
+    @WorkerThread
+    private PeriodStats getStatsSinceChargeBlocking() {
+        PeriodStats none = new PeriodStats(Collections.emptyList(), false, 0, null, false);
+        String checkin;
+        try {
+            checkin = shellManager.runCommandAndGetOutput("dumpsys batterystats --charged --checkin");
+        } catch (RuntimeException e) {
+            return none;
+        }
+        long windowMs = BackgroundActivityParser.windowMs(checkin);
+        if (windowMs <= 0) return none;
+        Map<String, Double> batteryMahByPkg = new HashMap<>();
+        Map<String, Long> cpuMsByPkg = new HashMap<>();
+        parseCheckinStats(checkin, batteryMahByPkg, cpuMsByPkg);
+        java.util.Set<String> packages = new java.util.HashSet<>(batteryMahByPkg.keySet());
+        packages.addAll(cpuMsByPkg.keySet());
+        if (packages.isEmpty()) return none;
+
+        android.content.pm.PackageManager pm = context.getPackageManager();
+        double cpuDenominatorMs = (double) windowMs * Runtime.getRuntime().availableProcessors();
+        List<AppResourceStats> result = new ArrayList<>(packages.size());
+        for (String pkg : packages) {
+            Long cpuMs = cpuMsByPkg.get(pkg);
+            // No memory figures: the system does not keep them per charge.
+            result.add(new AppResourceStats(pkg, resolveAppName(pm, pkg),
+                    getOrZero(batteryMahByPkg, pkg),
+                    Math.min(100.0, (cpuMs == null ? 0 : cpuMs) / cpuDenominatorMs * 100.0),
+                    0, 0, pkg.equals(context.getPackageName())));
+        }
+        result.sort((a, b) -> Double.compare(b.batteryMah, a.batteryMah));
+        return new PeriodStats(result, true, windowMs / 3600_000.0, null, false);
     }
 
     public interface StatsCallback  { void onResult(PeriodStats stats); }
@@ -481,7 +526,13 @@ public class CollectStatsManager {
             collectCheckinStatsFallback(batteryMahOut, cpuMsOut);
             return;
         }
+        parseCheckinStats(output, batteryMahOut, cpuMsOut);
+    }
 
+    @WorkerThread
+    private void parseCheckinStats(@NonNull String output,
+                                   @NonNull Map<String, Double> batteryMahOut,
+                                   @NonNull Map<String, Long> cpuMsOut) {
         Map<Integer, Double> uidToMah   = new HashMap<>();
         Map<Integer, Long>   uidToCpuMs = new HashMap<>();
 

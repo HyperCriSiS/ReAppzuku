@@ -516,6 +516,7 @@
     <string name="stats_partial_data_warning">⚠ Datos incompletos: el historial aún se está acumulando</string>
     <string name="stats_disclaimer">Datos estimados a partir de batterystats / procstats de Android. Los valores reales pueden variar. Las estadísticas de la batería pueden ser inexactas después de largas sesiones de carga.</string>
     <string name="stats_service_inactive_hint">Las estadísticas solo se recopilan mientras el servicio en segundo plano está activo. Actívalo en los ajustes.</string>
+    <string name="stats_since_charge_notice">%1$s En su lugar se muestra lo que el propio Android contó desde la última carga completa (horas: %2$d). No incluye cifras de memoria.</string>
 
     <string-array name="chart_period_labels">
         <item>2h</item>
