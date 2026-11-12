@@ -517,8 +517,13 @@ jobs:
         shell: bash
         run: bash scripts/tests/ci-api37-manifest-clock-rearm.sh
 
+      - name: Check that a running app gets the Binder of a restarted Shizuku server on API 37
+        if: ${{ inputs.test_class == 'com.gree1d.reappzuku.core.RealShizukuBinderReconnectInstrumentationTest' }}
+        shell: bash
+        run: bash scripts/tests/ci-api37-real-shizuku-reconnect.sh
+
       - name: Run Android instrumentation on API 37
-        if: ${{ inputs.test_class != 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RetryWorkerInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RealReconcileWorkerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37PackageHandlerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api37RealClockBroadcastDeliveryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api37ManifestClockRearmInstrumentationTest' }}
+        if: ${{ inputs.test_class != 'com.gree1d.reappzuku.core.ExactAlarmPermissionTransitionInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37ProcessRestartInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RetryWorkerInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37RealReconcileWorkerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api24Api37PackageHandlerRetryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api37RealClockBroadcastDeliveryInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.Api37ManifestClockRearmInstrumentationTest' && inputs.test_class != 'com.gree1d.reappzuku.core.RealShizukuBinderReconnectInstrumentationTest' }}
         shell: bash
         env:
           TEST_CLASS: ${{ inputs.test_class }}
