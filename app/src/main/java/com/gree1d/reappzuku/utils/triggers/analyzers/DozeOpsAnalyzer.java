@@ -311,6 +311,15 @@ public class DozeOpsAnalyzer {
     }
 
 // ---- analyzeAppOps ----
+    /**
+     * @param ago how long ago an operation was last used, as appops prints it
+     *            ("150d22h21m42s560ms", "+3m12s40ms")
+     * @return false as soon as the time has a day or an hour part
+     */
+    public static boolean usedWithinTheHour(String ago) {
+        return ago != null && !ago.matches(".*[0-9]+[dh].*");
+    }
+
     public List<TriggerInfo> analyzeAppOps(String packageName) {
         List<TriggerInfo> list = new ArrayList<>();
         try {
@@ -369,12 +378,15 @@ public class DozeOpsAnalyzer {
                     if (!"allow".equals(mode))
                         detail.append(" [").append(mode).append("]");
 
-                    list.add(new TriggerInfo(desc.group,
+                    // A wakelock held months ago is history, not something active now.
+                    boolean current = timeStr == null || usedWithinTheHour(timeStr);
+                    list.add(new TriggerInfo(
+                            current ? desc.group : TriggerInfo.Group.OTHER,
                             AppTriggersAnalyzer.KEY_CAT_APPOPS,
                             analyzer.getContext().getString(R.string.triggers_cat_appops),
                             detail.toString(),
                             desc.explanation,
-                            desc.severity));
+                            current ? desc.severity : TriggerInfo.Severity.INFO));
                 } catch (Exception e) {
 
                 }
