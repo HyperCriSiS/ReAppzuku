@@ -159,6 +159,9 @@ public final class SuggestionLoader {
             if (!(context.getApplicationContext() instanceof App)) return result;
             ShellManager shell = ((App) context.getApplicationContext()).getShellManager();
             if (shell == null || !shell.isAnyShellReady()) return result;
+            // The main screen asks for recommendations on every start with a shell, which
+            // makes this the place that reaches everyone, also without any restriction left.
+            com.gree1d.reappzuku.manager.WronglyAllowedOpsRepair.runOnce(context, shell);
             String checkin = shell.runShellCommandAndGetFullOutput(
                     "dumpsys batterystats --charged --checkin");
             // A failed or timed out dump is asked for again next time instead of being kept.

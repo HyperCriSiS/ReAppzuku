@@ -2,6 +2,8 @@ package com.gree1d.reappzuku.manager;
 
 import com.gree1d.reappzuku.db.AppPolicy;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -37,6 +39,26 @@ final class RestrictionDeltaPolicy {
      * A failed lift keeps its signature so the next pass tries again. An
      * uninstalled app has nothing left to lift.
      */
+    /**
+     * @param output lines "OP=text", the text being what "cmd appops get
+     *               package OP" printed, on one line
+     * @return the operations whose package mode is the given one. A uid mode,
+     *         which the system keeps for permission-like operations, is not
+     *         the package's own setting and does not count.
+     */
+    static List<String> opsInMode(String output, String mode) {
+        List<String> result = new ArrayList<>();
+        if (output == null) return result;
+        for (String line : output.split("\n")) {
+            int separator = line.indexOf('=');
+            if (separator <= 0) continue;
+            String op = line.substring(0, separator).trim();
+            String text = line.substring(separator + 1).replaceAll("Uid mode: " + op + ": [a-z]+", "");
+            if (text.matches(".*\\b" + op + ": " + mode + "\\b.*")) result.add(op);
+        }
+        return result;
+    }
+
     static boolean liftCompleted(int[] opsCount, boolean installed) {
         return opsCount[0] > 0 || !installed;
     }
