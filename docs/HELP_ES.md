@@ -315,7 +315,7 @@ Al tocar una app en la lista se abre el menú de acciones rápidas:
 - **Disparadores de la app** — análisis detallado de las causas de la actividad en segundo plano (ver abajo)
 - **Desinstalar** — elimina la app del dispositivo (no disponible para apps del sistema)
 - **Política de ciclo de vida**: abre el editor de políticas de la app
-- **Añadir a...**
+- **Gestionar esta app**
   - **Estrategia**: muestra la estrategia actual y permite elegir Sin gestionar, Protegido, Smart o Inmediato (ver [Estrategia por app](#estrategia-por-app-configuración-inicial-y-recomendaciones))
   - Ocultas
   - Restricción de segundo plano (Suave/Soft)

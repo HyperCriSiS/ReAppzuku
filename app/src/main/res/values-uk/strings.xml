@@ -99,7 +99,7 @@
     <!-- Контекстне меню (menu_app_options.xml) -->
     <string name="menu_app_info">Інформація про застосунок</string>
     <string name="menu_uninstall">Видалити</string>
-    <string name="menu_add_to">Додати до…</string>
+    <string name="menu_add_to">Керування застосунком</string>
     <string name="menu_hidden">Приховані</string>
     <string name="menu_app_triggers">Тригери застосунку</string>
 

@@ -225,6 +225,10 @@ public class AppOptionsBottomSheet extends BottomSheetDialogFragment {
             addToHeader.setVisibility(View.VISIBLE);
             addToTitle.setTextColor(accentColor);
             addToArrow.setImageTintList(ColorStateList.valueOf(accentColor));
+            // Open from the start: the strategy is the main choice of this sheet and
+            // was not found behind a collapsed header.
+            addToContainer.setVisibility(View.VISIBLE);
+            addToArrow.setRotation(180f);
 
             if (!isSystem) {
                 btnUninstall.setVisibility(View.VISIBLE);

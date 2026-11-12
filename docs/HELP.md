@@ -315,7 +315,7 @@ Tapping app in list opens quick action menu:
 - **App Triggers** — detailed analysis of background activity causes (see below)
 - **Uninstall** — removes app from device (unavailable for system apps)
 - **Lifecycle policy**: opens the policy editor for the app
-- **Add to...**
+- **Manage this app**
   - **Strategy**: shows the current strategy and lets you pick Unmanaged, Protected, Smart or Immediate (see [Per-App Strategy](#per-app-strategy-setup-and-recommendations))
   - Hidden
   - Background Restriction (Soft)
