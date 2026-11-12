@@ -44,6 +44,22 @@ public class StatsSinceChargeTest {
         assertTrue(!method.contains("getDao()") && !method.contains("dailyUsageDao"));
     }
 
+    @Test
+    public void aChartWithoutDataShowsNeitherAnOldChartNorAnotherLegend() throws Exception {
+        String screen = read("app/src/main/java/com/gree1d/reappzuku/ui/StatisticsActivity.java");
+        // The system keeps no memory figures per charge, so the memory chart is empty in that view.
+        int empty = screen.indexOf("if (total <= 0) {");
+        String branch = screen.substring(empty, screen.indexOf("return;", empty));
+        assertTrue(branch.contains("chartEntries[chartIdx] = null;"));
+        assertTrue(branch.contains("chart.clear();"));
+        assertTrue(branch.contains("if (chartIdx == currentChartIdx) binding.layoutChartLegend.removeAllViews();"));
+        // Paging to such a chart must not keep the legend of the chart shown before.
+        int paging = screen.indexOf("    private void navigateChart(int direction) {");
+        String navigate = screen.substring(paging, screen.indexOf("\n    }\n", paging));
+        assertTrue(navigate.contains("} else {"));
+        assertTrue(navigate.contains("binding.layoutChartLegend.removeAllViews();"));
+    }
+
     private static String read(String relative) throws Exception {
         for (Path candidate : Arrays.asList(Paths.get(""), Paths.get(".."), Paths.get("..", ".."))) {
             if (Files.isDirectory(candidate.resolve("app/src/main/java"))) {
