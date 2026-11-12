@@ -55,4 +55,8 @@
         <item>Жёсткое</item>
         <item>Вручную</item>
     </string-array>
+    <string name="auto_kill_off_hint_title">Auto-Kill выключен</string>
+    <string name="auto_kill_off_hint_message">Стратегия сохранена, но приложения со стратегией Немедленный останавливаются только при включённом Auto-Kill. Пока вы не включите его в Настройках, этот выбор не действует.</string>
+    <string name="auto_kill_off_hint_open_settings">Открыть Настройки</string>
+    <string name="auto_kill_off_hint_later">Позже</string>
 </resources>

@@ -55,4 +55,8 @@
         <item>Fuerte</item>
         <item>Manual</item>
     </string-array>
+    <string name="auto_kill_off_hint_title">Auto-Cierre está desactivado</string>
+    <string name="auto_kill_off_hint_message">La estrategia se ha guardado, pero las apps con la estrategia Inmediato solo se detienen mientras Auto-Cierre esté activado. Hasta que lo actives en Ajustes, esta elección no tiene efecto.</string>
+    <string name="auto_kill_off_hint_open_settings">Abrir Ajustes</string>
+    <string name="auto_kill_off_hint_later">Más tarde</string>
 </resources>
