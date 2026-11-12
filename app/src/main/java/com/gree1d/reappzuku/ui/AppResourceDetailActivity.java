@@ -242,8 +242,10 @@ public class AppResourceDetailActivity extends BaseActivity {
                     AppPolicyQuickChoice.apply(getApplicationContext(), pkg, chosen);
                     handler.post(() -> {
                         if (isFinishing() || isDestroyed()) return;
-                        Toast.makeText(AppResourceDetailActivity.this,
-                                R.string.policy_editor_saved, Toast.LENGTH_SHORT).show();
+                        if (!AutoKillOffHint.show(AppResourceDetailActivity.this, chosen, null)) {
+                            Toast.makeText(AppResourceDetailActivity.this,
+                                    R.string.policy_editor_saved, Toast.LENGTH_SHORT).show();
+                        }
                     });
                 });
             }

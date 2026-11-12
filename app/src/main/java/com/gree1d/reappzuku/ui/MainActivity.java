@@ -453,8 +453,10 @@ public class MainActivity extends BaseActivity {
                         AppPolicyQuickChoice.apply(getApplicationContext(), packageName, strategy);
                         handler.post(() -> {
                             if (isFinishing() || isDestroyed()) return;
-                            Toast.makeText(MainActivity.this,
-                                    R.string.policy_editor_saved, Toast.LENGTH_SHORT).show();
+                            if (!AutoKillOffHint.show(MainActivity.this, strategy, null)) {
+                                Toast.makeText(MainActivity.this,
+                                        R.string.policy_editor_saved, Toast.LENGTH_SHORT).show();
+                            }
                             loadBackgroundApps();
                         });
                     });

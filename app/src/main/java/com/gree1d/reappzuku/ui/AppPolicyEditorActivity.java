@@ -378,7 +378,8 @@ public class AppPolicyEditorActivity extends BaseActivity {
                 if (saveAsPreset) {
                     loadPolicy();
                 } else {
-                    finish();
+                    // The editor closes once a hint about Auto-Kill being off was read.
+                    AutoKillOffHint.show(this, saved.strategy, this::finish);
                 }
             });
         });
