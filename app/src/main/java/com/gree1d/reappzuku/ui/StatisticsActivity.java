@@ -215,6 +215,9 @@ public class StatisticsActivity extends BaseActivity {
                     chartColors[currentChartIdx],
                     chartMetrics[currentChartIdx],
                     chartTotals[currentChartIdx]);
+        } else {
+            // This chart has no data; the legend of the chart shown before must not stay.
+            binding.layoutChartLegend.removeAllViews();
         }
     }
 
@@ -356,7 +359,11 @@ public class StatisticsActivity extends BaseActivity {
         double total = 0;
         for (CollectStatsManager.AppResourceStats s : sorted) total += metricValue(s, metric);
         if (total <= 0) {
-
+            // Nothing to draw for this metric: drop what an earlier load left behind,
+            // so neither the old chart nor another chart's legend stays on screen.
+            chartEntries[chartIdx] = null;
+            chart.clear();
+            if (chartIdx == currentChartIdx) binding.layoutChartLegend.removeAllViews();
             return;
         }
 
