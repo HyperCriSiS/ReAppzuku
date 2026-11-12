@@ -74,8 +74,8 @@
         <item>Hard</item>
         <item>Manual</item>
     </string-array>
-    <string name="auto_kill_off_hint_title">Auto-Kill is off</string>
-    <string name="auto_kill_off_hint_message">The strategy is saved, but apps with the Immediate strategy are only stopped while Auto-Kill is switched on. Until you switch it on in Settings, this choice has no effect.</string>
+    <string name="auto_kill_off_hint_title">Nothing stops this app yet</string>
+    <string name="auto_kill_off_hint_message">The strategy is saved, but an app with the Immediate strategy is only stopped while the Background service is on and at least one Auto-Kill trigger is enabled: Periodic Auto-Kill, Auto-Kill on screen off, RAM threshold or an Advanced Condition. Until you switch both on in Settings, this choice has no effect.</string>
     <string name="auto_kill_off_hint_open_settings">Open Settings</string>
     <string name="auto_kill_off_hint_later">Later</string>
 </resources>

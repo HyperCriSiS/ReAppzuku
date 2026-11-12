@@ -55,8 +55,8 @@
         <item>Жёсткое</item>
         <item>Вручную</item>
     </string-array>
-    <string name="auto_kill_off_hint_title">Auto-Kill выключен</string>
-    <string name="auto_kill_off_hint_message">Стратегия сохранена, но приложения со стратегией Немедленный останавливаются только при включённом Auto-Kill. Пока вы не включите его в Настройках, этот выбор не действует.</string>
+    <string name="auto_kill_off_hint_title">Пока ничто не останавливает это приложение</string>
+    <string name="auto_kill_off_hint_message">Стратегия сохранена, но приложение со стратегией Немедленный останавливается только при включённом Фоновом сервисе и хотя бы одном включённом триггере Auto-Kill: Периодический Auto-Kill, Auto-Kill при выключении экрана, Лимит ОЗУ или Дополнительное условие. Пока вы не включите и то и другое в Настройках, этот выбор не действует.</string>
     <string name="auto_kill_off_hint_open_settings">Открыть Настройки</string>
     <string name="auto_kill_off_hint_later">Позже</string>
 </resources>

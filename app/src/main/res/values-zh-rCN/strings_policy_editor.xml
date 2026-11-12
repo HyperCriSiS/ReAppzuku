@@ -55,8 +55,8 @@
         <item>严格</item>
         <item>手动</item>
     </string-array>
-    <string name="auto_kill_off_hint_title">自动终止已关闭</string>
-    <string name="auto_kill_off_hint_message">策略已保存，但采用“立即”策略的应用只有在自动终止开启时才会被停止。在“设置”中开启之前，此选择不会生效。</string>
+    <string name="auto_kill_off_hint_title">目前没有任何机制会停止此应用</string>
+    <string name="auto_kill_off_hint_message">策略已保存，但采用“立即”策略的应用只有在后台服务开启，且至少启用一个自动终止触发条件时才会被停止：定期自动终止、熄屏时自动终止、RAM 阈值或高级条件。在“设置”中同时开启之前，此选择不会生效。</string>
     <string name="auto_kill_off_hint_open_settings">打开设置</string>
     <string name="auto_kill_off_hint_later">稍后</string>
 </resources>
