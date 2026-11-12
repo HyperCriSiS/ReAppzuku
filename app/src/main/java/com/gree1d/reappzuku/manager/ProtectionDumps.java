@@ -21,16 +21,24 @@ final class ProtectionDumps {
             + "; dumpsys connectivity";
 
     private final String[] dumps;
+    /** The elapsed realtime when the dumps were taken, to tell a fresh pause from an old one; 0 if unknown. */
+    private final long takenAtElapsedMs;
 
     /** @param output the output of {@link #COMMAND}, or null when the shell failed */
     ProtectionDumps(String output) {
+        this(output, 0L);
+    }
+
+    ProtectionDumps(String output, long takenAtElapsedMs) {
         String[] parts = output == null ? new String[0] : output.split(SEPARATOR, -1);
         dumps = parts.length == 6 ? parts : null;
+        this.takenAtElapsedMs = takenAtElapsedMs;
     }
 
     /** One shell invocation, so a pass under a short wakelock is not six round trips. */
     static ProtectionDumps collect(ShellManager shell) {
-        return new ProtectionDumps(shell.runShellCommandAndGetFullOutput(COMMAND));
+        return new ProtectionDumps(shell.runShellCommandAndGetFullOutput(COMMAND),
+                android.os.SystemClock.elapsedRealtime());
     }
 
     /** @param policy the app's explicit policy, or null when every protection applies */
@@ -51,7 +59,8 @@ final class ProtectionDumps {
                 pkg, dumps[0], dumps[1], dumps[2], dumps[3], dumps[4], dumps[5],
                 policy == null || policy.protectMedia,
                 policy == null || policy.protectForegroundServices,
-                policy == null || policy.protectWidgets);
+                policy == null || policy.protectWidgets,
+                takenAtElapsedMs);
     }
 
     private static boolean isEnabledIn(Context context, String secureKey, String pkg) {
