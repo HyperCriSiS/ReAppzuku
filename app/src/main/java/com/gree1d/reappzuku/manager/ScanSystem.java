@@ -6,6 +6,7 @@ import android.os.Build;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,7 @@ import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.gree1d.reappzuku.core.SensorConnectionParser;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.utils.AppModel;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
@@ -73,7 +75,7 @@ public class ScanSystem {
         Future<Void> fNetwork   = pool.submit(() -> { scanNetwork(map, uidMap);      return null; });
         Future<Void> fServices  = pool.submit(() -> { scanServices(map);             return null; });
         Future<Void> fAlarms    = pool.submit(() -> { scanAlarms(map);               return null; });
-        Future<Void> fSensors   = pool.submit(() -> { scanSensors(map);              return null; });
+        Future<Void> fSensors   = pool.submit(() -> { scanSensors(map, uidMap);      return null; });
         Future<Void> fLocation  = pool.submit(() -> { scanLocation(map);             return null; });
         Future<Void> fHistory   = pool.submit(() -> { scanWakelockHistory(map);      return null; });
 
@@ -172,31 +174,39 @@ public class ScanSystem {
     private void scanNetwork(Map<String, AppLoad> map, Map<String, String> uidMap) {
 
         String netstats = shellManager.runShellCommandAndGetFullOutput("dumpsys netstats detail");
+        // One pass over the dump: received and sent bytes per uid.
+        Map<String, long[]> bytesByUid = new HashMap<>();
+        if (netstats != null) {
+            Pattern uidPat = Pattern.compile("\\buid=(\\d+)");
+            Pattern rbPat = Pattern.compile("\\brb=(\\d+)");
+            Pattern tbPat = Pattern.compile("\\btb=(\\d+)");
+            long[] current = null;
+            for (String line : netstats.split("\n")) {
+                if (line.contains("ident=")) {
+                    Matcher mUid = uidPat.matcher(line);
+                    current = mUid.find()
+                            ? bytesByUid.computeIfAbsent(mUid.group(1), k -> new long[2]) : null;
+                    continue;
+                }
+                if (current == null) continue;
+                Matcher mRb = rbPat.matcher(line);
+                Matcher mTb = tbPat.matcher(line);
+                if (mRb.find()) current[0] += Long.parseLong(mRb.group(1));
+                if (mTb.find()) current[1] += Long.parseLong(mTb.group(1));
+            }
+        }
+        // The /proc counters behind the fallback were removed in Android 9.
+        boolean procFallback = Build.VERSION.SDK_INT < Build.VERSION_CODES.P;
         for (Map.Entry<String, AppLoad> entry : map.entrySet()) {
             String pkg = entry.getKey();
             String uid = uidMap.get(pkg);
             if (uid == null) continue;
 
-            long rxBytes = 0, txBytes = 0;
+            long[] bytes = bytesByUid.get(uid);
+            long rxBytes = bytes == null ? 0 : bytes[0];
+            long txBytes = bytes == null ? 0 : bytes[1];
 
-            if (netstats != null) {
-                boolean inSection = false;
-                for (String line : netstats.split("\n")) {
-                    if (line.contains("uid=" + uid) && line.contains("ident=")) {
-                        inSection = true; continue;
-                    }
-                    if (inSection && line.contains("ident=") && !line.contains("uid=" + uid)) {
-                        inSection = false;
-                    }
-                    if (!inSection) continue;
-                    Matcher mRb = Pattern.compile("\\brb=(\\d+)").matcher(line);
-                    Matcher mTb = Pattern.compile("\\btb=(\\d+)").matcher(line);
-                    if (mRb.find()) rxBytes += Long.parseLong(mRb.group(1));
-                    if (mTb.find()) txBytes += Long.parseLong(mTb.group(1));
-                }
-            }
-
-            if (rxBytes + txBytes < 10 * 1024) {
+            if (procFallback && rxBytes + txBytes < 10 * 1024) {
                 long[] proc = readNetworkBytesProcFallback(uid);
                 rxBytes = proc[0]; txBytes = proc[1];
             }
@@ -354,117 +364,20 @@ public class ScanSystem {
         return sb.toString();
     }
 
-    private void scanSensors(Map<String, AppLoad> map) {
-
+    private void scanSensors(Map<String, AppLoad> map, Map<String, String> uidMap) {
         String output = shellManager.runShellCommandAndGetFullOutput("dumpsys sensorservice");
-        if (output == null || output.trim().isEmpty()) {
-
-            scanSensorsBatteryStatsFallback(map);
-            return;
+        Map<Integer, List<String>> byUid = SensorConnectionParser.parse(output);
+        for (Map.Entry<String, String> app : uidMap.entrySet()) {
+            List<String> sensors = byUid.get(Integer.valueOf(app.getValue()));
+            AppLoad load = map.get(app.getKey());
+            if (sensors == null || load == null) continue;
+            List<String> labels = new ArrayList<>();
+            for (String sensor : sensors) {
+                String label = classifySensor(sensor);
+                if (!labels.contains(label)) labels.add(label);
+            }
+            load.findings.add(new Finding(Category.SENSOR, String.join(", ", labels)));
         }
-
-        Map<String, List<String>> found = new LinkedHashMap<>();
-        boolean inConn   = false;
-        boolean relevant = false;
-        String  connPkg  = null;
-        List<String> connFound = new ArrayList<>();
-
-        for (String line : output.split("\n")) {
-            String t = line.trim();
-
-            if (t.startsWith("Connection Number:") || t.startsWith("Active connections")) {
-                if (relevant && connPkg != null && !connFound.isEmpty()) {
-                    found.computeIfAbsent(connPkg, k -> new ArrayList<>()).addAll(connFound);
-                }
-                inConn = true; relevant = false; connPkg = null; connFound.clear();
-                continue;
-            }
-            if (!inConn) continue;
-
-            if (t.startsWith("packageName=") || t.startsWith("package=") || t.startsWith("Identity=")) {
-                relevant = false; connPkg = null;
-                for (String pkg : map.keySet()) {
-                    if (t.contains(pkg)) { relevant = true; connPkg = pkg; break; }
-                }
-            }
-            if (!relevant) continue;
-
-            if (t.startsWith("Sensor:") || t.startsWith("SensorName=") || t.startsWith("sensor=")) {
-                String raw = t.replaceFirst("(?:Sensor:|SensorName=|sensor=)\\s*", "");
-                int delim = raw.indexOf("  ");
-                if (delim > 0) raw = raw.substring(0, delim).trim();
-
-                String rate = "";
-                Matcher mUs = Pattern.compile("samplingPeriod[Uu]s[=:]\\s*(\\d+)").matcher(t);
-                if (mUs.find()) {
-                    long us = Long.parseLong(mUs.group(1));
-                    if (us > 0) rate = "@" + (1_000_000L / us) + "Hz";
-                } else {
-                    Matcher mHz = Pattern.compile("rate[=:]\\s*(\\d+)\\s*[Hh]z").matcher(t);
-                    if (mHz.find()) rate = "@" + mHz.group(1) + "Hz";
-                }
-                String label = classifySensor(raw) + (rate.isEmpty() ? "" : " " + rate);
-                if (!connFound.contains(label)) connFound.add(label);
-            }
-            if (t.contains("GNSS") || t.contains("Gnss") || t.contains("GPS"))
-                if (!connFound.contains("GPS")) connFound.add("GPS");
-        }
-        if (relevant && connPkg != null && !connFound.isEmpty()) {
-            found.computeIfAbsent(connPkg, k -> new ArrayList<>()).addAll(connFound);
-        }
-
-        for (Map.Entry<String, List<String>> e : found.entrySet()) {
-            AppLoad load = map.get(e.getKey());
-            if (load != null) {
-                load.findings.add(new Finding(Category.SENSOR,
-                        String.join(", ", e.getValue())));
-
-            }
-        }
-
-        for (String pkg : map.keySet()) {
-            if (!found.containsKey(pkg)) {
-
-                scanSensorsBatteryStatsFallback(map, pkg);
-            }
-        }
-    }
-
-    private void scanSensorsBatteryStatsFallback(Map<String, AppLoad> map) {
-        for (String pkg : map.keySet()) scanSensorsBatteryStatsFallback(map, pkg);
-    }
-
-    private void scanSensorsBatteryStatsFallback(Map<String, AppLoad> map, String pkg) {
-        try {
-            String output = shellManager.runShellCommandAndGetFullOutput(
-                    "dumpsys batterystats " + pkg);
-            if (output == null) return;
-            boolean inPkg = false;
-            List<String> sensors = new ArrayList<>();
-            Pattern srPat = Pattern.compile(
-                    "Sensor\\s+(?:#)?(\\d+)[^:]*:\\s*(.*)", Pattern.CASE_INSENSITIVE);
-            for (String line : output.split("\n")) {
-                if (line.contains(pkg)) inPkg = true;
-                if (!inPkg) continue;
-                Matcher m = srPat.matcher(line.trim());
-                if (!m.find()) continue;
-                int handle = Integer.parseInt(m.group(1));
-                String rest = m.group(2).trim();
-                String dur = "";
-                Matcher mDur = Pattern.compile("(\\d+)ms").matcher(rest);
-                if (mDur.find()) dur = " (" + formatDuration(Long.parseLong(mDur.group(1))) + ")";
-                String label = sensorHandleToName(handle) + dur;
-                if (!sensors.contains(label)) sensors.add(label);
-            }
-            if (!sensors.isEmpty()) {
-                AppLoad load = map.get(pkg);
-                if (load != null) {
-                    load.findings.add(new Finding(Category.SENSOR,
-                            String.join(", ", sensors)));
-
-                }
-            }
-        } catch (Exception e) {  }
     }
 
     private void scanLocation(Map<String, AppLoad> map) {
@@ -629,7 +542,12 @@ public class ScanSystem {
 
             Pattern timePat = Pattern.compile("RESET:TIME:\\s*(\\d+)");
             long baseUnixMs = 0, baseOffsetMs = 0;
+            // The history has tens of thousands of lines; only these can match below.
+            List<String> wakeLines = new ArrayList<>();
+            List<String> procLines = new ArrayList<>();
             for (String line : history.split("\n")) {
+                if (line.contains("wake_lock")) wakeLines.add(line);
+                if (line.contains("Died") || line.contains("proc")) procLines.add(line);
                 Matcher mt = timePat.matcher(line);
                 if (!mt.find()) continue;
                 baseUnixMs   = Long.parseLong(mt.group(1)) * 1000L;
@@ -649,14 +567,16 @@ public class ScanSystem {
                         + Pattern.quote(pkg));
 
                 List<Long> deathOffsets = new ArrayList<>();
-                for (String line : history.split("\n")) {
+                for (String line : procLines) {
+                    if (!line.contains(pkg)) continue;
                     Matcher mp = procPat.matcher(line);
                     if (mp.find()) deathOffsets.add(parseHistoryOffset(line));
                 }
 
                 List<long[]> pairs = new ArrayList<>();
                 long pendingAcquire = -1;
-                for (String line : history.split("\n")) {
+                for (String line : wakeLines) {
+                    if (!line.contains(pkg)) continue;
                     Matcher me = wakePat.matcher(line);
                     if (!me.find()) continue;
                     long offsetMs = parseHistoryOffset(line);
@@ -730,27 +650,6 @@ public class ScanSystem {
                 + Long.parseLong(m.group(3)) * 1_000L;
         if (m.group(4) != null) ms += Long.parseLong(m.group(4));
         return ms;
-    }
-
-    private String sensorHandleToName(int h) {
-        switch (h) {
-            case 1:  return "Accelerometer";   case 2:  return "Magnetometer";
-            case 3:  return "Orientation";     case 4:  return "Gyroscope";
-            case 5:  return "Light";           case 6:  return "Pressure";
-            case 8:  return "Proximity";       case 9:  return "Gravity";
-            case 10: return "Linear Accel";    case 11: return "Rotation Vector";
-            case 14: return "Uncal Magneto";   case 15: return "Game Rotation";
-            case 16: return "Uncal Gyro";      case 17: return "Step Detector";
-            case 18: return "Step Counter";    case 19: return "Geo Rotation";
-            case 21: return "Tilt Detector";   case 24: return "Pickup Gesture";
-            case 28: return "Stationary";      case 29: return "Motion Detect";
-            case 30: return "Heart Beat";      case 34: return "OffBody Detect";
-            case 35: return "Uncal Accel";
-            default:
-                int standard = h & 0xFF;
-                if (standard != h && standard > 0) return sensorHandleToName(standard);
-                return "Sensor#" + h;
-        }
     }
 
 }

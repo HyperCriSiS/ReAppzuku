@@ -9,6 +9,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.gree1d.reappzuku.R;
+import com.gree1d.reappzuku.core.SensorConnectionParser;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer;
 import com.gree1d.reappzuku.utils.triggers.AppTriggersAnalyzer.TriggerInfo;
@@ -57,53 +58,19 @@ public class SensorsLocationAnalyzer {
 // ---- parseSensorService ----
     private List<String> parseSensorService(String packageName) {
         List<String> result = new ArrayList<>();
-        String output = analyzer.getShellManager().runShellCommandAndGetFullOutput("dumpsys sensorservice");
-        if (output == null || output.trim().isEmpty()) return result;
-
-        boolean inConn = false, relevant = false;
-        List<String> found = new ArrayList<>();
-
-        for (String line : output.split("\n")) {
-            String t = line.trim();
-
-            if (t.startsWith("Connection Number:") || t.startsWith("Active connections")) {
-                if (relevant && !found.isEmpty())
-                    for (String s : found) if (!result.contains(s)) result.add(s);
-                inConn = true; relevant = false; found.clear();
-                continue;
-            }
-            if (!inConn) continue;
-
-
-            if (t.startsWith("packageName=") || t.startsWith("package=")
-                    || t.startsWith("Identity="))
-                relevant = t.contains(packageName);
-
-            if (!relevant) continue;
-
-            if (t.startsWith("Sensor:") || t.startsWith("SensorName=")
-                    || t.startsWith("sensor=")) {
-                String raw = t.replaceFirst("(?:Sensor:|SensorName=|sensor=)\\s*", "");
-                int delim = raw.indexOf("  ");
-                if (delim > 0) raw = raw.substring(0, delim).trim();
-
-                String rate = "";
-                Matcher mUs = Pattern.compile("samplingPeriod[Uu]s[=:]\\s*(\\d+)").matcher(t);
-                if (mUs.find()) {
-                    long us = Long.parseLong(mUs.group(1));
-                    if (us > 0) rate = "@" + (1_000_000L / us) + "Hz";
-                } else {
-                    Matcher mHz = Pattern.compile("rate[=:]\\s*(\\d+)\\s*[Hh]z").matcher(t);
-                    if (mHz.find()) rate = "@" + mHz.group(1) + "Hz";
-                }
-                String label = classifySensor(raw) + (rate.isEmpty() ? "" : " " + rate);
-                if (!found.contains(label)) found.add(label);
-            }
-            if (t.contains("GNSS") || t.contains("Gnss") || t.contains("GPS"))
-                if (!found.contains("GPS")) found.add("GPS");
+        int uid;
+        try {
+            uid = analyzer.getContext().getPackageManager().getApplicationInfo(packageName, 0).uid;
+        } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+            return result;
         }
-        if (relevant && !found.isEmpty())
-            for (String s : found) if (!result.contains(s)) result.add(s);
+        String output = analyzer.getShellManager().runShellCommandAndGetFullOutput("dumpsys sensorservice");
+        List<String> sensors = SensorConnectionParser.parse(output).get(uid);
+        if (sensors == null) return result;
+        for (String sensor : sensors) {
+            String label = classifySensor(sensor);
+            if (!result.contains(label)) result.add(label);
+        }
         return result;
     }
 
