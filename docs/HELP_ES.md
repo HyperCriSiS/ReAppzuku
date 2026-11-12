@@ -996,6 +996,8 @@ La parte superior de la pantalla muestra el **consumo de recursos propio de ReAp
 **Gráficos de uso de recursos**\
 Gráficos interactivos del uso de RAM, CPU y batería de las apps rastreadas. Cambia entre los tipos de gráficos con las **flechas**.
 
+Mientras el servicio en segundo plano esté desactivado, o aún no haya recopilado lo suficiente para el periodo elegido, los gráficos muestran en su lugar lo que el propio Android contó desde la última carga completa, y una línea encima lo indica. Esta vista necesita acceso Root o Shizuku y no incluye cifras de memoria.
+
 | Periodo | Descripción |
 |---|---|
 | 2 horas | Últimas 2 horas |

@@ -8,6 +8,7 @@ import android.os.Handler;
 import android.view.LayoutInflater;
 import android.view.View;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 
@@ -230,12 +231,7 @@ public class StatisticsActivity extends BaseActivity {
         if (binding == null) return;
 
         if (!ShappkyService.isRunning()) {
-
-            showChartsLoading(false);
-            binding.cardNoData.setVisibility(View.VISIBLE);
-            binding.tvNoDataHint.setText(getString(R.string.stats_service_inactive_hint));
-            binding.cardChartsPager.setVisibility(View.GONE);
-            binding.tvPartialDataWarning.setVisibility(View.GONE);
+            loadChartsSinceCharge(getString(R.string.stats_service_inactive_hint));
             return;
         }
 
@@ -243,21 +239,47 @@ public class StatisticsActivity extends BaseActivity {
         showChartsLoading(true);
         collectStatsManager.getStatsForPeriodAsync(hours, periodStats -> {
             if (binding == null) return;
-            showChartsLoading(false);
             if (!periodStats.hasData) {
+                loadChartsSinceCharge(periodStats.dataHint);
+                return;
+            }
+            showChartsLoading(false);
+            showCharts(periodStats, periodStats.isPartialData
+                    ? getString(R.string.stats_partial_data_warning) : null);
+        });
+    }
 
+    /**
+     * Without snapshots of its own the screen shows what Android counted since
+     * the last full charge, so a fresh install is not empty for a day.
+     *
+     * @param ownDataHint why there are no own statistics; shown alone if the system has none either
+     */
+    private void loadChartsSinceCharge(String ownDataHint) {
+        showChartsLoading(true);
+        collectStatsManager.getStatsSinceChargeAsync(sinceCharge -> {
+            if (binding == null) return;
+            showChartsLoading(false);
+            if (!sinceCharge.hasData) {
                 binding.cardNoData.setVisibility(View.VISIBLE);
-                binding.tvNoDataHint.setText(periodStats.dataHint);
+                binding.tvNoDataHint.setText(ownDataHint);
                 binding.cardChartsPager.setVisibility(View.GONE);
                 binding.tvPartialDataWarning.setVisibility(View.GONE);
                 return;
             }
+            showCharts(sinceCharge, getString(R.string.stats_since_charge_notice,
+                    ownDataHint, (int) Math.round(sinceCharge.actualHours)));
+        });
+    }
+
+    /** @param notice a line above the charts, or null */
+    private void showCharts(CollectStatsManager.PeriodStats periodStats, @Nullable String notice) {
+        {
             binding.cardNoData.setVisibility(View.GONE);
             binding.cardChartsPager.setVisibility(View.VISIBLE);
 
-            if (periodStats.isPartialData) {
-
-                binding.tvPartialDataWarning.setText(getString(R.string.stats_partial_data_warning));
+            if (notice != null) {
+                binding.tvPartialDataWarning.setText(notice);
                 binding.tvPartialDataWarning.setVisibility(View.VISIBLE);
             } else {
                 binding.tvPartialDataWarning.setVisibility(View.GONE);
@@ -291,7 +313,7 @@ public class StatisticsActivity extends BaseActivity {
             }
 
             showActiveChart(sorted, periodStats.actualHours);
-        });
+        }
     }
 
     private void showActiveChart(List<CollectStatsManager.AppResourceStats> sorted, double actualHours) {

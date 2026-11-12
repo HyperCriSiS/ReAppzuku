@@ -515,6 +515,7 @@
     <string name="stats_partial_data_warning">⚠ 数据不完整：历史记录仍在积累中</string>
     <string name="stats_disclaimer">来自 Android batterystats / procstats 的估算数据。实际值可能有所不同。长时间充电后电池统计可能不准确。</string>
     <string name="stats_service_inactive_hint">仅后台服务活动时采集统计。在设置中启用它。</string>
+    <string name="stats_since_charge_notice">%1$s 改为显示 Android 自上次充满电以来自行统计的数据（小时数：%2$d）。其中不含内存数据。</string>
 
     <string-array name="chart_period_labels">
         <item>2h</item>

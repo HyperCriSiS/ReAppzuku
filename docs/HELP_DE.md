@@ -995,6 +995,8 @@ Der obere Bereich des Bildschirms zeigt den **eigenen Ressourcenverbrauch von Re
 **Ressourcennutzungsdiagramme**\
 Interaktive Diagramme der RAM-, CPU- und Akkunutzung über die verfolgten Apps. Wechseln Sie mit den **Pfeilen** zwischen den Diagrammtypen.
 
+Solange der Hintergrunddienst aus ist oder für den gewählten Zeitraum noch nicht genug gesammelt hat, zeigen die Diagramme stattdessen, was Android selbst seit der letzten Vollladung gezählt hat. Eine Zeile darüber weist darauf hin. Diese Ansicht braucht Root- oder Shizuku-Zugriff und enthält keine Speicherwerte.
+
 | Zeitraum | Beschreibung |
 | :--- | :--- |
 | 2 Stunden | Letzte 2 Stunden |

@@ -24,6 +24,22 @@ public final class BackgroundActivityParser {
     private BackgroundActivityParser() {
     }
 
+    /** @return how long the statistics have been counting on battery, in ms; 0 if unknown */
+    public static long windowMs(String checkin) {
+        if (checkin == null) return 0;
+        for (String line : checkin.split("\n")) {
+            String[] parts = line.trim().split(",");
+            if (parts.length > 5 && "l".equals(parts[2]) && "bt".equals(parts[3])) {
+                try {
+                    return Long.parseLong(parts[5]);
+                } catch (NumberFormatException e) {
+                    return 0;
+                }
+            }
+        }
+        return 0;
+    }
+
     /**
      * @return minutes per day each uid held a wakelock or ran jobs, whichever
      *         is longer (a running job holds a wakelock, so the two overlap).
