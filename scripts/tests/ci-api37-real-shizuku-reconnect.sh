@@ -96,7 +96,43 @@ test "${replacement#* }" = "$replacement"
 test "$replacement" != "$initial"
 echo "RZ170_SERVER_PID_CHANGED $initial -> $replacement"
 
-wait_marker RZ170_BINDER_BACK 190
+has_marker() {
+  adb logcat -d -s "$LOG_TAG:I" '*:S' | grep -Fq "$1"
+}
+
+server_log() {
+  # What the Shizuku server and its manager said, without the adb lines of this script.
+  adb logcat -d | grep -Ei 'shizuku' | grep -v -E ' adbd |RZShizukuReconnect' | tail -"$1" || true
+}
+
+# What brings the Binder back is not known for this release. Each stage adds
+# one thing a user or the app could do; the first stage adds nothing, so it
+# measures the app on its own.
+back_stage=''
+for stage in 1 2 3 4; do
+  case "$stage" in
+    1) echo 'RZ170_STAGE 1: the app on its own' ;;
+    2) echo 'RZ170_STAGE 2: the app comes to the foreground'
+       adb shell am start -W -n "$PRODUCT/.ui.MainActivity" > /tmp/rz170-app-start.txt || true ;;
+    3) echo 'RZ170_STAGE 3: the provider process of the app starts again'
+       provider_pid="$(adb shell pidof "$PRODUCT:shizuku" 2>/dev/null | tr -d '\r' || true)"
+       echo "provider pid before: [$provider_pid]"
+       if [ -n "$provider_pid" ]; then adb shell run-as "$PRODUCT" /system/bin/kill -9 "$provider_pid" || true; fi ;;
+    4) echo 'RZ170_STAGE 4: the Shizuku manager is opened'
+       adb shell am start -W -n "$SHIZUKU_PKG/moe.shizuku.manager.MainActivity" > /tmp/rz170-manager-start.txt || true ;;
+  esac
+  for attempt in $(seq 1 80); do
+    if has_marker RZ170_BINDER_BACK; then back_stage="$stage"; break; fi
+    sleep 0.5
+  done
+  if [ -n "$back_stage" ]; then break; fi
+done
+echo "RZ170_BACK_AFTER_STAGE=${back_stage:-none}"
+echo '--- Shizuku log lines since the restart ---'
+server_log 80
+echo "processes: $(adb shell ps -A -o PID,NAME | grep -E 'shizuku|reappzuku' | tr -d '\r' | tr '\n' ';')"
+
+wait_marker RZ170_BINDER_BACK 5
 # The same process that lost the Binder got the new one. The pids come from
 # the markers: once the test is done Android may end the process, so asking
 # for its pid now could find nothing.
