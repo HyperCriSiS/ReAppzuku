@@ -32,6 +32,17 @@ public class SettingsLevelTest {
     }
 
     @Test
+    public void aFreshInstallStartsSimpleAndAnUpdateKeepsEverything() throws Exception {
+        assertEquals(SettingsLevel.SIMPLE, SettingsLevel.initial(1000L, 1000L));
+        assertEquals(SettingsLevel.EXPERT, SettingsLevel.initial(1000L, 2000L));
+        String settings = read("app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivity.java");
+        // The first answer is stored: a later update must not switch a new user to Expert.
+        int undecided = settings.indexOf("if (!sharedPreferences.contains(KEY_SETTINGS_LEVEL)) {");
+        assertTrue(undecided >= 0 && settings.indexOf(
+                "sharedPreferences.edit().putInt(KEY_SETTINGS_LEVEL, level).apply();", undecided) > undecided);
+    }
+
+    @Test
     public void nobodyLosesARowByUpdatingAndBackupStaysReachable() throws Exception {
         String settings = read("app/src/main/java/com/gree1d/reappzuku/ui/SettingsActivity.java");
         assertTrue(settings.contains("sharedPreferences.getInt(KEY_SETTINGS_LEVEL, SettingsLevel.EXPERT)"));

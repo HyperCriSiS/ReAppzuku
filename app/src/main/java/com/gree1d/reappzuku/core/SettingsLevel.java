@@ -9,10 +9,18 @@ public final class SettingsLevel {
     public static final int SIMPLE = 0;
     /** Plus Auto-Kill triggers, schedules, sleep mode, background restrictions, app behavior. */
     public static final int ADVANCED = 1;
-    /** Everything. The default, so nobody loses a row they already use. */
+    /** Everything. What someone who updates keeps, so nobody loses a row they already use. */
     public static final int EXPERT = 2;
 
     private SettingsLevel() {
+    }
+
+    /**
+     * The level before the user chose one. A fresh install starts with the few
+     * rows needed to get going; an update keeps showing everything.
+     */
+    public static int initial(long firstInstallTime, long lastUpdateTime) {
+        return firstInstallTime == lastUpdateTime ? SIMPLE : EXPERT;
     }
 
     public static int sanitize(int level) {

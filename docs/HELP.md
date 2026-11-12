@@ -601,7 +601,7 @@ Shows current access mode: **Root**, **Shizuku**, or **No Access**, and below it
 Link to this FAQ.
 
 **Settings shown**\
-Chooses how much of this screen is visible. **Simple** keeps the access mode, setup, recommendations and the main switches. **Advanced** adds the Auto-Kill rules, Automation Schedules, Background Restrictions, Sleep Mode and the app behavior card. **Expert** shows everything, including the Auto-Kill type, Advanced Conditions, the Restrictions Scheduler, cache clearing, hidden apps and the RAM shortcut. Hidden rows keep working with the values they have; only their controls are out of sight.
+Chooses how much of this screen is visible. **Simple** keeps the access mode, setup, recommendations and the main switches. **Advanced** adds the Auto-Kill rules, Automation Schedules, Background Restrictions, Sleep Mode and the app behavior card. **Expert** shows everything, including the Auto-Kill type, Advanced Conditions, the Restrictions Scheduler, cache clearing, hidden apps and the RAM shortcut. Hidden rows keep working with the values they have; only their controls are out of sight. A fresh install starts on Simple; after an update from an earlier version everything stays visible until you choose a level.
 
 ---
 
