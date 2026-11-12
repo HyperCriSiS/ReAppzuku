@@ -92,6 +92,17 @@ public class SensorConnectionParserTest {
         assertFalse(scan.contains("\"dumpsys batterystats \" + pkg"));
     }
 
+    @Test
+    public void aScanResultLeadsToWhereTheAppCanBeLimited() throws Exception {
+        String adapter = read("app/src/main/java/com/gree1d/reappzuku/ui/ScanResultAdapter.java");
+        assertTrue(adapter.contains("addManageButton(holder.findingsContainer, load.packageName);"));
+        assertTrue(adapter.contains("manage.setOnClickListener(v -> manageListener.onManage(packageName));"));
+        String screen = read("app/src/main/java/com/gree1d/reappzuku/ui/MainActivity.java");
+        int manage = screen.indexOf("new ScanResultAdapter(this, loads, packageName -> {");
+        assertTrue(manage >= 0
+                && screen.indexOf("showAppOptionsMenu(app, binding.recyclerView);", manage) > manage);
+    }
+
     private static String read(String relative) throws Exception {
         for (Path candidate : Arrays.asList(Paths.get(""), Paths.get(".."), Paths.get("..", ".."))) {
             if (Files.isDirectory(candidate.resolve("app/src/main/java"))) {

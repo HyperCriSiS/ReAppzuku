@@ -301,6 +301,8 @@ Performs scan of current load on system from all active apps in list. Load categ
 - Sensor hold
 - GPS hold
 
+Tap an app in the result to see what was found. **Manage this app** below the findings opens the app's options, where you can set its strategy or restrict it.
+
 > [!NOTE]
 > Scan does not work on Persistent and Protected apps, even if they appear in active apps list.
 

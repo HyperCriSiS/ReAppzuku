@@ -27,11 +27,19 @@ public class ScanResultAdapter extends RecyclerView.Adapter<ScanResultAdapter.Vi
     private final Context                  context;
     private final List<ScanSystem.AppLoad> items;
     private final PackageManager           pm;
+    private final OnManageListener         manageListener;
 
-    public ScanResultAdapter(Context context, List<ScanSystem.AppLoad> items) {
+    /** The scan only shows what an app does; this leads to where it can be limited. */
+    public interface OnManageListener {
+        void onManage(String packageName);
+    }
+
+    public ScanResultAdapter(Context context, List<ScanSystem.AppLoad> items,
+                             OnManageListener manageListener) {
         this.context = context;
         this.items   = items;
         this.pm      = context.getPackageManager();
+        this.manageListener = manageListener;
     }
 
     @NonNull
@@ -63,6 +71,7 @@ public class ScanResultAdapter extends RecyclerView.Adapter<ScanResultAdapter.Vi
 
         holder.findingsContainer.removeAllViews();
         buildFindingsView(holder.findingsContainer, load.findings);
+        addManageButton(holder.findingsContainer, load.packageName);
 
         FocusHighlightUtil.apply(holder.header);
 
@@ -122,6 +131,20 @@ public class ScanResultAdapter extends RecyclerView.Adapter<ScanResultAdapter.Vi
                 container.addView(sub);
             }
         }
+    }
+
+    private void addManageButton(LinearLayout container, String packageName) {
+        com.google.android.material.button.MaterialButton manage =
+                new com.google.android.material.button.MaterialButton(container.getContext(), null,
+                        androidx.appcompat.R.attr.borderlessButtonStyle);
+        manage.setText(R.string.menu_add_to);
+        manage.setOnClickListener(v -> manageListener.onManage(packageName));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.gravity = android.view.Gravity.END;
+        manage.setLayoutParams(params);
+        FocusHighlightUtil.apply(manage);
+        container.addView(manage);
     }
 
     private String categoryTitle(ScanSystem.Category cat) {

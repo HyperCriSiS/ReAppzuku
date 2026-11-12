@@ -301,6 +301,8 @@ Führt einen Scan der aktuellen Systemlast durch alle aktiven Apps in der Liste 
 - Sensor-Bindung
 - GPS-Bindung
 
+Tippen Sie im Ergebnis auf eine App, um die Befunde zu sehen. **Diese App verwalten (Manage this app)** unter den Befunden öffnet die Optionen der App, in denen Sie ihre Strategie festlegen oder sie beschränken können.
+
 > [!NOTE]
 > Der Scan funktioniert nicht bei persistenten und geschützten Apps, selbst wenn sie in der Liste der aktiven Apps angezeigt werden.
 
