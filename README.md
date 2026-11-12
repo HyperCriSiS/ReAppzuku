@@ -11,5 +11,3 @@ Project documentation and localized introductions are maintained under [`docs/`]
 - [Current AI work state](docs/AI_SESSION_STATE.md)
 
 This root entry point is intentionally minimal. The existing documents remain at their established paths.
-
-☕ If ReAppzuku saves you time, you can [support the project on Ko-fi](https://ko-fi.com/hypercrisis).
