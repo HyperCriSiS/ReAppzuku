@@ -165,7 +165,7 @@ public class RestrictionDeltaPolicyTest {
         String body = source.substring(start,
                 source.indexOf("    public void reapplySavedBackgroundRestrictions(", start));
         int skip = body.indexOf("if (!RestrictionDeltaPolicy.needsApply(");
-        int allow = body.indexOf("applyAllHardOps(packageName, \"allow\");", skip);
+        int allow = body.indexOf("applyAllHardOps(packageName, \"default\");", skip);
         int stop = body.indexOf("stopAfterRestriction(packageName);");
         assertTrue(skip >= 0 && skip < allow && skip < stop);
         assertTrue(body.contains("RestrictionDeltaPolicy.packagesToLift("));

@@ -882,6 +882,7 @@ public class BackgroundAppManager {
         }
 
         shellExecutor.execute(() -> {
+            WronglyAllowedOpsRepair.runOnce(context, shellManager);
             Map<String, String> appliedSignatures = getAppliedRestrictionSignatures();
             Set<String> packagesToAllow;
             boolean tracked = sharedpreferences.getBoolean(KEY_APPLIED_RESTRICTION_TRACKED, false);
@@ -897,7 +898,9 @@ public class BackgroundAppManager {
 
             boolean success = true;
             for (String packageName : packagesToAllow) {
-                int[] opsCount = applyAllHardOps(packageName, "allow");
+                // Back to each operation's default. "allow" exempted the app from power
+                // restrictions and suspension and gave it rights it never had.
+                int[] opsCount = applyAllHardOps(packageName, "default");
                 resetBucket(packageName);
                 restoreBatteryWhitelist(packageName);
                 if (opsCount[0] == 0) success = false;
@@ -928,7 +931,7 @@ public class BackgroundAppManager {
                 // Forget the old signature first; it is stored again once the new state is applied.
                 saveAppliedRestrictionSignature(packageName, null);
 
-                applyAllHardOps(packageName, "allow");
+                applyAllHardOps(packageName, "default");
                 resetBucket(packageName);
                 restoreBatteryWhitelist(packageName);
 
