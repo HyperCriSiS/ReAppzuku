@@ -39,6 +39,8 @@ public final class RecommendationEffect {
     public final long appliedAt;
     /** The {@link AppPolicyListState} status before the change, which undo restores. */
     public final int previousStatus;
+    /** The background restriction level before the change, or -1 if it was not recorded. */
+    public final int previousRestriction;
     public final double shareBefore;
     public final double shareAfter;
     public final int verdict;
@@ -47,6 +49,7 @@ public final class RecommendationEffect {
         this.packageName = applied.packageName;
         this.appliedAt = applied.appliedAt;
         this.previousStatus = applied.previousStatus;
+        this.previousRestriction = applied.previousRestriction;
         this.shareBefore = shareBefore;
         this.shareAfter = shareAfter;
         this.verdict = verdict;
@@ -62,23 +65,32 @@ public final class RecommendationEffect {
         final String packageName;
         final long appliedAt;
         final int previousStatus;
+        /** -1 in entries stored before the level was kept. */
+        final int previousRestriction;
 
         Applied(String packageName, long appliedAt, int previousStatus) {
+            this(packageName, appliedAt, previousStatus, -1);
+        }
+
+        Applied(String packageName, long appliedAt, int previousStatus, int previousRestriction) {
             this.packageName = packageName;
             this.appliedAt = appliedAt;
             this.previousStatus = previousStatus;
+            this.previousRestriction = previousRestriction;
         }
 
         String encode() {
-            return packageName + "|" + appliedAt + "|" + previousStatus;
+            return packageName + "|" + appliedAt + "|" + previousStatus
+                    + (previousRestriction < 0 ? "" : "|" + previousRestriction);
         }
 
         /** @return null for a malformed entry */
         static Applied decode(String value) {
             String[] parts = value.split("\\|");
-            if (parts.length != 3) return null;
+            if (parts.length != 3 && parts.length != 4) return null;
             try {
-                return new Applied(parts[0], Long.parseLong(parts[1]), Integer.parseInt(parts[2]));
+                return new Applied(parts[0], Long.parseLong(parts[1]), Integer.parseInt(parts[2]),
+                        parts.length == 4 ? Integer.parseInt(parts[3]) : -1);
             } catch (NumberFormatException e) {
                 return null;
             }
@@ -95,11 +107,13 @@ public final class RecommendationEffect {
                 > DailyUsageMath.dayKey(appliedAt, zone, -(MEASURE_DAYS + SHOW_DAYS));
     }
 
-    public static void recordApplied(Context context, String packageName, int previousStatus) {
+    public static void recordApplied(Context context, String packageName, int previousStatus,
+            int previousRestriction) {
         Set<String> entries = new HashSet<>(stored(context));
         // A newer change of the same app replaces the older measurement.
         entries.removeIf(entry -> entry.startsWith(packageName + "|"));
-        entries.add(new Applied(packageName, System.currentTimeMillis(), previousStatus).encode());
+        entries.add(new Applied(packageName, System.currentTimeMillis(), previousStatus,
+                previousRestriction).encode());
         prefs(context).edit().putStringSet(KEY_APPLIED, entries).apply();
     }
 

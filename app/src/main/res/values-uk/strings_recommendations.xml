@@ -3,11 +3,17 @@
     <string name="recommendations_title">Рекомендації</string>
     <string name="recommendations_subtitle">Поради на основі вимірювань цього пристрою</string>
     <string name="recommendations_card">Рекомендації: %1$d</string>
-    <string name="recommendations_intro">На основі того, що цей пристрій виміряв за останні 7 днів. Застосування рекомендації переводить застосунок у режим очікування після 4 годин без використання. Застосунок ніколи не зупиняється, тому будильники та повідомлення працюють далі. Нічого не змінюється, доки ви не застосуєте рекомендацію.</string>
+    <string name="recommendations_intro">На основі того, що застосунок виміряв за останні 7 днів, і того, що сам Android підрахував від останнього повного заряджання. Застосовуючи рекомендацію, ви обираєте, наскільки жорстко обмежити застосунок. Нічого не змінюється, доки ви не застосуєте рекомендацію.</string>
     <string name="recommendations_empty">Наразі рекомендацій немає.</string>
     <string name="recommendations_dismiss">Приховати</string>
     <string name="recommendations_apply">Обмежити в простої</string>
     <string name="recommendations_reason_restarts">Зупинок за 7 днів: %1$d. Повторних запусків після них: %2$d. Постійні зупинки коштують більше, ніж простій.</string>
     <string name="recommendations_reason_unused">Днів від останнього відкриття: %1$d. Частка в усьому виміряному енергоспоживанні застосунків: %2$d%%.</string>
     <string name="recommendations_reason_heavy">Не відкривалося кілька днів, але його частка в усьому виміряному енергоспоживанні застосунків становить %1$d%%.</string>
+    <string name="recommendations_reason_background">Днів від останнього відкриття: %1$d. Усе ще активний у фоні приблизно %2$d хв на день.</string>
+    <string name="recommendations_reason_sensor">Днів від останнього відкриття: %1$d. Усе ще тримає ввімкнений датчик у фоні.</string>
+    <string name="recommendations_level_title">Наскільки жорстко обмежити %1$s?</string>
+    <string name="recommendations_level_gentle">Щадний: режим очікування через 4 години без використання. Якщо застосунок тримає датчик увімкненим, його процес у простої завершується. Сповіщення, будильники та синхронізація працюють далі.</string>
+    <string name="recommendations_level_balanced">Збалансований: додатково обмежує фонову активність. Термінові push-повідомлення все ще надходять, власна фонова синхронізація зупиняється.</string>
+    <string name="recommendations_level_strict">Суворий: додатково зупиняє застосунок після 2 годин без використання. Нічого не надходить, доки ви знову його не відкриєте.</string>
 </resources>

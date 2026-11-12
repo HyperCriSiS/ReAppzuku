@@ -3,11 +3,17 @@
     <string name="recommendations_title">Recomendaciones</string>
     <string name="recommendations_subtitle">Sugerencias a partir de las mediciones de este dispositivo</string>
     <string name="recommendations_card">Recomendaciones: %1$d</string>
-    <string name="recommendations_intro">Basado en lo que este dispositivo midió en los últimos 7 días. Aplicar una recomendación pone la app en espera tras 4 horas sin uso. La app nunca se detiene, así que las alarmas y los mensajes siguen funcionando. Nada cambia hasta que la apliques.</string>
+    <string name="recommendations_intro">Basado en lo que midió esta app en los últimos 7 días y en lo que el propio Android contó desde la última carga completa. Al aplicar una recomendación eliges con qué firmeza se limita la app. Nada cambia hasta que la apliques.</string>
     <string name="recommendations_empty">No hay recomendaciones por ahora.</string>
     <string name="recommendations_dismiss">Descartar</string>
     <string name="recommendations_apply">Limitar en reposo</string>
     <string name="recommendations_reason_restarts">Detenciones en 7 días: %1$d. Reinicios posteriores: %2$d. Detenerla una y otra vez cuesta más que dejarla inactiva.</string>
     <string name="recommendations_reason_unused">Días desde la última apertura: %1$d. Su parte de todo el consumo medido de las apps: %2$d%%.</string>
     <string name="recommendations_reason_heavy">No se abre desde hace días y aun así su parte de todo el consumo medido de las apps es del %1$d%%.</string>
+    <string name="recommendations_reason_background">Días desde la última apertura: %1$d. Sigue activa en segundo plano unos %2$d minutos al día.</string>
+    <string name="recommendations_reason_sensor">Días desde la última apertura: %1$d. Sigue manteniendo un sensor activado en segundo plano.</string>
+    <string name="recommendations_level_title">¿Con qué firmeza debe limitarse %1$s?</string>
+    <string name="recommendations_level_gentle">Leve: en espera tras 4 horas sin uso. Si mantiene un sensor activado, se finaliza su proceso inactivo. Las notificaciones, las alarmas y la sincronización siguen funcionando.</string>
+    <string name="recommendations_level_balanced">Equilibrado: además restringe la actividad en segundo plano. Los mensajes push urgentes siguen llegando, su propia sincronización en segundo plano se detiene.</string>
+    <string name="recommendations_level_strict">Estricto: además detiene la app tras 2 horas sin uso. No llega nada hasta que la abras de nuevo.</string>
 </resources>

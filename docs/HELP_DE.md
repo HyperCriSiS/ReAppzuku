@@ -1087,10 +1087,27 @@ Der Richtlinien-Editor bietet Voreinstellungen (Presets): Nie anfassen (Never to
 - eine nicht verwaltete App, die 14 Tage nicht geöffnet wurde und weiterhin mindestens 2 % des gesamten gemessenen App-Stromverbrauchs ausmacht,
 - eine nicht verwaltete App, die 3 Tage nicht geöffnet wurde und mindestens 10 % ausmacht.
 
-**Bei Inaktivität begrenzen (Limit when idle)** gibt der App die Voreinstellung Messenger: Standby nach 4 Stunden ohne Nutzung, nie beendet. **Verwerfen (Dismiss)** blendet diese Empfehlung 30 Tage lang aus. Es ändert sich nichts, bis Sie eine Empfehlung anwenden. Akkuanteile werden erst verwendet, wenn mindestens 3 Tage Statistik und ein nennenswerter Akkuverbrauch vorliegen, daher erscheinen die beiden Akku-Empfehlungen zunächst nicht. Die zugrunde liegende Statistik wird pro App und Tag 90 Tage lang aufbewahrt.
+Zwei weitere stammen aus dem, was Android selbst seit der letzten Volladung gezählt hat, daher können sie schon am ersten Tag erscheinen. Sie brauchen Root- oder Shizuku-Zugriff und nennen nur Apps, die Sie selbst installiert haben:
+
+- eine nicht verwaltete App, die 3 Tage nicht geöffnet wurde und mindestens 2 Minuten pro Tag Wakelocks hielt oder Jobs ausführte,
+- eine nicht verwaltete App, die 3 Tage nicht geöffnet wurde und im Hintergrund einen Sensor eingeschaltet lässt.
+
+Eine App, die nie geöffnet wurde, gilt ab dem Tag der Installation als inaktiv.
+
+**Bei Inaktivität begrenzen (Limit when idle)** fragt, wie stark die App begrenzt werden soll:
+
+- **Schonend (Gentle)** gibt der App die Voreinstellung Messenger: Standby nach 4 Stunden ohne Nutzung, nie beendet. Benachrichtigungen, Alarme und Synchronisierung funktionieren weiter.
+- **Ausgewogen (Balanced)** tut dasselbe und schränkt zusätzlich die Hintergrundaktivität ein (Sanft). Dringende Push-Nachrichten kommen weiterhin an; die eigene Hintergrundsynchronisierung der App stoppt.
+- **Streng (Strict)** gibt der App die Voreinstellung Selten genutzt und die Beschränkung Mittel: Standby nach 30 Minuten und beendet nach 2 Stunden ohne Nutzung. Es kommt nichts an, bis Sie die App wieder öffnen.
+
+Eine Beschränkungsstufe, die Sie für die App bereits gesetzt haben, bleibt erhalten. Bei einer App mit der Strategie Sofort, die ständig neu startet, gibt es keine Rückfrage: Sie bekommt die Stufe Schonend.
+
+Der Standby von Android schaltet keinen Sensor ab, den eine App angelassen hat. Wenn eine Smart-App in den Standby geht und einen Sensor hält, beendet ReAppzuku daher einmalig ihren inaktiven Prozess. Das ist dasselbe, was Android tut, wenn es Speicher braucht: Alarme, Jobs und Benachrichtigungen starten die App wieder.
+
+**Verwerfen (Dismiss)** blendet diese Empfehlung 30 Tage lang aus. Es ändert sich nichts, bis Sie eine Empfehlung anwenden. Akkuanteile werden erst verwendet, wenn mindestens 3 Tage Statistik und ein nennenswerter Akkuverbrauch vorliegen, daher erscheinen die beiden Akku-Empfehlungen zunächst nicht. Die zugrunde liegende Statistik wird pro App und Tag 90 Tage lang aufbewahrt.
 
 **Angewendete Empfehlungen**\
-Sieben Tage nachdem Sie eine Empfehlung angewendet haben, vergleicht der Bildschirm den Anteil der App am gesamten gemessenen App-Stromverbrauch in der Woche davor und in der Woche danach. Ist er um mindestens ein Drittel gesunken, hat die Änderung geholfen. Andernfalls steht dort, dass es keinen klaren Unterschied gibt, und es erscheint **Rückgängig**, wodurch die App die Strategie von vorher zurückbekommt. **Behalten** entfernt den Eintrag. Reichen die Statistiken aus beiden Wochen nicht aus, steht das dort, statt zu raten.
+Sieben Tage nachdem Sie eine Empfehlung angewendet haben, vergleicht der Bildschirm den Anteil der App am gesamten gemessenen App-Stromverbrauch in der Woche davor und in der Woche danach. Ist er um mindestens ein Drittel gesunken, hat die Änderung geholfen. Andernfalls steht dort, dass es keinen klaren Unterschied gibt, und es erscheint **Rückgängig**, wodurch die App die Strategie und die Beschränkungsstufe von vorher zurückbekommt. **Behalten** entfernt den Eintrag. Reichen die Statistiken aus beiden Wochen nicht aus, steht das dort, statt zu raten.
 
 ---
 

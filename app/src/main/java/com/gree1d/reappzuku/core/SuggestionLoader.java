@@ -10,6 +10,7 @@ import androidx.annotation.WorkerThread;
 import com.gree1d.reappzuku.db.AppDatabase;
 import com.gree1d.reappzuku.db.AppPolicy;
 import com.gree1d.reappzuku.db.DailyDeviceUsage;
+import com.gree1d.reappzuku.manager.BackgroundAppManager;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,6 +25,18 @@ import java.util.TimeZone;
 public final class SuggestionLoader {
     /** What applying a recommendation sets: standby when idle, never stopped, no boot cleanup. */
     public static final long APPLIED_PRESET = PolicyPresetSeeder.PRESET_MESSENGER;
+
+    /** Standby when idle. Notifications, alarms and background work keep running. */
+    public static final int LEVEL_GENTLE = 0;
+    /** Also restricts background activity. */
+    public static final int LEVEL_BALANCED = 1;
+    /** Also stops the app once it has been idle for a while. */
+    public static final int LEVEL_STRICT = 2;
+
+    /** The system dumps behind the background facts are not repeated for every screen visit. */
+    private static final long BACKGROUND_TTL_MS = 10 * 60_000L;
+    private static Background cachedBackground;
+    private static long cachedBackgroundAt;
 
     private static final String PREFS = "recommendations";
     private static final String KEY_DISMISSED = "dismissed";
@@ -59,9 +72,14 @@ public final class SuggestionLoader {
                 database.dailyUsageDao().getAppUsageBetween(fromDay, today), drainPct);
         AppPolicyListSnapshot policies = AppPolicyListSnapshot.capture(context);
         Map<String, Long> lastOpened = lastOpened(context, now);
+        Background background = background(context, now);
+        PackageManager packageManager = context.getPackageManager();
 
+        Set<String> packages = new HashSet<>(usage.packages());
+        packages.addAll(background.minutesPerDay.keySet());
+        packages.addAll(background.sensorHolders);
         List<SuggestionEngine.AppFacts> facts = new ArrayList<>();
-        for (String packageName : usage.packages()) {
+        for (String packageName : packages) {
             int status = policies.resolveStatus(packageName, false);
             // Stops from before the current policy say nothing about it.
             int countFrom = fromDay;
@@ -72,15 +90,20 @@ public final class SuggestionLoader {
                 }
             }
             Long opened = lastOpened == null ? null : lastOpened.get(packageName);
+            if (lastOpened != null && (opened == null || opened <= 0)) {
+                // Never opened as far as the usage data reaches: idle since it was installed.
+                opened = installedAt(packageManager, packageName);
+            }
+            Double minutes = background.minutesPerDay.get(packageName);
             facts.add(new SuggestionEngine.AppFacts(
                     packageName, status, usage.batteryShare(packageName),
                     usage.kills(packageName, countFrom), usage.relaunches(packageName, countFrom),
-                    daysSince(opened, now)));
+                    daysSince(opened, now), minutes == null ? 0 : minutes,
+                    background.sensorHolders.contains(packageName)));
         }
 
         // The system is only asked about the few apps that produced a recommendation.
         Set<String> dismissed = dismissed(context);
-        PackageManager packageManager = context.getPackageManager();
         String keyboard = ProtectedApps.getCurrentKeyboardPackage(context);
         String launcher = ProtectedApps.getCurrentLauncherPackage(context);
         List<SuggestionEngine.Suggestion> result = new ArrayList<>();
@@ -91,6 +114,89 @@ public final class SuggestionLoader {
             }
         }
         return result;
+    }
+
+    private static Long installedAt(PackageManager packageManager, String packageName) {
+        try {
+            return packageManager.getPackageInfo(packageName, 0).firstInstallTime;
+        } catch (PackageManager.NameNotFoundException e) {
+            return null;
+        }
+    }
+
+    /** What the system knows about background work, per package of an installed user app. */
+    static final class Background {
+        final Map<String, Double> minutesPerDay = new HashMap<>();
+        final Set<String> sensorHolders = new HashSet<>();
+    }
+
+    /**
+     * Wakelock and job time since the last charge and the apps holding a
+     * sensor now. Both come from the system, so they are known on the first
+     * day. Empty without a shell.
+     */
+    private static synchronized Background background(Context context, long now) {
+        if (cachedBackground != null && now >= cachedBackgroundAt
+                && now - cachedBackgroundAt < BACKGROUND_TTL_MS) {
+            return cachedBackground;
+        }
+        Background result = new Background();
+        if (!(context.getApplicationContext() instanceof App)) return result;
+        ShellManager shell = ((App) context.getApplicationContext()).getShellManager();
+        if (shell == null || !shell.isAnyShellReady()) return result;
+        PackageManager packageManager = context.getPackageManager();
+        for (Map.Entry<Integer, Double> entry : BackgroundActivityParser.minutesPerDay(
+                shell.runShellCommandAndGetFullOutput("dumpsys batterystats --charged --checkin"))
+                .entrySet()) {
+            String packageName = userAppOf(packageManager, entry.getKey());
+            if (packageName != null) result.minutesPerDay.put(packageName, entry.getValue());
+        }
+        for (Integer uid : SensorConnectionParser.parse(
+                shell.runShellCommandAndGetFullOutput("dumpsys sensorservice")).keySet()) {
+            String packageName = userAppOf(packageManager, uid);
+            if (packageName != null) result.sensorHolders.add(packageName);
+        }
+        cachedBackground = result;
+        cachedBackgroundAt = now;
+        return result;
+    }
+
+    /** The package of a uid that belongs to exactly one user-installed app, else null. */
+    private static String userAppOf(PackageManager packageManager, int uid) {
+        String[] packages = packageManager.getPackagesForUid(uid);
+        if (packages == null || packages.length != 1) return null;
+        try {
+            ApplicationInfo info = packageManager.getApplicationInfo(packages[0], 0);
+            return (info.flags & ApplicationInfo.FLAG_SYSTEM) == 0 ? packages[0] : null;
+        } catch (PackageManager.NameNotFoundException e) {
+            return null;
+        }
+    }
+
+    static long presetFor(int level) {
+        return level == LEVEL_STRICT ? PolicyPresetSeeder.PRESET_RARELY_USED : APPLIED_PRESET;
+    }
+
+    static int restrictionFor(int level) {
+        return level == LEVEL_STRICT ? AppPolicy.RESTRICTION_MEDIUM
+                : level == LEVEL_BALANCED ? AppPolicy.RESTRICTION_SOFT
+                : AppPolicy.RESTRICTION_NONE;
+    }
+
+    /** Applies a recommendation as firmly as the user chose and remembers what to undo. */
+    @WorkerThread
+    public static void apply(Context context, SuggestionEngine.Suggestion suggestion, int level) {
+        String packageName = suggestion.packageName;
+        int restriction = BackgroundAppManager.storedRestrictionLevel(context, packageName);
+        RecommendationEffect.recordApplied(context, packageName, suggestion.facts.status, restriction);
+        AppPolicyQuickChoice.applyPreset(context, packageName, presetFor(level));
+        // A level the user set on the restriction screens is never lowered or replaced.
+        if (restrictionFor(level) != AppPolicy.RESTRICTION_NONE
+                && restriction == AppPolicy.RESTRICTION_NONE) {
+            // Quietly: stopping the app here would cut its notifications until it is opened again.
+            BackgroundAppManager.applyPolicyRestriction(
+                    context, packageName, restrictionFor(level), true);
+        }
     }
 
     /** Whole days since the given moment, or -1 if it is unknown. */

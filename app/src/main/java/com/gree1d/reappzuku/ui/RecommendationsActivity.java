@@ -12,6 +12,7 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.gree1d.reappzuku.R;
 import com.gree1d.reappzuku.core.App;
 import com.gree1d.reappzuku.core.AppPolicyQuickChoice;
@@ -19,6 +20,7 @@ import com.gree1d.reappzuku.core.BaseActivity;
 import com.gree1d.reappzuku.core.RecommendationEffect;
 import com.gree1d.reappzuku.core.SuggestionEngine;
 import com.gree1d.reappzuku.core.SuggestionLoader;
+import com.gree1d.reappzuku.manager.BackgroundAppManager;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -91,6 +93,7 @@ public class RecommendationsActivity extends BaseActivity {
             } catch (PackageManager.NameNotFoundException e) {
                 // The row keeps the package name and no icon.
             }
+            CharSequence appName = name;
             ((TextView) row.findViewById(R.id.recommendation_app)).setText(name);
             ((TextView) row.findViewById(R.id.recommendation_reason)).setText(reasonText(suggestion));
             View apply = row.findViewById(R.id.recommendation_apply);
@@ -102,7 +105,30 @@ public class RecommendationsActivity extends BaseActivity {
                 // A second tap must not run the change twice.
                 apply.setEnabled(false);
                 dismiss.setEnabled(false);
-                apply(suggestion, row);
+                if (suggestion.reason == SuggestionEngine.REASON_RESTARTS) {
+                    // An app that restarts itself is only ever eased, never limited more firmly.
+                    apply(suggestion, row, SuggestionLoader.LEVEL_GENTLE);
+                    return;
+                }
+                boolean[] chosen = {false};
+                new MaterialAlertDialogBuilder(this)
+                        .setTitle(getString(R.string.recommendations_level_title, appName))
+                        .setItems(new CharSequence[] {
+                                getString(R.string.recommendations_level_gentle),
+                                getString(R.string.recommendations_level_balanced),
+                                getString(R.string.recommendations_level_strict)},
+                                (dialog, level) -> {
+                                    chosen[0] = true;
+                                    apply(suggestion, row, level);
+                                })
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .setOnDismissListener(dialog -> {
+                            if (chosen[0]) return;
+                            // Closed without a choice: the row can be used again.
+                            apply.setEnabled(true);
+                            dismiss.setEnabled(true);
+                        })
+                        .show();
             });
             dismiss.setOnClickListener(v -> {
                 SuggestionLoader.dismiss(this, suggestion);
@@ -151,6 +177,10 @@ public class RecommendationsActivity extends BaseActivity {
                     // List statuses and strategies share their numbers.
                     AppPolicyQuickChoice.apply(getApplicationContext(),
                             effect.packageName, effect.previousStatus);
+                    if (effect.previousRestriction >= 0) {
+                        BackgroundAppManager.applyPolicyRestriction(getApplicationContext(),
+                                effect.packageName, effect.previousRestriction, true);
+                    }
                     RecommendationEffect.forget(getApplicationContext(), effect.packageName);
                     runOnUiThread(() -> {
                         if (isFinishing() || isDestroyed()) return;
@@ -196,17 +226,21 @@ public class RecommendationsActivity extends BaseActivity {
             case SuggestionEngine.REASON_UNUSED:
                 return getString(R.string.recommendations_reason_unused,
                         suggestion.facts.daysSinceUsed, percent);
+            case SuggestionEngine.REASON_BACKGROUND:
+                return getString(R.string.recommendations_reason_background,
+                        suggestion.facts.daysSinceUsed,
+                        (int) Math.round(suggestion.facts.backgroundMinutesPerDay));
+            case SuggestionEngine.REASON_SENSOR:
+                return getString(R.string.recommendations_reason_sensor,
+                        suggestion.facts.daysSinceUsed);
             default:
                 return getString(R.string.recommendations_reason_heavy, percent);
         }
     }
 
-    private void apply(SuggestionEngine.Suggestion suggestion, View row) {
+    private void apply(SuggestionEngine.Suggestion suggestion, View row, int level) {
         executor.execute(() -> {
-            RecommendationEffect.recordApplied(getApplicationContext(),
-                    suggestion.packageName, suggestion.facts.status);
-            AppPolicyQuickChoice.applyPreset(getApplicationContext(),
-                    suggestion.packageName, SuggestionLoader.APPLIED_PRESET);
+            SuggestionLoader.apply(getApplicationContext(), suggestion, level);
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 Toast.makeText(this, R.string.policy_editor_saved, Toast.LENGTH_SHORT).show();

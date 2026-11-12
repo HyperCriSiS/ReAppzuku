@@ -14,9 +14,10 @@ import java.util.Set;
  * rules over plain numbers: nothing here touches Android, the database or a
  * shell, and nothing is changed until the user applies a recommendation.
  *
- * Every recommendation is the same gentle step: put the app on standby once
- * it has been idle, and never stop it. Stopping an app can break alarms and
- * message delivery, and no measurement here can rule that out.
+ * The gentlest step is the default: put the app on standby once it has been
+ * idle, and never stop it. Stopping an app can break alarms and message
+ * delivery, and no measurement here can rule that out, so anything firmer is
+ * the user's choice when applying.
  */
 public final class SuggestionEngine {
     /** The app keeps coming back after being stopped. */
@@ -25,6 +26,10 @@ public final class SuggestionEngine {
     public static final int REASON_UNUSED = 2;
     /** The app has not been opened for days and is one of the biggest battery users. */
     public static final int REASON_HEAVY = 3;
+    /** The app has not been opened for days and keeps a sensor registered in the background. */
+    public static final int REASON_SENSOR = 4;
+    /** The app has not been opened for days and still works in the background every day. */
+    public static final int REASON_BACKGROUND = 5;
 
     public static final int WINDOW_DAYS = 7;
     public static final int MAX_SUGGESTIONS = 10;
@@ -38,6 +43,8 @@ public final class SuggestionEngine {
     static final double UNUSED_MIN_SHARE = 0.02;
     static final int HEAVY_IDLE_DAYS = 3;
     static final double HEAVY_MIN_SHARE = 0.10;
+    /** Wakelock or job time per day that is worth a look for an app nobody opens. */
+    static final double MIN_BACKGROUND_MINUTES_PER_DAY = 2;
 
     private SuggestionEngine() {
     }
@@ -54,15 +61,27 @@ public final class SuggestionEngine {
         public final int relaunches;
         /** Whole days since the app was last opened, or -1 if unknown. */
         public final int daysSinceUsed;
+        /** Minutes per day the system counted wakelocks or jobs for the app since the last charge. */
+        public final double backgroundMinutesPerDay;
+        /** The app has a sensor registered right now. */
+        public final boolean holdsSensor;
 
         public AppFacts(String packageName, int status, double batteryShare,
                 int kills, int relaunches, int daysSinceUsed) {
+            this(packageName, status, batteryShare, kills, relaunches, daysSinceUsed, 0, false);
+        }
+
+        public AppFacts(String packageName, int status, double batteryShare,
+                int kills, int relaunches, int daysSinceUsed,
+                double backgroundMinutesPerDay, boolean holdsSensor) {
             this.packageName = packageName;
             this.status = status;
             this.batteryShare = batteryShare;
             this.kills = kills;
             this.relaunches = relaunches;
             this.daysSinceUsed = daysSinceUsed;
+            this.backgroundMinutesPerDay = backgroundMinutesPerDay;
+            this.holdsSensor = holdsSensor;
         }
     }
 
@@ -177,14 +196,30 @@ public final class SuggestionEngine {
             if (app.daysSinceUsed >= HEAVY_IDLE_DAYS && app.batteryShare >= HEAVY_MIN_SHARE) {
                 reasons.add(REASON_HEAVY);
             }
+            // What the system itself counted needs no days of own measurements.
+            if (app.daysSinceUsed >= HEAVY_IDLE_DAYS) {
+                if (app.backgroundMinutesPerDay >= MIN_BACKGROUND_MINUTES_PER_DAY) {
+                    reasons.add(REASON_BACKGROUND);
+                }
+                if (app.holdsSensor) reasons.add(REASON_SENSOR);
+            }
         }
         return reasons;
     }
 
     private static double weight(Suggestion suggestion) {
-        // A restart loop is certain waste; the other two are ranked by how much battery is at stake.
-        return suggestion.reason == REASON_RESTARTS
-                ? 1 + suggestion.facts.relaunches
-                : suggestion.facts.batteryShare;
+        // A restart loop is certain waste; the others are ranked by how much is at stake.
+        switch (suggestion.reason) {
+            case REASON_RESTARTS:
+                return 1 + suggestion.facts.relaunches;
+            case REASON_BACKGROUND:
+            case REASON_SENSOR:
+                // Below every restart loop, and comparable with a battery share:
+                // an hour per day counts like the whole measured power use.
+                return Math.min(1, suggestion.facts.backgroundMinutesPerDay / 60
+                        + (suggestion.facts.holdsSensor ? 0.05 : 0));
+            default:
+                return suggestion.facts.batteryShare;
+        }
     }
 }
