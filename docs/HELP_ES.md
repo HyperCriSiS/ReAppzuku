@@ -601,7 +601,7 @@ Muestra el modo de acceso actual: **Root**, **Shizuku** o **Sin acceso**, y deba
 Enlace a estas preguntas frecuentes (FAQ).
 
 **Ajustes visibles**\
-Elige cuánto de esta pantalla se muestra. **Sencillo** mantiene el modo de acceso, la configuración inicial, las recomendaciones y los interruptores principales. **Avanzado** añade las reglas de Auto-Kill, los Horarios de automatización, las Restricciones de segundo plano, el Modo sueño y la tarjeta de comportamiento de las apps. **Experto** lo muestra todo, incluidos el Tipo de Auto-Kill, las Condiciones avanzadas, el Programador de restricciones, la limpieza de caché, las apps ocultas y el acceso directo de RAM. Las filas ocultas siguen funcionando con los valores que tienen; solo sus controles quedan fuera de la vista.
+Elige cuánto de esta pantalla se muestra. **Sencillo** mantiene el modo de acceso, la configuración inicial, las recomendaciones y los interruptores principales. **Avanzado** añade las reglas de Auto-Kill, los Horarios de automatización, las Restricciones de segundo plano, el Modo sueño y la tarjeta de comportamiento de las apps. **Experto** lo muestra todo, incluidos el Tipo de Auto-Kill, las Condiciones avanzadas, el Programador de restricciones, la limpieza de caché, las apps ocultas y el acceso directo de RAM. Las filas ocultas siguen funcionando con los valores que tienen; solo sus controles quedan fuera de la vista. Una instalación nueva empieza en Simple; tras actualizar desde una versión anterior todo sigue visible hasta que elijas un nivel.
 
 ---
 

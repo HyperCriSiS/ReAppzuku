@@ -601,7 +601,7 @@ Zeigt den aktuellen Zugriffsmodus: **Root**, **Shizuku** oder **Kein Zugriff**, 
 Link zu diesem FAQ.
 
 **Angezeigte Einstellungen**\
-Legt fest, wie viel von diesem Bildschirm sichtbar ist. **Einfach** zeigt den Zugriffsmodus, die Einrichtung, Empfehlungen und die wichtigsten Schalter. **Erweitert** ergänzt die Auto-Kill-Regeln, Automatisierungszeitpläne, Hintergrundbeschränkungen, Schlafmodus und die Karte mit dem App-Verhalten. **Experte** zeigt alles, einschließlich Auto-Kill-Typ, Erweiterter Bedingungen, Planung der Beschränkungen, Cache-Leeren, ausgeblendeter Apps und der RAM-Kill-Verknüpfung. Ausgeblendete Zeilen funktionieren mit ihren aktuellen Werten weiter; nur ihre Bedienelemente sind nicht sichtbar.
+Legt fest, wie viel von diesem Bildschirm sichtbar ist. **Einfach** zeigt den Zugriffsmodus, die Einrichtung, Empfehlungen und die wichtigsten Schalter. **Erweitert** ergänzt die Auto-Kill-Regeln, Automatisierungszeitpläne, Hintergrundbeschränkungen, Schlafmodus und die Karte mit dem App-Verhalten. **Experte** zeigt alles, einschließlich Auto-Kill-Typ, Erweiterter Bedingungen, Planung der Beschränkungen, Cache-Leeren, ausgeblendeter Apps und der RAM-Kill-Verknüpfung. Ausgeblendete Zeilen funktionieren mit ihren aktuellen Werten weiter; nur ihre Bedienelemente sind nicht sichtbar. Eine Neuinstallation beginnt mit Einfach; nach einem Update von einer früheren Version bleibt alles sichtbar, bis Sie eine Stufe wählen.
 
 ---
 

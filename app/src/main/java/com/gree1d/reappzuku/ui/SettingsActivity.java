@@ -901,6 +901,18 @@ public class SettingsActivity extends SettingsActivityDialogs
     }
 
     private int settingsLevel() {
+        if (!sharedPreferences.contains(KEY_SETTINGS_LEVEL)) {
+            // Decided once and stored, so the first update does not change what is shown.
+            int level = SettingsLevel.EXPERT;
+            try {
+                android.content.pm.PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
+                level = SettingsLevel.initial(info.firstInstallTime, info.lastUpdateTime);
+            } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+                // Cannot happen for the own package; everything stays visible.
+            }
+            sharedPreferences.edit().putInt(KEY_SETTINGS_LEVEL, level).apply();
+            return level;
+        }
         return SettingsLevel.sanitize(sharedPreferences.getInt(KEY_SETTINGS_LEVEL, SettingsLevel.EXPERT));
     }
 
