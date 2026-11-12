@@ -266,9 +266,11 @@ public class AutoKillManager {
                                 activityDump[0] = shellManager.runShellCommandAndGetFullOutput(
                                         "dumpsys activity activities");
                                 // Without it a visible app cannot be told apart: stop nothing.
-                                if (activityDump[0] == null) activityDump[0] = "";
+                                if (activityDump[0] == null || activityDump[0].startsWith("ERROR:")) {
+                                    activityDump[0] = "";
+                                }
                             }
-                            if (activityDump[0].isEmpty() || containsPackage(activityDump[0], pkg)) {
+                            if (activityDump[0].trim().isEmpty() || containsPackage(activityDump[0], pkg)) {
 
                                 return false;
                             }

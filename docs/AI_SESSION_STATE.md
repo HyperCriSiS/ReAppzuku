@@ -20,10 +20,19 @@ Emulator evidence on `main` after #197 (Android 17 API 37 runtime run `431180094
 
 Android 7 API 24 smoke run `43118014837` on the same `main` passed on its second attempt, including the in-place upgrade that keeps Room policies and preferences and the rejected signer and downgrade checks. The first attempt was canceled by the 50 minute job timeout while `adb install -r` hung on the emulator.
 
-Open device checks, none of which has been run:
+Device test on an ASUS Zenfone 8 with Android 16 (API 36), root through KernelSU, Shizuku running (2026-11-12):
+
+- Usage access never worked: `cmd appops set GET_USAGE_STATS allow` returns 0 but leaves the mode at default unless the manifest declares `PACKAGE_USAGE_STATS`. Fixed by declaring it; the self-grant then reached `allow` from the Recommendations screen.
+- The protection checks spared 200 of 209 running apps, so Auto-Kill stopped nothing: `dumpsys device_policy` lists every app under `PersonalAppsSuspensionHelper`, a VPN marker 1800 characters away counted, and the next ServiceRecord's foreground flag counted. Fixed; with the same dumps 7 apps stay protected. A running VpnService is now recognized by its `BIND_VPN_SERVICE` ServiceRecord, since `dumpsys connectivity` names a VPN owner only by uid; this was not observed with a connected VPN.
+- After the fix an Immediate app was force-stopped within about 20 seconds, stayed stopped and appeared in the Auto-Kill log.
+- An 18 second periodic Auto-Kill with nothing to stop cost about 2 s of device CPU per 90 s with the screen off. The pass now skips the activity dump and package lookups when no wanted app runs, and runs at most every 5 minutes while the screen is off; measured afterwards: 25 ticks per 90 s screen off (before 290 to 450 per 120 s).
+- Background restriction applied and verified `RUN_ANY_IN_BACKGROUND: ignore`; restricting a second app left a running restricted app untouched.
+- Smart Lifecycle scheduled its check every 15 minutes for the Balanced delays; a full Smart cycle (1 hour) was not observed.
+
+Open device checks:
 
 - A real upgrade from a Room 13 install on a device.
-- The usage access self-grant: that the GET_USAGE_STATS AppOp alone lets `queryAndAggregateUsageStats` return data on API 24 to 37.
+- The usage access self-grant on API 24 to 35 (verified on API 36 only).
 - The formats of `dumpsys appwidget`, `connectivity`, `device_policy`, `media_session` and `dumpsys package` that the protection checks and the permanent freeze repair parse.
 - Delta restriction apply: toggle one app and confirm that other restricted apps are not force-stopped; Resume in the out-of-sync dialog.
 - Non-wakeup snapshot and heartbeat alarms, and the display loops resuming after screen on.

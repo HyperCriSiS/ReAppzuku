@@ -159,8 +159,7 @@ public class RestrictionsWatchdogManager {
             String dump = shellManager.runShellCommandAndGetFullOutput("dumpsys activity services");
             servicesDump = dump == null ? "" : dump;
         }
-        return PackageTextMatcher.containsMarkerNearPackage(
-                servicesDump, packageName, "isForeground=true", 1800);
+        return SmartLifecycleProtectionPolicy.runsForegroundService(servicesDump, packageName);
     }
 
     private void checkAndRepairSleepMode() {
