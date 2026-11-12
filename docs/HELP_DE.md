@@ -315,7 +315,7 @@ Das Antippen einer App in der Liste öffnet ein Schnellaktionsmenü:
 - **App-Trigger** — Detaillierte Analyse der Ursachen für Hintergrundaktivität (siehe unten)
 - **Deinstallieren** — Entfernt die App vom Gerät (bei System-Apps nicht verfügbar)
 - **Lebenszyklus-Richtlinie (Lifecycle policy)**: Öffnet den Richtlinien-Editor der App
-- **Hinzufügen zu...**
+- **Diese App verwalten (Manage this app)**
   - **Strategie**: Zeigt die aktuelle Strategie und lässt Sie Nicht verwaltet, Geschützt, Smart oder Sofort wählen (siehe [Strategie pro App](#strategie-pro-app-einrichtung-und-empfehlungen))
   - Ausgeblendete Apps
   - Hintergrundbeschränkung (Sanft)
