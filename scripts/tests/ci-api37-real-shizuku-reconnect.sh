@@ -105,21 +105,17 @@ server_log() {
   adb logcat -d | grep -Ei 'shizuku' | grep -v -E ' adbd |RZShizukuReconnect' | tail -"$1" || true
 }
 
-# What brings the Binder back is not known for this release. Each stage adds
-# one thing a user or the app could do; the first stage adds nothing, so it
-# measures the app on its own.
+# On Android 17 the restarted server does not hand its Binder to an app that
+# stays in the background; it does as soon as the app comes to the foreground,
+# which is what the "No Shizuku access" notification of the app leads to.
+# Stage 1 records whether the background case works on this release, stage 2
+# is the path that has to work.
 back_stage=''
-for stage in 1 2 3 4; do
+for stage in 1 2; do
   case "$stage" in
-    1) echo 'RZ170_STAGE 1: the app on its own' ;;
+    1) echo 'RZ170_STAGE 1: the app stays in the background' ;;
     2) echo 'RZ170_STAGE 2: the app comes to the foreground'
        adb shell am start -W -n "$PRODUCT/.ui.MainActivity" > /tmp/rz170-app-start.txt || true ;;
-    3) echo 'RZ170_STAGE 3: the provider process of the app starts again'
-       provider_pid="$(adb shell pidof "$PRODUCT:shizuku" 2>/dev/null | tr -d '\r' || true)"
-       echo "provider pid before: [$provider_pid]"
-       if [ -n "$provider_pid" ]; then adb shell run-as "$PRODUCT" /system/bin/kill -9 "$provider_pid" || true; fi ;;
-    4) echo 'RZ170_STAGE 4: the Shizuku manager is opened'
-       adb shell am start -W -n "$SHIZUKU_PKG/moe.shizuku.manager.MainActivity" > /tmp/rz170-manager-start.txt || true ;;
   esac
   for attempt in $(seq 1 80); do
     if has_marker RZ170_BINDER_BACK; then back_stage="$stage"; break; fi
