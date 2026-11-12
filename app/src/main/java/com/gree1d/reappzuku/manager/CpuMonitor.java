@@ -103,7 +103,10 @@ public class CpuMonitor {
         for (AppModel app : snapshot) {
             int pid = app.getPid();
             if (pid > 0) {
-                cmd.append("; echo ---; cat /proc/").append(pid).append("/stat");
+                // The shell reads the line itself. One cat process per app cost about
+                // two seconds of CPU time per poll with 140 running apps.
+                cmd.append("; echo ---; read -r l < /proc/").append(pid)
+                        .append("/stat && echo \"$l\"");
             } else {
                 cmd.append("; echo ---");
             }

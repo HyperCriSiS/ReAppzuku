@@ -25,6 +25,9 @@ public class BackgroundAppsRecyclerViewAdapter extends RecyclerView.Adapter<Back
     private final Context context;
     private OnAppActionListener actionListener;
     private final List<AppModel> items = new ArrayList<>();
+    /** The CPU text each row shows, in the order of {@link #items}. */
+    private final List<String> shownCpu = new java.util.ArrayList<>();
+    private RecyclerView recyclerView;
     private boolean selectionMode = false;
 
     public interface OnAppActionListener {
@@ -45,14 +48,52 @@ public class BackgroundAppsRecyclerViewAdapter extends RecyclerView.Adapter<Back
         items.clear();
         if (list != null) items.addAll(list);
         selectionMode = items.stream().anyMatch(AppModel::isSelected);
-
+        rememberCpu();
         notifyDataSetChanged();
     }
 
+    /**
+     * Called on every CPU poll. With the same apps in the same order only the
+     * rows whose CPU text changed are touched, and the text is set on the row
+     * that is on screen. Rebinding the list on every poll kept the main thread
+     * and the renderer busy all the time, although most rows never change; a
+     * change notification still ran the item animator for a quarter second.
+     */
     public void updateCpu(List<AppModel> list) {
-        items.clear();
-        if (list != null) items.addAll(list);
-        notifyDataSetChanged();
+        if (!items.equals(list)) {
+            items.clear();
+            if (list != null) items.addAll(list);
+            rememberCpu();
+            notifyDataSetChanged();
+            return;
+        }
+        for (int i = 0; i < items.size(); i++) {
+            String cpu = items.get(i).getCpuUsage();
+            if (!java.util.Objects.equals(cpu, shownCpu.get(i))) {
+                shownCpu.set(i, cpu);
+                RecyclerView.ViewHolder holder = recyclerView == null
+                        ? null : recyclerView.findViewHolderForAdapterPosition(i);
+                // A row that is not on screen reads the text from the app when it is bound.
+                if (holder instanceof ViewHolder) {
+                    ((ViewHolder) holder).binding.appCpu.setText(cpu != null ? cpu : "");
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
+        this.recyclerView = recyclerView;
+    }
+
+    @Override
+    public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
+        this.recyclerView = null;
+    }
+
+    private void rememberCpu() {
+        shownCpu.clear();
+        for (AppModel app : items) shownCpu.add(app.getCpuUsage());
     }
 
     public List<AppModel> getCurrentList() {
