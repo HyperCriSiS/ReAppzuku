@@ -91,8 +91,21 @@ public class AppPolicyEditorActivity extends BaseActivity {
         bindViews();
         configureStaticAdapters();
         configureListeners();
-        packageView.setText(packageName);
+        packageView.setText(appNameAndPackage(packageName));
         loadPolicy();
+    }
+
+    /** The name people know the app by, then its package. The package alone said little in the new app flow. */
+    private String appNameAndPackage(String packageName) {
+        try {
+            android.content.pm.PackageManager packageManager = getPackageManager();
+            CharSequence label = packageManager.getApplicationLabel(
+                    packageManager.getApplicationInfo(packageName, 0));
+            return label == null || packageName.contentEquals(label)
+                    ? packageName : label + "\n" + packageName;
+        } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+            return packageName;
+        }
     }
 
     private void bindViews() {

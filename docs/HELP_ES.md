@@ -751,7 +751,7 @@ Utiliza el comando `appops` de Android para **bloquear la ejecución de una app 
 **Tipos de restricciones:**
 - **Suave / Soft** (ignorar RUN_ANY_IN_BACKGROUND)\
 Bloquea el inicio automático a un nivel más estricto que los ajustes de actividad estándar.\
-**Cómo funciona**: Si abres la app y cambias a otra — sigue ejecutándose (mientras esté en recientes). Pero por sí sola (durante la noche o en segundo plano) no se despertará hasta que la abras.
+**Cómo funciona**: Si abres la app y cambias a otra — sigue ejecutándose (mientras esté en recientes). Pero por sí sola (durante la noche o en segundo plano) no se despertará hasta que la abras. Tras quitar una restricción, abre la app una vez: muchas apps solo reanudan su trabajo en segundo plano cuando se abren.
 
 - **Media / Medium**\
 Restringe cierta actividad en segundo plano.

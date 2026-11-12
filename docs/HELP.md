@@ -751,7 +751,7 @@ Uses Android's `appops` to **block an app from running in background at OS level
 **Restriction types:**
 - **Soft** (RUN_ANY_IN_BACKGROUND ignore)\
 Blocks autostart at a stricter level than standard activity settings.\
-**How it works**: If you open app and switch away — it keeps running (while in recents). But on its own (overnight or in background) it won't wake up until you open it.
+**How it works**: If you open app and switch away — it keeps running (while in recents). But on its own (overnight or in background) it won't wake up until you open it. After a restriction is lifted, open the app once: many apps only start their background work again when they are opened.
 
 - **Medium**\
 Restricts some background activity.

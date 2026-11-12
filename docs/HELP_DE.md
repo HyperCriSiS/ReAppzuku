@@ -751,7 +751,7 @@ Verwendet die `appops` von Android, um **einer App die Ausführung im Hintergrun
 **Arten von Beschränkungen:**
 - **Sanft** (RUN_ANY_IN_BACKGROUND ignorieren)\
 Blockiert den Autostart auf einem strengeren Niveau als die Standard-Aktivitätseinstellungen.\
-**So funktioniert's**: Wenn Sie die App öffnen und wechseln — läuft sie weiter (solange sie in den Letzten Apps ist). Aber von selbst (über Nacht oder im Hintergrund) wird sie nicht aufwachen, bis Sie sie öffnen.
+**So funktioniert's**: Wenn Sie die App öffnen und wechseln — läuft sie weiter (solange sie in den Letzten Apps ist). Aber von selbst (über Nacht oder im Hintergrund) wird sie nicht aufwachen, bis Sie sie öffnen. Nach dem Aufheben einer Beschränkung sollten Sie die App einmal öffnen: Viele Apps nehmen ihre Hintergrundarbeit erst dann wieder auf.
 
 - **Mittel**\
 Schränkt einige Hintergrundaktivitäten ein.
