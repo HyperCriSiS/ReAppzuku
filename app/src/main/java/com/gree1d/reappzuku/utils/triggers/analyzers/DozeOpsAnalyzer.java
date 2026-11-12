@@ -24,19 +24,40 @@ public class DozeOpsAnalyzer {
     }
 
 // ---- analyzeDozeExemption ----
+    public static final int EXEMPT_NONE = 0;
+    public static final int EXEMPT_USER = 1;
+    public static final int EXEMPT_SYSTEM = 2;
+
+    /**
+     * Whether "dumpsys deviceidle whitelist" lists the package, and by whom.
+     * Its lines are "user,package,uid", "system,package,uid" and
+     * "system-excidle,package,uid". The user's own entry counts first.
+     */
+    public static int exemption(String whitelistDump, String packageName) {
+        if (whitelistDump == null) return EXEMPT_NONE;
+        int found = EXEMPT_NONE;
+        for (String line : whitelistDump.split("\n")) {
+            String[] parts = line.trim().split(",");
+            if (parts.length < 2 || !parts[1].equals(packageName)) continue;
+            if ("user".equals(parts[0])) return EXEMPT_USER;
+            if (parts[0].startsWith("system")) found = EXEMPT_SYSTEM;
+        }
+        return found;
+    }
+
     public List<TriggerInfo> analyzeDozeExemption(String packageName) {
         List<TriggerInfo> list = new ArrayList<>();
         String output = analyzer.getShellManager().runShellCommandAndGetFullOutput(
-                "dumpsys deviceidle | grep -E 'whitelist|except|power-save|restricted|exemption'");
+                "dumpsys deviceidle whitelist");
         if (output == null || output.trim().isEmpty()) {
             if (analyzer.apiLevel >= AppTriggersAnalyzer.API_BAL_PRIVILEGES)
                 return analyzeDozeExemptionFallback(packageName);
             return list;
         }
 
-        for (String line : output.split("\n")) {
-            if (!line.contains(packageName)) continue;
-            boolean sys = line.contains("sys-");
+        int exemption = exemption(output, packageName);
+        if (exemption != EXEMPT_NONE) {
+            boolean sys = exemption == EXEMPT_SYSTEM;
             list.add(new TriggerInfo(TriggerInfo.Group.OTHER,
                     AppTriggersAnalyzer.KEY_CAT_DOZE,
                         analyzer.getContext().getString(R.string.triggers_cat_doze),
@@ -45,7 +66,6 @@ public class DozeOpsAnalyzer {
                     analyzer.getContext().getString(sys ? R.string.triggers_doze_sys_explanation
                                          : R.string.triggers_doze_user_explanation),
                     TriggerInfo.Severity.HIGH));
-            break;
         }
 
         if (list.isEmpty() && analyzer.apiLevel >= AppTriggersAnalyzer.API_BAL_PRIVILEGES)
@@ -63,21 +83,6 @@ public class DozeOpsAnalyzer {
 // ---- analyzeDozeExemptionFallback ----
     public List<TriggerInfo> analyzeDozeExemptionFallback(String packageName) {
         List<TriggerInfo> list = new ArrayList<>();
-        try {
-            String ops = analyzer.getShellManager().runShellCommandAndGetFullOutput(
-                    "cmd appops get " + packageName + " RUN_ANY_IN_BACKGROUND");
-            if (ops != null && ops.contains("allow")) {
-                list.add(new TriggerInfo(TriggerInfo.Group.OTHER,
-                        AppTriggersAnalyzer.KEY_CAT_DOZE,
-                        analyzer.getContext().getString(R.string.triggers_cat_doze),
-                        analyzer.getContext().getString(R.string.triggers_doze_battery_opt_detail),                        
-                        analyzer.getContext().getString(R.string.triggers_doze_battery_opt_explanation),                        
-                        TriggerInfo.Severity.HIGH));
-            }
-        } catch (Exception e) {
-
-        }
-
         try {
             String battery = analyzer.getShellManager().runShellCommandAndGetFullOutput(
                     "dumpsys battery | grep -i " + packageName);
@@ -268,10 +273,10 @@ public class DozeOpsAnalyzer {
             String ops = analyzer.getShellManager().runShellCommandAndGetFullOutput(
                     "cmd appops get " + packageName + " RUN_ANY_IN_BACKGROUND");
             if (ops != null) {
+                // An app without this restriction reports "Default mode: allow". That says
+                // nothing about its bucket, so no bucket is guessed from it.
                 if (ops.contains("ignore") || ops.contains("deny"))
                     return "45";
-                if (ops.contains("allow"))
-                    return "5";
             }
         } catch (Exception e) {  }
 

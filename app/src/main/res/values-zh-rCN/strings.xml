@@ -871,8 +871,6 @@
     <string name="triggers_fgs_boot_blocked_explanation">Android 14+：BOOT_COMPLETED Receiver 不能启动 MICROPHONE（API 34）或 PHONE_CALL（API 35）类型的 FGS。应用正在尝试绕过此限制。</string>
     <string name="triggers_fgs_boot_exception_detail">启动时抛出 ForegroundServiceStartNotAllowedException</string>
     <string name="triggers_fgs_boot_exception_explanation">Android 15：尝试从 BOOT_COMPLETED 启动 FGS 导致异常。服务类型（dataSync/mediaProcessing/phoneCall）被禁止在启动时启动。</string>
-    <string name="triggers_doze_battery_opt_detail">电池优化已禁用 · RUN_ANY_IN_BACKGROUND=allow</string>
-    <string name="triggers_doze_battery_opt_explanation">应用被用户或系统从电池优化中排除。可以在后台运行而不受 Doze/App Standby 限制。</string>
     <string name="triggers_doze_battery_exempt_detail">电池豁免（dumpsys battery）</string>
     <string name="triggers_doze_battery_exempt_explanation">应用在电池管理器豁免列表中。</string>
     <string name="triggers_bucket_restricted_explanation">RESTRICTED 桶（Android 12+）：Job 和 Alarm 被完全阻止。在 Android 14 上，甚至 ALLOW_WHILE_IDLE 闹钟也被忽略。应用因过度后台消耗而被限制。</string>
