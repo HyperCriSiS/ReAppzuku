@@ -16,4 +16,5 @@
     <string name="recommendations_level_gentle">Leve: en espera tras 4 horas sin uso, lo que retrasa su trabajo en segundo plano. Si mantiene un sensor activado, su proceso inactivo se finaliza una vez. Las notificaciones y las alarmas siguen funcionando.</string>
     <string name="recommendations_level_balanced">Equilibrado: además restringe la actividad en segundo plano. Su trabajo en segundo plano se detiene y las notificaciones normalmente no llegan hasta que abras la app.</string>
     <string name="recommendations_level_strict">Estricto: restringe la actividad en segundo plano con más firmeza, pone la app en espera a los 30 minutos y la detiene tras 2 horas sin uso. No llega nada hasta que la abras de nuevo.</string>
+    <string name="recommendations_exempt_note">Está exenta de la optimización de batería. Android ignora la espera y las restricciones en segundo plano para una app así, por lo que solo detenerla tiene efecto hasta que vuelvas a poner su uso de batería en optimizado en los ajustes de Android.</string>
 </resources>

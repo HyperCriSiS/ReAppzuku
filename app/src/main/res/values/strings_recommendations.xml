@@ -16,4 +16,5 @@
     <string name="recommendations_level_gentle">Gentle: standby after 4 hours without use, which delays its background work. If it keeps a sensor on, its idle process is ended once. Notifications and alarms keep working.</string>
     <string name="recommendations_level_balanced">Balanced: also restricts background activity. Its background work stops and notifications usually do not arrive until you open the app.</string>
     <string name="recommendations_level_strict">Strict: restricts background activity more firmly, puts the app on standby after 30 minutes and stops it after 2 hours without use. Nothing arrives until you open it again.</string>
+    <string name="recommendations_exempt_note">It is exempt from battery optimization. Android ignores standby and background restrictions for such an app, so only stopping it has an effect until you set its battery use back to optimized in the Android settings.</string>
 </resources>

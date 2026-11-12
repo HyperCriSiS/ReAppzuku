@@ -1103,6 +1103,8 @@ For these two, an app that was never opened counts as idle since the day it was 
 
 Balanced and Strict are only offered with Root or Shizuku access on Android 11 or later; otherwise the app gets the Gentle step. A restriction level you already set for the app is kept. For an app with the Immediate strategy that keeps restarting there is no question: it gets the Gentle step.
 
+If an app is exempt from battery optimization (Android settings: battery use Unrestricted), its recommendation says so: Android ignores standby and background restrictions for such an app, so only the stop of the Strict level has an effect until you set it back to optimized.
+
 Android's standby does not switch off a sensor an app left on. When a Smart app goes on standby and holds a sensor, ReAppzuku therefore ends its idle process once, unless the app shares its user ID with another app. This is the same thing Android does when it needs memory: alarms, jobs and notifications start the app again. An app that restarts itself right away can switch the sensor on again.
 
 **Dismiss** hides that recommendation for 30 days. Nothing changes until you apply a recommendation. Battery shares are only used once at least 3 days of statistics and a real amount of battery drain exist, so the two battery recommendations do not appear at first. The statistics behind it are kept per app and day for 90 days.

@@ -16,4 +16,5 @@
     <string name="recommendations_level_gentle">温和：4 小时未使用后进入待机，这会延迟其后台工作。若其保持传感器开启，则会结束其空闲进程一次。通知和闹钟照常工作。</string>
     <string name="recommendations_level_balanced">均衡：同时限制后台活动。其后台工作会停止，在您打开该应用之前通常不会收到通知。</string>
     <string name="recommendations_level_strict">严格：更严格地限制后台活动，30 分钟后让应用进入待机，2 小时未使用后将其停止。在您再次打开之前不会收到任何内容。</string>
+    <string name="recommendations_exempt_note">它已被排除在电池优化之外。对这样的应用，Android 会忽略待机和后台限制，因此在您于 Android 设置中把它的电池用量改回优化之前，只有停止它才有效果。</string>
 </resources>

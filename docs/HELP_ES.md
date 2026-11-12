@@ -1105,6 +1105,8 @@ En estas dos, una app que nunca se abrió cuenta como inactiva desde el día en 
 
 Equilibrado y Estricto solo se ofrecen con acceso Root o Shizuku en Android 11 o posterior; en caso contrario, la app recibe el paso Leve. Se conserva el nivel de restricción que ya hubieras establecido para la app. Para una app con la estrategia Inmediato que se reinicia sin parar no hay pregunta: recibe el paso Leve.
 
+Si una app está exenta de la optimización de batería (ajustes de Android: uso de batería Sin restricciones), su recomendación lo indica: Android ignora la espera y las restricciones en segundo plano para una app así, por lo que solo la detención del nivel Estricto tiene efecto hasta que la vuelvas a poner en optimizado.
+
 El modo en espera de Android no desactiva un sensor que una app dejó activado. Por eso, cuando una app Smart pasa a espera y mantiene un sensor, ReAppzuku finaliza una vez su proceso inactivo, salvo que la app comparta su ID de usuario con otra app. Es lo mismo que hace Android cuando necesita memoria: las alarmas, las tareas y las notificaciones vuelven a iniciar la app. Una app que se reinicia sola de inmediato puede volver a activar el sensor.
 
 **Descartar** oculta esa recomendación durante 30 días. No cambia nada hasta que apliques una recomendación. Los porcentajes de batería solo se usan cuando existen al menos 3 días de estadísticas y un consumo de batería real, por lo que las dos recomendaciones de batería no aparecen al principio. Las estadísticas se conservan por app y día durante 90 días.

@@ -1104,6 +1104,8 @@ Bei diesen beiden gilt eine App, die nie geöffnet wurde, ab dem Tag der Install
 
 Ausgewogen und Streng werden nur mit Root- oder Shizuku-Zugriff ab Android 11 angeboten; andernfalls bekommt die App die Stufe Schonend. Eine Beschränkungsstufe, die Sie für die App bereits gesetzt haben, bleibt erhalten. Bei einer App mit der Strategie Sofort, die ständig neu startet, gibt es keine Rückfrage: Sie bekommt die Stufe Schonend.
 
+Ist eine App von der Akku-Optimierung ausgenommen (Android-Einstellungen: Akkunutzung Uneingeschränkt), steht das in ihrer Empfehlung: Android ignoriert bei einer solchen App Standby und Hintergrundbeschränkungen, daher wirkt nur das Beenden der Stufe Streng, bis Sie die App wieder auf optimiert stellen.
+
 Der Standby von Android schaltet keinen Sensor ab, den eine App angelassen hat. Wenn eine Smart-App in den Standby geht und einen Sensor hält, beendet ReAppzuku daher einmalig ihren inaktiven Prozess, es sei denn, die App teilt ihre Benutzerkennung mit einer anderen App. Das ist dasselbe, was Android tut, wenn es Speicher braucht: Alarme, Jobs und Benachrichtigungen starten die App wieder. Eine App, die sich sofort selbst neu startet, kann den Sensor wieder einschalten.
 
 **Verwerfen (Dismiss)** blendet diese Empfehlung 30 Tage lang aus. Es ändert sich nichts, bis Sie eine Empfehlung anwenden. Akkuanteile werden erst verwendet, wenn mindestens 3 Tage Statistik und ein nennenswerter Akkuverbrauch vorliegen, daher erscheinen die beiden Akku-Empfehlungen zunächst nicht. Die zugrunde liegende Statistik wird pro App und Tag 90 Tage lang aufbewahrt.

@@ -223,7 +223,7 @@ public class SuggestionEngineTest {
     @Test
     public void everyLocaleHasTheSameStringsWithTheSamePlaceholders() throws Exception {
         List<String> expected = entries(read("app/src/main/res/values/strings_recommendations.xml"));
-        assertEquals(16, expected.size());
+        assertEquals(17, expected.size());
         for (String locale : new String[] {"es", "ru", "uk", "zh-rCN"}) {
             assertEquals(locale, expected, entries(read(
                     "app/src/main/res/values-" + locale + "/strings_recommendations.xml")));
