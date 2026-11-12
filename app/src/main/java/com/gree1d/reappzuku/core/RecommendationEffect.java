@@ -39,6 +39,8 @@ public final class RecommendationEffect {
     public final long appliedAt;
     /** The {@link AppPolicyListState} status before the change, which undo restores. */
     public final int previousStatus;
+    /** The background restriction level the change set, or -1 if it set none. */
+    public final int appliedRestriction;
     public final double shareBefore;
     public final double shareAfter;
     public final int verdict;
@@ -47,6 +49,7 @@ public final class RecommendationEffect {
         this.packageName = applied.packageName;
         this.appliedAt = applied.appliedAt;
         this.previousStatus = applied.previousStatus;
+        this.appliedRestriction = applied.appliedRestriction;
         this.shareBefore = shareBefore;
         this.shareAfter = shareAfter;
         this.verdict = verdict;
@@ -62,23 +65,32 @@ public final class RecommendationEffect {
         final String packageName;
         final long appliedAt;
         final int previousStatus;
+        /** The restriction level the change set; -1 if none, as in entries of earlier versions. */
+        final int appliedRestriction;
 
         Applied(String packageName, long appliedAt, int previousStatus) {
+            this(packageName, appliedAt, previousStatus, -1);
+        }
+
+        Applied(String packageName, long appliedAt, int previousStatus, int appliedRestriction) {
             this.packageName = packageName;
             this.appliedAt = appliedAt;
             this.previousStatus = previousStatus;
+            this.appliedRestriction = appliedRestriction;
         }
 
         String encode() {
-            return packageName + "|" + appliedAt + "|" + previousStatus;
+            return packageName + "|" + appliedAt + "|" + previousStatus
+                    + (appliedRestriction < 0 ? "" : "|" + appliedRestriction);
         }
 
         /** @return null for a malformed entry */
         static Applied decode(String value) {
             String[] parts = value.split("\\|");
-            if (parts.length != 3) return null;
+            if (parts.length != 3 && parts.length != 4) return null;
             try {
-                return new Applied(parts[0], Long.parseLong(parts[1]), Integer.parseInt(parts[2]));
+                return new Applied(parts[0], Long.parseLong(parts[1]), Integer.parseInt(parts[2]),
+                        parts.length == 4 ? Integer.parseInt(parts[3]) : -1);
             } catch (NumberFormatException e) {
                 return null;
             }
@@ -86,6 +98,14 @@ public final class RecommendationEffect {
     }
 
     /** The day the after window ends is the last day that has to be complete. */
+    /**
+     * Undo lifts a restriction only if the recommendation set it and it is
+     * still the level in place. One the user changed by hand since is theirs.
+     */
+    public static boolean shouldLiftRestriction(int appliedRestriction, int currentRestriction) {
+        return appliedRestriction > 0 && appliedRestriction == currentRestriction;
+    }
+
     static boolean isReady(long appliedAt, long now, TimeZone zone) {
         return DailyUsageMath.dayKey(now, zone) > DailyUsageMath.dayKey(appliedAt, zone, -MEASURE_DAYS);
     }
@@ -95,11 +115,13 @@ public final class RecommendationEffect {
                 > DailyUsageMath.dayKey(appliedAt, zone, -(MEASURE_DAYS + SHOW_DAYS));
     }
 
-    public static void recordApplied(Context context, String packageName, int previousStatus) {
+    public static void recordApplied(Context context, String packageName, int previousStatus,
+            int appliedRestriction) {
         Set<String> entries = new HashSet<>(stored(context));
         // A newer change of the same app replaces the older measurement.
         entries.removeIf(entry -> entry.startsWith(packageName + "|"));
-        entries.add(new Applied(packageName, System.currentTimeMillis(), previousStatus).encode());
+        entries.add(new Applied(packageName, System.currentTimeMillis(), previousStatus,
+                appliedRestriction).encode());
         prefs(context).edit().putStringSet(KEY_APPLIED, entries).apply();
     }
 

@@ -77,8 +77,10 @@ public class RecommendationEffectTest {
         assertEquals(com.gree1d.reappzuku.db.AppPolicy.STRATEGY_IMMEDIATE, AppPolicyListState.STATUS_IMMEDIATE);
 
         String screen = read("app/src/main/java/com/gree1d/reappzuku/ui/RecommendationsActivity.java");
-        int record = screen.indexOf("RecommendationEffect.recordApplied(getApplicationContext(),");
-        assertTrue(record >= 0 && record < screen.indexOf("AppPolicyQuickChoice.applyPreset("));
+        assertTrue(screen.contains("SuggestionLoader.apply(getApplicationContext(), suggestion, level);"));
+        String loader = read("app/src/main/java/com/gree1d/reappzuku/core/SuggestionLoader.java");
+        int record = loader.indexOf("RecommendationEffect.recordApplied(context,");
+        assertTrue(record >= 0 && record < loader.indexOf("AppPolicyQuickChoice.applyPreset(context,"));
         assertTrue(screen.contains("effect.verdict == RecommendationEffect.VERDICT_NO_CLEAR_EFFECT"));
     }
 

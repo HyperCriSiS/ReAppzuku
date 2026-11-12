@@ -1088,10 +1088,27 @@ El editor de políticas ofrece preajustes: No tocar nunca, Mensajería (en esper
 - una app sin gestionar que no se abrió durante 14 días y aún representa al menos el 2 % del consumo de energía de las apps medido,
 - una app sin gestionar que no se abrió durante 3 días y representa al menos el 10 %.
 
-**Limitar en reposo** aplica a la app el preajuste Mensajería: en espera tras 4 horas sin uso, nunca se detiene. **Descartar** oculta esa recomendación durante 30 días. No cambia nada hasta que apliques una recomendación. Los porcentajes de batería solo se usan cuando existen al menos 3 días de estadísticas y un consumo de batería real, por lo que las dos recomendaciones de batería no aparecen al principio. Las estadísticas se conservan por app y día durante 90 días.
+Otras dos provienen de lo que el propio Android contó desde la última carga completa, así que pueden aparecer desde el primer día. Necesitan acceso Root o Shizuku y solo nombran apps que instalaste tú:
+
+- una app sin gestionar que no se abrió durante 3 días y mantuvo wakelocks o ejecutó tareas durante al menos 2 minutos al día y 5 minutos en total,
+- una app sin gestionar que no se abrió durante 3 días y mantiene un sensor activado en segundo plano.
+
+En estas dos, una app que nunca se abrió cuenta como inactiva desde el día en que se instaló, si tiene un icono con el que abrirla.
+
+**Limitar en reposo** pregunta con qué firmeza se debe limitar la app:
+
+- **Leve** aplica a la app el preajuste Mensajería: en espera tras 4 horas sin uso, nunca se detiene. La espera retrasa el trabajo en segundo plano de la app; las notificaciones y las alarmas siguen funcionando.
+- **Equilibrado** hace lo mismo y además restringe la actividad en segundo plano (Suave). El trabajo en segundo plano de la app se detiene y las notificaciones normalmente no llegan hasta que la abras.
+- **Estricto** aplica a la app el preajuste Uso poco frecuente y la restricción Media: en espera tras 30 minutos y detenida tras 2 horas sin uso. No llega nada hasta que vuelvas a abrir la app.
+
+Equilibrado y Estricto solo se ofrecen con acceso Root o Shizuku en Android 11 o posterior; en caso contrario, la app recibe el paso Leve. Se conserva el nivel de restricción que ya hubieras establecido para la app. Para una app con la estrategia Inmediato que se reinicia sin parar no hay pregunta: recibe el paso Leve.
+
+El modo en espera de Android no desactiva un sensor que una app dejó activado. Por eso, cuando una app Smart pasa a espera y mantiene un sensor, ReAppzuku finaliza una vez su proceso inactivo, salvo que la app comparta su ID de usuario con otra app. Es lo mismo que hace Android cuando necesita memoria: las alarmas, las tareas y las notificaciones vuelven a iniciar la app. Una app que se reinicia sola de inmediato puede volver a activar el sensor.
+
+**Descartar** oculta esa recomendación durante 30 días. No cambia nada hasta que apliques una recomendación. Los porcentajes de batería solo se usan cuando existen al menos 3 días de estadísticas y un consumo de batería real, por lo que las dos recomendaciones de batería no aparecen al principio. Las estadísticas se conservan por app y día durante 90 días.
 
 **Recomendaciones aplicadas**\
-Siete días después de aplicar una recomendación, la pantalla compara la parte de la app en todo el consumo medido de las apps en la semana anterior y en la posterior. Si bajó al menos un tercio, el cambio ayudó. Si no, indica que no hay una diferencia clara y ofrece **Deshacer**, que devuelve a la app la estrategia que tenía antes. **Mantener** elimina la entrada. Si no hay suficientes estadísticas de ambas semanas, lo indica en lugar de adivinar.
+Siete días después de aplicar una recomendación, la pantalla compara la parte de la app en todo el consumo medido de las apps en la semana anterior y en la posterior. Si bajó al menos un tercio, el cambio ayudó. Si no, indica que no hay una diferencia clara y ofrece **Deshacer**, que devuelve a la app la estrategia que tenía antes y levanta una restricción que estableció la recomendación, salvo que hayas cambiado esa restricción desde entonces. **Mantener** elimina la entrada. Si no hay suficientes estadísticas de ambas semanas, lo indica en lugar de adivinar.
 
 ---
 

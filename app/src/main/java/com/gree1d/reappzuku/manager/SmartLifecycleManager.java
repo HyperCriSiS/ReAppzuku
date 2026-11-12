@@ -11,6 +11,7 @@ import com.gree1d.reappzuku.core.AppPolicyLegacyMigrator;
 import com.gree1d.reappzuku.core.AppPolicyResolver;
 import com.gree1d.reappzuku.core.ProtectedApps;
 import com.gree1d.reappzuku.core.PrivilegedShell;
+import com.gree1d.reappzuku.core.SensorConnectionParser;
 import com.gree1d.reappzuku.core.ShellManager;
 import com.gree1d.reappzuku.db.AppDatabase;
 import com.gree1d.reappzuku.db.AppPolicy;
@@ -18,6 +19,7 @@ import com.gree1d.reappzuku.db.AppPolicy;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -199,6 +201,8 @@ public final class SmartLifecycleManager {
         boolean legacyBootCleanupEnabled =
                 prefs.getBoolean(KEY_SMART_BOOT_CLEANUP_ENABLED, true);
         boolean retryRequired = false;
+        // Read on the first app that goes on standby in this pass.
+        Map<Integer, List<String>> sensorHolders = null;
 
         for (String pkg : smartManaged) {
             AppPolicy explicitPolicy = explicitPolicies.get(pkg);
@@ -249,6 +253,14 @@ public final class SmartLifecycleManager {
             if (idle >= standbyDelay && !prefs.getBoolean(standbyKey, false)) {
                 if (setStandby(pkg)) {
                     prefs.edit().putBoolean(standbyKey, true).apply();
+                    // A standby bucket leaves a registered sensor running. Ending the idle
+                    // process releases it; alarms, jobs and notifications start the app again.
+                    if (sensorHolders == null) {
+                        sensorHolders = SensorConnectionParser.parse(safeShell("dumpsys sensorservice"));
+                    }
+                    if (holdsSensor(pkg, sensorHolders)) {
+                        privilegedShell.stopPackage(pkg, PrivilegedShell.KillMode.KILL);
+                    }
                 }
             }
 
@@ -286,6 +298,17 @@ public final class SmartLifecycleManager {
 
     private Set<String> getRunningPackages() {
         return SmartLifecycleTextParser.parseRunningPackages(safeShell("ps -A -o NAME"));
+    }
+
+    private boolean holdsSensor(String pkg, Map<Integer, List<String>> sensorHolders) {
+        try {
+            int uid = packageManager.getApplicationInfo(pkg, 0).uid;
+            // With a shared uid the sensor may belong to another app.
+            String[] packages = packageManager.getPackagesForUid(uid);
+            return sensorHolders.containsKey(uid) && packages != null && packages.length == 1;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
     }
 
     private boolean setStandby(String pkg) {

@@ -176,7 +176,7 @@ public class SuggestionEngineTest {
     }
 
     @Test
-    public void applyingARecommendationNeverLeadsToAForceStop() throws Exception {
+    public void applyingARecommendationOnlyLeadsToAForceStopAtTheStrictLevel() throws Exception {
         assertEquals(PolicyPresetSeeder.PRESET_MESSENGER, SuggestionLoader.APPLIED_PRESET);
         String seeder = read("app/src/main/java/com/gree1d/reappzuku/core/PolicyPresetSeeder.java");
         int start = seeder.indexOf("preset(PRESET_MESSENGER,");
@@ -184,8 +184,10 @@ public class SuggestionEngineTest {
         assertTrue(preset.contains("messenger.forceStopDelayMs = Long.MAX_VALUE;"));
         assertTrue(preset.contains("messenger.bootCleanup = false;"));
         String screen = read("app/src/main/java/com/gree1d/reappzuku/ui/RecommendationsActivity.java");
-        assertTrue(screen.contains("AppPolicyQuickChoice.applyPreset(getApplicationContext(),"));
-        assertTrue(screen.contains("SuggestionLoader.APPLIED_PRESET"));
+        // The screen passes the level the user chose; the two lower levels use the preset above.
+        assertTrue(screen.contains("SuggestionLoader.apply(getApplicationContext(), suggestion, level);"));
+        assertEquals(SuggestionLoader.APPLIED_PRESET, SuggestionLoader.presetFor(SuggestionLoader.LEVEL_GENTLE));
+        assertEquals(SuggestionLoader.APPLIED_PRESET, SuggestionLoader.presetFor(SuggestionLoader.LEVEL_BALANCED));
         // A second tap while the change runs must not repeat it.
         assertTrue(screen.contains("apply.setEnabled(false);"));
     }
@@ -221,7 +223,7 @@ public class SuggestionEngineTest {
     @Test
     public void everyLocaleHasTheSameStringsWithTheSamePlaceholders() throws Exception {
         List<String> expected = entries(read("app/src/main/res/values/strings_recommendations.xml"));
-        assertEquals(10, expected.size());
+        assertEquals(16, expected.size());
         for (String locale : new String[] {"es", "ru", "uk", "zh-rCN"}) {
             assertEquals(locale, expected, entries(read(
                     "app/src/main/res/values-" + locale + "/strings_recommendations.xml")));

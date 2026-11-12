@@ -3,11 +3,17 @@
     <string name="recommendations_title">建议</string>
     <string name="recommendations_subtitle">基于本设备自身测量结果的建议</string>
     <string name="recommendations_card">建议：%1$d</string>
-    <string name="recommendations_intro">基于本设备最近 7 天的测量结果。应用建议后，该应用在 4 小时未使用后进入待机。应用不会被停止，因此闹钟和消息照常工作。在您应用建议之前不会更改任何内容。</string>
+    <string name="recommendations_intro">基于本应用最近 7 天的测量结果，以及 Android 自身自上次充满电以来的统计。应用建议时，您可以选择对该应用的限制力度。在您应用建议之前不会更改任何内容。</string>
     <string name="recommendations_empty">目前没有建议。</string>
     <string name="recommendations_dismiss">忽略</string>
     <string name="recommendations_apply">空闲时限制</string>
     <string name="recommendations_reason_restarts">7 天内停止次数：%1$d。之后重新启动次数：%2$d。反复停止它比让它空闲更耗电。</string>
     <string name="recommendations_reason_unused">距上次打开的天数：%1$d。占全部已测应用耗电的比例：%2$d%%。</string>
     <string name="recommendations_reason_heavy">已多日未打开，但它占全部已测应用耗电的比例为 %1$d%%。</string>
+    <string name="recommendations_reason_background">距上次打开的天数：%1$d。每天仍在后台活动约 %2$d 分钟。</string>
+    <string name="recommendations_reason_sensor">距上次打开的天数：%1$d。仍在后台保持传感器开启。</string>
+    <string name="recommendations_level_title">应以多大力度限制 %1$s？</string>
+    <string name="recommendations_level_gentle">温和：4 小时未使用后进入待机，这会延迟其后台工作。若其保持传感器开启，则会结束其空闲进程一次。通知和闹钟照常工作。</string>
+    <string name="recommendations_level_balanced">均衡：同时限制后台活动。其后台工作会停止，在您打开该应用之前通常不会收到通知。</string>
+    <string name="recommendations_level_strict">严格：更严格地限制后台活动，30 分钟后让应用进入待机，2 小时未使用后将其停止。在您再次打开之前不会收到任何内容。</string>
 </resources>
