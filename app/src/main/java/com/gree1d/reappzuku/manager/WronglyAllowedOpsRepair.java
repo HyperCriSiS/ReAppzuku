@@ -13,16 +13,19 @@ import androidx.annotation.WorkerThread;
 import com.gree1d.reappzuku.core.PreferenceKeys;
 import com.gree1d.reappzuku.core.PrivilegedShell;
 import com.gree1d.reappzuku.core.ShellManager;
+import com.gree1d.reappzuku.utils.BackgroundRestrictionLog;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Undoes what earlier versions did when they lifted a background restriction
  * or applied a new level: they set every operation they manage to "allow"
  * instead of back to its default. On Android 14 and later that exempted the
- * app from power restrictions and from suspension and allowed it notification
- * access and user-initiated jobs, none of which it had before.
+ * app from power restrictions and from suspension.
  *
  * An app the user installed cannot hold the power exemption on its own, so
  * that operation marks the affected apps. Runs once.
@@ -31,7 +34,12 @@ public final class WronglyAllowedOpsRepair {
     static final String KEY_DONE = "wrongly_allowed_ops_repaired";
 
     static final String MARKER_OP = "SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS";
-    /** Set back to default on a marked app. Usage access and exact alarms are left: the user may have granted them. */
+    /**
+     * Set back to default on a marked app, each only where it is "allow". The
+     * last two are allowed by default anyway; they are reset so that nothing
+     * explicit is left behind. Usage access and exact alarms are not touched:
+     * the user may have granted them.
+     */
     static final String[] OPS = {
         MARKER_OP,
         "SYSTEM_EXEMPT_FROM_SUSPENSION",
@@ -61,19 +69,56 @@ public final class WronglyAllowedOpsRepair {
         return false;
     }
 
-    /** The package names in the output of "cmd appops query-op", one per line. */
-    static List<String> packages(String queryOutput) {
-        List<String> result = new ArrayList<>();
-        if (queryOutput == null) return result;
-        for (String line : queryOutput.split("\n")) {
-            String name = line.trim();
-            if (name.matches("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+")) result.add(name);
+    /** One query for all operations; each answer follows a line "---OP---". */
+    static String queryCommand() {
+        StringBuilder command = new StringBuilder();
+        for (String op : OPS) {
+            command.append("echo ---").append(op).append("---; cmd appops query-op --user current ")
+                    .append(op).append(" allow; ");
+        }
+        return command.toString();
+    }
+
+    /**
+     * @return for each operation that was answered, the packages that have it
+     *         at "allow". An operation without its "---OP---" line is absent.
+     */
+    static Map<String, List<String>> allowedByOp(String output) {
+        Map<String, List<String>> result = new HashMap<>();
+        if (output == null) return result;
+        List<String> current = null;
+        for (String line : output.split("\n")) {
+            String text = line.trim();
+            if (text.startsWith("---") && text.endsWith("---") && text.length() > 6) {
+                current = new ArrayList<>();
+                result.put(text.substring(3, text.length() - 3), current);
+            } else if (current != null
+                    && text.matches("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+")) {
+                current.add(text);
+            }
         }
         return result;
     }
 
+    /**
+     * @return the operations to reset for a marked package: those that are
+     *         "allow" for it. One that a restriction of this app holds at
+     *         "ignore" is not in its list and stays as it is.
+     */
+    static List<String> opsToReset(Map<String, List<String>> allowedByOp, String packageName) {
+        List<String> marked = allowedByOp.get(MARKER_OP);
+        if (marked == null || !marked.contains(packageName)) return Collections.emptyList();
+        List<String> result = new ArrayList<>();
+        for (String op : OPS) {
+            List<String> allowed = allowedByOp.get(op);
+            if (allowed != null && allowed.contains(packageName)) result.add(op);
+        }
+        return result;
+    }
+
+    // Two callers on different threads: one repair at a time.
     @WorkerThread
-    public static void runOnce(Context context, ShellManager shellManager) {
+    public static synchronized void runOnce(Context context, ShellManager shellManager) {
         SharedPreferences prefs = context.getSharedPreferences(
                 PreferenceKeys.PREFERENCES_NAME, Context.MODE_PRIVATE);
         if (prefs.getBoolean(KEY_DONE, false)) return;
@@ -87,15 +132,16 @@ public final class WronglyAllowedOpsRepair {
             prefs.edit().putBoolean(KEY_DONE, true).apply();
             return;
         }
-        String marked = shellManager.runShellCommandAndGetFullOutput(
-                "cmd appops query-op --user current " + MARKER_OP + " allow");
-        // No answer at all: asked again next time. A plain empty list is an answer.
-        if (marked == null || marked.startsWith("ERROR:")) return;
+        Map<String, List<String>> allowedByOp =
+                allowedByOp(shellManager.runShellCommandAndGetFullOutput(queryCommand()));
+        List<String> marked = allowedByOp.get(MARKER_OP);
+        // No answer for the marker: asked again next time. An empty list is an answer.
+        if (marked == null) return;
 
         PackageManager packageManager = context.getPackageManager();
         PrivilegedShell shell = new PrivilegedShell(shellManager);
         boolean complete = true;
-        for (String packageName : packages(marked)) {
+        for (String packageName : marked) {
             try {
                 ApplicationInfo info = packageManager.getApplicationInfo(packageName, 0);
                 // The system gives this exemption to some of its own apps.
@@ -103,13 +149,18 @@ public final class WronglyAllowedOpsRepair {
             } catch (PackageManager.NameNotFoundException e) {
                 continue;
             }
-            for (String op : OPS) {
-                if (!shell.setAppOp(packageName, op, PrivilegedShell.AppOpMode.DEFAULT).succeeded()) {
+            int reset = 0;
+            for (String op : opsToReset(allowedByOp, packageName)) {
+                if (shell.setAppOp(packageName, op, PrivilegedShell.AppOpMode.DEFAULT).succeeded()) {
+                    reset++;
+                } else {
                     complete = false;
                 }
             }
-            com.gree1d.reappzuku.utils.BackgroundRestrictionLog.log(context, packageName, "repair",
-                    "wrongly-allowed-ops-reset", "exemptions set by an earlier version removed");
+            if (reset > 0) {
+                BackgroundRestrictionLog.log(context, packageName, "repair",
+                        "wrongly-allowed-ops-reset", "exemptions set by an earlier version removed");
+            }
         }
         if (complete) prefs.edit().putBoolean(KEY_DONE, true).apply();
     }

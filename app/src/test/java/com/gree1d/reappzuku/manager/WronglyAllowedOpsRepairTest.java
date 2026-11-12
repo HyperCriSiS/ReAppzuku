@@ -10,55 +10,129 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 public class WronglyAllowedOpsRepairTest {
 
+    // ---- lifting ----
+
     @Test
-    public void liftingARestrictionGoesBackToTheDefaultsAndGrantsNothing() throws Exception {
+    public void liftingARestrictionNeverSetsAnOperationToAllow() throws Exception {
         String manager = read("app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java");
         // Found on an Android 16 device: every app whose restriction had been lifted, or that
         // had got a new level, was exempt from power restrictions and from suspension.
-        assertFalse(manager.contains("applyAllHardOps(packageName, \"allow\")"));
-        assertFalse(manager.contains("applyMediumOps(packageName, \"allow\")"));
-        assertFalse(manager.contains("applyManualOps(packageName, opsMask, \"allow\")"));
-        assertEquals(3, manager.split(java.util.regex.Pattern.quote("applyAllHardOps(packageName, \"default\")"), -1).length - 1);
+        assertFalse(manager.contains("\"allow\");"));
+        assertFalse(manager.contains("AppOpMode.ALLOW"));
+        int start = manager.indexOf("    private void applyBackgroundRestriction(Set<String> targetPackages,");
+        String body = manager.substring(start,
+                manager.indexOf("    public void reapplySavedBackgroundRestrictions(", start));
+        assertEquals(2, body.split(java.util.regex.Pattern.quote("liftRestrictedOps(packageName);"), -1).length - 1);
     }
 
     @Test
-    public void theRepairReadsThePackagesOfTheMarkingOperation() {
-        // The output of "cmd appops query-op" on that device.
-        assertEquals(Arrays.asList("com.airbnb.android", "com.twitter.android", "com.philips.ph.homecare"),
-                WronglyAllowedOpsRepair.packages(
-                        "com.airbnb.android\ncom.twitter.android\r\n  com.philips.ph.homecare\n"));
-        assertTrue(WronglyAllowedOpsRepair.packages("").isEmpty());
-        assertTrue(WronglyAllowedOpsRepair.packages(null).isEmpty());
-        // An error text is not a package.
-        assertTrue(WronglyAllowedOpsRepair.packages(
-                "ERROR: Unknown operation string: SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS\nNo operations.").isEmpty());
+    public void onlyOperationsThatAreRestrictedNowAreSetBack() {
+        // What "cmd appops get" printed on that device, one operation per line.
+        String output = String.join("\n",
+                "RUN_ANY_IN_BACKGROUND=RUN_ANY_IN_BACKGROUND: ignore ",
+                "RUN_IN_BACKGROUND=RUN_IN_BACKGROUND: ignore; rejectTime=+2m3s ago ",
+                "GET_USAGE_STATS=GET_USAGE_STATS: allow ",
+                "WAKE_LOCK=WAKE_LOCK: allow; time=+150d22h58m55s788ms ago; duration=+1ms ",
+                "SCHEDULE_EXACT_ALARM=No operations. ",
+                "ACCESS_NOTIFICATIONS=ACCESS_NOTIFICATIONS: default ",
+                "START_FOREGROUND=Uid mode: START_FOREGROUND: ignore ",
+                "INTERACT_ACROSS_PROFILES=Uid mode: INTERACT_ACROSS_PROFILES: allow INTERACT_ACROSS_PROFILES: ignore ",
+                "garbage");
+        // A usage access the user granted is "allow" and is left alone. A uid mode is the
+        // system's own bookkeeping; only the package's setting counts.
+        assertEquals(Arrays.asList("RUN_ANY_IN_BACKGROUND", "RUN_IN_BACKGROUND", "INTERACT_ACROSS_PROFILES"),
+                RestrictionDeltaPolicy.opsInMode(output, "ignore"));
+        assertEquals(Arrays.asList("GET_USAGE_STATS", "WAKE_LOCK"),
+                RestrictionDeltaPolicy.opsInMode(output, "allow"));
+        assertTrue(RestrictionDeltaPolicy.opsInMode(null, "ignore").isEmpty());
+        assertTrue(RestrictionDeltaPolicy.opsInMode("", "ignore").isEmpty());
     }
 
     @Test
-    public void theRepairOnlyRemovesWhatNoInstalledAppHoldsByItself() throws Exception {
-        assertEquals("SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS", WronglyAllowedOpsRepair.MARKER_OP);
+    public void aLiftWithNothingLeftToResetCountsAsDone() throws Exception {
+        String manager = read("app/src/main/java/com/gree1d/reappzuku/manager/BackgroundAppManager.java");
+        // The callers treat zero set operations as a failed lift.
+        assertTrue(manager.contains("return new int[]{fail == 0 ? Math.max(ok, 1) : ok, fail};"));
+        // No answer from the shell is a failure, not an empty lift.
+        assertTrue(manager.contains("if (output == null) return new int[]{0, 1};"));
+    }
+
+    // ---- repairing what earlier versions left ----
+
+    // The query output on the device, with a restricted app that only holds the suspension exemption.
+    private static final String QUERY = String.join("\n",
+            "---SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS---",
+            "com.airbnb.android",
+            "com.twitter.android\r",
+            "---SYSTEM_EXEMPT_FROM_SUSPENSION---",
+            "com.airbnb.android",
+            "com.example.unmarked",
+            "---ACCESS_NOTIFICATIONS---",
+            "ERROR: something on stderr",
+            "com.airbnb.android",
+            "com.twitter.android",
+            "---RUN_USER_INITIATED_JOBS---");
+
+    @Test
+    public void theQueryAsksForEveryOperationOnce() {
+        String command = WronglyAllowedOpsRepair.queryCommand();
+        for (String op : WronglyAllowedOpsRepair.OPS) {
+            assertEquals(1, command.split(java.util.regex.Pattern.quote(
+                    "cmd appops query-op --user current " + op + " allow;"), -1).length - 1);
+        }
+    }
+
+    @Test
+    public void anOperationIsOnlyResetWhereItIsAllowed() {
+        Map<String, List<String>> allowed = WronglyAllowedOpsRepair.allowedByOp(QUERY);
+        assertEquals(Arrays.asList("SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS",
+                "SYSTEM_EXEMPT_FROM_SUSPENSION", "ACCESS_NOTIFICATIONS"),
+                WronglyAllowedOpsRepair.opsToReset(allowed, "com.airbnb.android"));
+        // A Manual restriction of this app may hold the suspension exemption at "ignore":
+        // the app is then not in that list and the operation stays as it is.
+        assertEquals(Arrays.asList("SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS", "ACCESS_NOTIFICATIONS"),
+                WronglyAllowedOpsRepair.opsToReset(allowed, "com.twitter.android"));
+        // Without the marker nothing is touched, whatever else the app is allowed.
+        assertTrue(WronglyAllowedOpsRepair.opsToReset(allowed, "com.example.unmarked").isEmpty());
+        assertTrue(WronglyAllowedOpsRepair.opsToReset(allowed, "com.example.other").isEmpty());
+    }
+
+    @Test
+    public void anUnansweredMarkerIsNotAnEmptyList() {
+        // The shell said nothing: the repair is asked for again instead of marked as done.
+        assertFalse(WronglyAllowedOpsRepair.allowedByOp(null)
+                .containsKey(WronglyAllowedOpsRepair.MARKER_OP));
+        assertFalse(WronglyAllowedOpsRepair.allowedByOp("ERROR: su: not found")
+                .containsKey(WronglyAllowedOpsRepair.MARKER_OP));
+        // Answered and empty: nothing to repair.
+        assertEquals(Collections.emptyList(), WronglyAllowedOpsRepair.allowedByOp(
+                "---SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS---\n").get(WronglyAllowedOpsRepair.MARKER_OP));
+    }
+
+    @Test
+    public void theRepairLeavesTheUsersOwnGrantsAndTheSystemsAppsAlone() throws Exception {
         assertEquals(Arrays.asList("SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS",
                 "SYSTEM_EXEMPT_FROM_SUSPENSION", "ACCESS_NOTIFICATIONS", "RUN_USER_INITIATED_JOBS"),
                 Arrays.asList(WronglyAllowedOpsRepair.OPS));
         String repair = read("app/src/main/java/com/gree1d/reappzuku/manager/WronglyAllowedOpsRepair.java");
-        // Usage access and exact alarms may be the user's own grants; the background
-        // restriction itself is the app's current level. None of them is reset here.
         for (String kept : new String[] {"\"GET_USAGE_STATS\"", "\"SCHEDULE_EXACT_ALARM\"",
                 "\"RUN_ANY_IN_BACKGROUND\"", "\"RUN_IN_BACKGROUND\"", "\"WAKE_LOCK\""}) {
             assertFalse(kept, repair.contains(kept));
         }
-        // The system gives the exemption to some of its own apps, and an owner may do so on purpose.
         assertTrue(repair.contains("if ((info.flags & ApplicationInfo.FLAG_SYSTEM) != 0) continue;"));
         int managed = repair.indexOf("if (managed(context)) {");
-        assertTrue(managed >= 0 && managed < repair.indexOf("cmd appops query-op --user current"));
-        assertTrue(repair.contains("PrivilegedShell.AppOpMode.DEFAULT"));
+        assertTrue(managed >= 0 && managed < repair.indexOf("runShellCommandAndGetFullOutput(queryCommand())"));
         assertFalse(repair.contains("AppOpMode.ALLOW"));
-        // Done only when every operation was set; no answer from the shell means: try again.
+        // One repair at a time, done only when every operation was set, logged only when one was.
+        assertTrue(repair.contains("public static synchronized void runOnce("));
         assertTrue(repair.contains("if (complete) prefs.edit().putBoolean(KEY_DONE, true).apply();"));
-        assertTrue(repair.contains("if (marked == null || marked.startsWith(\"ERROR:\")) return;"));
+        assertTrue(repair.contains("if (reset > 0) {"));
     }
 
     @Test

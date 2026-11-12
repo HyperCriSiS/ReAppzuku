@@ -898,9 +898,7 @@ public class BackgroundAppManager {
 
             boolean success = true;
             for (String packageName : packagesToAllow) {
-                // Back to each operation's default. "allow" exempted the app from power
-                // restrictions and suspension and gave it rights it never had.
-                int[] opsCount = applyAllHardOps(packageName, "default");
+                int[] opsCount = liftRestrictedOps(packageName);
                 resetBucket(packageName);
                 restoreBatteryWhitelist(packageName);
                 if (opsCount[0] == 0) success = false;
@@ -931,7 +929,7 @@ public class BackgroundAppManager {
                 // Forget the old signature first; it is stored again once the new state is applied.
                 saveAppliedRestrictionSignature(packageName, null);
 
-                applyAllHardOps(packageName, "default");
+                liftRestrictedOps(packageName);
                 resetBucket(packageName);
                 restoreBatteryWhitelist(packageName);
 
@@ -1180,6 +1178,37 @@ public class BackgroundAppManager {
             clearAppliedOpsMask(packageName);
         }
         return new int[]{ok, fail, failedMask, appliedMask, skippedMask};
+    }
+
+    /**
+     * Takes a restriction off: every managed operation that is "ignore" for
+     * the app now goes back to its default. Earlier versions set all of them
+     * to "allow", which exempted the app from power restrictions and from
+     * suspension. An operation that is not "ignore" is left alone, so a usage
+     * access the user granted survives a change of level.
+     *
+     * @return operations set and failed; a lift with nothing left to reset counts as one set
+     */
+    int[] liftRestrictedOps(String packageName) {
+        if (!PACKAGE_NAME_PATTERN.matcher(packageName).matches()) return new int[]{0, 1};
+        StringBuilder command = new StringBuilder();
+        for (int i = 0; i < ALL_OPS.length; i++) {
+            if (!isOpSupported(i)) continue;
+            command.append("echo ").append(ALL_OPS[i]).append("=$(cmd appops get --user current ")
+                    .append(packageName).append(' ').append(ALL_OPS[i]).append(" | tr '\\n' ' '); ");
+        }
+        String output = shellManager.runShellCommandAndGetFullOutput(command.toString());
+        clearAppliedOpsMask(packageName);
+        if (output == null) return new int[]{0, 1};
+        int ok = 0, fail = 0;
+        for (String op : RestrictionDeltaPolicy.opsInMode(output, "ignore")) {
+            if (privilegedShell.setAppOp(packageName, op, PrivilegedShell.AppOpMode.DEFAULT).succeeded()) {
+                ok++;
+            } else {
+                fail++;
+            }
+        }
+        return new int[]{fail == 0 ? Math.max(ok, 1) : ok, fail};
     }
 
     int[] applyAllHardOps(String packageName, String mode) {
