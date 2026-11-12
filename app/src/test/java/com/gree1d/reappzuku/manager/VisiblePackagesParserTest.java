@@ -32,6 +32,36 @@ public class VisiblePackagesParserTest {
     }
 
     @Test
+    public void theAppLeftOnTopWhenTheScreenWentOffIsSpared() {
+        // Keyguard up: the app is stopped and nothing is resumed.
+        String locked = "  * Task{a1 #9 type=standard A=10400:com.reader U=0 visible=false sz=1}\n"
+                + "    * Hist  #0: ActivityRecord{77 u0 com.reader/.Article t9}\n"
+                + "      state=STOPPED delayedResume=false finishing=false\n"
+                + "      nowVisible=false\n"
+                + "  * Task{b2 #8 type=standard A=10401:com.older U=0 visible=false sz=1}\n"
+                + "    * Hist  #0: ActivityRecord{78 u10 com.older/.Main t8}\n"
+                + "      state=STOPPED\n";
+        assertEquals(new HashSet<>(Arrays.asList("com.reader")),
+                SmartLifecycleTextParser.parseVisiblePackages(locked));
+    }
+
+    @Test
+    public void anAppThatIsStartingButNotDrawnYetIsSpared() {
+        String starting = DUMP
+                + "  * Task{d4 #860 type=standard A=10600:com.opening U=0 visible=false sz=1}\n"
+                + "    * Hist #0: ActivityRecord{2000 u0 com.opening/.Main t860}\n"
+                + "      state=STARTED delayedResume=false finishing=false\n"
+                + "      nowVisible=false\n";
+        assertTrue(SmartLifecycleTextParser.parseVisiblePackages(starting).contains("com.opening"));
+    }
+
+    @Test
+    public void historyLinesWithoutAReadableRecordAreUnknown() {
+        assertNull(SmartLifecycleTextParser.parseVisiblePackages(
+                "  * Hist  #0: Activity[com.app/.Main]\n      state=RESUMED\n"));
+    }
+
+    @Test
     public void aDumpWithoutHistoryEntriesIsUnknown() {
         assertNull(SmartLifecycleTextParser.parseVisiblePackages("ACTIVITY MANAGER ACTIVITIES\n"));
         assertNull(SmartLifecycleTextParser.parseVisiblePackages(null));

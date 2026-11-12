@@ -29,29 +29,34 @@ final class SmartLifecycleTextParser {
             "^ActivityRecord\\{\\S+ u\\d+ ([A-Za-z0-9_.$]+)/");
 
     /**
-     * Packages with an activity on screen: resumed, paused (picture in picture,
-     * split screen) or reported visible. An app that only sits in Recents is
-     * not on screen.
+     * Packages with an activity on screen or about to be: resumed, paused
+     * (picture in picture, split screen), started or requested visible, plus
+     * the app on top, which is the one the user left when the screen went off.
+     * An app that only sits further down in Recents is not included.
      *
-     * @return null when the dump has no activity history entries, so the
-     *         caller cannot tell which apps are on screen
+     * @return null when no activity history entry could be read, so the caller
+     *         cannot tell which apps are on screen
      */
     static Set<String> parseVisiblePackages(String activitiesDump) {
         if (activitiesDump == null) return null;
         String[] entries = HISTORY_ENTRY.split(activitiesDump, -1);
-        if (entries.length < 2) return null;
         Set<String> visible = new HashSet<>();
+        boolean anyRecord = false;
         for (int i = 1; i < entries.length; i++) {
             Matcher record = RECORD_PACKAGE.matcher(entries[i]);
             if (!record.find()) continue;
             String entry = entries[i];
-            if (entry.contains("nowVisible=true") || entry.contains("state=RESUMED")
-                    || entry.contains("state=PAUSED")) {
+            // The first entry belongs to the top task.
+            if (!anyRecord || entry.contains("nowVisible=true") || entry.contains("state=RESUMED")
+                    || entry.contains("state=PAUSED") || entry.contains("state=STARTED")
+                    || entry.contains("mVisibleRequested=true")) {
                 visible.add(record.group(1));
             }
+            anyRecord = true;
         }
-        String foreground = parseForegroundPackage(activitiesDump);
-        if (foreground != null) visible.add(foreground);
+        if (!anyRecord) return null;
+        Matcher foreground = FOREGROUND_PACKAGE.matcher(activitiesDump);
+        while (foreground.find()) visible.add(foreground.group(1));
         return visible;
     }
 
