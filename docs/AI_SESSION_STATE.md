@@ -18,6 +18,8 @@ Not done from the original plan: recommendations that propose targeted backgroun
 
 Emulator evidence on `main` after #197 (Android 17 API 37 runtime run `43118009443`): `AppDatabaseMigrationTest` passed on API 37, including `migrate13To14_addsEmptyDailyUsageTablesAndKeepsPolicies` and `migrate2To14_preservesExistingStatsAndAddsPolicySchema`; 54 instrumentation tests passed and 37 were skipped by their own preconditions. The run is red because the general suite also starts four probes that only work through their dedicated CI wrapper (`Api24Api37ProcessRestartInstrumentationTest`, `Api37RealClockBroadcastDeliveryInstrumentationTest`, `ExactAlarmPermissionTransitionInstrumentationTest#grantedUsesExactAfterDelayedPermission`) or need an API 24 device (`Api24PolicyEditorSaveNotificationInstrumentationTest#preOreoNotificationOpensEditorWithoutSilentlySaving`, which waits for a notification without the API 33 notification permission). The real Shizuku tests were skipped: no workflow on `main` installs a Shizuku server, so issue #170 stays open.
 
+Android 7 API 24 smoke run `43118014837` on the same `main` passed on its second attempt, including the in-place upgrade that keeps Room policies and preferences and the rejected signer and downgrade checks. The first attempt was canceled by the 50 minute job timeout while `adb install -r` hung on the emulator.
+
 Open device checks, none of which has been run:
 
 - A real upgrade from a Room 13 install on a device.
