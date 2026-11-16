@@ -225,17 +225,18 @@ public class SavingLevelsTest {
     public void smartStandbyEndsTheIdleProcessOnlyWhenItHoldsASensor() throws Exception {
         String smart = read("app/src/main/java/com/gree1d/reappzuku/manager/SmartLifecycleManager.java");
         int standby = smart.indexOf("if (setStandby(pkg)) {");
-        int holds = smart.indexOf("if (holdsSensor(pkg, sensorHolders)) {");
-        int kill = smart.indexOf("privilegedShell.stopPackage(pkg, PrivilegedShell.KillMode.KILL);");
+        int holds = smart.indexOf("if (holdsSensor(pkg, SensorConnectionParser.parse(sensorDump).keySet())) {");
+        int kill = smart.indexOf("privilegedShell.stopPackage(pkg, PrivilegedShell.KillMode.KILL);", holds);
         assertTrue(standby >= 0 && standby < holds && holds < kill);
         // "am kill", which only ends a process the system could drop anyway. Never a force-stop here.
         assertTrue(kill < smart.indexOf("if (idle >= forceStopDelay) {"));
-        // One sensor dump per pass at most, and none when no app goes on standby.
-        assertEquals(1, smart.split("dumpsys sensorservice", -1).length - 1);
-        assertTrue(smart.contains("if (sensorHolders == null) {"));
+        // One sensor dump per pass at most, read only when an app needs it.
+        String read = "if (sensorDump == null) sensorDump = safeShell(\"dumpsys sensorservice\");";
+        assertEquals(smart.split("dumpsys sensorservice", -1).length - 1, smart.split(
+                java.util.regex.Pattern.quote(read), -1).length - 1);
         // With a shared uid the sensor may belong to another app.
         assertTrue(smart.contains(
-                "return sensorHolders.containsKey(uid) && packages != null && packages.length == 1;"));
+                "return sensorHolders.contains(uid) && packages != null && packages.length == 1;"));
     }
 
     private static String read(String relative) throws Exception {
