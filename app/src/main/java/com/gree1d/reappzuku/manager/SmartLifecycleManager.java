@@ -354,7 +354,10 @@ public final class SmartLifecycleManager {
         prefs.edit()
                 .putLong(KEY_SMART_BACKGROUND_SINCE_PREFIX + pkg, now)
                 .remove(KEY_SMART_STANDBY_APPLIED_PREFIX + pkg)
-                .remove(KEY_SMART_SENSOR_CHECKED_PREFIX + pkg)
+                // Restarted for an app that is not running, protected or on top. Only a use
+                // makes the sensor check due again; otherwise such an app would turn every
+                // later worker run into a full pass.
+                .putBoolean(KEY_SMART_SENSOR_CHECKED_PREFIX + pkg, true)
                 .apply();
     }
 

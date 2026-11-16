@@ -119,7 +119,10 @@ public class SmartIdleClockTest {
         assertTrue(source.contains("editor.remove(standbyKey).remove(sensorKey);"));
         int restart = source.indexOf("private void restartIdleClock(");
         int clear = source.indexOf("private void clearBackgroundState(");
-        assertTrue(source.indexOf("KEY_SMART_SENSOR_CHECKED_PREFIX", restart) < clear);
+        // An app that is not running restarts its clock on every full pass. Clearing the
+        // mark there made the check due again 15 minutes later: a full pass on every run.
+        int mark = source.indexOf(".putBoolean(KEY_SMART_SENSOR_CHECKED_PREFIX + pkg, true)", restart);
+        assertTrue(restart >= 0 && mark > restart && mark < clear);
         assertTrue(source.indexOf("KEY_SMART_SENSOR_CHECKED_PREFIX", clear) > clear);
         // Only sensors that get no events are a reason to end the app early.
         assertTrue(source.contains("SensorConnectionParser.uidsHoldingWithoutAccess(sensorDump)"));
