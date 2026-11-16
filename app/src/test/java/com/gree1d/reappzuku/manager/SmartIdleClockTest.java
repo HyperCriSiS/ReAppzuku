@@ -99,6 +99,33 @@ public class SmartIdleClockTest {
     }
 
     @Test
+    public void sensorCheckRunsOnceBetweenItsDelayAndTheStandbyDelay() {
+        long standby = 4 * HOUR;
+        long check = SmartIdleClock.SENSOR_CHECK_DELAY_MS;
+        assertFalse(SmartIdleClock.isSensorCheckDue(NOW - check + 1, 0L, NOW, standby, false));
+        assertTrue(SmartIdleClock.isSensorCheckDue(NOW - check, 0L, NOW, standby, false));
+        assertFalse(SmartIdleClock.isSensorCheckDue(NOW - check, 0L, NOW, standby, true));
+        // From the standby delay on, the standby step checks sensors itself.
+        assertFalse(SmartIdleClock.isSensorCheckDue(NOW - standby, 0L, NOW, standby, false));
+        // A clock that has not started, or a recent use, is not due.
+        assertFalse(SmartIdleClock.isSensorCheckDue(0L, 0L, NOW, standby, false));
+        assertFalse(SmartIdleClock.isSensorCheckDue(NOW - HOUR, NOW - 1, NOW, standby, false));
+    }
+
+    @Test
+    public void aSensorCheckIsDoneOncePerBackgroundPeriod() throws Exception {
+        String source = read("app/src/main/java/com/gree1d/reappzuku/manager/SmartLifecycleManager.java");
+        // A use starts a new period, so the check may run again.
+        assertTrue(source.contains("editor.remove(standbyKey).remove(sensorKey);"));
+        int restart = source.indexOf("private void restartIdleClock(");
+        int clear = source.indexOf("private void clearBackgroundState(");
+        assertTrue(source.indexOf("KEY_SMART_SENSOR_CHECKED_PREFIX", restart) < clear);
+        assertTrue(source.indexOf("KEY_SMART_SENSOR_CHECKED_PREFIX", clear) > clear);
+        // Only sensors that get no events are a reason to end the app early.
+        assertTrue(source.contains("SensorConnectionParser.uidsHoldingWithoutAccess(sensorDump)"));
+    }
+
+    @Test
     public void usageQueryFailuresFallBackToFullPasses() throws Exception {
         String source = read("app/src/main/java/com/gree1d/reappzuku/core/UsageAccess.java");
         assertTrue(source.contains("} catch (RuntimeException e) {"));

@@ -19,7 +19,6 @@ import com.gree1d.reappzuku.db.AppPolicy;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -174,11 +173,14 @@ public final class SmartLifecycleManager {
             boolean anyDue = false;
             for (String pkg : smartManaged) {
                 long[] delay = delays.get(pkg);
+                long stored = prefs.getLong(KEY_SMART_BACKGROUND_SINCE_PREFIX + pkg, 0L);
+                long used = lastUse(pkg, lastUsed);
                 // An app the usage data does not know is observed on every pass, as before.
                 if (!lastUsed.containsKey(pkg) || SmartIdleClock.isDue(
-                        prefs.getLong(KEY_SMART_BACKGROUND_SINCE_PREFIX + pkg, 0L),
-                        lastUse(pkg, lastUsed), now, delay[0], delay[1],
-                        prefs.getBoolean(KEY_SMART_STANDBY_APPLIED_PREFIX + pkg, false))) {
+                        stored, used, now, delay[0], delay[1],
+                        prefs.getBoolean(KEY_SMART_STANDBY_APPLIED_PREFIX + pkg, false))
+                        || SmartIdleClock.isSensorCheckDue(stored, used, now, delay[0],
+                        prefs.getBoolean(KEY_SMART_SENSOR_CHECKED_PREFIX + pkg, false))) {
                     anyDue = true;
                     break;
                 }
@@ -201,8 +203,8 @@ public final class SmartLifecycleManager {
         boolean legacyBootCleanupEnabled =
                 prefs.getBoolean(KEY_SMART_BOOT_CLEANUP_ENABLED, true);
         boolean retryRequired = false;
-        // Read on the first app that goes on standby in this pass.
-        Map<Integer, List<String>> sensorHolders = null;
+        // Read on the first app in this pass that needs it.
+        String sensorDump = null;
 
         for (String pkg : smartManaged) {
             AppPolicy explicitPolicy = explicitPolicies.get(pkg);
@@ -239,26 +241,38 @@ public final class SmartLifecycleManager {
 
             String sinceKey = KEY_SMART_BACKGROUND_SINCE_PREFIX + pkg;
             String standbyKey = KEY_SMART_STANDBY_APPLIED_PREFIX + pkg;
+            String sensorKey = KEY_SMART_SENSOR_CHECKED_PREFIX + pkg;
             long stored = prefs.getLong(sinceKey, 0L);
             long used = lastUse(pkg, lastUsed);
             long backgroundSince = SmartIdleClock.resolveSince(stored, used, now);
             if (backgroundSince != stored) {
                 SharedPreferences.Editor editor = prefs.edit().putLong(sinceKey, backgroundSince);
-                if (SmartIdleClock.usedSinceClockStart(stored, used)) editor.remove(standbyKey);
+                if (SmartIdleClock.usedSinceClockStart(stored, used)) {
+                    editor.remove(standbyKey).remove(sensorKey);
+                }
                 editor.apply();
             }
             if (backgroundSince >= now) continue;
 
             long idle = now - backgroundSince;
+            // An idle app that Android no longer sends sensor events to still keeps
+            // the sensors switched on. Ending its process switches them off long
+            // before the standby delay; alarms, jobs and notifications start it again.
+            if (SmartIdleClock.isSensorCheckDue(backgroundSince, used, now, standbyDelay,
+                    prefs.getBoolean(sensorKey, false))) {
+                if (sensorDump == null) sensorDump = safeShell("dumpsys sensorservice");
+                if (holdsSensor(pkg, SensorConnectionParser.uidsHoldingWithoutAccess(sensorDump))) {
+                    privilegedShell.stopPackage(pkg, PrivilegedShell.KillMode.KILL);
+                }
+                prefs.edit().putBoolean(sensorKey, true).apply();
+            }
             if (idle >= standbyDelay && !prefs.getBoolean(standbyKey, false)) {
                 if (setStandby(pkg)) {
                     prefs.edit().putBoolean(standbyKey, true).apply();
                     // A standby bucket leaves a registered sensor running. Ending the idle
                     // process releases it; alarms, jobs and notifications start the app again.
-                    if (sensorHolders == null) {
-                        sensorHolders = SensorConnectionParser.parse(safeShell("dumpsys sensorservice"));
-                    }
-                    if (holdsSensor(pkg, sensorHolders)) {
+                    if (sensorDump == null) sensorDump = safeShell("dumpsys sensorservice");
+                    if (holdsSensor(pkg, SensorConnectionParser.parse(sensorDump).keySet())) {
                         privilegedShell.stopPackage(pkg, PrivilegedShell.KillMode.KILL);
                     }
                 }
@@ -300,12 +314,12 @@ public final class SmartLifecycleManager {
         return SmartLifecycleTextParser.parseRunningPackages(safeShell("ps -A -o NAME"));
     }
 
-    private boolean holdsSensor(String pkg, Map<Integer, List<String>> sensorHolders) {
+    private boolean holdsSensor(String pkg, Set<Integer> sensorHolders) {
         try {
             int uid = packageManager.getApplicationInfo(pkg, 0).uid;
             // With a shared uid the sensor may belong to another app.
             String[] packages = packageManager.getPackagesForUid(uid);
-            return sensorHolders.containsKey(uid) && packages != null && packages.length == 1;
+            return sensorHolders.contains(uid) && packages != null && packages.length == 1;
         } catch (PackageManager.NameNotFoundException e) {
             return false;
         }
@@ -340,6 +354,7 @@ public final class SmartLifecycleManager {
         prefs.edit()
                 .putLong(KEY_SMART_BACKGROUND_SINCE_PREFIX + pkg, now)
                 .remove(KEY_SMART_STANDBY_APPLIED_PREFIX + pkg)
+                .remove(KEY_SMART_SENSOR_CHECKED_PREFIX + pkg)
                 .apply();
     }
 
@@ -347,6 +362,7 @@ public final class SmartLifecycleManager {
         prefs.edit()
                 .remove(KEY_SMART_BACKGROUND_SINCE_PREFIX + pkg)
                 .remove(KEY_SMART_STANDBY_APPLIED_PREFIX + pkg)
+                .remove(KEY_SMART_SENSOR_CHECKED_PREFIX + pkg)
                 .apply();
     }
 

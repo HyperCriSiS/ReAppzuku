@@ -85,6 +85,33 @@ public class SensorConnectionParserTest {
     }
 
     @Test
+    public void listsOnlyUidsWhoseSensorsGetNoEvents() {
+        // SystemUI has access; the two SDK listeners were cut off but keep their sensors on.
+        assertEquals(new java.util.HashSet<>(Arrays.asList(10566, 10428)),
+                SensorConnectionParser.uidsHoldingWithoutAccess(DUMP));
+    }
+
+    @Test
+    public void oneConnectionWithAccessKeepsTheUidOffTheList() {
+        String dump = String.join("\n",
+                "Connection Number: 0 ",
+                "\t a.Listener | WakeLockRefCount 0 | uid 10500 | cache size 0 | has sensor access: false",
+                "\t icm4x6xx Accelerometer Non-wakeup 0x0000000b | first flush pending: false",
+                "Connection Number: 1 ",
+                "\t b.Listener | WakeLockRefCount 0 | uid 10500 | cache size 0 | has sensor access: true",
+                "\t icm4x6xx Gyroscope Non-wakeup 0x00000029 | first flush pending: false",
+                "Connection Number: 2 ",
+                // Older releases print no access field: unknown counts as access.
+                "\t c.Listener | WakeLockRefCount 0 | uid 10501 | cache size 0",
+                "\t icm4x6xx Gyroscope Non-wakeup 0x00000029 | first flush pending: false",
+                "Connection Number: 3 ",
+                // A connection without a sensor holds nothing.
+                "\t d.Listener | WakeLockRefCount 0 | uid 10502 | cache size 0 | has sensor access: false");
+        assertTrue(SensorConnectionParser.uidsHoldingWithoutAccess(dump).isEmpty());
+        assertTrue(SensorConnectionParser.uidsHoldingWithoutAccess(null).isEmpty());
+    }
+
+    @Test
     public void theScanAsksTheSystemOnceNotOncePerApp() throws Exception {
         String scan = read("app/src/main/java/com/gree1d/reappzuku/manager/ScanSystem.java");
         assertTrue(scan.contains("SensorConnectionParser.parse(output)"));

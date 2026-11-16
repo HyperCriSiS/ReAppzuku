@@ -7,7 +7,26 @@ package com.gree1d.reappzuku.manager;
  */
 final class SmartIdleClock {
 
+    /**
+     * How long an app is in the background before a pass checks whether it
+     * holds sensors it no longer gets events from. Android cuts the access
+     * about a minute after the app was left.
+     */
+    static final long SENSOR_CHECK_DELAY_MS = 15 * 60_000L;
+
     private SmartIdleClock() {
+    }
+
+    /**
+     * Whether a pass checks the app for sensors it holds without access: once
+     * per background period, after {@link #SENSOR_CHECK_DELAY_MS} and before
+     * the standby delay, which has its own check.
+     */
+    static boolean isSensorCheckDue(long stored, long lastUsed, long now,
+                                    long standbyDelay, boolean checked) {
+        if (checked || !isStarted(stored, now)) return false;
+        long idle = now - resolveSince(stored, lastUsed, now);
+        return idle >= SENSOR_CHECK_DELAY_MS && idle < standbyDelay;
     }
 
     /** A stored start in the future comes from a clock change and carries no information. */
